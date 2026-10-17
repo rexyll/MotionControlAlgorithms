@@ -1,4 +1,5 @@
 #include <cmath>
+#include <limits>
 
 #include <gtest/gtest.h>
 
@@ -21,4 +22,31 @@ TEST(BenchmarkMetrics, Reset) {
   accumulator.add(1.0, 0.0, 1.0);
   accumulator.reset();
   EXPECT_EQ(accumulator.result().samples, 0U);
+}
+
+TEST(BenchmarkMetrics, StepResponseOvershootAndSettling) {
+  mca::benchmark::StepResponseAccumulator accumulator;
+  ASSERT_TRUE(accumulator.configure(0.0, 1.0, 0.02, 0.1));
+  accumulator.add(0.0, 0.0);
+  accumulator.add(0.1, 1.1);
+  accumulator.add(0.2, 1.01);
+  accumulator.add(0.31, 1.0);
+  EXPECT_NEAR(accumulator.overshoot(), 0.1, 1e-12);
+  EXPECT_NEAR(accumulator.settling_time_s(), 0.2, 1e-12);
+}
+
+TEST(BenchmarkMetrics, SettlingIsInvalidatedByLaterExcursion) {
+  mca::benchmark::StepResponseAccumulator accumulator;
+  ASSERT_TRUE(accumulator.configure(0.0, 1.0, 0.02, 0.05));
+  accumulator.add(0.0, 1.0);
+  accumulator.add(0.06, 1.0);
+  EXPECT_NEAR(accumulator.settling_time_s(), 0.0, 1e-12);
+  accumulator.add(0.07, 1.1);
+  EXPECT_TRUE(std::isnan(accumulator.settling_time_s()));
+}
+
+TEST(BenchmarkMetrics, RejectsInvalidStepConfiguration) {
+  mca::benchmark::StepResponseAccumulator accumulator;
+  EXPECT_FALSE(accumulator.configure(1.0, 1.0));
+  EXPECT_FALSE(accumulator.configure(0.0, 1.0, 1.0));
 }

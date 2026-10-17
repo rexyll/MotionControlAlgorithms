@@ -1,3 +1,5 @@
+#include <cmath>
+
 #include <gtest/gtest.h>
 
 #include "mca/experiment/single_axis.hpp"
@@ -26,6 +28,9 @@ TEST(SingleAxisExperiment, ClosedLoopReachesStepReference) {
   EXPECT_NEAR(result.final_position, 1.0, 1e-3);
   EXPECT_NEAR(result.final_velocity, 0.0, 1e-2);
   EXPECT_LT(result.metrics.rmse, 0.2);
+  EXPECT_GE(result.metrics.overshoot, 0.0);
+  EXPECT_TRUE(std::isfinite(result.metrics.settling_time_s));
+  EXPECT_GT(result.metrics.settling_time_s, 0.0);
 }
 
 TEST(SingleAxisExperiment, RejectsInvalidTimeStep) {

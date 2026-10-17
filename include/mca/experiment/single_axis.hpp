@@ -14,14 +14,11 @@ struct SingleAxisConfig {
 };
 
 struct SingleAxisResult {
-  benchmark::BenchmarkResult metrics{};
+  benchmark::TrackingMetrics metrics{};
   double final_position{0.0};
   double final_velocity{0.0};
 };
 
-// Minimal deterministic single-axis closed-loop experiment. The experiment
-// composes a PID controller, optional model-based feedforward, and a second-
-// order mechanical plant without ROS2/Gazebo dependencies.
 class SingleAxisExperiment {
  public:
   core::Status configure(const SingleAxisConfig& experiment_config,
@@ -68,11 +65,9 @@ class SingleAxisExperiment {
                                       config_.dt, feedback);
       if (!status.ok()) return status;
 
-      // For this first experiment the reference is a step: v_ref=a_ref=0.
       const double effort = feedback + ff_.compute(0.0, 0.0);
-      if (!plant_.step(effort, config_.dt).ok()) {
-        return {core::StatusCode::RuntimeError};
-      }
+      const auto plant_status = plant_.step(effort, config_.dt);
+      if (!plant_status.ok()) return plant_status;
       accumulator_.add(config_.reference, plant_.position(), effort);
     }
 

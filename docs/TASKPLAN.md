@@ -30,8 +30,11 @@ Acceptance: clean CMake configure/build/test on Linux and Windows; core has no R
 - [ ] P1-11 friction compensation
 - [ ] P1-12 disturbance observer
 - [ ] P1-13 state observers
+- [ ] P1-14 Step/ramp/sine scalar trajectory generators
+- [ ] P1-15 Step-response metrics: overshoot and settling time
+- [ ] P1-16 PID/PD + feedforward comparison runner
 
-Acceptance: analytical/reference tests pass; stable current, velocity and position tracking; controller benchmarks generated automatically.
+Acceptance: analytical/reference tests pass; stable current, velocity and position tracking; controller benchmarks generated automatically. Step-response overshoot is normalized by step amplitude; settling uses a configurable tolerance band and hold duration.
 
 ## P2 — Wheel robots
 

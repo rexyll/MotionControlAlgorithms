@@ -1,7 +1,7 @@
 #include "mca/benchmark/metrics.hpp"
 
+#include <algorithm>
 #include <cmath>
-#include <limits>
 
 namespace mca::benchmark {
 

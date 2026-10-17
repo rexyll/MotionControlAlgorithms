@@ -1,3 +1,5 @@
+#include <limits>
+
 #include <gtest/gtest.h>
 
 #include "mca/control/feedforward.hpp"
@@ -10,6 +12,6 @@ TEST(PidFeedforward, ComputesVelocityAndAccelerationTerms) {
 TEST(PidFeedforward, RejectsNonFiniteConfiguration) {
   mca::control::PidFeedforward ff;
   mca::control::PidFeedforwardConfig config;
-  config.velocity_gain = 0.0 / 0.0;
+  config.velocity_gain = std::numeric_limits<double>::infinity();
   EXPECT_EQ(ff.configure(config).code, mca::core::StatusCode::InvalidArgument);
 }

@@ -61,16 +61,17 @@ class PidController {
     const double candidate_integral = math::clamp(
         integral_ + config_.ki * error * dt,
         config_.integral_min, config_.integral_max);
-    const double unsaturated = p + candidate_integral + d;
+    const double candidate_unsaturated = p + candidate_integral + d;
     const double saturated = math::clamp(
-        unsaturated, config_.output_min, config_.output_max);
+        candidate_unsaturated, config_.output_min, config_.output_max);
 
     const bool pushing_high = saturated >= config_.output_max && error > 0.0;
     const bool pushing_low = saturated <= config_.output_min && error < 0.0;
     if (!(pushing_high || pushing_low)) integral_ = candidate_integral;
 
-    output_ = math::clamp(p + integral_ + d,
-                          config_.output_min, config_.output_max);
+    // Output must still use the candidate integral for this sample. Rejecting
+    // its accumulation prevents windup without suppressing a pure-I controller.
+    output_ = saturated;
     previous_measurement_ = measurement;
     output = output_;
     return {};

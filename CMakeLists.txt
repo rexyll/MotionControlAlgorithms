@@ -41,6 +41,7 @@ if(MCA_BUILD_TESTS)
     tests/plant/second_order_test.cpp
     tests/control/pid_test.cpp
     tests/control/feedforward_test.cpp
+    tests/experiment/single_axis_test.cpp
   )
   target_link_libraries(mca_core_tests PRIVATE mca_benchmark GTest::gtest_main)
   include(GoogleTest)

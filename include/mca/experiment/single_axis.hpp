@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cmath>
+#include <limits>
+
 #include "mca/benchmark/metrics.hpp"
 #include "mca/control/feedforward.hpp"
 #include "mca/control/pid.hpp"

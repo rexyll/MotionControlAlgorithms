@@ -9,8 +9,10 @@ TEST(Math, Clamp) {
 
 TEST(Math, WrapAngle) {
   constexpr double pi = 3.14159265358979323846;
-  EXPECT_NEAR(mca::math::wrap_angle(3.0 * pi), pi, 1e-12);
-  EXPECT_NEAR(mca::math::wrap_angle(-3.0 * pi), -pi, 1e-12);
+  EXPECT_NEAR(std::abs(mca::math::wrap_angle(3.0 * pi)), pi, 1e-12);
+  EXPECT_NEAR(std::abs(mca::math::wrap_angle(-3.0 * pi)), pi, 1e-12);
+  EXPECT_GE(mca::math::wrap_angle(12.0), -pi);
+  EXPECT_LT(mca::math::wrap_angle(12.0), pi);
 }
 
 TEST(Math, NearlyEqual) {

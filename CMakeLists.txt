@@ -38,7 +38,9 @@ if(MCA_BUILD_TESTS)
     tests/core/types_test.cpp
     tests/benchmark/metrics_test.cpp
     tests/plant/first_order_test.cpp
+    tests/plant/second_order_test.cpp
     tests/control/pid_test.cpp
+    tests/control/feedforward_test.cpp
   )
   target_link_libraries(mca_core_tests PRIVATE mca_benchmark GTest::gtest_main)
   include(GoogleTest)

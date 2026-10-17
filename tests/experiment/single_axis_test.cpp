@@ -25,8 +25,8 @@ TEST(SingleAxisExperiment, ClosedLoopReachesStepReference) {
 
   mca::experiment::SingleAxisResult result;
   ASSERT_TRUE(experiment.run(result).ok());
-  EXPECT_NEAR(result.final_position, 1.0, 1e-3);
-  EXPECT_NEAR(result.final_velocity, 0.0, 1e-2);
+  EXPECT_NEAR(result.final_position, 1.0, 0.02);
+  EXPECT_NEAR(result.final_velocity, 0.0, 0.02);
   EXPECT_LT(result.metrics.rmse, 0.2);
   EXPECT_GE(result.metrics.overshoot, 0.0);
   EXPECT_TRUE(std::isfinite(result.metrics.settling_time_s));

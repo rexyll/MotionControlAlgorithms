@@ -14,14 +14,19 @@ find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 add_library(mca_core INTERFACE)
 target_include_directories(mca_core INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(mca_core INTERFACE Eigen3::Eigen)
-
 target_compile_features(mca_core INTERFACE cxx_std_17)
+
+add_library(mca_benchmark STATIC src/benchmark/metrics.cpp)
+target_link_libraries(mca_benchmark PUBLIC mca_core)
+target_compile_features(mca_benchmark PUBLIC cxx_std_17)
 
 if(MCA_ENABLE_WARNINGS)
   if(MSVC)
     target_compile_options(mca_core INTERFACE /W4 /permissive-)
+    target_compile_options(mca_benchmark PRIVATE /W4 /permissive-)
   else()
     target_compile_options(mca_core INTERFACE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
+    target_compile_options(mca_benchmark PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
   endif()
 endif()
 
@@ -31,8 +36,9 @@ if(MCA_BUILD_TESTS)
   add_executable(mca_core_tests
     tests/core/math_test.cpp
     tests/core/types_test.cpp
+    tests/benchmark/metrics_test.cpp
   )
-  target_link_libraries(mca_core_tests PRIVATE mca_core GTest::gtest_main)
+  target_link_libraries(mca_core_tests PRIVATE mca_benchmark GTest::gtest_main)
   include(GoogleTest)
   gtest_discover_tests(mca_core_tests)
 endif()

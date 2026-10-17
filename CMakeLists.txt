@@ -37,6 +37,7 @@ if(MCA_BUILD_TESTS)
     tests/core/math_test.cpp
     tests/core/types_test.cpp
     tests/benchmark/metrics_test.cpp
+    tests/trajectory/scalar_trajectory_test.cpp
     tests/plant/first_order_test.cpp
     tests/plant/second_order_test.cpp
     tests/control/pid_test.cpp

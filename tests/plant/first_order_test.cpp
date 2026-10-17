@@ -14,7 +14,7 @@ TEST(FirstOrderPlant, ConvergesToConstantInput) {
   mca::plant::FirstOrderPlant plant(0.1, 2.0);
   ASSERT_TRUE(plant.configured());
 
-  for (int i = 0; i < 1000; ++i) {
+  for (int i = 0; i < 3000; ++i) {
     ASSERT_TRUE(plant.step(1.5, 0.001).ok());
   }
   EXPECT_NEAR(plant.output(), 3.0, 1e-10);

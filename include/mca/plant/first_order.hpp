@@ -16,10 +16,11 @@ class FirstOrderPlant {
     configure(time_constant, gain);
   }
 
-  Status configure(double time_constant, double gain = 1.0) noexcept {
-    if (!(time_constant > 0.0) || !is_finite(time_constant) || !is_finite(gain)) {
+  core::Status configure(double time_constant, double gain = 1.0) noexcept {
+    if (!(time_constant > 0.0) || !core::is_finite(time_constant) ||
+        !core::is_finite(gain)) {
       configured_ = false;
-      return {StatusCode::InvalidArgument};
+      return {core::StatusCode::InvalidArgument};
     }
     time_constant_ = time_constant;
     gain_ = gain;
@@ -28,17 +29,17 @@ class FirstOrderPlant {
     return {};
   }
 
-  Status reset(double output = 0.0) noexcept {
-    if (!configured_) return {StatusCode::NotConfigured};
-    if (!is_finite(output)) return {StatusCode::InvalidArgument};
+  core::Status reset(double output = 0.0) noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    if (!core::is_finite(output)) return {core::StatusCode::InvalidArgument};
     output_ = output;
     return {};
   }
 
-  Status step(double input, double dt) noexcept {
-    if (!configured_) return {StatusCode::NotConfigured};
-    if (!is_finite(input) || !(dt > 0.0) || !is_finite(dt)) {
-      return {StatusCode::InvalidArgument};
+  core::Status step(double input, double dt) noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    if (!core::is_finite(input) || !(dt > 0.0) || !core::is_finite(dt)) {
+      return {core::StatusCode::InvalidArgument};
     }
     const double a = std::exp(-dt / time_constant_);
     output_ = a * output_ + gain_ * (1.0 - a) * input;

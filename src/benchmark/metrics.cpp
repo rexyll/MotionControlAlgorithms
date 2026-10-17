@@ -31,4 +31,68 @@ TrackingMetrics TrackingAccumulator::result() const noexcept {
   return result;
 }
 
+bool StepResponseAccumulator::configure(double initial_reference,
+                                        double target_reference,
+                                        double settling_tolerance_ratio,
+                                        double settling_hold_time_s) noexcept {
+  if (!std::isfinite(initial_reference) || !std::isfinite(target_reference) ||
+      !std::isfinite(settling_tolerance_ratio) ||
+      !std::isfinite(settling_hold_time_s) ||
+      settling_tolerance_ratio <= 0.0 || settling_tolerance_ratio >= 1.0 ||
+      settling_hold_time_s < 0.0 ||
+      std::abs(target_reference - initial_reference) <=
+          std::numeric_limits<double>::epsilon()) {
+    configured_ = false;
+    return false;
+  }
+  initial_reference_ = initial_reference;
+  target_reference_ = target_reference;
+  step_amplitude_ = std::abs(target_reference - initial_reference);
+  tolerance_ = settling_tolerance_ratio * step_amplitude_;
+  hold_time_s_ = settling_hold_time_s;
+  configured_ = true;
+  reset();
+  return true;
+}
+
+void StepResponseAccumulator::reset() noexcept {
+  peak_overshoot_ = 0.0;
+  candidate_settling_time_s_ = std::numeric_limits<double>::quiet_NaN();
+  settling_time_s_ = std::numeric_limits<double>::quiet_NaN();
+}
+
+void StepResponseAccumulator::add(double time_s, double actual) noexcept {
+  if (!configured_ || !std::isfinite(time_s) || !std::isfinite(actual) ||
+      time_s < 0.0) {
+    return;
+  }
+
+  const bool rising = target_reference_ > initial_reference_;
+  const double directional_overshoot =
+      rising ? actual - target_reference_ : target_reference_ - actual;
+  peak_overshoot_ = std::max(peak_overshoot_,
+                             std::max(0.0, directional_overshoot) /
+                                 step_amplitude_);
+
+  if (std::abs(target_reference_ - actual) <= tolerance_) {
+    if (!std::isfinite(candidate_settling_time_s_)) {
+      candidate_settling_time_s_ = time_s;
+    }
+    if (time_s - candidate_settling_time_s_ >= hold_time_s_) {
+      settling_time_s_ = candidate_settling_time_s_;
+    }
+  } else {
+    candidate_settling_time_s_ = std::numeric_limits<double>::quiet_NaN();
+    settling_time_s_ = std::numeric_limits<double>::quiet_NaN();
+  }
+}
+
+double StepResponseAccumulator::overshoot() const noexcept {
+  return peak_overshoot_;
+}
+
+double StepResponseAccumulator::settling_time_s() const noexcept {
+  return settling_time_s_;
+}
+
 }  // namespace mca::benchmark

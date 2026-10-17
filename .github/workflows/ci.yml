@@ -26,7 +26,11 @@ jobs:
       - name: Install dependencies
         run: vcpkg install eigen3 gtest --triplet x64-windows
       - name: Configure
-        run: cmake -S . -B build -A x64 -DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake -DMCA_BUILD_TESTS=ON -DMCA_BUILD_BENCHMARKS=OFF
+        shell: pwsh
+        run: |
+          $toolchain = Join-Path $env:VCPKG_INSTALLATION_ROOT 'scripts/buildsystems/vcpkg.cmake'
+          if (-not (Test-Path $toolchain)) { throw "vcpkg toolchain not found: $toolchain" }
+          cmake -S . -B build -A x64 "-DCMAKE_TOOLCHAIN_FILE=$toolchain" -DMCA_BUILD_TESTS=ON -DMCA_BUILD_BENCHMARKS=OFF
       - name: Build
         run: cmake --build build --config Release
       - name: Test

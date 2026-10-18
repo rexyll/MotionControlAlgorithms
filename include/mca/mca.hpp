@@ -2,6 +2,7 @@
 
 #include "mca/benchmark/metrics.hpp"
 #include "mca/config/parameters.hpp"
+#include "mca/control/cascaded_servo.hpp"
 #include "mca/control/feedforward.hpp"
 #include "mca/control/interfaces.hpp"
 #include "mca/control/pid.hpp"

@@ -11,6 +11,7 @@
 #include "mca/core/types.hpp"
 #include "mca/experiment/single_axis.hpp"
 #include "mca/model/interfaces.hpp"
+#include "mca/plant/dc_motor.hpp"
 #include "mca/plant/first_order.hpp"
 #include "mca/plant/second_order.hpp"
 #include "mca/trajectory/scalar.hpp"

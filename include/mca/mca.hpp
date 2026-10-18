@@ -10,6 +10,7 @@
 #include "mca/core/math.hpp"
 #include "mca/core/realtime.hpp"
 #include "mca/core/types.hpp"
+#include "mca/experiment/cascaded_servo.hpp"
 #include "mca/experiment/single_axis.hpp"
 #include "mca/model/interfaces.hpp"
 #include "mca/plant/dc_motor.hpp"

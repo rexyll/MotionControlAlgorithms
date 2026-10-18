@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cmath>
-#include <limits>
 
 #include "mca/benchmark/metrics.hpp"
 #include "mca/control/cascaded_servo.hpp"
@@ -79,8 +78,9 @@ class CascadedServoExperiment {
 
   core::Status reset() noexcept {
     if (!configured_) return {core::StatusCode::NotConfigured};
-    motor_.reset();
-    servo_.reset();
+    if (!motor_.reset().ok() || !servo_.reset().ok()) {
+      return {core::StatusCode::InvalidArgument};
+    }
     position_accumulator_.reset();
     velocity_accumulator_.reset();
     torque_accumulator_.reset();
@@ -99,33 +99,36 @@ class CascadedServoExperiment {
       const double time_s = static_cast<double>(i) * config_.dt;
       const auto sample = reference.sample(time_s);
       double voltage = 0.0;
-      if (!servo_.update(sample.position, motor_.position(), motor_.velocity(),
-                         motor_.torque(), config_.dt, voltage)
-               .ok()) {
-        return {core::StatusCode::InvalidArgument};
-      }
+      const auto control_status = servo_.update(
+          sample.position, motor_.position(), motor_.velocity(), motor_.torque(),
+          config_.dt, voltage);
+      if (!control_status.ok()) return control_status;
 
       if (std::abs(voltage) > config_.max_voltage_v) {
         const double violation = std::abs(voltage) - config_.max_voltage_v;
-        constraints_.violations++;
-        constraints_.max_violation = math::max(constraints_.max_violation, violation);
-        voltage = math::clamp(voltage, -config_.max_voltage_v, config_.max_voltage_v);
+        ++constraints_.violations;
+        constraints_.max_violation =
+            std::max(constraints_.max_violation, violation);
+        voltage = math::clamp(voltage, -config_.max_voltage_v,
+                              config_.max_voltage_v);
       }
       if (std::abs(motor_.current()) > config_.max_current_a) {
         const double violation = std::abs(motor_.current()) - config_.max_current_a;
-        constraints_.violations++;
-        constraints_.max_violation = math::max(constraints_.max_violation, violation);
+        ++constraints_.violations;
+        constraints_.max_violation =
+            std::max(constraints_.max_violation, violation);
       }
 
-      if (!motor_.step(voltage, config_.load_torque_nm, config_.dt).ok()) {
-        return {core::StatusCode::InvalidArgument};
-      }
+      const auto plant_status =
+          motor_.step(voltage, config_.load_torque_nm, config_.dt);
+      if (!plant_status.ok()) return plant_status;
 
       const double sample_time_s = time_s + config_.dt;
       position_accumulator_.add(sample.position, motor_.position(), voltage);
       velocity_accumulator_.add(servo_.velocity_reference(), motor_.velocity(),
                                 voltage);
-      torque_accumulator_.add(servo_.torque_reference(), motor_.torque(), voltage);
+      torque_accumulator_.add(servo_.torque_reference(), motor_.torque(),
+                              voltage);
       position_step_.add(sample_time_s, motor_.position());
       final_voltage_ = voltage;
     }

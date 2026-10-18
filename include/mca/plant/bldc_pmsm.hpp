@@ -50,7 +50,9 @@ class BldcPmsm {
     }
     angle_rad_ = mechanical_angle_rad;
     speed_rad_s_ = mechanical_speed_rad_s;
-    currents_ = {ia, ib, ic};
+    currents_[0] = ia;
+    currents_[1] = ib;
+    currents_[2] = ic;
     return {};
   }
 

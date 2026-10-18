@@ -48,6 +48,7 @@ if(MCA_BUILD_TESTS)
     tests/control/feedforward_test.cpp
     tests/control/cascaded_servo_test.cpp
     tests/plant/dc_motor_test.cpp
+    tests/plant/bldc_pmsm_test.cpp
     tests/experiment/single_axis_test.cpp
     tests/experiment/cascaded_servo_test.cpp
   )

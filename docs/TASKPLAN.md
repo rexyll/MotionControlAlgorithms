@@ -20,7 +20,7 @@ Acceptance: clean CMake configure/build/test on Linux and Windows; core has no R
 - [ ] P1-01 First/second-order plant models
 - [ ] P1-02 PID/PI/PD
 - [x] P1-03 Cascaded position/velocity/torque loops
-- [x] P1-04 DC motor model
+- [ ] P1-04 DC motor model
 - [ ] P1-05 BLDC/PMSM model
 - [ ] P1-06 Clarke/Park transforms
 - [ ] P1-07 PMSM dq model

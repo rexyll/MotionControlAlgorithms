@@ -4,12 +4,15 @@ project(MotionControlAlgorithms VERSION 0.1.0 LANGUAGES CXX)
 option(MCA_BUILD_TESTS "Build unit tests" ON)
 option(MCA_BUILD_BENCHMARKS "Build benchmarks" ON)
 option(MCA_ENABLE_WARNINGS "Enable strict compiler warnings" ON)
+set(MCA_EIGEN3_DIR "" CACHE PATH "Optional Eigen3 CMake package directory")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(Eigen3_DIR "F:\\workspace\\_coding_workspace\\eigen-3.3.9")
+if(MCA_EIGEN3_DIR)
+  list(PREPEND CMAKE_PREFIX_PATH "${MCA_EIGEN3_DIR}")
+endif()
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
 add_library(mca_core INTERFACE)

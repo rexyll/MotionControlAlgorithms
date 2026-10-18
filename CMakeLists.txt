@@ -13,7 +13,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 if(MCA_EIGEN3_DIR)
   list(PREPEND CMAKE_PREFIX_PATH "${MCA_EIGEN3_DIR}")
 endif()
-find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+find_package(Eigen3 CONFIG REQUIRED)
 
 add_library(mca_core INTERFACE)
 target_include_directories(mca_core INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)

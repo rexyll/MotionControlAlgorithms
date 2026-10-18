@@ -6,7 +6,7 @@
 - [ ] P0-02 Core numeric types and units
 - [ ] P0-03 Geometry and linear algebra utilities
 - [ ] P0-04 Filters and numerical utilities
-- [ ] [ ] P0-05 Real-time-safe primitives
+- [ ] P0-05 Real-time-safe primitives
 - [ ] P0-06 Controller/algorithm interfaces
 - [ ] P0-07 Model interfaces
 - [ ] P0-08 Configuration and validation

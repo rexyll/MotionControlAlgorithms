@@ -49,6 +49,7 @@ if(MCA_BUILD_TESTS)
     tests/control/cascaded_servo_test.cpp
     tests/plant/dc_motor_test.cpp
     tests/experiment/single_axis_test.cpp
+    tests/experiment/cascaded_servo_test.cpp
   )
   target_link_libraries(mca_core_tests PRIVATE mca_benchmark GTest::gtest_main)
   include(GoogleTest)

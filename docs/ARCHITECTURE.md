@@ -113,6 +113,21 @@ Reference
   -> Actuator Interface
 ```
 
+The current scalar servo reference implementation demonstrates the nested actuator form:
+
+```text
+Position reference
+      -> Position PID
+      -> velocity reference
+      -> Velocity PID
+      -> torque reference
+      -> Torque PID
+      -> actuator voltage
+      -> DC motor
+```
+
+`CascadedServo` contains only the controller composition. `CascadedServoExperiment` adds the deterministic DC-motor plant and benchmark metrics without introducing plant dependencies into the controller itself.
+
 Example manipulator:
 
 ```text
@@ -220,6 +235,8 @@ Every controller exposes measurable results through a common benchmark layer:
 
 Benchmark outputs must be machine-readable so that CI can detect regressions.
 
+The scalar cascaded-servo benchmark currently reports separate position, velocity and torque tracking metrics plus actuator constraint violations and final motor state. This provides the baseline contract that later robot-domain scenarios can reuse.
+
 ## 11. Configuration
 
 Use versioned YAML/TOML configuration at the application layer. Core algorithms receive validated typed configuration objects. Algorithm implementations must not parse YAML directly.
@@ -254,3 +271,19 @@ Hardware-in-the-loop (future)
 ```
 
 Acceptance thresholds belong to each task and are stored with the benchmark configuration.
+
+## 15. Current P1 scalar servo acceptance path
+
+The first servo stack follows this validation chain:
+
+```text
+PID primitives
+   -> CascadedServo
+   -> DC motor plant
+   -> CascadedServoExperiment
+   -> position/velocity/torque metrics
+   -> actuator constraint checks
+   -> Linux + Windows CI
+```
+
+This keeps the mathematical/controller layer portable and makes the same composition suitable for later ROS 2/Gazebo adapters.

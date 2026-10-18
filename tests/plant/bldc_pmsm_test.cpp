@@ -20,12 +20,12 @@ TEST(BldcPmsm, AppliesThreePhaseVoltageAndProducesCurrent) {
   ASSERT_TRUE(motor.configured());
 
   for (int i = 0; i < 100; ++i) {
-    ASSERT_TRUE(motor.step(1.0, -0.5, -0.5, 0.0, 0.0001).ok());
+    ASSERT_TRUE(motor.step(1.0, -1.0, 0.0, 0.0, 0.0001).ok());
   }
 
   EXPECT_GT(motor.current_a(), 0.0);
   EXPECT_LT(motor.current_b(), 0.0);
-  EXPECT_LT(motor.current_c(), 0.0);
+  EXPECT_NEAR(motor.current_c(), 0.0, 1e-12);
   EXPECT_GT(motor.speed(), 0.0);
 }
 

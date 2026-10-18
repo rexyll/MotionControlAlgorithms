@@ -1,9 +1,0 @@
-libdir=F:/workspace/_coding_workspace/MotionControlAlgorithms - 副本/deps/install/lib
-includedir=F:/workspace/_coding_workspace/MotionControlAlgorithms - 副本/deps/install/include
-
-Name: gtest
-Description: GoogleTest (without main() function)
-Version: 1.14.0
-URL: https://github.com/google/googletest
-Libs: -L${libdir} -lgtest 
-Cflags: -I${includedir} -DGTEST_HAS_PTHREAD=0

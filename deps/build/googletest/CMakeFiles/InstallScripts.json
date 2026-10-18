@@ -1,8 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"F:/workspace/_coding_workspace/MotionControlAlgorithms - \u526f\u672c/deps/build/googletest/cmake_install.cmake",
-		"F:/workspace/_coding_workspace/MotionControlAlgorithms - \u526f\u672c/deps/build/googletest/googletest/cmake_install.cmake"
-	],
-	"Parallel" : false
-}

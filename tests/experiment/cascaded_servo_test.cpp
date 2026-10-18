@@ -12,9 +12,13 @@ mca::control::CascadedServoConfig make_servo_config() {
   config.position.output_min = -20.0;
   config.position.output_max = 20.0;
 
+  // The outer position loop commands a physically useful velocity range for
+  // the one-second benchmark. A 0.5 rad/s limit made the benchmark spend most
+  // of its duration in a deliberately slow slew, so tracking metrics mostly
+  // measured the imposed reference-rate limit rather than the cascade.
   config.velocity.kp = 1.0;
-  config.velocity.output_min = -0.5;
-  config.velocity.output_max = 0.5;
+  config.velocity.output_min = -4.0;
+  config.velocity.output_max = 4.0;
 
   config.torque.kp = 5.0;
   config.torque.output_min = -12.0;

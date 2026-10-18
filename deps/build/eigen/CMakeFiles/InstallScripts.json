@@ -1,0 +1,22 @@
+{
+	"InstallScripts" : 
+	[
+		"F:/workspace/_coding_workspace/MotionControlAlgorithms - \u526f\u672c/deps/build/eigen/cmake_install.cmake",
+		"F:/workspace/_coding_workspace/MotionControlAlgorithms - \u526f\u672c/deps/build/eigen/Eigen/cmake_install.cmake",
+		"F:/workspace/_coding_workspace/MotionControlAlgorithms - \u526f\u672c/deps/build/eigen/doc/cmake_install.cmake",
+		"F:/workspace/_coding_workspace/MotionControlAlgorithms - \u526f\u672c/deps/build/eigen/doc/examples/cmake_install.cmake",
+		"F:/workspace/_coding_workspace/MotionControlAlgorithms - \u526f\u672c/deps/build/eigen/doc/special_examples/cmake_install.cmake",
+		"F:/workspace/_coding_workspace/MotionControlAlgorithms - \u526f\u672c/deps/build/eigen/doc/snippets/cmake_install.cmake",
+		"F:/workspace/_coding_workspace/MotionControlAlgorithms - \u526f\u672c/deps/build/eigen/blas/cmake_install.cmake",
+		"F:/workspace/_coding_workspace/MotionControlAlgorithms - \u526f\u672c/deps/build/eigen/lapack/cmake_install.cmake",
+		"F:/workspace/_coding_workspace/MotionControlAlgorithms - \u526f\u672c/deps/build/eigen/unsupported/cmake_install.cmake",
+		"F:/workspace/_coding_workspace/MotionControlAlgorithms - \u526f\u672c/deps/build/eigen/unsupported/Eigen/cmake_install.cmake",
+		"F:/workspace/_coding_workspace/MotionControlAlgorithms - \u526f\u672c/deps/build/eigen/unsupported/Eigen/CXX11/cmake_install.cmake",
+		"F:/workspace/_coding_workspace/MotionControlAlgorithms - \u526f\u672c/deps/build/eigen/unsupported/doc/cmake_install.cmake",
+		"F:/workspace/_coding_workspace/MotionControlAlgorithms - \u526f\u672c/deps/build/eigen/unsupported/doc/examples/cmake_install.cmake",
+		"F:/workspace/_coding_workspace/MotionControlAlgorithms - \u526f\u672c/deps/build/eigen/unsupported/doc/snippets/cmake_install.cmake",
+		"F:/workspace/_coding_workspace/MotionControlAlgorithms - \u526f\u672c/deps/build/eigen/demos/cmake_install.cmake",
+		"F:/workspace/_coding_workspace/MotionControlAlgorithms - \u526f\u672c/deps/build/eigen/scripts/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

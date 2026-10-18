@@ -1,0 +1,230 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{A0015411-B94C-3200-9546-740183CB954F}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
+    <Platform>x64</Platform>
+    <ProjectName>unsupported_examples</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples;F:\workspace\_coding_workspace\eigen-3.3.9\unsupported\doc\examples;F:\workspace\_coding_workspace\eigen-3.3.9;F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen;F:\workspace\_coding_workspace\eigen-3.3.9\unsupported\doc\examples\..\..\..\unsupported;F:\workspace\_coding_workspace\eigen-3.3.9\unsupported\doc\examples\..\..\..\unsupported\test;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples;F:\workspace\_coding_workspace\eigen-3.3.9\unsupported\doc\examples;F:\workspace\_coding_workspace\eigen-3.3.9;F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen;F:\workspace\_coding_workspace\eigen-3.3.9\unsupported\doc\examples\..\..\..\unsupported;F:\workspace\_coding_workspace\eigen-3.3.9\unsupported\doc\examples\..\..\..\unsupported\test;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples;F:\workspace\_coding_workspace\eigen-3.3.9\unsupported\doc\examples;F:\workspace\_coding_workspace\eigen-3.3.9;F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen;F:\workspace\_coding_workspace\eigen-3.3.9\unsupported\doc\examples\..\..\..\unsupported;F:\workspace\_coding_workspace\eigen-3.3.9\unsupported\doc\examples\..\..\..\unsupported\test;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples;F:\workspace\_coding_workspace\eigen-3.3.9\unsupported\doc\examples;F:\workspace\_coding_workspace\eigen-3.3.9;F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen;F:\workspace\_coding_workspace\eigen-3.3.9\unsupported\doc\examples\..\..\..\unsupported;F:\workspace\_coding_workspace\eigen-3.3.9\unsupported\doc\examples\..\..\..\unsupported\test;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="F:\workspace\_coding_workspace\eigen-3.3.9\unsupported\doc\examples\CMakeLists.txt">
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule F:/workspace/_coding_workspace/eigen-3.3.9/unsupported/doc/examples/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SF:/workspace/_coding_workspace/eigen-3.3.9 "-BF:/workspace/_coding_workspace/MotionControlAlgorithms - 副本/deps/build/eigen" --check-stamp-file "F:/workspace/_coding_workspace/MotionControlAlgorithms - 副本/deps/build/eigen/unsupported/doc/examples/CMakeFiles/generate.stamp"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule F:/workspace/_coding_workspace/eigen-3.3.9/unsupported/doc/examples/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SF:/workspace/_coding_workspace/eigen-3.3.9 "-BF:/workspace/_coding_workspace/MotionControlAlgorithms - 副本/deps/build/eigen" --check-stamp-file "F:/workspace/_coding_workspace/MotionControlAlgorithms - 副本/deps/build/eigen/unsupported/doc/examples/CMakeFiles/generate.stamp"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule F:/workspace/_coding_workspace/eigen-3.3.9/unsupported/doc/examples/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SF:/workspace/_coding_workspace/eigen-3.3.9 "-BF:/workspace/_coding_workspace/MotionControlAlgorithms - 副本/deps/build/eigen" --check-stamp-file "F:/workspace/_coding_workspace/MotionControlAlgorithms - 副本/deps/build/eigen/unsupported/doc/examples/CMakeFiles/generate.stamp"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule F:/workspace/_coding_workspace/eigen-3.3.9/unsupported/doc/examples/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SF:/workspace/_coding_workspace/eigen-3.3.9 "-BF:/workspace/_coding_workspace/MotionControlAlgorithms - 副本/deps/build/eigen" --check-stamp-file "F:/workspace/_coding_workspace/MotionControlAlgorithms - 副本/deps/build/eigen/unsupported/doc/examples/CMakeFiles/generate.stamp"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\ZERO_CHECK.vcxproj">
+      <Project>{93607C6B-8D11-3D73-8469-121D0DAC36E9}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+    <ProjectReference Include="F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples\example_BVH_Example.vcxproj">
+      <Project>{26B46A2B-8255-39CE-B9D7-C721BD69B591}</Project>
+      <Name>example_BVH_Example</Name>
+    </ProjectReference>
+    <ProjectReference Include="F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples\example_EulerAngles.vcxproj">
+      <Project>{8C3BBCA4-25F2-3012-B7DA-F00D1C872274}</Project>
+      <Name>example_EulerAngles</Name>
+    </ProjectReference>
+    <ProjectReference Include="F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples\example_FFT.vcxproj">
+      <Project>{84828700-62D7-3085-B72D-9C2895AF0465}</Project>
+      <Name>example_FFT</Name>
+    </ProjectReference>
+    <ProjectReference Include="F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples\example_MatrixExponential.vcxproj">
+      <Project>{47570648-9390-3F09-976C-BA54C68D5D9F}</Project>
+      <Name>example_MatrixExponential</Name>
+    </ProjectReference>
+    <ProjectReference Include="F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples\example_MatrixFunction.vcxproj">
+      <Project>{EAE8414A-08AC-3C27-B7BE-254D1E5F76C8}</Project>
+      <Name>example_MatrixFunction</Name>
+    </ProjectReference>
+    <ProjectReference Include="F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples\example_MatrixLogarithm.vcxproj">
+      <Project>{A6143ED3-A1F7-31DF-B4B5-523FD4FD55E9}</Project>
+      <Name>example_MatrixLogarithm</Name>
+    </ProjectReference>
+    <ProjectReference Include="F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples\example_MatrixPower.vcxproj">
+      <Project>{B1C9BFC7-0980-3443-9BCB-8C469F4E0E06}</Project>
+      <Name>example_MatrixPower</Name>
+    </ProjectReference>
+    <ProjectReference Include="F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples\example_MatrixPower_optimal.vcxproj">
+      <Project>{35557075-0ED2-3420-84B2-7B539B166A30}</Project>
+      <Name>example_MatrixPower_optimal</Name>
+    </ProjectReference>
+    <ProjectReference Include="F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples\example_MatrixSine.vcxproj">
+      <Project>{4DCED1AF-318A-35A3-9850-40EDD9DCA184}</Project>
+      <Name>example_MatrixSine</Name>
+    </ProjectReference>
+    <ProjectReference Include="F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples\example_MatrixSinh.vcxproj">
+      <Project>{C925B01B-29F6-3880-887A-D1CFAED18C85}</Project>
+      <Name>example_MatrixSinh</Name>
+    </ProjectReference>
+    <ProjectReference Include="F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples\example_MatrixSquareRoot.vcxproj">
+      <Project>{48D3D63A-5647-3506-9929-05E6368071A5}</Project>
+      <Name>example_MatrixSquareRoot</Name>
+    </ProjectReference>
+    <ProjectReference Include="F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples\example_PolynomialSolver1.vcxproj">
+      <Project>{0FAAEBC3-36CE-36DC-8D03-4CF52742F938}</Project>
+      <Name>example_PolynomialSolver1</Name>
+    </ProjectReference>
+    <ProjectReference Include="F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\build\eigen\unsupported\doc\examples\example_PolynomialUtils1.vcxproj">
+      <Project>{D0CE51E1-61F4-3E50-85EE-ABB9F0B25244}</Project>
+      <Name>example_PolynomialUtils1</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

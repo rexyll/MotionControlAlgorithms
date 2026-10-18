@@ -1,0 +1,10 @@
+^F:\WORKSPACE\_CODING_WORKSPACE\MOTIONCONTROLALGORITHMS - 副本\DEPS\BUILD\GOOGLETEST\CMAKEFILES\5F6968EC3397AEDF2DB51428C20E1E80\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" "-SF:/workspace/_coding_workspace/MotionControlAlgorithms - 副本/deps/googletest" "-BF:/workspace/_coding_workspace/MotionControlAlgorithms - 副本/deps/build/googletest" --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file "F:/workspace/_coding_workspace/MotionControlAlgorithms - 副本/deps/build/googletest/googletest-distribution.sln"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

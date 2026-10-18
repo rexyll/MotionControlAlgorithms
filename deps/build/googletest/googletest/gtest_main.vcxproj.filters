@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\googletest\googletest\src\gtest_main.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="F:\workspace\_coding_workspace\MotionControlAlgorithms - 副本\deps\googletest\googletest\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4240DDAD-B6D9-3C7E-9B5E-D09F21AB1B1A}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

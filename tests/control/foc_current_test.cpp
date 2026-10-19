@@ -90,17 +90,19 @@ TEST(FocCurrentController, IntegralRecoversAfterLeavingSaturation) {
   mca::control::FocCurrentController controller(config);
   mca::control::FocCurrentControllerOutput output;
 
-  // Build a positive integral state while the output is below the voltage
-  // limit, then verify that the controller continues integrating after a
-  // smaller positive error. The first update is exactly saturated, so its
-  // integral contribution is rejected by conditional anti-windup.
-  ASSERT_TRUE(controller.update(0.5, 0.0, 0.0, 0.0, 0.1, output).ok());
-  EXPECT_NEAR(controller.d_integral(), 0.05, 1e-12);
-  EXPECT_NEAR(output.d_voltage, 0.5, 1e-12);
+  // Start with an existing positive integral. A positive error would push
+  // the requested voltage above the positive limit, so conditional
+  // anti-windup must hold the integral at 0.95.
+  ASSERT_TRUE(controller.reset(0.95, 0.0).ok());
+  ASSERT_TRUE(controller.update(0.10, 0.0, 0.0, 0.0, 0.1, output).ok());
+  EXPECT_NEAR(controller.d_integral(), 0.95, 1e-12);
+  EXPECT_NEAR(output.d_voltage, 1.0, 1e-12);
 
-  ASSERT_TRUE(controller.update(0.05, 0.0, 0.0, 0.0, 0.1, output).ok());
-  EXPECT_NEAR(controller.d_integral(), 0.055, 1e-12);
-  EXPECT_NEAR(output.d_voltage, 0.55, 1e-12);
+  // Reverse the error. The candidate integral moves back inside the voltage
+  // range, so the controller is allowed to leave saturation and recover.
+  ASSERT_TRUE(controller.update(-0.10, 0.0, 0.0, 0.0, 0.1, output).ok());
+  EXPECT_NEAR(controller.d_integral(), 0.85, 1e-12);
+  EXPECT_NEAR(output.d_voltage, 0.85, 1e-12);
 }
 
 }  // namespace

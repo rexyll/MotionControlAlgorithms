@@ -50,11 +50,12 @@ TEST(PmsmDq, CrossCouplingAndBackEmfTermsHaveExpectedSigns) {
   ASSERT_TRUE(motor.reset(0.0, 10.0, 2.0, 3.0).ok());
   ASSERT_TRUE(motor.step(0.0, 0.0, 0.0, 0.0001).ok());
 
-  // we=20 rad/s. Expected:
-  // did/dt=(-2 + 20*0.003*3)/0.002 = 80 A/s
-  // diq/dt=(-3 - 20*(0.002*2+0.1))/0.003 = -1533.333... A/s
-  EXPECT_NEAR(motor.d_current(), 2.008, 1e-12);
-  EXPECT_NEAR(motor.q_current(), 2.846666666666667, 1e-12);
+  // we=20 rad/s. Explicit Euler evaluates both coupled derivatives from
+  // the same pre-step state:
+  // did/dt=(-2 + 20*0.003*3)/0.002 = -910 A/s
+  // diq/dt=(-3 - 20*(0.002*2+0.1))/0.003 = -1693.333... A/s
+  EXPECT_NEAR(motor.d_current(), 1.909, 1e-12);
+  EXPECT_NEAR(motor.q_current(), 2.830666666666667, 1e-12);
 }
 
 TEST(PmsmDq, TorqueEquationMatchesReferenceForSurfaceMountedPmsm) {
@@ -93,9 +94,11 @@ TEST(PmsmDq, MechanicalDynamicsUseElectromagneticTorque) {
   ASSERT_TRUE(motor.reset(0.0, 0.0, 0.0, 1.0).ok());
   ASSERT_TRUE(motor.step(0.0, 0.0, 0.0, 0.001).ok());
 
-  // Te=1.5*2*0.1*1=0.3 Nm; alpha=30 rad/s^2; w=0.03 rad/s.
-  EXPECT_NEAR(motor.velocity(), 0.03, 1e-12);
-  EXPECT_NEAR(motor.position(), 0.00003, 1e-12);
+  // The current itself decays during the step because Rq/Lq=500 1/s:
+  // iq=1-0.5/0.001*0.001=0.5 A, hence Te=0.15 Nm. The resulting
+  // acceleration is 15 rad/s^2 and semi-implicit position is w*dt.
+  EXPECT_NEAR(motor.velocity(), 0.015, 1e-12);
+  EXPECT_NEAR(motor.position(), 0.000015, 1e-12);
 }
 
 TEST(PmsmDq, ElectricalAngleUsesPolePairs) {

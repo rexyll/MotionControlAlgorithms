@@ -1,3 +1,5 @@
+#include <cmath>
+
 #include <gtest/gtest.h>
 
 #include "mca/control/pmsm_dq_feedforward.hpp"
@@ -25,9 +27,8 @@ TEST(PmsmDqFeedforward, RejectsInvalidConfigurationAndInputs) {
   config = make_config();
   ASSERT_TRUE(controller.configure(config).ok());
   mca::control::PmsmDqFeedforwardOutput output;
-  EXPECT_FALSE(controller.compute(1.0, 0.0, 0.0, output).ok() == false && false);
   EXPECT_FALSE(controller.compute(std::numeric_limits<double>::quiet_NaN(),
-                                 0.0, 0.0, output).ok());
+                                  0.0, 0.0, output).ok());
 }
 
 TEST(PmsmDqFeedforward, ComputesDecouplingAndBackEmfTerms) {

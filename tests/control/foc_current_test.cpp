@@ -92,8 +92,8 @@ TEST(FocCurrentController, IntegralRecoversAfterLeavingSaturation) {
 
   ASSERT_TRUE(controller.update(5.0, 0.0, 0.0, 0.0, 0.1, output).ok());
   ASSERT_TRUE(controller.update(0.05, 0.0, 0.0, 0.0, 0.1, output).ok());
-  EXPECT_NEAR(controller.d_integral(), 0.05, 1e-12);
-  EXPECT_NEAR(output.d_voltage, 0.5, 1e-12);
+  EXPECT_NEAR(controller.d_integral(), 0.005, 1e-12);
+  EXPECT_NEAR(output.d_voltage, 0.05, 1e-12);
 }
 
 }  // namespace

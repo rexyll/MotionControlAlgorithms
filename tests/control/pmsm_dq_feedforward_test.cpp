@@ -54,8 +54,10 @@ TEST(PmsmDqFeedforward, NegativeSpeedReversesElectricalTerms) {
   mca::control::PmsmDqFeedforward controller(make_config());
   mca::control::PmsmDqFeedforwardOutput output;
   ASSERT_TRUE(controller.compute(-50.0, 1.0, 2.0, output).ok());
+  // vd_ff = -(-50) * 0.003 * 2 = 0.3 V
+  // vq_ff = -50 * (0.002 * 1 + 0.04) = -2.1 V
   EXPECT_NEAR(output.d_voltage, 0.3, 1e-12);
-  EXPECT_NEAR(output.q_voltage, -3.0, 1e-12);
+  EXPECT_NEAR(output.q_voltage, -2.1, 1e-12);
 }
 
 TEST(PmsmDqFeedforward, AppliesIndependentVoltageLimits) {

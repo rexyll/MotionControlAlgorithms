@@ -63,19 +63,25 @@ class PmsmDq {
     }
 
     const double electrical_speed = electrical_angular_velocity();
+    const double old_d_current = d_current_a_;
+    const double old_q_current = q_current_a_;
     const double d_current_dot =
-        (d_voltage_v - config_.resistance_ohm * d_current_a_ +
-         electrical_speed * config_.q_axis_inductance_h * q_current_a_) /
+        (d_voltage_v - config_.resistance_ohm * old_d_current +
+         electrical_speed * config_.q_axis_inductance_h * old_q_current) /
         config_.d_axis_inductance_h;
     const double q_current_dot =
-        (q_voltage_v - config_.resistance_ohm * q_current_a_ -
+        (q_voltage_v - config_.resistance_ohm * old_q_current -
          electrical_speed *
-             (config_.d_axis_inductance_h * d_current_a_ +
+             (config_.d_axis_inductance_h * old_d_current +
               config_.permanent_magnet_flux_wb)) /
         config_.q_axis_inductance_h;
 
-    d_current_a_ += d_current_dot * dt;
-    q_current_a_ += q_current_dot * dt;
+    // Both electrical derivatives use the same pre-step state. This is the
+    // explicit-Euler evaluation of the coupled dq current equations; the
+    // mechanical state is then advanced semi-implicitly using the updated
+    // electromagnetic torque/current state.
+    d_current_a_ = old_d_current + d_current_dot * dt;
+    q_current_a_ = old_q_current + q_current_dot * dt;
 
     const double acceleration =
         (electromagnetic_torque() -

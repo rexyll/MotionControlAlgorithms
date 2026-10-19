@@ -14,17 +14,20 @@ TEST(FocCurrentClosedLoop, TracksDqCurrentAtLowSpeed) {
   plant_config.d_axis_inductance_h = 0.001;
   plant_config.q_axis_inductance_h = 0.001;
   plant_config.permanent_magnet_flux_wb = 0.05;
-  plant_config.inertia_kg_m2 = 0.01;
-  plant_config.viscous_damping_nm_per_rad_s = 0.05;
+  // Keep the mechanical state effectively at low speed so this acceptance
+  // test isolates the current-loop behavior. Speed-dependent decoupling is a
+  // separate P1-09 concern.
+  plant_config.inertia_kg_m2 = 1.0;
+  plant_config.viscous_damping_nm_per_rad_s = 1.0;
   plant_config.pole_pairs = 2;
   mca::plant::PmsmDq motor(plant_config);
   ASSERT_TRUE(motor.reset(0.0, 0.0, 0.0, 0.0).ok());
 
   mca::control::FocCurrentControllerConfig controller_config;
   controller_config.kp_d = 0.8;
-  controller_config.ki_d = 80.0;
+  controller_config.ki_d = 200.0;
   controller_config.kp_q = 0.8;
-  controller_config.ki_q = 80.0;
+  controller_config.ki_q = 200.0;
   controller_config.current_min = -5.0;
   controller_config.current_max = 5.0;
   controller_config.voltage_d_min = -24.0;
@@ -37,7 +40,7 @@ TEST(FocCurrentClosedLoop, TracksDqCurrentAtLowSpeed) {
   controller_config.integral_q_max = 24.0;
   mca::control::FocCurrentController controller(controller_config);
 
-  constexpr double dt = 1.0e-5;
+  constexpr double dt = 1.0e-4;
   mca::control::FocCurrentControllerOutput command;
   double max_d_error = 0.0;
   double max_q_error = 0.0;

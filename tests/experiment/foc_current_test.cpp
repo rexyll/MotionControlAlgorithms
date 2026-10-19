@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <cmath>
+
 #include <gtest/gtest.h>
 
 #include "mca/control/foc_current.hpp"

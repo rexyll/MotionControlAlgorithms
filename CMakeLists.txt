@@ -47,6 +47,7 @@ if(MCA_BUILD_TESTS)
     tests/control/pid_test.cpp
     tests/control/feedforward_test.cpp
     tests/control/cascaded_servo_test.cpp
+    tests/control/foc_current_test.cpp
     tests/plant/dc_motor_test.cpp
     tests/plant/bldc_pmsm_test.cpp
     tests/plant/pmsm_dq_test.cpp

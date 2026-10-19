@@ -63,6 +63,8 @@ if(MCA_BUILD_BENCHMARKS)
   if(benchmark_FOUND)
     add_executable(mca_core_benchmark benchmarks/core_math_benchmark.cpp)
     target_link_libraries(mca_core_benchmark PRIVATE mca_core benchmark::benchmark)
+    add_executable(mca_transform_benchmark benchmarks/transform_benchmark.cpp)
+    target_link_libraries(mca_transform_benchmark PRIVATE mca_core benchmark::benchmark)
   endif()
 endif()
 

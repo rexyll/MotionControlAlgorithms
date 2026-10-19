@@ -72,9 +72,13 @@ TEST(FocCurrentController, VoltageSaturationPreventsWindup) {
   EXPECT_DOUBLE_EQ(output.d_voltage, 1.0);
   EXPECT_DOUBLE_EQ(controller.d_integral(), 0.0);
 
+  // Reversing the error while the output is already at the negative limit
+  // must not integrate further into saturation. This is the conditional
+  // anti-windup rule: integration is allowed only when it moves the
+  // unsaturated output back toward the valid voltage range.
   ASSERT_TRUE(controller.update(-5.0, 0.0, 0.0, 0.0, 0.01, output).ok());
   EXPECT_DOUBLE_EQ(output.d_voltage, -1.0);
-  EXPECT_DOUBLE_EQ(controller.d_integral(), -5.0);
+  EXPECT_DOUBLE_EQ(controller.d_integral(), 0.0);
 }
 
 TEST(FocCurrentController, IntegralRecoversAfterLeavingSaturation) {
@@ -87,9 +91,9 @@ TEST(FocCurrentController, IntegralRecoversAfterLeavingSaturation) {
   mca::control::FocCurrentControllerOutput output;
 
   ASSERT_TRUE(controller.update(5.0, 0.0, 0.0, 0.0, 0.1, output).ok());
-  ASSERT_TRUE(controller.update(0.0, 0.0, 0.0, 0.0, 0.1, output).ok());
-  EXPECT_NEAR(controller.d_integral(), 0.0, 1e-12);
-  EXPECT_NEAR(output.d_voltage, 0.0, 1e-12);
+  ASSERT_TRUE(controller.update(0.05, 0.0, 0.0, 0.0, 0.1, output).ok());
+  EXPECT_NEAR(controller.d_integral(), 0.05, 1e-12);
+  EXPECT_NEAR(output.d_voltage, 0.5, 1e-12);
 }
 
 }  // namespace

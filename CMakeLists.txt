@@ -51,6 +51,7 @@ if(MCA_BUILD_TESTS)
     tests/control/pmsm_dq_feedforward_test.cpp
     tests/control/svpwm_test.cpp
     tests/control/friction_compensation_test.cpp
+    tests/control/disturbance_observer_test.cpp
     tests/plant/dc_motor_test.cpp
     tests/plant/bldc_pmsm_test.cpp
     tests/plant/pmsm_dq_test.cpp
@@ -79,6 +80,8 @@ if(MCA_BUILD_BENCHMARKS)
     target_link_libraries(mca_svpwm_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_friction_compensation_benchmark benchmarks/friction_compensation_benchmark.cpp)
     target_link_libraries(mca_friction_compensation_benchmark PRIVATE mca_core benchmark::benchmark)
+    add_executable(mca_disturbance_observer_benchmark benchmarks/disturbance_observer_benchmark.cpp)
+    target_link_libraries(mca_disturbance_observer_benchmark PRIVATE mca_core benchmark::benchmark)
   endif()
 endif()
 

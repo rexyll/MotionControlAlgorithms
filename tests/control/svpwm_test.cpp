@@ -144,7 +144,7 @@ TEST(Svpwm, AppliedVectorMatchesRequestedVectorInLinearRegion) {
     const double va = (output.duty_a - 0.5) * 48.0;
     const double vb = (output.duty_b - 0.5) * 48.0;
     const double vc = (output.duty_c - 0.5) * 48.0;
-    const auto ab0 = mca::transform::clarke({va, vb, vc});
+    const auto ab0 = mca::transform::clarke(va, vb, vc);
     expect_near(ab0.alpha, magnitude * std::cos(angle), 1e-10);
     expect_near(ab0.beta, magnitude * std::sin(angle), 1e-10);
   }

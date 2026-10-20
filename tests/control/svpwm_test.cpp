@@ -9,12 +9,9 @@
 namespace {
 
 constexpr double kPi = 3.1415926535897932384626433832795;
-constexpr double kSqrt3 = 1.7320508075688772935;
 
 mca::control::Svpwm make_svpwm() {
-  mca::control::Svpwm controller;
-  ASSERT_TRUE(controller.configure({48.0, 0.001}).ok());
-  return controller;
+  return mca::control::Svpwm({48.0, 0.001});
 }
 
 template <typename T>

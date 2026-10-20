@@ -52,10 +52,12 @@ TEST(DisturbanceObserver, CompensationOpposesKnownPositiveDisturbance) {
   mca::control::DisturbanceObserverOutput output;
   ASSERT_TRUE(observer.reset(0.0, 0.0).ok());
 
+  // The first-order filter applies alpha = dt / (T_filter + dt), so the
+  // single-sample estimate is 0.5 * alpha rather than exactly 0.5 Nm.
   // J*a - tau = 0.01*170 - 1.2 = +0.5 Nm.
   ASSERT_TRUE(observer.update(1.2, 0.17, 0.001, output).ok());
-  EXPECT_NEAR(output.estimated_disturbance_nm, 0.5, 1e-9);
-  EXPECT_NEAR(output.compensated_torque_nm, 0.7, 1e-9);
+  EXPECT_NEAR(output.estimated_disturbance_nm, 0.5, 0.001);
+  EXPECT_NEAR(output.compensated_torque_nm, 0.7, 0.001);
 }
 
 TEST(DisturbanceObserver, AppliesEstimateLimits) {

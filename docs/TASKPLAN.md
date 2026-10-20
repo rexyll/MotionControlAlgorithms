@@ -26,7 +26,7 @@ Acceptance: clean CMake configure/build/test on Linux and Windows; core has no R
 - [x] P1-07 PMSM dq model (Run #94: Linux and Windows CI passed; dq equations, cross-coupling/back-EMF, torque, mechanical dynamics, pole-pair scaling, unit tests and docs accepted)
 - [x] P1-08 FOC current controller (Run #109: Linux and Windows CI passed; dq PI current control, current/voltage/integral limits, conditional anti-windup, closed-loop current tracking, unit tests, benchmark and docs accepted)
 - [x] P1-09 decoupling/feedforward (Run #118: Linux and Windows CI passed; PMSM dq decoupling/back-EMF feedforward, analytical/reference tests, independent voltage limits, benchmark and docs accepted)
-- [ ] P1-10 SVPWM
+- [x] P1-10 SVPWM (Run #128: Linux and Windows CI passed; six-sector dwell computation, symmetric zero-vector allocation, linear modulation clamp, overmodulation reporting, unit tests, benchmark and docs accepted)
 - [ ] P1-11 friction compensation
 - [ ] P1-12 disturbance observer
 - [ ] P1-13 state observers

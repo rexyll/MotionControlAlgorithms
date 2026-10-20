@@ -107,7 +107,7 @@ class Svpwm {
 
     switch (sector) {
       case 1:
-        output.duty_a = (total_active) / config_.pwm_period_s;
+        output.duty_a = total_active / config_.pwm_period_s;
         output.duty_b = (t2 + mid) / config_.pwm_period_s;
         output.duty_c = mid / config_.pwm_period_s;
         break;
@@ -137,7 +137,7 @@ class Svpwm {
         output.duty_c = (t1 + mid) / config_.pwm_period_s;
         break;
       default:
-        return {core::StatusCode::InternalError};
+        return {core::StatusCode::RuntimeError};
     }
 
     output.duty_a = std::clamp(output.duty_a, 0.0, 1.0);

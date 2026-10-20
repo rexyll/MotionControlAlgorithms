@@ -41,6 +41,7 @@ if(MCA_BUILD_TESTS)
     tests/core/math_test.cpp
     tests/core/types_test.cpp
     tests/benchmark/metrics_test.cpp
+    tests/analysis/step_response_metrics_test.cpp
     tests/trajectory/scalar_trajectory_test.cpp
     tests/plant/first_order_test.cpp
     tests/plant/second_order_test.cpp
@@ -87,6 +88,8 @@ if(MCA_BUILD_BENCHMARKS)
     target_link_libraries(mca_state_observer_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_scalar_trajectory_benchmark benchmarks/scalar_trajectory_benchmark.cpp)
     target_link_libraries(mca_scalar_trajectory_benchmark PRIVATE mca_core benchmark::benchmark)
+    add_executable(mca_step_response_metrics_benchmark benchmarks/step_response_metrics_benchmark.cpp)
+    target_link_libraries(mca_step_response_metrics_benchmark PRIVATE mca_core benchmark::benchmark)
   endif()
 endif()
 

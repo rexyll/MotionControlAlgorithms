@@ -85,6 +85,8 @@ if(MCA_BUILD_BENCHMARKS)
     target_link_libraries(mca_disturbance_observer_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_state_observer_benchmark benchmarks/state_observer_benchmark.cpp)
     target_link_libraries(mca_state_observer_benchmark PRIVATE mca_core benchmark::benchmark)
+    add_executable(mca_scalar_trajectory_benchmark benchmarks/scalar_trajectory_benchmark.cpp)
+    target_link_libraries(mca_scalar_trajectory_benchmark PRIVATE mca_core benchmark::benchmark)
   endif()
 endif()
 

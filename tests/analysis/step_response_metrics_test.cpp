@@ -13,8 +13,7 @@ TEST(StepResponseMetrics, PositiveStepOvershootAndSettling) {
 
   mca::analysis::StepResponseMetrics metrics;
   ASSERT_TRUE(mca::analysis::compute_step_response_metrics(
-                  time, value, 5U, 0.0, 1.0, 0.02, 0.1, metrics)
-                  .ok());
+                  time, value, 5U, 0.0, 1.0, 0.02, 0.1, metrics).ok());
   EXPECT_NEAR(metrics.overshoot_fraction, 0.1, 1e-12);
   EXPECT_NEAR(metrics.overshoot_percent, 10.0, 1e-12);
   EXPECT_NEAR(metrics.peak_value, 1.1, 1e-12);
@@ -29,8 +28,7 @@ TEST(StepResponseMetrics, NegativeStepUsesStepDirection) {
 
   mca::analysis::StepResponseMetrics metrics;
   ASSERT_TRUE(mca::analysis::compute_step_response_metrics(
-                  time, value, 5U, 1.0, 0.0, 0.02, 0.1, metrics)
-                  .ok());
+                  time, value, 5U, 1.0, 0.0, 0.02, 0.1, metrics).ok());
   EXPECT_NEAR(metrics.overshoot_fraction, 0.1, 1e-12);
   EXPECT_NEAR(metrics.peak_value, -0.1, 1e-12);
   EXPECT_NEAR(metrics.peak_time_s, 0.1, 1e-12);
@@ -44,8 +42,7 @@ TEST(StepResponseMetrics, NoOvershootAndExactBoundaryCanSettle) {
 
   mca::analysis::StepResponseMetrics metrics;
   ASSERT_TRUE(mca::analysis::compute_step_response_metrics(
-                  time, value, 4U, 0.0, 1.0, 0.02, 0.1, metrics)
-                  .ok());
+                  time, value, 4U, 0.0, 1.0, 0.02, 0.1, metrics).ok());
   EXPECT_DOUBLE_EQ(metrics.overshoot_fraction, 0.0);
   EXPECT_TRUE(metrics.settled);
   EXPECT_NEAR(metrics.settling_time_s, 0.1, 1e-12);
@@ -57,8 +54,7 @@ TEST(StepResponseMetrics, LaterExcursionInvalidatesEarlierSettling) {
 
   mca::analysis::StepResponseMetrics metrics;
   ASSERT_TRUE(mca::analysis::compute_step_response_metrics(
-                  time, value, 5U, 0.0, 1.0, 0.02, 0.1, metrics)
-                  .ok());
+                  time, value, 5U, 0.0, 1.0, 0.02, 0.1, metrics).ok());
   EXPECT_FALSE(metrics.settled);
   EXPECT_TRUE(std::isnan(metrics.settling_time_s));
 }
@@ -69,10 +65,11 @@ TEST(StepResponseMetrics, NonuniformTimeSpacingIsSupported) {
 
   mca::analysis::StepResponseMetrics metrics;
   ASSERT_TRUE(mca::analysis::compute_step_response_metrics(
-                  time, value, 4U, 0.0, 1.0, 0.02, 0.15, metrics)
-                  .ok());
+                  time, value, 4U, 0.0, 1.0, 0.02, 0.15, metrics).ok());
   EXPECT_TRUE(metrics.settled);
-  EXPECT_NEAR(metrics.settling_time_s, 0.13, 1e-12);
+  // 0.07 is the earliest sample that remains in-band for the required
+  // 0.15 s and remains in-band through the end of the supplied data.
+  EXPECT_NEAR(metrics.settling_time_s, 0.07, 1e-12);
 }
 
 TEST(StepResponseMetrics, NeverSettles) {
@@ -81,8 +78,7 @@ TEST(StepResponseMetrics, NeverSettles) {
 
   mca::analysis::StepResponseMetrics metrics;
   ASSERT_TRUE(mca::analysis::compute_step_response_metrics(
-                  time, value, 4U, 0.0, 1.0, 0.02, 0.05, metrics)
-                  .ok());
+                  time, value, 4U, 0.0, 1.0, 0.02, 0.05, metrics).ok());
   EXPECT_FALSE(metrics.settled);
   EXPECT_TRUE(std::isnan(metrics.settling_time_s));
 }
@@ -93,23 +89,19 @@ TEST(StepResponseMetrics, RejectsInvalidInput) {
   mca::analysis::StepResponseMetrics metrics;
 
   EXPECT_EQ(mca::analysis::compute_step_response_metrics(
-                nullptr, value, 2U, 0.0, 1.0, 0.02, 0.05, metrics)
-                .code,
+                nullptr, value, 2U, 0.0, 1.0, 0.02, 0.05, metrics).code,
             mca::core::StatusCode::InvalidArgument);
   EXPECT_EQ(mca::analysis::compute_step_response_metrics(
-                time, value, 2U, 1.0, 1.0, 0.02, 0.05, metrics)
-                .code,
+                time, value, 2U, 1.0, 1.0, 0.02, 0.05, metrics).code,
             mca::core::StatusCode::InvalidArgument);
   EXPECT_EQ(mca::analysis::compute_step_response_metrics(
-                time, value, 2U, 0.0, 1.0, 0.0, 0.05, metrics)
-                .code,
+                time, value, 2U, 0.0, 1.0, 0.0, 0.05, metrics).code,
             mca::core::StatusCode::InvalidArgument);
 
   const double bad_time[] = {0.0, 0.1, 0.1};
   const double bad_value[] = {0.0, 1.0, 1.0};
   EXPECT_EQ(mca::analysis::compute_step_response_metrics(
-                bad_time, bad_value, 3U, 0.0, 1.0, 0.02, 0.05, metrics)
-                .code,
+                bad_time, bad_value, 3U, 0.0, 1.0, 0.02, 0.05, metrics).code,
             mca::core::StatusCode::InvalidArgument);
 }
 

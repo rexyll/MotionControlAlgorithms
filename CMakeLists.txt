@@ -61,6 +61,7 @@ if(MCA_BUILD_TESTS)
     tests/experiment/single_axis_test.cpp
     tests/experiment/cascaded_servo_test.cpp
     tests/experiment/foc_current_test.cpp
+    tests/experiment/pid_feedforward_comparison_test.cpp
   )
   target_link_libraries(mca_core_tests PRIVATE mca_benchmark GTest::gtest_main)
   include(GoogleTest)
@@ -90,6 +91,8 @@ if(MCA_BUILD_BENCHMARKS)
     target_link_libraries(mca_scalar_trajectory_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_step_response_metrics_benchmark benchmarks/step_response_metrics_benchmark.cpp)
     target_link_libraries(mca_step_response_metrics_benchmark PRIVATE mca_core benchmark::benchmark)
+    add_executable(mca_pid_feedforward_comparison_benchmark benchmarks/pid_feedforward_comparison_benchmark.cpp)
+    target_link_libraries(mca_pid_feedforward_comparison_benchmark PRIVATE mca_core mca_benchmark benchmark::benchmark)
   endif()
 endif()
 

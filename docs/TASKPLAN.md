@@ -17,8 +17,8 @@ Acceptance: clean CMake configure/build/test on Linux and Windows; core has no R
 
 ## P1 — Single-axis and motor servo
 
-- [ ] P1-01 First/second-order plant models
-- [ ] [ ] P1-02 PID/PI/PD
+- [x] P1-01 First/second-order plant models (Run #174: Linux and Windows CI passed; analytical/reference tests, plant documentation, deterministic micro-benchmarks and CMake integration accepted)
+- [ ] P1-02 PID/PI/PD
 - [x] P1-03 Cascaded position/velocity/torque loops
 - [x] P1-04 DC motor model (Run #70: Linux and Windows CI passed; unit tests, deterministic servo experiment, and docs accepted)
 - [x] P1-05 BLDC/PMSM model (Run #79: Linux and Windows CI passed; phase-domain model, reference-oriented unit tests, and docs accepted)

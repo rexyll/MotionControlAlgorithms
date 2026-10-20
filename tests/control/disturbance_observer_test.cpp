@@ -46,14 +46,19 @@ TEST(DisturbanceObserver, EstimatesConstantModelResidual) {
   EXPECT_NEAR(output.estimated_disturbance_nm, 0.2, 0.002);
 }
 
-TEST(DisturbanceObserver, CompensationOpposesEstimatedDisturbance) {
+TEST(DisturbanceObserver, CompensationOpposesKnownPositiveDisturbance) {
   auto c = config();
-  c.filter_time_constant_s = 0.001;
+  c.viscous_damping_nm_per_rad_s = 0.0;
+  c.filter_time_constant_s = 1.0e-6;
   mca::control::DisturbanceObserver observer(c);
   mca::control::DisturbanceObserverOutput output;
-  ASSERT_TRUE(observer.reset(0.5, 0.0).ok());
-  ASSERT_TRUE(observer.update(1.2, 0.0, 0.001, output).ok());
-  EXPECT_NEAR(output.compensated_torque_nm, 0.7, 1e-12);
+  ASSERT_TRUE(observer.reset(0.0, 0.0).ok());
+
+  // A +0.5 Nm external disturbance gives +50 rad/s^2 acceleration for J=0.01.
+  ASSERT_TRUE(observer.update(0.0, 0.05, 0.001, output).ok());
+  EXPECT_NEAR(output.estimated_disturbance_nm, 0.5, 1e-9);
+  ASSERT_TRUE(observer.update(1.2, 0.05, 0.001, output).ok());
+  EXPECT_NEAR(output.compensated_torque_nm, 0.7, 1e-9);
 }
 
 TEST(DisturbanceObserver, AppliesEstimateLimits) {

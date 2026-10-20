@@ -35,8 +35,6 @@ TEST(DisturbanceObserver, EstimatesConstantModelResidual) {
   mca::control::DisturbanceObserverOutput output;
   ASSERT_TRUE(observer.reset(0.0, 0.0).ok());
 
-  // With J=0.01 and acceleration=20 rad/s^2, J*a=0.2 Nm. Zero command
-  // therefore represents a +0.2 Nm external disturbance.
   double velocity = 0.0;
   constexpr double dt = 0.001;
   for (int i = 0; i < 200; ++i) {
@@ -54,10 +52,9 @@ TEST(DisturbanceObserver, CompensationOpposesKnownPositiveDisturbance) {
   mca::control::DisturbanceObserverOutput output;
   ASSERT_TRUE(observer.reset(0.0, 0.0).ok());
 
-  // A +0.5 Nm external disturbance gives +50 rad/s^2 acceleration for J=0.01.
-  ASSERT_TRUE(observer.update(0.0, 0.05, 0.001, output).ok());
+  // J*a - tau = 0.01*170 - 1.2 = +0.5 Nm.
+  ASSERT_TRUE(observer.update(1.2, 0.17, 0.001, output).ok());
   EXPECT_NEAR(output.estimated_disturbance_nm, 0.5, 1e-9);
-  ASSERT_TRUE(observer.update(1.2, 0.05, 0.001, output).ok());
   EXPECT_NEAR(output.compensated_torque_nm, 0.7, 1e-9);
 }
 

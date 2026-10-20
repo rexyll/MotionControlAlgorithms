@@ -18,7 +18,7 @@ Acceptance: clean CMake configure/build/test on Linux and Windows; core has no R
 ## P1 — Single-axis and motor servo
 
 - [ ] P1-01 First/second-order plant models
-- [ ] P1-02 PID/PI/PD
+- [ ] [ ] P1-02 PID/PI/PD
 - [x] P1-03 Cascaded position/velocity/torque loops
 - [x] P1-04 DC motor model (Run #70: Linux and Windows CI passed; unit tests, deterministic servo experiment, and docs accepted)
 - [x] P1-05 BLDC/PMSM model (Run #79: Linux and Windows CI passed; phase-domain model, reference-oriented unit tests, and docs accepted)
@@ -31,7 +31,7 @@ Acceptance: clean CMake configure/build/test on Linux and Windows; core has no R
 - [x] P1-12 disturbance observer (Run #143: Linux and Windows CI passed; model-residual disturbance estimation, first-order filtering, compensation, limits, reset/validation tests, benchmark and docs accepted)
 - [x] P1-13 state observers (Run #148: Linux and Windows CI passed; second-order mechanical Luenberger observer, position/velocity/acceleration estimation, unit tests, benchmark and docs accepted)
 - [x] P1-14 Step/ramp/sine scalar trajectory generators (Run #153: Linux and Windows CI passed; step/ramp/sine analytic samples, edge-case/finite-output tests, benchmark and docs accepted)
-- [ ] P1-15 Step-response metrics: overshoot and settling time
+- [x] P1-15 Step-response metrics: overshoot and settling time (Run #163: Linux and Windows CI passed; normalized direction-aware overshoot, configurable tolerance/hold settling time, validation and nonuniform-sampling tests, benchmark and docs accepted)
 - [ ] P1-16 PID/PD + feedforward comparison runner
 
 Acceptance: analytical/reference tests pass; stable current, velocity and position tracking; controller benchmarks generated automatically. Step-response overshoot is normalized by step amplitude; settling uses a configurable tolerance band and hold duration.

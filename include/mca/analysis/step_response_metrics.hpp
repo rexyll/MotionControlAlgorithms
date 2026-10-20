@@ -10,29 +10,18 @@
 namespace mca::analysis {
 
 struct StepResponseMetrics {
-  // Peak overshoot as a fraction of the absolute step amplitude.
   double overshoot_fraction{0.0};
   double overshoot_percent{0.0};
   double peak_value{0.0};
   double peak_time_s{std::numeric_limits<double>::quiet_NaN()};
-
-  // Earliest time from which the response remains inside the settling band
-  // through the end of the supplied sample set and satisfies hold_time_s.
-  // NaN means the response did not settle in the supplied data.
   double settling_time_s{std::numeric_limits<double>::quiet_NaN()};
   bool settled{false};
 };
 
 // Evaluate a sampled scalar step response without allocating memory.
-//
-// The sample arrays must contain monotonically increasing finite timestamps
-// and finite response values. The step is defined by initial_value and
-// target_value; overshoot is normalized by abs(target - initial). For a
-// positive step, values above target are overshoot. For a negative step,
-// values below target are overshoot. Settling uses
-// abs(actual - target) <= tolerance_ratio * abs(target - initial), and the
-// response must remain in that band for at least hold_time_s and through the
-// end of the supplied samples.
+// Settling is the earliest sample time from which every subsequent sample
+// remains inside the tolerance band through the end of the supplied data,
+// with at least hold_time_s elapsed. Overshoot is normalized by step amplitude.
 inline core::Status compute_step_response_metrics(
     const double* times_s, const double* values, std::size_t sample_count,
     double initial_value, double target_value,
@@ -51,6 +40,10 @@ inline core::Status compute_step_response_metrics(
   const double step = target_value - initial_value;
   const double step_amplitude = std::abs(step);
   const double tolerance = tolerance_ratio * step_amplitude;
+  const double tolerance_margin =
+      32.0 * std::numeric_limits<double>::epsilon() *
+      std::max({1.0, std::abs(target_value), step_amplitude});
+  const double settling_limit = tolerance + tolerance_margin;
 
   double peak_overshoot = 0.0;
   double peak_value = values[0];
@@ -77,10 +70,8 @@ inline core::Status compute_step_response_metrics(
       peak_time = time;
     }
 
-    if (std::abs(value - target_value) <= tolerance) {
-      if (!core::is_finite(candidate_start)) {
-        candidate_start = time;
-      }
+    if (std::abs(value - target_value) <= settling_limit) {
+      if (!core::is_finite(candidate_start)) candidate_start = time;
       if (time - candidate_start >= hold_time_s) {
         settling_time = candidate_start;
         settled = true;

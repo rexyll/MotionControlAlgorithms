@@ -29,8 +29,8 @@ Acceptance: clean CMake configure/build/test on Linux and Windows; core has no R
 - [x] P1-10 SVPWM (Run #128: Linux and Windows CI passed; six-sector dwell computation, symmetric zero-vector allocation, linear modulation clamp, overmodulation reporting, unit tests, benchmark and docs accepted)
 - [x] P1-11 friction compensation (Run #134: Linux and Windows CI passed; static/Coulomb/viscous compensation, velocity deadband with requested-torque breakaway direction, output limits, unit tests, benchmark and docs accepted)
 - [x] P1-12 disturbance observer (Run #143: Linux and Windows CI passed; model-residual disturbance estimation, first-order filtering, compensation, limits, reset/validation tests, benchmark and docs accepted)
-- [ ] P1-13 state observers
-- [ ] P1-14 Step/ramp/sine scalar trajectory generators
+- [x] P1-13 state observers (Run #148: Linux and Windows CI passed; second-order mechanical Luenberger observer, position/velocity/acceleration estimation, unit tests, benchmark and docs accepted)
+- [x] P1-14 Step/ramp/sine scalar trajectory generators (Run #153: Linux and Windows CI passed; step/ramp/sine analytic samples, edge-case/finite-output tests, benchmark and docs accepted)
 - [ ] P1-15 Step-response metrics: overshoot and settling time
 - [ ] P1-16 PID/PD + feedforward comparison runner
 

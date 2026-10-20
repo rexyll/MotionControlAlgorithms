@@ -85,7 +85,8 @@ TEST(Svpwm, AxisAndSectorBoundaryDwellTimesAreConsistent) {
                               output)
                   .ok());
   EXPECT_EQ(output.sector, 2);
-  expect_near(output.t1_s, 0.0, 1e-12);
+  // At the start of sector 2, the second active vector has zero dwell.
+  expect_near(output.t2_s, 0.0, 1e-12);
   expect_near(output.t1_s + output.t2_s + output.t0_s, 0.001, 1e-12);
 }
 

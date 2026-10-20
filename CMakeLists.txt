@@ -49,6 +49,7 @@ if(MCA_BUILD_TESTS)
     tests/control/cascaded_servo_test.cpp
     tests/control/foc_current_test.cpp
     tests/control/pmsm_dq_feedforward_test.cpp
+    tests/control/svpwm_test.cpp
     tests/plant/dc_motor_test.cpp
     tests/plant/bldc_pmsm_test.cpp
     tests/plant/pmsm_dq_test.cpp
@@ -73,6 +74,8 @@ if(MCA_BUILD_BENCHMARKS)
     target_link_libraries(mca_foc_current_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_pmsm_dq_feedforward_benchmark benchmarks/pmsm_dq_feedforward_benchmark.cpp)
     target_link_libraries(mca_pmsm_dq_feedforward_benchmark PRIVATE mca_core benchmark::benchmark)
+    add_executable(mca_svpwm_benchmark benchmarks/svpwm_benchmark.cpp)
+    target_link_libraries(mca_svpwm_benchmark PRIVATE mca_core benchmark::benchmark)
   endif()
 endif()
 

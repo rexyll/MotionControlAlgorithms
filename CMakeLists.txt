@@ -93,6 +93,8 @@ if(MCA_BUILD_BENCHMARKS)
     target_link_libraries(mca_step_response_metrics_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_pid_feedforward_comparison_benchmark benchmarks/pid_feedforward_comparison_benchmark.cpp)
     target_link_libraries(mca_pid_feedforward_comparison_benchmark PRIVATE mca_core mca_benchmark benchmark::benchmark)
+    add_executable(mca_plant_models_benchmark benchmarks/plant_models_benchmark.cpp)
+    target_link_libraries(mca_plant_models_benchmark PRIVATE mca_core benchmark::benchmark)
   endif()
 endif()
 

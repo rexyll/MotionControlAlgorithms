@@ -1,4 +1,5 @@
 #include <cmath>
+#include <limits>
 #include <string>
 #include <vector>
 #include <gtest/gtest.h>
@@ -34,7 +35,7 @@ TEST(ForwardKinematicsTest, TwoLinkPlanarDhReference) {
   EXPECT_NEAR(result.pose.position.x, -0.5, 1e-10);
   EXPECT_NEAR(result.pose.position.y, 1.0, 1e-10);
   EXPECT_NEAR(result.pose.position.z, 0.0, 1e-10);
-  EXPECT_NEAR(result.link_poses.size(), 3U);
+  EXPECT_EQ(result.link_poses.size(), 3U);
 }
 
 TEST(ForwardKinematicsTest, FixedRevoluteAndPrismaticCoordinates) {

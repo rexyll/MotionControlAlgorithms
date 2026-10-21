@@ -85,7 +85,7 @@ Acceptance: waypoint, trajectory and disturbance benchmarks.
 
 ## P5 — Floating-base / legged robots
 
-- [ ] P5-01 floating-base state model
+- [ ] P5-01 floating-base state model (implementation, validation tests, benchmark and documentation added; dual-platform CI verification pending)
 - [ ] P5-02 contact model
 - [ ] P5-03 foot trajectory generation
 - [ ] P5-04 gait scheduler

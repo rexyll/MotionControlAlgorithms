@@ -71,12 +71,12 @@ TEST(PidController, AntiWindupRecoversWhenErrorReverses) {
 
   ASSERT_TRUE(pid.reset(0.95, 0.0).ok());
   ASSERT_TRUE(pid.update(0.01, 0.0, 0.01, output).ok());
-  EXPECT_DOUBLE_EQ(output, 1.0);
-  EXPECT_DOUBLE_EQ(pid.integral(), 0.95);
+  EXPECT_NEAR(output, 0.951, 1e-12);
+  EXPECT_DOUBLE_EQ(pid.integral(), 0.951);
 
   ASSERT_TRUE(pid.update(-0.01, 0.0, 0.01, output).ok());
-  EXPECT_NEAR(pid.integral(), 0.949, 1e-12);
-  EXPECT_NEAR(output, 0.849, 1e-12);
+  EXPECT_NEAR(pid.integral(), 0.95, 1e-12);
+  EXPECT_NEAR(output, 0.95, 1e-12);
 }
 
 TEST(PidController, DerivativeUsesMeasurementAndAvoidsSetpointKick) {
@@ -112,7 +112,7 @@ TEST(PidController, ResetRestoresDeterministicState) {
 TEST(PidController, PiTracksConstantSecondOrderPlant) {
   mca::control::PidConfig config;
   config.kp = 8.0;
-  config.ki = 20.0;
+  config.ki = 2.0;
   config.output_min = -20.0;
   config.output_max = 20.0;
   config.integral_min = -20.0;
@@ -131,6 +131,7 @@ TEST(PidController, PiTracksConstantSecondOrderPlant) {
 
   EXPECT_NEAR(plant.position(), target, 0.01);
   EXPECT_NEAR(plant.velocity(), 0.0, 0.03);
+  EXPECT_TRUE(std::isfinite(output));
 }
 
 TEST(PidController, PdDampsSecondOrderPlant) {

@@ -41,4 +41,4 @@ This implementation is a virtual Cartesian admittance filter/controller, not a c
 
 ## CI acceptance
 
-Cross-platform CI acceptance is pending.
+Cross-platform CI acceptance passed in Run #372: Linux and Windows Configure/Build/Test all succeeded on the commit containing the base-frame orientation regression test and overflowing-quaternion reset test.

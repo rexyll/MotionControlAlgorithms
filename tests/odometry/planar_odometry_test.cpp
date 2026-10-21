@@ -5,6 +5,10 @@
 
 #include "mca/odometry/planar_odometry.hpp"
 
+namespace {
+constexpr double kPi = 3.1415926535897932384626433832795;
+}
+
 TEST(PlanarOdometry, ResetAndStraightMotion) {
   mca::odometry::PlanarOdometry odometry;
   ASSERT_TRUE(odometry.reset({1.0, -2.0, 0.0}));
@@ -16,7 +20,7 @@ TEST(PlanarOdometry, ResetAndStraightMotion) {
 
 TEST(PlanarOdometry, RespectsInitialHeading) {
   mca::odometry::PlanarOdometry odometry;
-  ASSERT_TRUE(odometry.reset({0.0, 0.0, M_PI_2}));
+  ASSERT_TRUE(odometry.reset({0.0, 0.0, kPi / 2.0}));
   ASSERT_TRUE(odometry.update({2.0, 0.0, 0.0}, 0.5));
   EXPECT_NEAR(odometry.pose().x, 0.0, 1e-12);
   EXPECT_NEAR(odometry.pose().y, 1.0, 1e-12);

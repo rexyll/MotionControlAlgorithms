@@ -46,14 +46,14 @@ TEST(MecanumKinematics, PureRotationUsesExpectedSigns) {
 
 TEST(MecanumKinematics, ForwardMatchesAnalyticalModel) {
   const mca::kinematics::MecanumKinematics kinematics(0.1, 0.2, 0.2);
-  mca::kinematics::MecanumWheelSpeeds wheels{8.0, 12.0, 10.0, 14.0};
+  const mca::kinematics::MecanumWheelSpeeds wheels{8.0, 12.0, 10.0, 14.0};
   double linear_x = 0.0;
   double linear_y = 0.0;
   double angular_z = 0.0;
   ASSERT_TRUE(kinematics.forward(wheels, linear_x, linear_y, angular_z));
   EXPECT_NEAR(linear_x, 1.1, 1e-12);
-  EXPECT_NEAR(linear_y, 0.2, 1e-12);
-  EXPECT_NEAR(angular_z, 0.25, 1e-12);
+  EXPECT_NEAR(linear_y, 0.0, 1e-12);
+  EXPECT_NEAR(angular_z, 0.5, 1e-12);
 }
 
 TEST(MecanumKinematics, InverseAndForwardAreRoundTrip) {
@@ -78,6 +78,9 @@ TEST(MecanumKinematics, RejectsNonFiniteInputs) {
   const double nan = std::numeric_limits<double>::quiet_NaN();
   EXPECT_FALSE(kinematics.inverse(nan, 0.0, 0.0, wheels));
   EXPECT_FALSE(kinematics.inverse(0.0, nan, 0.0, wheels));
-  EXPECT_FALSE(kinematics.forward({nan, 0.0, 0.0, 0.0}, wheels.front_left,
-                                  wheels.front_right, wheels.rear_left));
+  double linear_x = 0.0;
+  double linear_y = 0.0;
+  double angular_z = 0.0;
+  EXPECT_FALSE(kinematics.forward({nan, 0.0, 0.0, 0.0}, linear_x, linear_y,
+                                  angular_z));
 }

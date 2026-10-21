@@ -13,4 +13,4 @@ Coefficients are computed once at construction. Sampling uses fixed scalar arith
 
 ## Verification
 
-GoogleTest covers cubic boundary values and an analytical midpoint, quintic six-boundary matching and rest-to-rest motion, endpoint clamping, non-positive duration, and finite interior samples. Dual-platform CI is pending.
+GoogleTest covers cubic boundary values and an analytical midpoint, quintic six-boundary matching and rest-to-rest motion, endpoint clamping, non-positive duration, and finite interior samples. Dual-platform Configure/Build/Test passed in [Run #315](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/39580038085), on implementation commit `36e2060bbe3548f071122006506ba9ec36ec331c`.

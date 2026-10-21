@@ -27,7 +27,7 @@ if(MCA_BUILD_TESTS)
     tests/dynamics/rigid_body_dynamics_test.cpp tests/dynamics/gravity_compensation_test.cpp tests/dynamics/computed_torque_test.cpp tests/kinematics/dh_urdf_model_test.cpp tests/kinematics/forward_kinematics_test.cpp tests/kinematics/numerical_ik_test.cpp tests/kinematics/damped_least_squares_ik_test.cpp tests/kinematics/jacobian_test.cpp tests/kinematics/singularity_metrics_test.cpp tests/experiment/wheel_robot_disturbance_test.cpp tests/odometry/planar_odometry_test.cpp tests/path_tracking/pure_pursuit_test.cpp
     tests/path_tracking/stanley_test.cpp tests/path_tracking/lqr_path_tracker_test.cpp tests/path_tracking/mpc_path_tracker_test.cpp
     tests/experiment/single_axis_test.cpp tests/experiment/cascaded_servo_test.cpp tests/experiment/foc_current_test.cpp
-    tests/experiment/pid_feedforward_comparison_test.cpp tests/geometry/se3_so3_test.cpp tests/uav/rigid_body_model_6d_test.cpp tests/uav/attitude_representation_test.cpp tests/uav/cascaded_position_attitude_pid_test.cpp tests/uav/geometric_attitude_controller_test.cpp tests/uav/lqr_position_controller_test.cpp tests/uav/mpc_position_controller_test.cpp tests/uav/quadrotor_mixer_test.cpp tests/legged/floating_base_state_test.cpp)
+    tests/experiment/pid_feedforward_comparison_test.cpp tests/geometry/se3_so3_test.cpp tests/uav/rigid_body_model_6d_test.cpp tests/uav/attitude_representation_test.cpp tests/uav/cascaded_position_attitude_pid_test.cpp tests/uav/geometric_attitude_controller_test.cpp tests/uav/lqr_position_controller_test.cpp tests/uav/mpc_position_controller_test.cpp tests/uav/quadrotor_mixer_test.cpp tests/legged/floating_base_state_test.cpp tests/legged/contact_model_test.cpp)
   target_link_libraries(mca_core_tests PRIVATE mca_benchmark GTest::gtest_main)
   include(GoogleTest)
   gtest_discover_tests(mca_core_tests)
@@ -113,6 +113,8 @@ if(MCA_BUILD_BENCHMARKS)
     target_link_libraries(mca_uav_quadrotor_mixer_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_floating_base_state_benchmark benchmarks/floating_base_state_benchmark.cpp)
     target_link_libraries(mca_floating_base_state_benchmark PRIVATE mca_core benchmark::benchmark)
+    add_executable(mca_contact_model_benchmark benchmarks/contact_model_benchmark.cpp)
+    target_link_libraries(mca_contact_model_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_dh_urdf_model_benchmark benchmarks/dh_urdf_model_benchmark.cpp)
     target_link_libraries(mca_dh_urdf_model_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_forward_kinematics_benchmark benchmarks/forward_kinematics_benchmark.cpp)

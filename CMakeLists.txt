@@ -1,38 +1,31 @@
 cmake_minimum_required(VERSION 3.20)
-project(MotionControlAlgorithms VERSION 0.1.0 LANGUAGES CXX)
+project(MotionControlAlgorithms LANGUAGES CXX)
 
 option(MCA_BUILD_TESTS "Build unit tests" ON)
-option(MCA_BUILD_BENCHMARKS "Build benchmarks" ON)
-option(MCA_ENABLE_WARNINGS "Enable strict compiler warnings" ON)
-set(MCA_EIGEN3_DIR "" CACHE PATH "Optional Eigen3 CMake package directory")
+option(MCA_BUILD_BENCHMARKS "Build benchmarks" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-if(MCA_EIGEN3_DIR)
-  list(PREPEND CMAKE_PREFIX_PATH "${MCA_EIGEN3_DIR}")
-endif()
-find_package(Eigen3 CONFIG REQUIRED)
-
 add_library(mca_core INTERFACE)
 target_include_directories(mca_core INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(mca_core INTERFACE Eigen3::Eigen)
-target_compile_features(mca_core INTERFACE cxx_std_17)
 
-add_library(mca_benchmark STATIC src/benchmark/metrics.cpp)
+target_compile_options(mca_core INTERFACE
+  $<$<CXX_COMPILER_ID:MSVC>:/W4 /permissive->
+  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -Wconversion -Wshadow>
+)
+
+add_library(mca_benchmark STATIC
+  src/benchmark/metrics.cpp
+)
+target_include_directories(mca_benchmark PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(mca_benchmark PUBLIC mca_core)
-target_compile_features(mca_benchmark PUBLIC cxx_std_17)
 
-if(MCA_ENABLE_WARNINGS)
-  if(MSVC)
-    target_compile_options(mca_core INTERFACE /W4 /permissive-)
-    target_compile_options(mca_benchmark PRIVATE /W4 /permissive-)
-  else()
-    target_compile_options(mca_core INTERFACE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
-    target_compile_options(mca_benchmark PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
-  endif()
-endif()
+target_compile_options(mca_benchmark PRIVATE
+  $<$<CXX_COMPILER_ID:MSVC>:/W4 /permissive->
+  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -Wconversion -Wshadow>
+)
 
 if(MCA_BUILD_TESTS)
   enable_testing()
@@ -61,6 +54,7 @@ if(MCA_BUILD_TESTS)
     tests/kinematics/differential_drive_test.cpp
     tests/kinematics/mecanum_test.cpp
     tests/odometry/planar_odometry_test.cpp
+    tests/path_tracking/pure_pursuit_test.cpp
     tests/experiment/single_axis_test.cpp
     tests/experiment/cascaded_servo_test.cpp
     tests/experiment/foc_current_test.cpp
@@ -106,6 +100,8 @@ if(MCA_BUILD_BENCHMARKS)
     target_link_libraries(mca_mecanum_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_planar_odometry_benchmark benchmarks/planar_odometry_benchmark.cpp)
     target_link_libraries(mca_planar_odometry_benchmark PRIVATE mca_core benchmark::benchmark)
+    add_executable(mca_pure_pursuit_benchmark benchmarks/pure_pursuit_benchmark.cpp)
+    target_link_libraries(mca_pure_pursuit_benchmark PRIVATE mca_core benchmark::benchmark)
   endif()
 endif()
 

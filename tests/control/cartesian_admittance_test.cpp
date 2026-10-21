@@ -89,6 +89,29 @@ TEST(CartesianAdmittanceTest, OrientationUsesExponentialMap) {
   EXPECT_NEAR(mca::geometry::log_so3(out_pose.rotation).z, 0.005, 1e-12);
 }
 
+TEST(CartesianAdmittanceTest, OrientationErrorRemainsInBaseFrameForRotatedCurrentPose) {
+  mca::control::CartesianAdmittance controller;
+  ASSERT_TRUE(controller.configure(ones(1.0), ones(0.0), ones(1.0), 0.01));
+
+  auto current = pose();
+  current.rotation = mca::geometry::axis_angle({0.0, 0.0, 1.0}, 0.5 * std::acos(-1.0));
+  ASSERT_TRUE(controller.reset(current));
+
+  const auto base_error = mca::geometry::axis_angle({1.0, 0.0, 0.0}, 0.4);
+  auto desired = current;
+  desired.rotation = mca::geometry::normalized(
+      mca::geometry::multiply(base_error, current.rotation));
+
+  Eigen::VectorXd zero = Eigen::VectorXd::Zero(6);
+  mca::geometry::Pose3D out_pose;
+  Eigen::VectorXd out_twist, out_acceleration;
+  ASSERT_TRUE(controller.update(desired, zero, zero, zero, out_pose, out_twist, out_acceleration));
+
+  EXPECT_NEAR(out_acceleration[3], 0.4, 1e-12);
+  EXPECT_NEAR(out_acceleration[4], 0.0, 1e-12);
+  EXPECT_NEAR(out_acceleration[5], 0.0, 1e-12);
+}
+
 TEST(CartesianAdmittanceTest, LimitsAreAppliedBeforeStateCommit) {
   mca::control::CartesianAdmittance controller;
   ASSERT_TRUE(controller.configure(ones(1.0), ones(0.0), ones(0.0), 0.1,

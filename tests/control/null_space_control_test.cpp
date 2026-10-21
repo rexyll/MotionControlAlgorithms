@@ -1,6 +1,8 @@
 #include "mca/control/null_space_control.hpp"
 
-#include <gtest/gtest.h>\n\n#include <limits>
+#include <gtest/gtest.h>
+
+#include <limits>
 
 TEST(NullSpaceControlTest, ProjectsSecondaryVelocityIntoExactNullSpace) {
   Eigen::MatrixXd jacobian(1, 3);

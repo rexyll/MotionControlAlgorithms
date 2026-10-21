@@ -60,6 +60,7 @@ TEST(SingularityMetricsTest, RejectsMalformedInputTransactionally) {
   EXPECT_FALSE(SingularityMetrics::solve(j, result, {}, &error));
   EXPECT_EQ(error, "Jacobian row size mismatch");
   EXPECT_EQ(result.numerical_rank, 42U);
+  for (auto& row : j.rows) row.assign(2U, 0.0);
   SingularityMetricsOptions bad; bad.relative_rank_tolerance = -1.0;
   EXPECT_FALSE(SingularityMetrics::solve(j, result, bad, &error));
   EXPECT_EQ(error, "invalid singularity metric options");

@@ -44,7 +44,7 @@ Acceptance: analytical/reference tests pass; stable current, velocity and positi
 - [x] P2-04 Pure Pursuit (Run #207: Linux and Windows CI passed; lookahead interpolation, vehicle-frame geometry, curvature/yaw-rate command, invalid-input handling, closed-loop lateral convergence, tests, benchmark, docs and CMake integration accepted)
 - [x] P2-05 Stanley (Run #213: Linux and Windows CI passed; nearest-segment projection, steering saturation, signed cross-track convention, closed-loop convergence, tests, benchmark, docs and CMake integration accepted)
 - [x] P2-06 LQR path tracking (Run #220: Linux and Windows CI passed; discrete-time kinematic-bicycle LQR with configuration-time Riccati iteration, steering saturation, nearest-segment geometry, closed-loop convergence tests, benchmark, docs and CMake integration accepted)
-- [ ] P2-07 MPC path tracking
+- [x] P2-07 MPC path tracking (Run #226: Linux and Windows Configure/Build/Test passed; finite-horizon linearized kinematic-bicycle MPC, projected-gradient steering optimization, closed-loop convergence tests, benchmark, docs and CMake integration accepted)
 - [ ] P2-08 Wheel command allocation
 - [ ] P2-09 disturbance/slip simulation
 

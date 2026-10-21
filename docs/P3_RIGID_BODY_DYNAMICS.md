@@ -23,4 +23,4 @@ This is a transparent reference implementation rather than a production real-tim
 
 ## Validation
 
-Tests use a one-link revolute arm with a point-mass COM to verify (M=mr^2), gravity generalized force, zero-velocity Coriolis behavior, added rotational inertia, and transactional invalid-input handling. CI acceptance is pending.
+Tests use a one-link revolute arm with a point-mass COM to verify (M=mr^2), gravity generalized force, zero-velocity Coriolis behavior, added rotational inertia, and transactional invalid-input handling. CI acceptance: Run #332 passed on both Linux and Windows (Configure/Build/Test); commit `b5fbba25138d20a854c6ec7d143daf75b72c8f2d`. Workflow: https://github.com/rexyll/MotionControlAlgorithms/actions/runs/39585979345.

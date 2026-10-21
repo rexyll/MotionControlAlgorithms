@@ -17,7 +17,7 @@ namespace mca::dynamics {
 struct LinkInertial {
   double mass{0.0};
   geometry::Vec3 center_of_mass{};
-  geometry::Mat3 inertia_at_com{};
+  geometry::Mat3 inertia_at_com{{0, 0, 0, 0, 0, 0, 0, 0, 0}};
 };
 
 class RigidBodyDynamics {
@@ -45,7 +45,7 @@ class RigidBodyDynamics {
     if (!valid_state(model, inertias, q, error)) return false;
     const Eigen::Index n = q.size();
     if (dq.size() != n || !dq.allFinite()) return fail("velocity vector is invalid", error);
-    Eigen::MatrixXd derivatives[n == 0 ? 1 : n];
+    std::vector<Eigen::MatrixXd> derivatives(static_cast<std::size_t>(n));
     constexpr double eps = 1e-5;
     for (Eigen::Index k = 0; k < n; ++k) {
       Eigen::VectorXd plus = q, minus = q;
@@ -54,7 +54,7 @@ class RigidBodyDynamics {
       Eigen::MatrixXd mp, mm;
       if (!compute_mass(model, inertias, plus, mp, error) ||
           !compute_mass(model, inertias, minus, mm, error)) return false;
-      derivatives[k] = (mp - mm) / (2.0 * eps);
+      derivatives[static_cast<std::size_t>(k)] = (mp - mm) / (2.0 * eps);
     }
     Eigen::VectorXd candidate = Eigen::VectorXd::Zero(n);
     for (Eigen::Index i = 0; i < n; ++i) {
@@ -62,7 +62,7 @@ class RigidBodyDynamics {
       for (Eigen::Index j = 0; j < n; ++j) {
         for (Eigen::Index k = 0; k < n; ++k) {
           const double gamma = 0.5 *
-              (derivatives[k](i, j) + derivatives[j](i, k) - derivatives[i](j, k));
+              (derivatives[static_cast<std::size_t>(k)](i, j) + derivatives[static_cast<std::size_t>(j)](i, k) - derivatives[static_cast<std::size_t>(i)](j, k));
           value += gamma * dq[j] * dq[k];
         }
       }
@@ -220,8 +220,9 @@ class RigidBodyDynamics {
         }
         ++qi;
       }
-      const Eigen::Matrix3d rotation = geometry::to_rotation_matrix(pose.rotation).v.size() == 9
-          ? Eigen::Matrix3d(geometry::to_rotation_matrix(pose.rotation).v.data()) : Eigen::Matrix3d::Identity();
+      const geometry::Mat3 rotation_geometry = geometry::to_rotation_matrix(pose.rotation);
+      Eigen::Matrix3d rotation;
+      for (int r=0;r<3;++r) for (int c=0;c<3;++c) rotation(r,c)=rotation_geometry(r,c);
       Eigen::Matrix3d ic;
       for (int r=0;r<3;++r) for (int c=0;c<3;++c) ic(r,c)=inertia.inertia_at_com(r,c);
       const Eigen::Matrix3d iw = rotation * ic * rotation.transpose();

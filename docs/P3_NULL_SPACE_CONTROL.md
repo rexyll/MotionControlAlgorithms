@@ -20,7 +20,7 @@ The static `compute` API accepts a finite non-empty Jacobian, a secondary veloci
 
 ## Tests and benchmark
 
-Reference tests cover an analytical one-row Jacobian, a redundant two-task/three-joint case, projector idempotence in the exact pseudoinverse mode, damped near-singular inputs, invalid-input state preservation, and damping validation. The benchmark repeatedly evaluates a deterministic 6-by-7 task Jacobian with damped pseudoinverse computation.
+Reference tests cover an analytical one-row Jacobian, a redundant two-task/three-joint case, projector idempotence in the exact pseudoinverse mode, explicit primary-task leakage checks (J·N ≈ 0), damped near-singular inputs, invalid-input state preservation, non-finite Jacobian rejection, and damping validation. The benchmark repeatedly evaluates a deterministic 6-by-7 task Jacobian with damped pseudoinverse computation.
 
 ## Safety and limitations
 

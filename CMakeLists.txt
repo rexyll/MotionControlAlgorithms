@@ -17,7 +17,7 @@ if(MCA_BUILD_TESTS)
   find_package(GTest REQUIRED)
   add_executable(mca_core_tests
     tests/core/math_test.cpp tests/core/types_test.cpp tests/benchmark/metrics_test.cpp tests/analysis/step_response_metrics_test.cpp
-    tests/trajectory/scalar_trajectory_test.cpp tests/trajectory/polynomial_trajectory_test.cpp tests/plant/first_order_test.cpp tests/plant/second_order_test.cpp tests/control/pid_test.cpp
+    tests/trajectory/scalar_trajectory_test.cpp tests/trajectory/polynomial_trajectory_test.cpp tests/trajectory/s_curve_trajectory_test.cpp tests/plant/first_order_test.cpp tests/plant/second_order_test.cpp tests/control/pid_test.cpp
     tests/control/feedforward_test.cpp tests/control/cascaded_servo_test.cpp tests/control/foc_current_test.cpp tests/control/pmsm_dq_feedforward_test.cpp
     tests/control/svpwm_test.cpp tests/control/friction_compensation_test.cpp tests/control/disturbance_observer_test.cpp tests/control/state_observer_test.cpp
     tests/plant/dc_motor_test.cpp tests/plant/bldc_pmsm_test.cpp tests/plant/pmsm_dq_test.cpp tests/transform/clarke_park_test.cpp
@@ -55,6 +55,8 @@ if(MCA_BUILD_BENCHMARKS)
     target_link_libraries(mca_scalar_trajectory_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_polynomial_trajectory_benchmark benchmarks/polynomial_trajectory_benchmark.cpp)
     target_link_libraries(mca_polynomial_trajectory_benchmark PRIVATE mca_core benchmark::benchmark)
+    add_executable(mca_s_curve_trajectory_benchmark benchmarks/s_curve_trajectory_benchmark.cpp)
+    target_link_libraries(mca_s_curve_trajectory_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_step_response_metrics_benchmark benchmarks/step_response_metrics_benchmark.cpp)
     target_link_libraries(mca_step_response_metrics_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_pid_feedforward_comparison_benchmark benchmarks/pid_feedforward_comparison_benchmark.cpp)

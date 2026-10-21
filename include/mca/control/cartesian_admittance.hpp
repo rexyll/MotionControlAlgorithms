@@ -95,11 +95,11 @@ class CartesianAdmittance {
     if (wrench_limits_.size() != 0) clamp_symmetric(wrench, wrench_limits_);
 
     const geometry::Vec3 position_error = desired_pose.position - commanded_pose_.position;
+    // R_desired * R_current^T is a base-frame orientation error. Its logarithm
+    // is already expressed in the base frame, so do not rotate it again.
     const geometry::Quaternion q_error = geometry::normalized(
         geometry::multiply(desired_pose.rotation, geometry::conjugate(commanded_pose_.rotation)));
-    const geometry::Vec3 orientation_error = geometry::log_so3(q_error);
-    const geometry::Vec3 orientation_error_base =
-        geometry::rotate(commanded_pose_.rotation, orientation_error);
+    const geometry::Vec3 orientation_error_base = geometry::log_so3(q_error);
 
     Eigen::VectorXd pose_error(6);
     pose_error << position_error.x, position_error.y, position_error.z,

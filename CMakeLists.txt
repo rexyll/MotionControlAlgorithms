@@ -56,6 +56,7 @@ if(MCA_BUILD_TESTS)
     tests/odometry/planar_odometry_test.cpp
     tests/path_tracking/pure_pursuit_test.cpp
     tests/path_tracking/stanley_test.cpp
+    tests/path_tracking/lqr_path_tracker_test.cpp
     tests/experiment/single_axis_test.cpp
     tests/experiment/cascaded_servo_test.cpp
     tests/experiment/foc_current_test.cpp
@@ -105,6 +106,8 @@ if(MCA_BUILD_BENCHMARKS)
     target_link_libraries(mca_pure_pursuit_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_stanley_benchmark benchmarks/stanley_benchmark.cpp)
     target_link_libraries(mca_stanley_benchmark PRIVATE mca_core benchmark::benchmark)
+    add_executable(mca_lqr_path_tracker_benchmark benchmarks/lqr_path_tracker_benchmark.cpp)
+    target_link_libraries(mca_lqr_path_tracker_benchmark PRIVATE mca_core benchmark::benchmark)
   endif()
 endif()
 

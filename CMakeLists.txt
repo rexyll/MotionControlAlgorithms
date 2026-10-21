@@ -22,7 +22,7 @@ if(MCA_BUILD_TESTS)
     tests/control/svpwm_test.cpp tests/control/friction_compensation_test.cpp tests/control/disturbance_observer_test.cpp tests/control/state_observer_test.cpp
     tests/plant/dc_motor_test.cpp tests/plant/bldc_pmsm_test.cpp tests/plant/pmsm_dq_test.cpp tests/transform/clarke_park_test.cpp
     tests/kinematics/differential_drive_test.cpp tests/kinematics/mecanum_test.cpp tests/kinematics/wheel_command_allocator_test.cpp
-    tests/kinematics/dh_urdf_model_test.cpp tests/kinematics/forward_kinematics_test.cpp tests/kinematics/numerical_ik_test.cpp tests/kinematics/damped_least_squares_ik_test.cpp tests/kinematics/jacobian_test.cpp tests/kinematics/singularity_metrics_test.cpp tests/experiment/wheel_robot_disturbance_test.cpp tests/odometry/planar_odometry_test.cpp tests/path_tracking/pure_pursuit_test.cpp
+    tests/dynamics/rigid_body_dynamics_test.cpp tests/kinematics/dh_urdf_model_test.cpp tests/kinematics/forward_kinematics_test.cpp tests/kinematics/numerical_ik_test.cpp tests/kinematics/damped_least_squares_ik_test.cpp tests/kinematics/jacobian_test.cpp tests/kinematics/singularity_metrics_test.cpp tests/experiment/wheel_robot_disturbance_test.cpp tests/odometry/planar_odometry_test.cpp tests/path_tracking/pure_pursuit_test.cpp
     tests/path_tracking/stanley_test.cpp tests/path_tracking/lqr_path_tracker_test.cpp tests/path_tracking/mpc_path_tracker_test.cpp
     tests/experiment/single_axis_test.cpp tests/experiment/cascaded_servo_test.cpp tests/experiment/foc_current_test.cpp
     tests/experiment/pid_feedforward_comparison_test.cpp tests/geometry/se3_so3_test.cpp)
@@ -83,6 +83,8 @@ if(MCA_BUILD_BENCHMARKS)
     target_link_libraries(mca_mpc_path_tracker_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_se3_so3_benchmark benchmarks/se3_so3_benchmark.cpp)
     target_link_libraries(mca_se3_so3_benchmark PRIVATE mca_core benchmark::benchmark)
+    add_executable(mca_rigid_body_dynamics_benchmark benchmarks/rigid_body_dynamics_benchmark.cpp)
+    target_link_libraries(mca_rigid_body_dynamics_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_dh_urdf_model_benchmark benchmarks/dh_urdf_model_benchmark.cpp)
     target_link_libraries(mca_dh_urdf_model_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_forward_kinematics_benchmark benchmarks/forward_kinematics_benchmark.cpp)

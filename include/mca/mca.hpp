@@ -17,3 +17,5 @@
 #include "mca/plant/first_order.hpp"
 #include "mca/plant/second_order.hpp"
 #include "mca/trajectory/scalar.hpp"
+
+#include "mca/legged/floating_base_state.hpp"

@@ -27,7 +27,7 @@ if(MCA_BUILD_TESTS)
     tests/dynamics/rigid_body_dynamics_test.cpp tests/dynamics/gravity_compensation_test.cpp tests/dynamics/computed_torque_test.cpp tests/kinematics/dh_urdf_model_test.cpp tests/kinematics/forward_kinematics_test.cpp tests/kinematics/numerical_ik_test.cpp tests/kinematics/damped_least_squares_ik_test.cpp tests/kinematics/jacobian_test.cpp tests/kinematics/singularity_metrics_test.cpp tests/experiment/wheel_robot_disturbance_test.cpp tests/odometry/planar_odometry_test.cpp tests/path_tracking/pure_pursuit_test.cpp
     tests/path_tracking/stanley_test.cpp tests/path_tracking/lqr_path_tracker_test.cpp tests/path_tracking/mpc_path_tracker_test.cpp
     tests/experiment/single_axis_test.cpp tests/experiment/cascaded_servo_test.cpp tests/experiment/foc_current_test.cpp
-    tests/experiment/pid_feedforward_comparison_test.cpp tests/geometry/se3_so3_test.cpp)
+    tests/experiment/pid_feedforward_comparison_test.cpp tests/geometry/se3_so3_test.cpp tests/uav/rigid_body_model_6d_test.cpp)
   target_link_libraries(mca_core_tests PRIVATE mca_benchmark GTest::gtest_main)
   include(GoogleTest)
   gtest_discover_tests(mca_core_tests)
@@ -99,6 +99,8 @@ if(MCA_BUILD_BENCHMARKS)
     target_link_libraries(mca_cartesian_admittance_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_null_space_control_benchmark benchmarks/null_space_control_benchmark.cpp)
     target_link_libraries(mca_null_space_control_benchmark PRIVATE mca_core benchmark::benchmark)
+    add_executable(mca_uav_rigid_body_model_6d_benchmark benchmarks/rigid_body_model_6d_benchmark.cpp)
+    target_link_libraries(mca_uav_rigid_body_model_6d_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_dh_urdf_model_benchmark benchmarks/dh_urdf_model_benchmark.cpp)
     target_link_libraries(mca_dh_urdf_model_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_forward_kinematics_benchmark benchmarks/forward_kinematics_benchmark.cpp)

@@ -16,7 +16,7 @@ enum class JointType { Fixed, Revolute, Continuous, Prismatic };
 enum class DhConvention { Standard };
 struct JointLimits { double lower{-std::numeric_limits<double>::infinity()}; double upper{std::numeric_limits<double>::infinity()}; double effort{std::numeric_limits<double>::infinity()}; double velocity{std::numeric_limits<double>::infinity()}; };
 struct DhParameter { std::string name{}; JointType type{JointType::Fixed}; double a{0}; double alpha{0}; double d{0}; double theta{0}; JointLimits limits{}; };
-struct RobotJoint { std::string name{}; std::string parent_link{}; std::string child_link{}; JointType type{JointType::Fixed}; geometry::Pose3D origin{}; geometry::Vec3 axis{0,0,1}; JointLimits limits{}; };
+struct RobotJoint { std::string name{}; std::string parent_link{}; std::string child_link{}; JointType type{JointType::Fixed}; geometry::Pose3D origin{}; geometry::Vec3 axis{0,0,1}; JointLimits limits{}; bool standard_dh{false}; double dh_a{0}; double dh_alpha{0}; double dh_d{0}; double dh_theta{0}; };
 
 struct RobotModel {
   std::string name{}; std::string root_link{}; std::string tip_link{}; std::vector<std::string> links{}; std::vector<RobotJoint> joints{}; DhConvention dh_convention{DhConvention::Standard};
@@ -47,7 +47,7 @@ class DhModelAdapter {
     if(root.empty()) return fail("root link is empty",error);
     if(ps.empty()) return fail("DH parameter list is empty",error);
     RobotModel c; c.name=name;c.root_link=root;c.links.push_back(root);std::string parent=root;
-    for(std::size_t i=0;i<ps.size();++i){const auto& p=ps[i];if(p.name.empty())return fail("DH joint name is empty",error);if(!finite(p.a)||!finite(p.alpha)||!finite(p.d)||!finite(p.theta))return fail("DH parameter is non-finite",error);if(!limits_valid(p.limits))return fail("invalid DH joint limits",error);RobotJoint j;j.name=p.name;j.parent_link=parent;j.child_link="link_"+std::to_string(i+1U);j.type=p.type;j.origin=dh_zero_configuration(p);j.limits=p.limits;c.joints.push_back(j);c.links.push_back(j.child_link);parent=j.child_link;}
+    for(std::size_t i=0;i<ps.size();++i){const auto& p=ps[i];if(p.name.empty())return fail("DH joint name is empty",error);if(!finite(p.a)||!finite(p.alpha)||!finite(p.d)||!finite(p.theta))return fail("DH parameter is non-finite",error);if(!limits_valid(p.limits))return fail("invalid DH joint limits",error);RobotJoint j;j.name=p.name;j.parent_link=parent;j.child_link="link_"+std::to_string(i+1U);j.type=p.type;j.origin=dh_zero_configuration(p);j.limits=p.limits;j.standard_dh=true;j.dh_a=p.a;j.dh_alpha=p.alpha;j.dh_d=p.d;j.dh_theta=p.theta;c.joints.push_back(j);c.links.push_back(j.child_link);parent=j.child_link;}
     c.tip_link=parent;if(!c.valid(error))return false;out=std::move(c);return true;
   }
   static geometry::Pose3D dh_zero_configuration(const DhParameter& p){const double ca=std::cos(p.alpha),sa=std::sin(p.alpha),ct=std::cos(p.theta),st=std::sin(p.theta);geometry::Pose3D pose;pose.position={p.a*ct,p.a*st,p.d};geometry::Mat3 r;r(0,0)=ct;r(0,1)=-st*ca;r(0,2)=st*sa;r(1,0)=st;r(1,1)=ct*ca;r(1,2)=-ct*sa;r(2,0)=0;r(2,1)=sa;r(2,2)=ca;pose.rotation=geometry::from_rotation_matrix(r);return pose;}

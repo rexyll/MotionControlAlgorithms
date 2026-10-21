@@ -16,7 +16,7 @@ Using base-frame ordering `[vx, vy, vz, wx, wy, wz]`:
 
 `R_next = Exp(dt omega_next) R`
 
-`M` is the positive diagonal virtual mass/inertia, while `K` and `D` are diagonal non-negative stiffness and damping coefficients. The orientation residual uses the existing SO(3) logarithm and the rotation update uses the existing SO(3) exponential map.
+`M` is the positive diagonal virtual mass/inertia, while `K` and `D` are diagonal non-negative stiffness and damping coefficients. The orientation residual is `Log(R_d R^T)`, whose rotation vector is already expressed in the base frame; it must not be rotated a second time. The rotation update uses the existing SO(3) exponential map.
 
 The commanded pose/twist are controller state. `reset()` initializes them explicitly, which makes startup and recovery deterministic.
 
@@ -28,6 +28,7 @@ Reference tests cover:
 - damping opposing commanded velocity;
 - stiffness returning the commanded state toward the desired pose;
 - orientation integration through the exponential map;
+- orientation error direction with a non-identity current orientation;
 - symmetric wrench, acceleration and velocity limits;
 - reset behavior and invalid-update state preservation;
 - invalid configuration rejection.

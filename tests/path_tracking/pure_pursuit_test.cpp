@@ -36,13 +36,13 @@ TEST(PurePursuit, StraightPathProducesZeroCurvature) {
   EXPECT_EQ(command.target_index, 1U);
 }
 
-TEST(PurePursuit, PositiveLateralErrorProducesPositiveTurn) {
+TEST(PurePursuit, PositiveLateralTargetProducesPositiveTurn) {
   PurePursuit controller;
   ASSERT_TRUE(controller.configure(PurePursuitConfig{2.0, 1.0}));
 
-  const std::vector<PathPoint2D> path{{0.0, 0.0}, {2.0, 0.0}, {4.0, 0.0}};
+  const std::vector<PathPoint2D> path{{0.0, 0.0}, {2.0, 1.0}, {4.0, 1.0}};
   PurePursuitCommand command;
-  ASSERT_TRUE(controller.compute(Pose2D{0.0, 0.5, 0.0}, path, command));
+  ASSERT_TRUE(controller.compute(Pose2D{0.0, 0.0, 0.0}, path, command));
 
   EXPECT_GT(command.curvature, 0.0);
   EXPECT_GT(command.angular_z, 0.0);
@@ -52,13 +52,13 @@ TEST(PurePursuit, VehicleHeadingRotatesTargetIntoVehicleFrame) {
   PurePursuit controller;
   ASSERT_TRUE(controller.configure(PurePursuitConfig{1.0, 2.0}));
 
-  const std::vector<PathPoint2D> path{{0.0, 0.0}, {0.0, 2.0}, {0.0, 4.0}};
+  const std::vector<PathPoint2D> path{{0.0, 0.0}, {1.0, 0.0}, {2.0, 0.0}};
   PurePursuitCommand command;
   ASSERT_TRUE(controller.compute(
       Pose2D{0.0, 0.0, 0.5 * std::acos(-1.0)}, path, command));
 
-  EXPECT_NEAR(command.curvature, 2.0, 1e-12);
-  EXPECT_NEAR(command.angular_z, 4.0, 1e-12);
+  EXPECT_NEAR(command.curvature, -2.0, 1e-12);
+  EXPECT_NEAR(command.angular_z, -4.0, 1e-12);
 }
 
 TEST(PurePursuit, LookaheadInterpolatesWithinPathSegment) {

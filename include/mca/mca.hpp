@@ -25,3 +25,4 @@
 #include "mca/legged/centroidal_dynamics.hpp"
 #include "mca/legged/whole_body_control.hpp"
 #include "mca/legged/qp_task_hierarchy.hpp"
+#include "mca/legged/joint_impedance_control.hpp"

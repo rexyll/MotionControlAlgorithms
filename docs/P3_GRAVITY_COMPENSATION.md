@@ -17,4 +17,4 @@ This is feedforward only, not a stabilizing feedback controller. Model errors, p
 
 ## Validation
 
-Reference tests cover analytical gravity output, scale behavior, saturation, empty limits, invalid options, and transactional output. Cross-platform CI acceptance is pending.
+Reference tests cover analytical gravity output, scale behavior, saturation, empty limits, invalid options, and transactional output. CI acceptance: Run #340 passed on both Linux and Windows (Configure/Build/Test); commit `c54eae9dbef086624a6c91e4e35f994a78dc1bea`. Workflow: https://github.com/rexyll/MotionControlAlgorithms/actions/runs/39587507504.

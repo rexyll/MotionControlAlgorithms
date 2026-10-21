@@ -12,8 +12,6 @@ using mca::uav::GeometricAttitudeController;
 using mca::uav::GeometricAttitudeControllerConfig;
 using mca::uav::GeometricAttitudeControllerInput;
 using mca::uav::GeometricAttitudeControllerOutput;
-constexpr double kPi = 3.14159265358979323846;
-
 GeometricAttitudeControllerConfig config() {
   GeometricAttitudeControllerConfig c;
   c.inertia_diagonal = {0.03, 0.04, 0.05};

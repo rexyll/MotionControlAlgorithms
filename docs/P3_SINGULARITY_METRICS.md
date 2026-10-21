@@ -13,4 +13,4 @@
 
 ## Verification
 
-Tests cover known diagonal singular values, exact rank deficiency, a six-row/seven-column Jacobian, option/input validation and transactional output behavior. Linux and Windows CI validation pending.
+Tests cover known diagonal singular values, exact rank deficiency, a six-row/seven-column Jacobian, option/input validation and transactional output behavior. Linux and Windows Configure/Build/Test passed in [Run #308](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/39578772426), on implementation commit `43e0067b1ef01d4b57eb2ebb50699e911fbc9ed4`.

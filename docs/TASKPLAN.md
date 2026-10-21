@@ -55,7 +55,7 @@ Acceptance: reproducible path tracking benchmark and controller comparison.
 - [x] P3-01 SE(3)/SO(3) utilities (Run #245: Linux and Windows Configure/Build/Test passed; SE(3)/SO(3) primitives, reference tests, benchmark and documentation accepted)
 - [x] P3-02 DH/URDF model adapter (Run #258: Linux and Windows Configure/Build/Test passed; standard DH serial-chain construction, dependency-free URDF parsing, joint limits/axes/origins, transactional validation, unit tests, benchmark and documentation accepted)
 - [x] P3-03 Forward kinematics (Run #274: Linux and Windows Configure/Build/Test passed; standard-DH and URDF composition, mixed fixed/revolute/prismatic chain, analytic reference tests, invalid-input transactional behavior, benchmark and documentation accepted)
-- [ ] P3-04 Numerical IK
+- [x] P3-04 Numerical IK (Run #283: Linux and Windows Configure/Build/Test passed; finite-difference pose Jacobian, SO(3) orientation residual, damped least-squares update, joint-step and joint-limit enforcement, explicit convergence/invalid/stalled/max-iteration statuses, unit tests, benchmark and documentation accepted)
 - [ ] P3-05 DLS IK
 - [ ] P3-06 Jacobian
 - [ ] P3-07 Singularity metrics

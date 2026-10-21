@@ -2,6 +2,7 @@
 
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 
 #include <algorithm>
 #include <cmath>

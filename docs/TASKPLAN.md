@@ -18,7 +18,7 @@ Acceptance: clean CMake configure/build/test on Linux and Windows; core has no R
 ## P1 — Single-axis and motor servo
 
 - [x] P1-01 First/second-order plant models (Run #174: Linux and Windows CI passed; analytical/reference tests, plant documentation, deterministic micro-benchmarks and CMake integration accepted)
-- [x] P1-02 PID/PI/PD (Run #179: Linux and Windows CI passed; PID/PI/PD unit/reference tests, saturation and conditional anti-windup, derivative-on-measurement, closed-loop tracking, documentation, deterministic benchmarks and CMake integration accepted)
+- [x] P1-02 PID/PI/PD (Run #186: Linux and Windows CI passed; PID/PI/PD unit/reference tests, saturation and conditional anti-windup, derivative-on-measurement, closed-loop tracking, documentation, deterministic benchmarks and CMake integration accepted)
 - [x] P1-03 Cascaded position/velocity/torque loops
 - [x] P1-04 DC motor model (Run #70: Linux and Windows CI passed; unit tests, deterministic servo experiment, and docs accepted)
 - [x] P1-05 BLDC/PMSM model (Run #79: Linux and Windows CI passed; phase-domain model, reference-oriented unit tests, and docs accepted)
@@ -38,7 +38,7 @@ Acceptance: analytical/reference tests pass; stable current, velocity and positi
 
 ## P2 — Wheel robots
 
-- [ ] P2-01 Differential-drive kinematics
+- [x] P2-01 Differential-drive kinematics (Run #186: Linux and Windows CI passed; forward/inverse wheel-speed mapping, geometry/input validation, unit tests, benchmark, documentation and CMake integration accepted)
 - [ ] P2-02 Omni/mecanum kinematics
 - [ ] P2-03 Odometry
 - [ ] P2-04 Pure Pursuit

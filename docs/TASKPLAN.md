@@ -78,7 +78,7 @@ Acceptance: FK/IK/Jacobian numerical validation; joint and Cartesian tracking be
 - [x] P4-03 cascaded position/attitude PID (Run #412: Linux and Windows Configure/Build/Test passed; six PID axes, gravity-compensated force conversion, yaw wrap handling, transactional validation, unit tests, benchmark and documentation accepted)
 - [x] P4-04 geometric attitude control (Run #420: Linux and Windows Configure/Build/Test passed; quaternion shortest-arc error, angular-rate feedback, diagonal-inertia gyroscopic compensation, feedforward torque, saturation, unit tests, benchmark and documentation accepted)
 - [x] P4-05 LQR position controller (Run #427: Linux and Windows Configure/Build/Test passed; discrete double-integrator model, configuration-time Riccati solution, world-frame acceleration feedback, per-axis saturation, unit/closed-loop tests, benchmark and documentation accepted)
-- [ ] P4-06 translational MPC (finite-horizon double-integrator prediction, projected-gradient acceleration optimization, fixed-capacity horizon buffers, per-axis saturation, tests/closed-loop test, benchmark and documentation added; CI verification pending)
+- [x] P4-06 translational MPC (Run #436: Linux and Windows Configure/Build/Test passed; finite-horizon double-integrator prediction, projected-gradient acceleration optimization, fixed-capacity horizon buffers, per-axis saturation, unit/closed-loop tests, benchmark and documentation accepted)
 - [ ] P4-07 thrust/mixer allocation
 
 Acceptance: waypoint, trajectory and disturbance benchmarks.

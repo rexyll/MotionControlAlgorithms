@@ -57,8 +57,8 @@ class QuadrotorMixer {
     }
 
     const double base = requested.thrust / 4.0;
-    const double roll = requested.torque.x / (2.0 * config_.arm_length);
-    const double pitch = requested.torque.y / (2.0 * config_.arm_length);
+    const double roll = requested.torque.x / (4.0 * config_.arm_length);
+    const double pitch = requested.torque.y / (4.0 * config_.arm_length);
     const double yaw = requested.torque.z / (4.0 * config_.yaw_torque_per_thrust);
     auto mix = [&](double scale) noexcept {
       return std::array<double, 4>{

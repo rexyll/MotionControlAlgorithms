@@ -6,7 +6,7 @@ The centroidal dynamics helper aggregates the resultant force and moment for a f
 
 All vectors are expressed in the world frame. The center of mass is `center_of_mass_world`; each applied force has a world-frame application point and force vector. Gravity is included separately and assumed to act through the center of mass, so it contributes no moment about the COM. `external_torque_world` is an additional free moment about the COM.
 
-For total mass (m), gravity (g), applied forces (F_i) at points (p_i), and COM position (c):
+For total mass \\(m\\), gravity \\(g\\), applied forces \\(F_i\\) at points \\(p_i\\), and COM position \\(c\\):
 
 - Net force and linear momentum rate: (F_{net} = \dot{P} = m g + \sum_i F_i).
 - COM acceleration: \(\ddot{c} = F_{net}/m\).

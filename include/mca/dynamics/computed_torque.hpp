@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include <utility>
+#include <vector>
 #include "mca/dynamics/rigid_body_dynamics.hpp"
 
 namespace mca::dynamics {

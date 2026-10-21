@@ -1,6 +1,6 @@
 #include "mca/control/null_space_control.hpp"
 
-#include <gtest/gtest.h>
+#include <gtest/gtest.h>\n\n#include <limits>
 
 TEST(NullSpaceControlTest, ProjectsSecondaryVelocityIntoExactNullSpace) {
   Eigen::MatrixXd jacobian(1, 3);
@@ -73,4 +73,34 @@ TEST(NullSpaceControlTest, RejectsInvalidDamping) {
   Eigen::VectorXd velocity;
   EXPECT_FALSE(mca::control::NullSpaceControl::compute(
       jacobian, secondary, projector, velocity, -0.1));
+}
+
+TEST(NullSpaceControlTest, ExactProjectorDoesNotLeakIntoPrimaryTask) {
+  Eigen::MatrixXd jacobian(2, 4);
+  jacobian << 1.0, 0.0, 0.0, 0.0,
+              0.0, 1.0, 0.0, 0.0;
+  Eigen::VectorXd secondary(4);
+  secondary << 2.0, -1.0, 3.0, 4.0;
+  Eigen::MatrixXd projector;
+  Eigen::VectorXd velocity;
+
+  ASSERT_TRUE(mca::control::NullSpaceControl::compute(
+      jacobian, secondary, projector, velocity));
+  EXPECT_TRUE((jacobian * projector).isApprox(
+      Eigen::MatrixXd::Zero(jacobian.rows(), jacobian.cols()), 1e-12));
+  EXPECT_TRUE((projector * projector).isApprox(projector, 1e-12));
+}
+
+TEST(NullSpaceControlTest, RejectsNonFiniteJacobianAndPreservesOutputs) {
+  Eigen::MatrixXd jacobian(1, 2);
+  jacobian << 1.0, std::numeric_limits<double>::infinity();
+  Eigen::VectorXd secondary(2);
+  secondary << 1.0, 2.0;
+  Eigen::MatrixXd projector = Eigen::MatrixXd::Constant(2, 2, 8.0);
+  Eigen::VectorXd velocity = Eigen::VectorXd::Constant(2, 9.0);
+
+  EXPECT_FALSE(mca::control::NullSpaceControl::compute(
+      jacobian, secondary, projector, velocity));
+  EXPECT_TRUE(projector.isApprox(Eigen::MatrixXd::Constant(2, 2, 8.0)));
+  EXPECT_TRUE(velocity.isApprox(Eigen::VectorXd::Constant(2, 9.0)));
 }

@@ -161,11 +161,13 @@ class CartesianAdmittance {
       value[i] = std::max(-limits[i], std::min(limits[i], value[i]));
   }
   static bool pose_finite(const geometry::Pose3D& pose) {
-    return std::isfinite(pose.position.x) && std::isfinite(pose.position.y) &&
-           std::isfinite(pose.position.z) && std::isfinite(pose.rotation.w) &&
-           std::isfinite(pose.rotation.x) && std::isfinite(pose.rotation.y) &&
-           std::isfinite(pose.rotation.z) &&
-           geometry::quaternion_norm(pose.rotation) > 1e-12;
+    if (!std::isfinite(pose.position.x) || !std::isfinite(pose.position.y) ||
+        !std::isfinite(pose.position.z) || !std::isfinite(pose.rotation.w) ||
+        !std::isfinite(pose.rotation.x) || !std::isfinite(pose.rotation.y) ||
+        !std::isfinite(pose.rotation.z))
+      return false;
+    const double rotation_norm = geometry::quaternion_norm(pose.rotation);
+    return std::isfinite(rotation_norm) && rotation_norm > 1e-12;
   }
   static bool fail(const char* message, std::string* error) {
     if (error) *error = message;

@@ -92,7 +92,7 @@ Acceptance: waypoint, trajectory and disturbance benchmarks.
 - [x] P5-05 centroidal dynamics (Run #487: Linux and Windows Configure/Build/Test passed; world-frame force aggregation, COM-relative moment arms, finite/positive-mass validation, transactional output, tests, benchmark and documentation accepted)
 - [x] P5-06 whole-body control (Run #495: Linux and Windows Configure/Build/Test passed; baseline task-wrench torque aggregation, feedforward/secondary torque composition, per-joint saturation, validation tests, benchmark and documentation accepted)
 - [x] P5-07 QP task hierarchy (Run #503: Linux and Windows Configure/Build/Test passed; weighted convex QP baseline with box constraints, projected-gradient solver, validation tests, benchmark and documentation accepted)
-- [ ] P5-08 joint impedance/torque control (joint-space spring-damper torque law, feedforward composition, per-joint saturation, validation tests, benchmark and documentation committed; dual-platform CI pending)
+- [x] P5-08 joint impedance/torque control (Run #505: Linux and Windows Configure/Build/Test passed; joint-space spring-damper torque law, feedforward composition, per-joint saturation, validation tests, benchmark and documentation accepted)
 - [ ] P5-09 locomotion MPC
 
 Acceptance: standing, walking and disturbance-recovery simulations.

@@ -108,7 +108,7 @@ class MpcPositionController {
     for (std::size_t axis = 0; axis < 3U; ++axis) {
       double cost = 0.0;
       if (!solve_axis(p0[axis], v0[axis], q[axis], qv[axis], r[axis],
-                      qt[axis], qvt[axis], correction[axis], cost)) {
+                      qt[axis], qvt[axis], limits[axis], correction[axis], cost)) {
         return {core::StatusCode::NumericalError};
       }
       total_cost += cost;
@@ -132,7 +132,7 @@ class MpcPositionController {
 
  private:
   bool solve_axis(double p0, double v0, double q, double qv, double r,
-                  double qt, double qvt, double& first_control,
+                  double qt, double qvt, double control_limit, double& first_control,
                   double& final_cost) const noexcept {
     const std::size_t n = config_.horizon;
     const double dt = config_.sample_time;
@@ -173,7 +173,7 @@ class MpcPositionController {
       (void)evaluate(true);
       for (std::size_t k = 0; k < n; ++k) {
         u[k] = clamp(u[k] - config_.gradient_step * grad[k],
-                     -config_.max_acceleration.x, config_.max_acceleration.x);
+                     -control_limit, control_limit);
         if (!core::is_finite(u[k]) || !core::is_finite(grad[k])) return false;
       }
     }

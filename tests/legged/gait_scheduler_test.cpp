@@ -13,14 +13,16 @@ using mca::legged::evaluate_gait;
 TEST(GaitScheduler, DefaultOffsetsProduceDiagonalPhasePairs) {
   GaitSchedulerParameters p;
   GaitSchedulerOutput output;
-  ASSERT_TRUE(evaluate_gait(p, 0.0, output));
+  // Sample after the cycle starts: with a 0.6 duty factor, phase 0.0 and
+  // phase 0.5 are both in stance, so t=0 cannot distinguish the diagonal pair.
+  ASSERT_TRUE(evaluate_gait(p, 0.075, output));
   ASSERT_EQ(output.legs.size(), 4U);
   EXPECT_TRUE(output.legs[0].in_stance);
   EXPECT_FALSE(output.legs[1].in_stance);
   EXPECT_FALSE(output.legs[2].in_stance);
   EXPECT_TRUE(output.legs[3].in_stance);
-  EXPECT_DOUBLE_EQ(output.legs[0].cycle_phase, 0.0);
-  EXPECT_DOUBLE_EQ(output.legs[1].cycle_phase, 0.5);
+  EXPECT_NEAR(output.legs[0].cycle_phase, 0.15, 1e-12);
+  EXPECT_NEAR(output.legs[1].cycle_phase, 0.65, 1e-12);
 }
 
 TEST(GaitScheduler, PhaseWrapsForPositiveAndNegativeTime) {

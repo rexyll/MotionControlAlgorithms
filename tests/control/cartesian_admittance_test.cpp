@@ -150,6 +150,17 @@ TEST(CartesianAdmittanceTest, ResetAndInvalidUpdatePreserveState) {
   EXPECT_TRUE(controller.commanded_twist().isApprox(zero));
 }
 
+TEST(CartesianAdmittanceTest, ResetRejectsOverflowingQuaternionWithoutChangingState) {
+  mca::control::CartesianAdmittance controller;
+  ASSERT_TRUE(controller.configure(ones(1.0), ones(0.0), ones(0.0), 0.01));
+  ASSERT_TRUE(controller.reset(pose(0.25)));
+
+  auto invalid_pose = pose(9.0);
+  invalid_pose.rotation = {1e308, 1e308, 0.0, 0.0};
+  EXPECT_FALSE(controller.reset(invalid_pose));
+  EXPECT_DOUBLE_EQ(controller.commanded_pose().position.x, 0.25);
+}
+
 TEST(CartesianAdmittanceTest, InvalidConfigurationIsRejected) {
   mca::control::CartesianAdmittance controller;
   EXPECT_FALSE(controller.configure(ones(0.0), ones(1.0), ones(1.0), 0.01));

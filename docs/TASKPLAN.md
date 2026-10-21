@@ -39,7 +39,7 @@ Acceptance: analytical/reference tests pass; stable current, velocity and positi
 ## P2 — Wheel robots
 
 - [x] P2-01 Differential-drive kinematics (Run #186: Linux and Windows CI passed; forward/inverse wheel-speed mapping, geometry/input validation, unit tests, benchmark, documentation and CMake integration accepted)
-- [ ] P2-02 Omni/mecanum kinematics
+- [x] P2-02 Omni/mecanum kinematics (Run #193: Linux and Windows CI passed; standard X-roller mecanum forward/inverse mapping, geometry/input validation, unit tests, benchmark, documentation and CMake integration accepted)
 - [ ] P2-03 Odometry
 - [ ] P2-04 Pure Pursuit
 - [ ] P2-05 Stanley

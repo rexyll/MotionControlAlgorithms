@@ -2,9 +2,11 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <functional>
 #include <cstddef>
 #include <limits>
 #include <string>
+#include <utility>
 #include <vector>
 #include "mca/kinematics/jacobian.hpp"
 

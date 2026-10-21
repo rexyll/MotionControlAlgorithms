@@ -87,7 +87,7 @@ Acceptance: waypoint, trajectory and disturbance benchmarks.
 
 - [x] P5-01 floating-base state model (Run #453: Linux and Windows Configure/Build/Test passed; state conventions, joint dimension/finite-value/quaternion validation, tests, benchmark and documentation accepted)
 - [x] P5-02 contact model (Run #460: Linux and Windows Configure/Build/Test passed; unilateral plane point-contact penalty law, regularized Coulomb friction, validation tests, benchmark and documentation accepted)
-- [ ] P5-03 foot trajectory generation
+- [ ] P5-03 foot trajectory generation (quintic smoothstep swing path, world-Z clearance arc, position/velocity/acceleration samples, endpoint and invalid-input tests, benchmark and documentation added; dual-platform CI verification pending)
 - [ ] P5-04 gait scheduler
 - [ ] P5-05 centroidal dynamics
 - [ ] P5-06 whole-body control

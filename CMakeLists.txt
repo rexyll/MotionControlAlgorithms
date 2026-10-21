@@ -54,6 +54,7 @@ if(MCA_BUILD_TESTS)
     tests/kinematics/differential_drive_test.cpp
     tests/kinematics/mecanum_test.cpp
     tests/kinematics/wheel_command_allocator_test.cpp
+    tests/experiment/wheel_robot_disturbance_test.cpp
     tests/odometry/planar_odometry_test.cpp
     tests/path_tracking/pure_pursuit_test.cpp
     tests/path_tracking/stanley_test.cpp
@@ -104,6 +105,8 @@ if(MCA_BUILD_BENCHMARKS)
     target_link_libraries(mca_mecanum_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_wheel_command_allocator_benchmark benchmarks/wheel_command_allocator_benchmark.cpp)
     target_link_libraries(mca_wheel_command_allocator_benchmark PRIVATE mca_core benchmark::benchmark)
+    add_executable(mca_wheel_robot_disturbance_benchmark benchmarks/wheel_robot_disturbance_benchmark.cpp)
+    target_link_libraries(mca_wheel_robot_disturbance_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_planar_odometry_benchmark benchmarks/planar_odometry_benchmark.cpp)
     target_link_libraries(mca_planar_odometry_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_pure_pursuit_benchmark benchmarks/pure_pursuit_benchmark.cpp)

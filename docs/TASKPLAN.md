@@ -73,7 +73,7 @@ Acceptance: FK/IK/Jacobian numerical validation; joint and Cartesian tracking be
 
 ## P4 — UAV
 
-- [ ] P4-01 6DOF rigid-body model
+- [ ] P4-01 6DOF rigid-body model (implementation in progress: Newton-Euler state derivative, frame/unit documentation, reference tests and deterministic benchmark added; Linux/Windows CI pending)
 - [ ] P4-02 attitude representations
 - [ ] P4-03 cascaded position/attitude PID
 - [ ] P4-04 geometric attitude control

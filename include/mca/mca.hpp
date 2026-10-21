@@ -20,3 +20,4 @@
 
 #include "mca/legged/floating_base_state.hpp"
 #include "mca/legged/contact_model.hpp"
+#include "mca/legged/foot_trajectory.hpp"

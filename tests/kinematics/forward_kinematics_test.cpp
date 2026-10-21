@@ -63,6 +63,7 @@ TEST(ForwardKinematicsTest, FixedRevoluteAndPrismaticCoordinates) {
   mca::kinematics::RobotJoint revolute;
   revolute.name = "rot"; revolute.parent_link = "fixed"; revolute.child_link = "revolute";
   revolute.type = JointType::Revolute; revolute.origin.position = {1.0, 0.0, 0.0};
+  revolute.axis = {0.0, 0.0, 1.0};
   mca::kinematics::RobotJoint prismatic;
   prismatic.name = "slide"; prismatic.parent_link = "revolute"; prismatic.child_link = "tip";
   prismatic.type = JointType::Prismatic; prismatic.origin.position = {0.0, 0.0, 0.0};

@@ -46,7 +46,7 @@ Acceptance: analytical/reference tests pass; stable current, velocity and positi
 - [x] P2-06 LQR path tracking (Run #220: Linux and Windows CI passed; discrete-time kinematic-bicycle LQR with configuration-time Riccati iteration, steering saturation, nearest-segment geometry, closed-loop convergence tests, benchmark, docs and CMake integration accepted)
 - [x] P2-07 MPC path tracking (Run #226: Linux and Windows Configure/Build/Test passed; finite-horizon linearized kinematic-bicycle MPC, projected-gradient steering optimization, closed-loop convergence tests, benchmark, docs and CMake integration accepted)
 - [x] P2-08 Wheel command allocation (Run #233: Linux and Windows Configure/Build/Test passed; fixed-size proportional wheel-speed limiting, heterogeneous per-wheel bounds, transactional validation, unit tests, benchmark, docs and CMake integration accepted)
-- [ ] P2-09 disturbance/slip simulation
+- [ ] P2-09 disturbance/slip simulation (in progress: deterministic per-axis slip attenuation and sinusoidal disturbance model, tests, benchmark, docs and CMake registration submitted; pending Linux/Windows CI acceptance)
 
 Acceptance: reproducible path tracking benchmark and controller comparison.
 

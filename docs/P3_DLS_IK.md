@@ -17,4 +17,4 @@ Damping adaptation is a bounded backtracking strategy, not a proof of global con
 
 ## Verification
 
-Tests cover a reachable one-joint target, convergence on a two-joint chain, joint-limit enforcement for an unreachable target, and invalid damping configuration. Linux and Windows CI results are tracked by the P3-05 workflow runs.
+Tests cover a reachable one-joint target, convergence on a two-joint chain, near-singular convergence, joint-limit enforcement for an unreachable target, and invalid damping configuration. Linux and Windows Configure/Build/Test passed in [GitHub Actions Run #291](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/39569416658), commit `089d4c0465828c0095905aed87f64e3eab113da9`.

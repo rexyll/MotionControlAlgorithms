@@ -63,7 +63,7 @@ Acceptance: reproducible path tracking benchmark and controller comparison.
 - [x] P3-09 S-curve trajectory (Run #321: Linux and Windows Configure/Build/Test passed; seven-phase jerk-limited profile, reverse/short/cruise/invalid-input tests, benchmark, documentation and CMake integration accepted)
 - [x] P3-10 rigid-body dynamics (Run #332: Linux and Windows Configure/Build/Test passed; mass matrix, Coriolis/centrifugal vector, gravity and bias-force reference implementation, analytical tests, benchmark, documentation and CMake integration accepted)
 - [x] P3-11 gravity compensation (Run #340: Linux and Windows Configure/Build/Test passed; gravity feedforward scaling, per-joint limits, transactional validation, reference tests, benchmark, docs and CMake integration accepted)
-- [ ] P3-12 computed torque
+- [x] P3-12 computed torque (Run #348: Linux and Windows Configure/Build/Test passed; model-based joint-space computed torque, PD feedback, torque saturation, transactional validation, analytical/reference tests, benchmark and documentation accepted)
 - [ ] P3-13 Cartesian control
 - [ ] P3-14 impedance control
 - [ ] P3-15 admittance control

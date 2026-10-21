@@ -3,6 +3,7 @@
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
 
+#include <algorithm>
 #include <cmath>
 #include <string>
 

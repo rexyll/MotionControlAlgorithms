@@ -36,6 +36,21 @@ TEST(DampedLeastSquaresIkTest, ReducesResidualOnTwoJointChain) {
   EXPECT_LT(result.orientation_error, 1e-4);
 }
 
+TEST(DampedLeastSquaresIkTest, HandlesNearSingularStraightConfiguration) {
+  DhParameter a; a.name = "a"; a.type = JointType::Revolute; a.a = 1.0;
+  DhParameter b; b.name = "b"; b.type = JointType::Revolute; b.a = 0.7;
+  RobotModel model;
+  ASSERT_TRUE(DhModelAdapter::build("two", "base", {a, b}, model));
+  ForwardKinematicsResult target;
+  ASSERT_TRUE(ForwardKinematics::solve(model, {0.04, -0.04}, target));
+  DampedLeastSquaresIkOptions options;
+  options.initial_damping = 0.05;
+  const auto result = DampedLeastSquaresIk::solve(model, target.pose, {0.0, 0.0}, options);
+  EXPECT_TRUE(result.converged()) << result.message;
+  EXPECT_LT(result.position_error, options.position_tolerance);
+  EXPECT_LT(result.orientation_error, options.orientation_tolerance);
+}
+
 TEST(DampedLeastSquaresIkTest, EnforcesJointLimitsForUnreachableTarget) {
   const auto model = one_joint_model(-0.2, 0.2);
   ForwardKinematicsResult target;

@@ -89,7 +89,7 @@ Acceptance: waypoint, trajectory and disturbance benchmarks.
 - [x] P5-02 contact model (Run #460: Linux and Windows Configure/Build/Test passed; unilateral plane point-contact penalty law, regularized Coulomb friction, validation tests, benchmark and documentation accepted)
 - [x] P5-03 foot trajectory generation (Run #469: Linux and Windows Configure/Build/Test passed; quintic smoothstep swing path, world-Z clearance arc, position/velocity/acceleration samples, endpoint and invalid-input tests, benchmark and documentation accepted)
 - [x] P5-04 gait scheduler (Run #478: Linux and Windows Configure/Build/Test passed; periodic per-leg stance/swing phase, negative-time/offset wrapping, normalized phase progress, validation and transactional failure tests, benchmark and documentation accepted)
-- [ ] P5-05 centroidal dynamics (initial force aggregation implementation, world-frame conventions, validation tests, benchmark and documentation added; dual-platform CI verification pending)
+- [x] P5-05 centroidal dynamics (Run #487: Linux and Windows Configure/Build/Test passed; world-frame force aggregation, COM-relative moment arms, finite/positive-mass validation, transactional output, tests, benchmark and documentation accepted)
 - [ ] P5-06 whole-body control
 - [ ] P5-07 QP task hierarchy
 - [ ] P5-08 joint impedance/torque control

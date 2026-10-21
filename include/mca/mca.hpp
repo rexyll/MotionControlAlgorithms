@@ -19,3 +19,4 @@
 #include "mca/trajectory/scalar.hpp"
 
 #include "mca/legged/floating_base_state.hpp"
+#include "mca/legged/contact_model.hpp"

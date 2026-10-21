@@ -115,8 +115,10 @@ class SingularityMetrics {
     candidate.singular = candidate.numerical_rank < n;
     if (!candidate.singular && candidate.minimum_singular_value > 0.0)
       candidate.condition_number = candidate.maximum_singular_value / candidate.minimum_singular_value;
-    else
+    else {
       candidate.condition_number = std::numeric_limits<double>::infinity();
+      candidate.manipulability = 0.0;
+    }
     if (!std::isfinite(candidate.manipulability)) return fail("manipulability overflowed", error);
     out = std::move(candidate);
     return true;

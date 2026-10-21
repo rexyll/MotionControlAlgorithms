@@ -20,4 +20,6 @@ with optional symmetric per-joint torque limits.
 
 Tests cover translational Jacobian-transpose mapping, orientation feedback with torque saturation, and transactional invalid-gain handling. The implementation intentionally uses the existing FK/Jacobian and SO(3) primitives and does not introduce a dynamics model. It is therefore a task-space PD/feedforward controller rather than full operational-space inverse-dynamics control. Torque limits are a software clamp, not a substitute for drive-level safety protections.
 
-Cross-platform CI acceptance is pending.
+## Acceptance
+
+Run #356 passed Linux and Windows Configure/Build/Test for commit `1aacad3420d910a81458b731035639167229ea6a`. This satisfies the cross-platform CI acceptance for P3-13; the task-plan entry is marked complete.urlGitHub Actions Run #356https://github.com/rexyll/MotionControlAlgorithms/actions/runs/39605269786

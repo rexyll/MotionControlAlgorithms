@@ -5,7 +5,11 @@
 namespace {
 void BM_NullSpaceControl(benchmark::State& state) {
   Eigen::MatrixXd jacobian(6, 7);
-  jacobian.setRandom();
+  jacobian.setZero();
+  for (Eigen::Index i = 0; i < 6; ++i) {
+    jacobian(i, i) = 1.0;
+    jacobian(i, 6) = 0.25;
+  }
   Eigen::VectorXd secondary(7);
   secondary.setOnes();
   Eigen::MatrixXd projector;

@@ -73,9 +73,9 @@ Acceptance: FK/IK/Jacobian numerical validation; joint and Cartesian tracking be
 
 ## P4 — UAV
 
-- [ ] P4-01 6DOF rigid-body model (implementation and tests are present; Eigen cross-product include fixed in `375d341`; latest commit still lacks a CI run, so Linux/Windows acceptance remains unverified)
-- [ ] P4-02 attitude representations (in progress: ZYX Euler/quaternion/rotation-matrix conversions, validation, transactional output behavior, tests and documentation added; CI verification pending)
-- [ ] P4-03 cascaded position/attitude PID
+- [x] P4-01 6DOF rigid-body model (Run #405: Linux and Windows Configure/Build/Test passed; Newton-Euler derivative, frame conventions, physical-parameter validation, transactional failure behavior, unit tests, benchmark and documentation accepted)
+- [x] P4-02 attitude representations (Run #405: Linux and Windows Configure/Build/Test passed; ZYX Euler/quaternion/rotation-matrix conversions, finite/rotation-matrix validation, transactional output behavior, unit tests and documentation accepted)
+- [ ] P4-03 cascaded position/attitude PID (implementation, tests, benchmark and documentation added; CI verification pending)
 - [ ] P4-04 geometric attitude control
 - [ ] P4-05 LQR
 - [ ] P4-06 MPC

@@ -16,4 +16,4 @@ This is a general iterative numerical solver, not a global planner. Convergence 
 
 ## Verification
 
-Unit tests cover a reachable analytic single-joint target, invalid coordinate/options, and iteration-limit handling. The algorithm is header-only and has no ROS 2/Gazebo dependency.
+Unit tests cover a reachable analytic single-joint target, wrong coordinate count, invalid solver options, iteration-limit reporting, joint-limit enforcement with an unreachable target, stalled status, and rejection of non-finite target poses. Linux and Windows Configure/Build/Test passed in GitHub Actions Run #283. The algorithm is header-only and has no ROS 2/Gazebo dependency.

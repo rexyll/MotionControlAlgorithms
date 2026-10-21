@@ -44,7 +44,7 @@ TEST(MpcPositionController, ZeroErrorPassesFeedforwardAndHasFiniteCost) {
 TEST(MpcPositionController, OptimizesTowardDesiredPosition) {
   MpcPositionController controller;
   auto config = MpcPositionControllerConfig{};
-  config.gradient_step = 0.001;
+  config.gradient_step = 0.005;
   ASSERT_TRUE(controller.configure(config).ok());
   MpcPositionControllerInput input;
   input.position_world = {1.0, -1.0, 0.5};
@@ -89,8 +89,8 @@ TEST(MpcPositionController, InvalidInputLeavesOutputUnchanged) {
 TEST(MpcPositionController, RecedingHorizonDoubleIntegratorReducesPositionError) {
   MpcPositionControllerConfig config;
   config.sample_time = 0.02;
-  config.horizon = 15U;
-  config.optimization_iterations = 100U;
+  config.horizon = 40U;
+  config.optimization_iterations = 160U;
   config.gradient_step = 0.001;
   config.max_acceleration = {3.0, 3.0, 3.0};
   MpcPositionController controller;

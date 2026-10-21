@@ -72,8 +72,10 @@ TEST(ForwardKinematicsTest, FixedRevoluteAndPrismaticCoordinates) {
 
   ForwardKinematicsResult result;
   ASSERT_TRUE(ForwardKinematics::solve(model, {kPi / 2.0, 0.25}, result));
-  EXPECT_NEAR(result.pose.position.x, 1.0, 1e-10);
-  EXPECT_NEAR(result.pose.position.y, 1.0, 1e-10);
+  // URDF joint origin translation is applied before the joint motion; the
+  // revolute joint rotates its child frame about the joint origin at x=2.
+  EXPECT_NEAR(result.pose.position.x, 2.0, 1e-10);
+  EXPECT_NEAR(result.pose.position.y, 0.0, 1e-10);
   EXPECT_NEAR(result.pose.position.z, 0.25, 1e-10);
 }
 

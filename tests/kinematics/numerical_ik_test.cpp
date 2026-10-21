@@ -52,7 +52,7 @@ TEST(NumericalIkTest, RejectsNonFiniteTargetAndInvalidOptions) {
   using namespace mca::kinematics;
   DhParameter p; p.name="j"; p.type=JointType::Revolute; p.a=1.0;
   RobotModel model; ASSERT_TRUE(DhModelAdapter::build("one","base",{p},model));
-  geometry::Pose3D target;
+  mca::geometry::Pose3D target;
   target.position.x=std::numeric_limits<double>::quiet_NaN();
   EXPECT_EQ(NumericalIk::solve(model,target,{0.0}).status,IkStatus::InvalidInput);
   NumericalIkOptions options; options.finite_difference_step=std::numeric_limits<double>::infinity();

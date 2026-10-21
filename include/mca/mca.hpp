@@ -24,3 +24,4 @@
 
 #include "mca/legged/gait_scheduler.hpp"
 #include "mca/legged/centroidal_dynamics.hpp"
+#include "mca/legged/whole_body_control.hpp"

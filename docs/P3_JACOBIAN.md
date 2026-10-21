@@ -15,4 +15,4 @@ The result maps joint rates to the base-frame end-effector twist locally. It is 
 
 ## Verification
 
-Analytical planar two-link values, a mixed fixed/revolute/prismatic chain with a rotated prismatic axis, and transactional invalid-input handling are covered by unit tests. Dual-platform CI validation is pending.
+Analytical planar two-link values, a mixed fixed/revolute/prismatic chain with a rotated prismatic axis, and transactional invalid-input handling are covered by unit tests. Linux and Windows Configure/Build/Test passed in [GitHub Actions Run #298](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/39573524210), commit `0dfb7b201e6249f6b7348645522a76c2a2280342`.

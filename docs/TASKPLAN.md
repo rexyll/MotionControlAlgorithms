@@ -57,7 +57,7 @@ Acceptance: reproducible path tracking benchmark and controller comparison.
 - [x] P3-03 Forward kinematics (Run #274: Linux and Windows Configure/Build/Test passed; standard-DH and URDF composition, mixed fixed/revolute/prismatic chain, analytic reference tests, invalid-input transactional behavior, benchmark and documentation accepted)
 - [x] P3-04 Numerical IK (Run #283: Linux and Windows Configure/Build/Test passed; finite-difference pose Jacobian, SO(3) orientation residual, damped least-squares update, joint-step and joint-limit enforcement, explicit convergence/invalid/stalled/max-iteration statuses, unit tests, benchmark and documentation accepted)
 - [x] P3-05 DLS IK (Run #291: Linux and Windows Configure/Build/Test passed; adaptive damping with accept/reject trials, near-singular convergence, joint-step and joint-limit enforcement, invalid-option handling, unit tests, benchmark, documentation and CMake integration accepted)
-- [ ] P3-06 Jacobian
+- [x] P3-06 Jacobian (Run #298: Linux and Windows Configure/Build/Test passed; analytical planar two-link reference, mixed fixed/revolute/prismatic chain, rotated URDF axis, transactional invalid-input behavior, benchmark, docs and CMake integration accepted)
 - [ ] P3-07 Singularity metrics
 - [ ] P3-08 Cubic/quintic trajectory
 - [ ] P3-09 S-curve trajectory

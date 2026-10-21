@@ -60,6 +60,7 @@ if(MCA_BUILD_TESTS)
     tests/transform/clarke_park_test.cpp
     tests/kinematics/differential_drive_test.cpp
     tests/kinematics/mecanum_test.cpp
+    tests/odometry/planar_odometry_test.cpp
     tests/experiment/single_axis_test.cpp
     tests/experiment/cascaded_servo_test.cpp
     tests/experiment/foc_current_test.cpp
@@ -103,6 +104,8 @@ if(MCA_BUILD_BENCHMARKS)
     target_link_libraries(mca_differential_drive_benchmark PRIVATE mca_core benchmark::benchmark)
     add_executable(mca_mecanum_benchmark benchmarks/mecanum_benchmark.cpp)
     target_link_libraries(mca_mecanum_benchmark PRIVATE mca_core benchmark::benchmark)
+    add_executable(mca_planar_odometry_benchmark benchmarks/planar_odometry_benchmark.cpp)
+    target_link_libraries(mca_planar_odometry_benchmark PRIVATE mca_core benchmark::benchmark)
   endif()
 endif()
 

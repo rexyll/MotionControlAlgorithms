@@ -16,7 +16,7 @@ using dynamics::LinkInertial;
 using dynamics::RigidBodyDynamics;
 
 RobotModel one_link() {
-  DhParameter p; p.name = "joint"; p.type = JointType::Revolute; p.a = 1.0;
+  DhParameter p; p.name = "joint"; p.type = JointType::Revolute; p.a = 0.0;
   RobotModel model; EXPECT_TRUE(DhModelAdapter::build("one", "base", {p}, model));
   return model;
 }

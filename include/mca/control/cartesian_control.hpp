@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <algorithm>
 #include <cmath>
 #include <string>
 #include <utility>
@@ -61,7 +62,8 @@ class CartesianControl {
 
     Eigen::MatrixXd J(6, n);
     for (Eigen::Index c = 0; c < n; ++c)
-      for (Eigen::Index r = 0; r < 6; ++r) J(r, c) = jacobian.rows[static_cast<std::size_t>(r)][static_cast<std::size_t>(c)];
+      for (Eigen::Index r = 0; r < 6; ++r)
+        J(r, c) = jacobian.rows[static_cast<std::size_t>(r)][static_cast<std::size_t>(c)];
     const Eigen::VectorXd twist = J * dq;
     if (!twist.allFinite()) return fail("Cartesian-control twist is non-finite", error);
 

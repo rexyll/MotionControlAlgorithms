@@ -68,20 +68,32 @@ class QuadrotorMixer {
           base + scale * roll + scale * pitch + scale * yaw};
     };
 
-    double lo = 0.0;
-    double hi = 1.0;
-    for (int i = 0; i < 48; ++i) {
-      const double mid = 0.5 * (lo + hi);
-      const auto candidate = mix(mid);
-      bool feasible = true;
-      for (double thrust : candidate) {
-        if (thrust < 0.0 || thrust > config_.max_rotor_thrust) {
-          feasible = false;
-          break;
-        }
+    const auto fully_requested = mix(1.0);
+    bool full_scale_feasible = true;
+    for (double thrust : fully_requested) {
+      if (thrust < 0.0 || thrust > config_.max_rotor_thrust) {
+        full_scale_feasible = false;
+        break;
       }
-      if (feasible) lo = mid;
-      else hi = mid;
+    }
+
+    double lo = 1.0;
+    if (!full_scale_feasible) {
+      lo = 0.0;
+      double hi = 1.0;
+      for (int i = 0; i < 48; ++i) {
+        const double mid = 0.5 * (lo + hi);
+        const auto candidate = mix(mid);
+        bool feasible = true;
+        for (double thrust : candidate) {
+          if (thrust < 0.0 || thrust > config_.max_rotor_thrust) {
+            feasible = false;
+            break;
+          }
+        }
+        if (feasible) lo = mid;
+        else hi = mid;
+      }
     }
 
     QuadrotorMixerOutput candidate;

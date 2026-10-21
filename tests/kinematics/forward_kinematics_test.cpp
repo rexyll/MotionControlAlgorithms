@@ -5,7 +5,8 @@
 #include <gtest/gtest.h>
 #include "mca/kinematics/forward_kinematics.hpp"
 
-namespace {\nconstexpr double kPi = 3.14159265358979323846;
+namespace {
+constexpr double kPi = 3.14159265358979323846;
 using mca::geometry::Pose3D;
 using mca::kinematics::DhModelAdapter;
 using mca::kinematics::DhParameter;

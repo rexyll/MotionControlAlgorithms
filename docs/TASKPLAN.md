@@ -42,7 +42,7 @@ Acceptance: analytical/reference tests pass; stable current, velocity and positi
 - [x] P2-02 Omni/mecanum kinematics (Run #193: Linux and Windows CI passed; standard X-roller mecanum forward/inverse mapping, geometry/input validation, unit tests, benchmark, documentation and CMake integration accepted)
 - [x] P2-03 Odometry (Run #207: Linux and Windows CI passed; exact SE(2) constant-twist integration, validation/transactional failure behavior, tests, benchmark, docs and CMake integration accepted)
 - [x] P2-04 Pure Pursuit (Run #207: Linux and Windows CI passed; lookahead interpolation, vehicle-frame geometry, curvature/yaw-rate command, invalid-input handling, closed-loop lateral convergence, tests, benchmark, docs and CMake integration accepted)
-- [ ] P2-05 Stanley
+- [x] P2-05 Stanley (Run #213: Linux and Windows CI passed; nearest-segment projection, steering saturation, signed cross-track convention, closed-loop convergence, tests, benchmark, docs and CMake integration accepted)
 - [ ] P2-06 LQR path tracking
 - [ ] P2-07 MPC path tracking
 - [ ] P2-08 Wheel command allocation

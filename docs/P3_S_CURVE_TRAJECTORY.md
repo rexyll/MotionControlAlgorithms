@@ -13,4 +13,4 @@
 
 ## Verification
 
-Tests cover endpoints, velocity/acceleration/jerk bounds, reverse moves, short and long moves, invalid limits and zero distance. CI validation is pending.
+Tests cover endpoints, velocity/acceleration/jerk bounds, reverse moves, short and long moves, invalid limits and zero distance. GitHub Actions Run #321 passed Configure, Build and Test on both Linux and Windows: https://github.com/rexyll/MotionControlAlgorithms/actions/runs/39580810849. Implementation and benchmark integration were validated at commit `a9cf8e5865c1133aac8aae0cc0d4f2d7a82fac84`.

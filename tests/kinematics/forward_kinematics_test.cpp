@@ -5,7 +5,7 @@
 #include <gtest/gtest.h>
 #include "mca/kinematics/forward_kinematics.hpp"
 
-namespace {
+namespace {\nconstexpr double kPi = 3.14159265358979323846;
 using mca::geometry::Pose3D;
 using mca::kinematics::DhModelAdapter;
 using mca::kinematics::DhParameter;
@@ -31,11 +31,23 @@ TEST(ForwardKinematicsTest, TwoLinkPlanarDhReference) {
   ASSERT_TRUE(DhModelAdapter::build("planar", "base", dh, model));
 
   ForwardKinematicsResult result;
-  ASSERT_TRUE(ForwardKinematics::solve(model, {M_PI / 2.0, M_PI / 2.0}, result));
+  ASSERT_TRUE(ForwardKinematics::solve(model, {kPi / 2.0, kPi / 2.0}, result));
   EXPECT_NEAR(result.pose.position.x, -0.5, 1e-10);
   EXPECT_NEAR(result.pose.position.y, 1.0, 1e-10);
   EXPECT_NEAR(result.pose.position.z, 0.0, 1e-10);
   EXPECT_EQ(result.link_poses.size(), 3U);
+}
+
+TEST(ForwardKinematicsTest, StandardDhJointVariablePrecedesLinkLength) {
+  DhParameter p;
+  p.name = "j"; p.type = JointType::Revolute; p.a = 1.0;
+  RobotModel model;
+  ASSERT_TRUE(DhModelAdapter::build("single", "base", {p}, model));
+  ForwardKinematicsResult result;
+  ASSERT_TRUE(ForwardKinematics::solve(model, {kPi / 2.0}, result));
+  EXPECT_NEAR(result.pose.position.x, 0.0, 1e-10);
+  EXPECT_NEAR(result.pose.position.y, 1.0, 1e-10);
+  EXPECT_NEAR(result.pose.position.z, 0.0, 1e-10);
 }
 
 TEST(ForwardKinematicsTest, FixedRevoluteAndPrismaticCoordinates) {
@@ -57,7 +69,7 @@ TEST(ForwardKinematicsTest, FixedRevoluteAndPrismaticCoordinates) {
   model.joints = {fixed, revolute, prismatic};
 
   ForwardKinematicsResult result;
-  ASSERT_TRUE(ForwardKinematics::solve(model, {M_PI / 2.0, 0.25}, result));
+  ASSERT_TRUE(ForwardKinematics::solve(model, {kPi / 2.0, 0.25}, result));
   EXPECT_NEAR(result.pose.position.x, 1.0, 1e-10);
   EXPECT_NEAR(result.pose.position.y, 1.0, 1e-10);
   EXPECT_NEAR(result.pose.position.z, 0.25, 1e-10);
@@ -71,7 +83,7 @@ TEST(ForwardKinematicsTest, UrdfOriginAndAxisAreApplied) {
   RobotModel model;
   ASSERT_TRUE(mca::kinematics::UrdfModelAdapter::parse(urdf, model));
   ForwardKinematicsResult result;
-  ASSERT_TRUE(ForwardKinematics::solve(model, {M_PI / 2.0}, result));
+  ASSERT_TRUE(ForwardKinematics::solve(model, {kPi / 2.0}, result));
   EXPECT_NEAR(result.pose.position.x, 1.0, 1e-10);
   EXPECT_NEAR(result.pose.position.y, 0.0, 1e-10);
   const auto rotated = mca::geometry::rotate(result.pose.rotation, {1.0, 0.0, 0.0});

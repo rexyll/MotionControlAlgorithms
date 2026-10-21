@@ -76,7 +76,7 @@ Acceptance: FK/IK/Jacobian numerical validation; joint and Cartesian tracking be
 - [x] P4-01 6DOF rigid-body model (Run #405: Linux and Windows Configure/Build/Test passed; Newton-Euler derivative, frame conventions, physical-parameter validation, transactional failure behavior, unit tests, benchmark and documentation accepted)
 - [x] P4-02 attitude representations (Run #405: Linux and Windows Configure/Build/Test passed; ZYX Euler/quaternion/rotation-matrix conversions, finite/rotation-matrix validation, transactional output behavior, unit tests and documentation accepted)
 - [x] P4-03 cascaded position/attitude PID (Run #412: Linux and Windows Configure/Build/Test passed; six PID axes, gravity-compensated force conversion, yaw wrap handling, transactional validation, unit tests, benchmark and documentation accepted)
-- [ ] P4-04 geometric attitude control
+- [ ] P4-04 geometric attitude control (quaternion shortest-arc error, angular-rate feedback, diagonal-inertia gyroscopic compensation, feedforward torque, saturation, tests, benchmark and documentation added; CI verification pending)
 - [ ] P4-05 LQR
 - [ ] P4-06 MPC
 - [ ] P4-07 thrust/mixer allocation

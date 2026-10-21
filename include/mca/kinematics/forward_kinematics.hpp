@@ -36,14 +36,31 @@ class ForwardKinematics {
     candidate.link_poses.push_back(current);
     std::size_t qi = 0;
     for (const auto& joint : model.joints) {
-      geometry::Pose3D local = joint.origin;
-      if (joint.type == JointType::Revolute || joint.type == JointType::Continuous) {
-        local.rotation = geometry::normalized(
-            geometry::multiply(local.rotation, geometry::axis_angle(joint.axis, q[qi])));
-        ++qi;
-      } else if (joint.type == JointType::Prismatic) {
-        local.position = local.position + q[qi] * joint.axis;
-        ++qi;
+      geometry::Pose3D local{};
+      if (joint.standard_dh) {
+        // Standard DH: Rz(theta + q) * Tz(d + q_prismatic) * Tx(a) * Rx(alpha).
+        double theta = joint.dh_theta;
+        double d = joint.dh_d;
+        if (joint.type == JointType::Revolute || joint.type == JointType::Continuous) {
+          theta += q[qi++];
+        } else if (joint.type == JointType::Prismatic) {
+          d += q[qi++];
+        }
+        const geometry::Pose3D rz{{0, 0, 0}, geometry::axis_angle({0, 0, 1}, theta)};
+        const geometry::Pose3D tz{{0, 0, d}, {}};
+        const geometry::Pose3D tx{{joint.dh_a, 0, 0}, {}};
+        const geometry::Pose3D rx{{0, 0, 0}, geometry::axis_angle({1, 0, 0}, joint.dh_alpha)};
+        local = geometry::compose(geometry::compose(geometry::compose(rz, tz), tx), rx);
+      } else {
+        local = joint.origin;
+        if (joint.type == JointType::Revolute || joint.type == JointType::Continuous) {
+          local.rotation = geometry::normalized(
+              geometry::multiply(local.rotation, geometry::axis_angle(joint.axis, q[qi])));
+          ++qi;
+        } else if (joint.type == JointType::Prismatic) {
+          local.position = local.position + geometry::rotate(local.rotation, q[qi] * joint.axis);
+          ++qi;
+        }
       }
       current = geometry::compose(current, local);
       candidate.link_poses.push_back(current);

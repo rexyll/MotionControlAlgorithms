@@ -14,15 +14,13 @@
 
 ## Composition rule
 
-For each joint, the local transform starts from `RobotJoint::origin`.
+URDF joints use the parsed parent-to-joint origin followed by motion about/along the joint-frame axis. Prismatic displacement is rotated by the joint origin orientation before being added to the parent-frame position.
 
-- Fixed: no additional motion.
-- Revolute/continuous: compose an axis-angle rotation by the supplied joint coordinate.
-- Prismatic: translate along the joint axis by the supplied coordinate.
+DH-adapter joints carry their DH parameters explicitly and use the standard convention:
 
-The local transform is then composed with the accumulated parent pose.
+`Rz(theta + q) * Tz(d + q_prismatic) * Tx(a) * Rx(alpha)`
 
-This representation also supports the P3-02 standard-DH adapter: the adapter stores the zero-variable DH transform as the joint origin, while FK applies the runtime joint variable.
+The revolute variable is applied before link length/offset transforms; for prismatic joints, the variable is added to `d`. This is intentionally distinct from URDF's origin-then-motion convention.
 
 ## Validation
 

@@ -45,7 +45,7 @@ class PlanarOdometry {
       const double one_minus_cos = 1.0 - std::cos(theta);
       dx_body = (twist.linear_x * sin_theta +
                  twist.linear_y * one_minus_cos) / wz;
-      dy_body = (twist.linear_x * (-one_minus_cos) +
+      dy_body = (twist.linear_x * one_minus_cos +
                  twist.linear_y * sin_theta) / wz;
     }
 

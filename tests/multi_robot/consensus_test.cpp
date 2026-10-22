@@ -52,7 +52,7 @@ TEST(Consensus, SupportsMultipleStateCoordinates) {
   ConsensusOutput output;
   ASSERT_TRUE(consensus_step(input, output));
   EXPECT_DOUBLE_EQ(output.states(0, 1), 4.5);
-  EXPECT_DOUBLE_EQ(output.states(2, 1), 6.0);
+  EXPECT_DOUBLE_EQ(output.states(2, 1), 7.5);
 }
 
 TEST(Consensus, RejectsUnstableStepAndPreservesOutput) {

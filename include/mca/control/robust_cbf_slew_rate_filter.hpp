@@ -3,6 +3,7 @@
 #include <Eigen/Dense>
 
 #include "mca/control/discrete_time_cbf_filter.hpp"
+#include "mca/control/robust_discrete_time_cbf_filter.hpp"
 #include "mca/core/types.hpp"
 
 namespace mca::control {

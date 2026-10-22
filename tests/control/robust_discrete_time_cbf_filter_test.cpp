@@ -66,6 +66,18 @@ TEST(RobustDiscreteTimeCbfFilter, RejectsNegativeAndNonFiniteErrorBounds) {
             mca::core::StatusCode::InvalidArgument);
 }
 
+TEST(RobustDiscreteTimeCbfFilter, RejectsPredictionDimensionMismatch) {
+  auto filter = make_filter();
+  auto input = make_input(0.1);
+  input.prediction.predicted_drift.resize(2);
+  mca::control::DiscreteTimeCbfOutput output;
+  output.control = Eigen::Vector2d(7.0, 8.0);
+  EXPECT_EQ(filter.filter(input, output).code,
+            mca::core::StatusCode::InvalidArgument);
+  EXPECT_DOUBLE_EQ(output.control.x(), 7.0);
+  EXPECT_DOUBLE_EQ(output.control.y(), 8.0);
+}
+
 TEST(RobustDiscreteTimeCbfFilter, InfeasibleRobustConstraintPreservesOutput) {
   auto filter = make_filter();
   auto input = make_input(100.0);

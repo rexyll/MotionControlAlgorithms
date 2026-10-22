@@ -102,7 +102,7 @@ Acceptance: standing, walking and disturbance-recovery simulations.
 - [x] P6-01 multi-contact model (Run #519: Linux and Windows Configure/Build/Test passed; multi-point force aggregation, reference-point moments, active-contact accounting, validation and transactional output, tests, benchmark and documentation accepted)
 - [x] P6-02 task-space hierarchy (Run #521: Linux and Windows Configure/Build/Test passed; ordered differential-IK levels, damped null-space updates, transactional validation, tests, benchmark and documentation accepted)
 - [x] P6-03 contact wrench optimization (Run #522: Linux and Windows Configure/Build/Test passed; regularized projected-gradient wrench allocation, normal-force and friction-pyramid constraints, transactional validation, tests, benchmark and documentation accepted)
-- [ ] P6-04 balance / ZMP / centroidal control (COM PD acceleration and flat-ground ZMP baseline added; dual-platform CI pending)
+- [x] P6-04 balance / ZMP / centroidal control (Run #524: Linux and Windows Configure/Build/Test passed; COM PD acceleration, flat-ground ZMP/support-region classification, finite-input and transactional-output tests, benchmark and documentation accepted)
 - [ ] P6-05 whole-body QP
 - [ ] P6-06 manipulation while walking
 

@@ -110,7 +110,7 @@ Acceptance: multi-contact benchmark with constraint and balance checks.
 
 ## P7 — Multi-robot control
 
-- [x] P7-01 consensus (Run pending: graph-weighted discrete-time consensus update, step-size stability validation, transactional failure handling, convergence/reference tests, benchmark and scope documentation added)
+- [ ] P7-01 consensus (initial graph-weighted discrete-time update, stability validation, transactional failure handling, convergence/reference tests, benchmark and scope documentation added; Linux/Windows CI pending)
 - [ ] P7-02 formation control
 - [ ] P7-03 leader-follower
 - [ ] P7-04 distributed optimization

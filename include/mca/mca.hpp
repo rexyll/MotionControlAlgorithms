@@ -41,3 +41,4 @@
 #include "mca/multi_robot/leader_follower.hpp"
 #include "mca/multi_robot/distributed_optimization.hpp"
 #include "mca/multi_robot/distributed_mpc.hpp"
+#include "mca/multi_robot/communication_delay_loss.hpp"

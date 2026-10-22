@@ -124,7 +124,7 @@ Acceptance: formation and degraded-communication benchmarks.
 - [x] P8-01 Linearization framework (Run #547: Linux and Windows Configure/Build/Test passed; central finite-difference A/B Jacobians, affine residual, evaluator/dimension/finite-value validation, transactional output, tests, benchmark and scope documentation accepted)
 - [x] P8-02 LQR/LQG (Run #552: Linux and Windows Configure/Build/Test passed; discrete-time LQR Riccati solver, linear Kalman predict/update with Joseph covariance form, certainty-equivalent LQG feedback, analytical/reference and validation tests, benchmarks and documentation accepted)
 - [x] P8-03 nonlinear MPC (Run #559: Linux and Windows Configure/Build/Test passed; direct-shooting nonlinear MPC with finite-difference control gradients, projected control bounds, transactional validation, scalar nonlinear tracking tests, benchmark and scope documentation accepted)
-- [ ] P8-04 constrained QP infrastructure
-- [ ] P8-05 generic MPC interface
+- [x] P8-04 constrained QP infrastructure (Run #567: Linux and Windows Configure/Build/Test passed; convex QP with equality and box constraints, input/PSD/rank validation, deterministic ADMM baseline, transactional output, tests, benchmark and scope documentation accepted)
+- [x] P8-05 generic MPC interface (Run #572: Linux and Windows Configure/Build/Test passed; solver callback contract, problem/result dimension and finite-value validation, first/full control bound checks, transactional failure behavior, tests and documentation accepted)
 - [ ] P8-06 robust/adaptive control
 - [ ] P8-07 sliding-mode control

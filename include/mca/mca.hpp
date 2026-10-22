@@ -39,3 +39,4 @@
 #include "mca/multi_robot/consensus.hpp"
 #include "mca/multi_robot/formation_control.hpp"
 #include "mca/multi_robot/leader_follower.hpp"
+#include "mca/multi_robot/distributed_optimization.hpp"

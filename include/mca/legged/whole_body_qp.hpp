@@ -39,7 +39,7 @@ class WholeBodyQp {
     if(in.lower_bounds.size()!=0&&in.upper_bounds.size()!=0&&
        (in.lower_bounds.array()>in.upper_bounds.array()).any()) return fail("lower bounds exceed upper bounds");
     QPTaskHierarchyInput q;
-    q.variables=n; q.regularization=in.regularization; q.iterations=in.iterations; q.step_size=in.step_size;
+    q.variables=n; q.regularization=1e-12; q.iterations=in.iterations; q.step_size=in.step_size;
     q.lower_bounds=in.lower_bounds; q.upper_bounds=in.upper_bounds;
     for(const auto& t:in.tasks) {
       if(t.jacobian.rows()<=0||t.jacobian.cols()!=n||t.target.size()!=t.jacobian.rows())

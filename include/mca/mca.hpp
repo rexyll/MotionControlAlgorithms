@@ -7,6 +7,7 @@
 #include "mca/control/interfaces.hpp"
 #include "mca/control/linearization.hpp"
 #include "mca/control/discrete_lqr.hpp"
+#include "mca/control/discrete_kalman.hpp"
 #include "mca/control/pid.hpp"
 #include "mca/core/filters.hpp"
 #include "mca/core/math.hpp"

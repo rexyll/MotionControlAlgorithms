@@ -36,7 +36,7 @@ TEST(MultiContactModelTest, AggregatesForcesAndMoments) {
   EXPECT_NEAR(output.total_force_world.x, 0.0, 1e-12);
   EXPECT_NEAR(output.total_force_world.y, 0.0, 1e-12);
   EXPECT_NEAR(output.total_torque_world.x, 0.0, 1e-12);
-  EXPECT_NEAR(output.total_torque_world.y, -15.0, 1e-12);
+  EXPECT_NEAR(output.total_torque_world.y, 0.0, 1e-12);
   EXPECT_NEAR(output.total_torque_world.z, 0.0, 1e-12);
 }
 

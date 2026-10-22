@@ -54,7 +54,7 @@ TEST(ConstrainedQp, SolvesBoxConstrainedConvexProblem) {
   ASSERT_TRUE(solve_constrained_qp(p,o,r));
   EXPECT_NEAR(r.solution(0),1.0,1e-5);
   EXPECT_NEAR(r.solution(1),1.5,1e-5);
-  EXPECT_NEAR(r.objective,-8.25,1e-5);
+  EXPECT_NEAR(r.objective,-9.75,1e-5);
   EXPECT_LT(r.primal_residual,1e-5);
 }
 

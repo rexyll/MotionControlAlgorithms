@@ -27,3 +27,4 @@
 #include "mca/legged/qp_task_hierarchy.hpp"
 #include "mca/legged/joint_impedance_control.hpp"
 #include "mca/legged/locomotion_mpc.hpp"
+#include "mca/legged/multi_contact_model.hpp"

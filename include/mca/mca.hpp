@@ -11,6 +11,7 @@
 #include "mca/control/nonlinear_mpc.hpp"
 #include "mca/control/constrained_qp.hpp"
 #include "mca/control/generic_mpc.hpp"
+#include "mca/control/robust_adaptive.hpp"
 #include "mca/control/pid.hpp"
 #include "mca/core/filters.hpp"
 #include "mca/core/math.hpp"

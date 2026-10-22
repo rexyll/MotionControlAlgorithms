@@ -65,6 +65,7 @@ TEST(CbfSafetyFilterIntegration, AllVariantsPreserveOutputOnFailure) {
   const auto config = make_config();
   auto prediction = make_prediction();
   prediction.nominal_control = Eigen::Vector2d::Zero();
+  prediction.predicted_drift[0] = -10.0;
 
   mca::control::DiscreteTimeCbfOutput sentinel;
   sentinel.control = Eigen::Vector2d(7.0, 8.0);

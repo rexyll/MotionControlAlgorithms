@@ -31,3 +31,5 @@
 #include "mca/legged/task_space_hierarchy.hpp"
 #include "mca/legged/contact_wrench_optimizer.hpp"
 #include "mca/legged/balance_zmp_control.hpp"
+
+#include "mca/legged/whole_body_qp.hpp"

@@ -74,7 +74,10 @@ inline bool solve_constrained_qp(const ConstrainedQpProblem& problem,
     return fail("bounds dimensions must match gradient");
   }
   const Eigen::Index m = problem.equality_matrix.rows();
-  if (problem.equality_matrix.cols() != n || problem.equality_rhs.size() != m) {
+  const bool equality_shape_valid =
+      (m == 0 && problem.equality_matrix.cols() == 0 && problem.equality_rhs.size() == 0) ||
+      (m > 0 && problem.equality_matrix.cols() == n && problem.equality_rhs.size() == m);
+  if (!equality_shape_valid) {
     return fail("equality dimensions are inconsistent");
   }
   if (!detail::finite_matrix(problem.hessian) || !detail::finite_vector(problem.gradient) ||

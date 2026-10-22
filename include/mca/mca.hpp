@@ -35,3 +35,5 @@
 #include "mca/legged/whole_body_qp.hpp"
 
 #include "mca/legged/walking_manipulation.hpp"
+
+#include "mca/multi_robot/consensus.hpp"

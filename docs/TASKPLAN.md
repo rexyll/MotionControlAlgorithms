@@ -126,5 +126,5 @@ Acceptance: formation and degraded-communication benchmarks.
 - [x] P8-03 nonlinear MPC (Run #559: Linux and Windows Configure/Build/Test passed; direct-shooting nonlinear MPC with finite-difference control gradients, projected control bounds, transactional validation, scalar nonlinear tracking tests, benchmark and scope documentation accepted)
 - [x] P8-04 constrained QP infrastructure (Run #567: Linux and Windows Configure/Build/Test passed; convex QP with equality and box constraints, input/PSD/rank validation, deterministic ADMM baseline, transactional output, tests, benchmark and scope documentation accepted)
 - [x] P8-05 generic MPC interface (Run #572: Linux and Windows Configure/Build/Test passed; solver callback contract, problem/result dimension and finite-value validation, first/full control bound checks, transactional failure behavior, tests and documentation accepted)
-- [ ] P8-06 robust/adaptive control
+- [x] P8-06 robust/adaptive control (Run #579: Linux and Windows Configure/Build/Test passed; adaptive parameter update with leakage, robust boundary-layer compensation, parameter projection and control saturation, transactional validation, tests and documentation accepted)
 - [ ] P8-07 sliding-mode control

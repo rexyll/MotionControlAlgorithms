@@ -22,6 +22,7 @@
 #include "mca/control/discrete_time_cbf_filter.hpp"
 #include "mca/control/robust_discrete_time_cbf_filter.hpp"
 #include "mca/control/cbf_slew_rate_filter.hpp"
+#include "mca/control/robust_cbf_slew_rate_filter.hpp"
 #include "mca/control/pid.hpp"
 #include "mca/core/filters.hpp"
 #include "mca/core/math.hpp"

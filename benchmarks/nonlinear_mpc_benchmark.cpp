@@ -1,6 +1,7 @@
 #include <benchmark/benchmark.h>
 #include <Eigen/Dense>
 #include "mca/control/nonlinear_mpc.hpp"
+#include "mca/control/constrained_qp.hpp"
 
 namespace {
 using namespace mca::control;
@@ -16,6 +17,18 @@ static void BM_NonlinearMpc(benchmark::State& state){
   Eigen::VectorXd x(1); x<<1.0;
   for(auto _ : state){ NonlinearMpcResult r; benchmark::DoNotOptimize(solve_nonlinear_mpc(p,x,o,r)); benchmark::DoNotOptimize(r.cost); }
 }
+
+static void BM_ConstrainedQp(benchmark::State& state){
+  const Eigen::Index n=static_cast<Eigen::Index>(state.range(0));
+  ConstrainedQpProblem p;
+  p.hessian=2.0*Eigen::MatrixXd::Identity(n,n);
+  p.gradient=Eigen::VectorXd::Constant(n,-1.0);
+  p.lower_bound=Eigen::VectorXd::Constant(n,-1.0);
+  p.upper_bound=Eigen::VectorXd::Constant(n,1.0);
+  ConstrainedQpOptions o; o.max_iterations=100U;
+  for(auto _ : state){ ConstrainedQpResult r; benchmark::DoNotOptimize(solve_constrained_qp(p,o,r)); benchmark::DoNotOptimize(r.objective); }
+}
 }
 BENCHMARK(BM_NonlinearMpc)->Arg(4)->Arg(8)->Arg(12);
+BENCHMARK(BM_ConstrainedQp)->Arg(4)->Arg(8)->Arg(16);
 BENCHMARK_MAIN();

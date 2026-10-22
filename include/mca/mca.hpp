@@ -14,6 +14,7 @@
 #include "mca/control/robust_adaptive.hpp"
 #include "mca/control/sliding_mode.hpp"
 #include "mca/control/iterative_learning.hpp"
+#include "mca/control/control_barrier_filter.hpp"
 #include "mca/control/pid.hpp"
 #include "mca/core/filters.hpp"
 #include "mca/core/math.hpp"

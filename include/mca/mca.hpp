@@ -28,3 +28,4 @@
 #include "mca/legged/joint_impedance_control.hpp"
 #include "mca/legged/locomotion_mpc.hpp"
 #include "mca/legged/multi_contact_model.hpp"
+#include "mca/legged/task_space_hierarchy.hpp"

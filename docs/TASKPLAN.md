@@ -114,7 +114,7 @@ Acceptance: multi-contact benchmark with constraint and balance checks.
 - [x] P7-02 formation control (Run #537: Linux and Windows Configure/Build/Test passed; relative-offset velocity law, per-agent speed saturation, validation/transactional tests, benchmark and scope documentation accepted)
 - [x] P7-03 leader-follower (Run #539: Linux and Windows Configure/Build/Test passed; leader velocity feed-forward, arbitrary leader index, follower offset tracking, per-follower speed saturation, transactional validation tests, benchmark and scope documentation accepted)
 - [x] P7-04 distributed optimization (Run #541: Linux and Windows Configure/Build/Test passed; gradient-tracking step primitive, doubly-stochastic mixing validation, transactional tests, benchmark and scope documentation accepted)
-- [ ] P7-05 distributed MPC (implement a bounded receding-horizon coordination step over per-agent control sequences; local objective gradients plus graph-neighbor consensus penalty; extract first control for receding-horizon execution; validate dimensions, finite inputs, control bounds, transactional output; add tests, benchmark and scope documentation)
+- [x] P7-05 distributed MPC (Run #543: Linux and Windows Configure/Build/Test passed; bounded receding-horizon coordination over per-agent control sequences, local objective gradients plus graph-neighbor consensus penalty, first-control extraction, dimension/finite-value/control-bound validation, transactional output, tests, benchmark and scope documentation accepted)
 - [ ] P7-06 communication delay/loss model
 
 Acceptance: formation and degraded-communication benchmarks.

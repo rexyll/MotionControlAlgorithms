@@ -91,10 +91,12 @@ inline bool kalman_update(const Eigen::MatrixXd& C, const Eigen::MatrixXd& R,
 inline bool lqg_control(const Eigen::MatrixXd& K, const Eigen::VectorXd& estimated_state,
                         Eigen::VectorXd& control, std::string* error=nullptr) {
   if(K.cols()!=estimated_state.size()||K.rows()<=0||K.cols()<=0) {
-    if(error)*error="incompatible or empty LQG dimensions"; return false;
+    if(error) *error="incompatible or empty LQG dimensions";
+    return false;
   }
   if(!K.allFinite()||!estimated_state.allFinite()) {
-    if(error)*error="LQG input contains non-finite values"; return false;
+    if(error) *error="LQG input contains non-finite values";
+    return false;
   }
   Eigen::VectorXd candidate=-K*estimated_state;
   if(!candidate.allFinite()){if(error)*error="LQG control is non-finite";return false;}

@@ -87,7 +87,6 @@ class RelativeDegreeTwoCbfFilter {
     transformed.nominal_control = input.nominal_control;
 
     for (Eigen::Index i = 0; i < barriers; ++i) {
-      transformed.barrier_values(i) = config_.safety_margin;
       transformed.drift_derivatives(i) =
           input.second_drift_derivatives(i) +
           config_.alpha1 * input.barrier_derivatives(i) +

@@ -46,3 +46,5 @@ The benchmark evaluates horizons 10, 20 and 30 with a deterministic forward refe
 ## Deliberate scope boundary
 
 This is a COM-level linear MPC baseline. It does not yet solve footstep timing, contact switching, friction cones, terrain constraints, centroidal angular momentum, or full-body inverse-dynamics constraints. Those belong to the subsequent contact and whole-body phases.
+
+CI acceptance requires Linux and Windows Configure/Build/Test to pass before P5-09 is marked complete.

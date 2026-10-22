@@ -99,7 +99,7 @@ Acceptance: standing, walking and disturbance-recovery simulations.
 
 ## P6 — Humanoid / whole-body
 
-- [ ] P6-01 multi-contact model
+- [ ] P6-01 multi-contact model (implementation added; dual-platform CI pending)
 - [ ] P6-02 task-space hierarchy
 - [ ] P6-03 contact wrench optimization
 - [ ] P6-04 balance / ZMP / centroidal control

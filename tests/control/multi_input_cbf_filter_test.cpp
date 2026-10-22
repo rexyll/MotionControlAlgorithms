@@ -109,7 +109,7 @@ mca::control::RelativeDegreeTwoCbfFilter make_rd2_filter() {
 TEST(RelativeDegreeTwoCbfFilter, EnforcesCascadedBarrierCondition) {
   auto f = make_rd2_filter();
   mca::control::RelativeDegreeTwoCbfInput in;
-  in.barrier_values = Eigen::VectorXd::Constant(1, -0.5);
+  in.barrier_values = Eigen::VectorXd::Constant(1, -0.2);
   in.barrier_derivatives = Eigen::VectorXd::Zero(1);
   in.second_drift_derivatives = Eigen::VectorXd::Zero(1);
   in.control_derivatives = Eigen::MatrixXd::Zero(1, 2);
@@ -117,7 +117,7 @@ TEST(RelativeDegreeTwoCbfFilter, EnforcesCascadedBarrierCondition) {
   in.nominal_control = Eigen::Vector2d(-2.0, 0.0);
   mca::control::RelativeDegreeTwoCbfOutput out;
   ASSERT_TRUE(f.filter(in, out).ok());
-  EXPECT_NEAR(out.control.x(), 2.0, 1e-9);
+  EXPECT_NEAR(out.control.x(), 1.2, 1e-9);
   EXPECT_GE(out.minimum_safety_margin, -1e-8);
 }
 TEST(RelativeDegreeTwoCbfFilter, LeavesSafeNominalUnchanged) {

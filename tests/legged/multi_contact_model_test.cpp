@@ -42,7 +42,7 @@ TEST(MultiContactModelTest, AggregatesForcesAndMoments) {
 
 TEST(MultiContactModelTest, PreservesContactOrderAndInactiveContacts) {
   mca::legged::MultiContactInput input;
-  input.reference_point_world.setZero();
+  input.reference_point_world = {0.0, 0.0, 0.0};
   input.points.push_back(make_contact(0.0, 0.0, 0.01));
   input.points.push_back(make_contact(1.0, 0.0, 0.0));
 
@@ -61,14 +61,14 @@ TEST(MultiContactModelTest, RejectsEmptySetAndNonFinitePosition) {
   output.total_force_world = {1.0, 2.0, 3.0};
 
   mca::legged::MultiContactInput empty;
-  empty.reference_point_world.setZero();
+  empty.reference_point_world = {0.0, 0.0, 0.0};
   EXPECT_FALSE(model.evaluate(empty, &output));
   EXPECT_NEAR(output.total_force_world.x, 1.0, 1e-12);
 
   auto invalid = make_contact(0.0, 0.0, 0.01);
   invalid.position_world.x = std::numeric_limits<double>::quiet_NaN();
   mca::legged::MultiContactInput input;
-  input.reference_point_world.setZero();
+  input.reference_point_world = {0.0, 0.0, 0.0};
   input.points.push_back(invalid);
   EXPECT_FALSE(model.evaluate(input, &output));
   EXPECT_NEAR(output.total_force_world.y, 2.0, 1e-12);
@@ -76,7 +76,7 @@ TEST(MultiContactModelTest, RejectsEmptySetAndNonFinitePosition) {
 
 TEST(MultiContactModelTest, RejectsInvalidContactTransactionally) {
   mca::legged::MultiContactInput input;
-  input.reference_point_world.setZero();
+  input.reference_point_world = {0.0, 0.0, 0.0};
   input.points.push_back(make_contact(0.0, 0.0, 0.01));
   auto invalid = make_contact(0.5, 0.0, 0.01);
   invalid.parameters.friction_coefficient = -1.0;

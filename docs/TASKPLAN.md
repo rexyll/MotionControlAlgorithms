@@ -136,3 +136,5 @@ Acceptance: formation and degraded-communication benchmarks.
 - [x] P8-13 relative-degree-two multi-input CBF safety filter (Run #603: Linux and Windows Configure/Build/Test passed; exponential-CBF affine transformation, cascade gains, safety-margin handling, actuator-bounded projection, infeasibility and transactional failure tests, dimension/non-finite validation, unified-header export and documentation accepted)
 
 - [x] P8-14 discrete-time multi-input CBF safety filter (Run #606: Linux and Windows Configure/Build/Test passed; one-step barrier prediction, decay factor and safety margin, actuator-bounded nominal projection, infeasibility and transactional validation tests, docs and unified-header export accepted)
+
+- [ ] P8-15 robust discrete-time multi-input CBF filter (bounded additive one-step prediction error, worst-case lower-bound constraint, actuator-bounded projection, zero-uncertainty equivalence, invalid-bound and infeasibility/transactional tests, docs, unified-header export, Linux/Windows CI)

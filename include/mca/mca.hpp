@@ -20,6 +20,7 @@
 #include "mca/control/multi_input_cbf_filter.hpp"
 #include "mca/control/relative_degree_two_cbf_filter.hpp"
 #include "mca/control/discrete_time_cbf_filter.hpp"
+#include "mca/control/robust_discrete_time_cbf_filter.hpp"
 #include "mca/control/pid.hpp"
 #include "mca/core/filters.hpp"
 #include "mca/core/math.hpp"

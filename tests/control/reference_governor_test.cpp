@@ -40,6 +40,8 @@ TEST(ReferenceGovernor, RespectsPositionBounds) {
     ASSERT_TRUE(governor.update(2.0, 0.1, output).ok());
     EXPECT_GE(output.position, -2.0);
     EXPECT_LE(output.position, 2.0);
+    EXPECT_LE(std::abs(output.velocity), 1.0 + 1.0e-12);
+    EXPECT_LE(std::abs(output.acceleration), 2.0 + 1.0e-12);
   }
 }
 

@@ -53,17 +53,34 @@ class ReferenceGovernor {
     }
 
     const double error = target_position - position_;
+    const double distance = std::abs(error);
     const double stopping_speed =
-        std::sqrt(2.0 * config_.acceleration_max * std::abs(error));
+        std::sqrt(2.0 * config_.acceleration_max * distance);
+    const double acceleration_step = config_.acceleration_max * dt;
+    // Reserve one sample of travel in the stopping-distance calculation.
+    // This discrete-time cap prevents the semi-implicit position update from
+    // reaching a hard bound with residual outward velocity.
+    const double discrete_stopping_speed =
+        std::sqrt(acceleration_step * acceleration_step +
+                  2.0 * config_.acceleration_max * distance) - acceleration_step;
     double desired_velocity = std::copysign(
-        std::min(config_.velocity_max, stopping_speed), error);
+        std::min({config_.velocity_max, stopping_speed, discrete_stopping_speed}), error);
     if (std::abs(error) <= 1.0e-14) desired_velocity = 0.0;
 
     const double max_delta_velocity = config_.acceleration_max * dt;
-    const double next_velocity = std::clamp(
-        desired_velocity, velocity_ - max_delta_velocity, velocity_ + max_delta_velocity);
-    double next_position = position_ + next_velocity * dt;
-    next_position = std::clamp(next_position, config_.position_min, config_.position_max);
+    const double lower_velocity = std::max(
+        -config_.velocity_max,
+        std::max(velocity_ - max_delta_velocity,
+                 (config_.position_min - position_) / dt));
+    const double upper_velocity = std::min(
+        config_.velocity_max,
+        std::min(velocity_ + max_delta_velocity,
+                 (config_.position_max - position_) / dt));
+    if (lower_velocity > upper_velocity + 1.0e-12) {
+      return {core::StatusCode::ConstraintViolation};
+    }
+    const double next_velocity = std::clamp(desired_velocity, lower_velocity, upper_velocity);
+    const double next_position = position_ + next_velocity * dt;
     const double actual_velocity = (next_position - position_) / dt;
     const double actual_acceleration = (actual_velocity - velocity_) / dt;
     if (!core::is_finite(next_position) || !core::is_finite(actual_velocity) ||

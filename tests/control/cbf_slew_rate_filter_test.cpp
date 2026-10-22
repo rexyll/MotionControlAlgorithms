@@ -1,3 +1,4 @@
+#include <limits>
 #include <gtest/gtest.h>
 
 #include "mca/control/cbf_slew_rate_filter.hpp"
@@ -67,11 +68,25 @@ TEST(CbfSlewRateFilter, RejectsInfeasibleSlewIntersectionTransactionally) {
   EXPECT_DOUBLE_EQ(output.control.y(), 8.0);
 }
 
+TEST(CbfSlewRateFilter, RejectsInfeasibleSafetyProjectionTransactionally) {
+  mca::control::CbfSlewRateFilter filter;
+  ASSERT_TRUE(filter.configure(make_config()).ok());
+  auto input = make_input();
+  input.previous_control = Eigen::Vector2d::Zero();
+  input.max_control_delta = Eigen::Vector2d::Constant(0.1);
+  mca::control::DiscreteTimeCbfOutput output;
+  output.control = Eigen::Vector2d(7.0, 8.0);
+  EXPECT_EQ(filter.filter(input, output).code,
+            mca::core::StatusCode::ConstraintViolation);
+  EXPECT_DOUBLE_EQ(output.control.x(), 7.0);
+  EXPECT_DOUBLE_EQ(output.control.y(), 8.0);
+}
+
 TEST(CbfSlewRateFilter, RejectsInvalidRateBoundsTransactionally) {
   mca::control::CbfSlewRateFilter filter;
   ASSERT_TRUE(filter.configure(make_config()).ok());
   auto input = make_input();
-  input.max_control_delta[0] = -0.1;
+  input.max_control_delta[0] = std::numeric_limits<double>::infinity();
   mca::control::DiscreteTimeCbfOutput output;
   output.control = Eigen::Vector2d(7.0, 8.0);
   EXPECT_EQ(filter.filter(input, output).code,

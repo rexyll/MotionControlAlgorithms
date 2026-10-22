@@ -47,13 +47,13 @@ inline bool validate_generic_mpc_problem(const GenericMpcProblem& problem,
   if (nx <= 0 || nu <= 0) {
     return fail("state and control dimensions must be positive");
   }
+  if (problem.control_upper.size() != nu) {
+    return fail("control bound dimensions are inconsistent");
+  }
   if (!problem.initial_state.allFinite() ||
       !problem.control_lower.allFinite() ||
       !problem.control_upper.allFinite()) {
     return fail("state and control bounds must be finite");
-  }
-  if (problem.control_upper.size() != nu) {
-    return fail("control bound dimensions are inconsistent");
   }
   if ((problem.control_lower.array() > problem.control_upper.array()).any()) {
     return fail("control lower bound exceeds upper bound");
@@ -89,10 +89,16 @@ inline bool validate_generic_mpc_result(const GenericMpcProblem& problem,
       !result.predicted_states.allFinite() || !std::isfinite(result.cost)) {
     return fail("MPC result contains non-finite values");
   }
+
+  for (Eigen::Index k = 0; k < horizon; ++k) {
+    const Eigen::VectorXd uk = result.control_sequence.col(k);
+    if ((uk.array() < problem.control_lower.array()).any() ||
+        (uk.array() > problem.control_upper.array()).any()) {
+      return fail("MPC result violates control bounds");
+    }
+  }
   if ((result.control.array() < problem.control_lower.array()).any() ||
-      (result.control.array() > problem.control_upper.array()).any() ||
-      (result.control_sequence.colwise() < problem.control_lower).any() ||
-      (result.control_sequence.colwise() > problem.control_upper).any()) {
+      (result.control.array() > problem.control_upper.array()).any()) {
     return fail("MPC result violates control bounds");
   }
   return true;

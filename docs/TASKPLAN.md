@@ -121,7 +121,7 @@ Acceptance: formation and degraded-communication benchmarks.
 
 ## P8 — Advanced optimization/control
 
-- [ ] P8-01 Linearization framework (implement reusable finite-difference linearization of nonlinear discrete-time dynamics around an operating point; compute A/B Jacobians and affine residual; validate evaluator/dimensions/finite values and transactional output; add tests, benchmark and scope documentation)
+- [x] P8-01 Linearization framework (Run #547: Linux and Windows Configure/Build/Test passed; central finite-difference A/B Jacobians, affine residual, evaluator/dimension/finite-value validation, transactional output, tests, benchmark and scope documentation accepted)
 - [ ] P8-02 LQR/LQG
 - [ ] P8-03 nonlinear MPC
 - [ ] P8-04 constrained QP infrastructure

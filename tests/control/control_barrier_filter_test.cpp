@@ -76,7 +76,8 @@ TEST(ControlBarrierFilter, RejectsInvalidInputAndConfigurationTransactionally) {
   mca::control::ControlBarrierFilterConfig bad;
   bad.alpha = 0.0;
   EXPECT_FALSE(filter.configure(bad).ok());
-  EXPECT_EQ(filter.filter({}, *new mca::control::ControlBarrierFilterOutput()).code,
+  mca::control::ControlBarrierFilterOutput unconfigured_output;
+  EXPECT_EQ(filter.filter({}, unconfigured_output).code,
             mca::core::StatusCode::NotConfigured);
   ASSERT_TRUE(filter.configure({}).ok());
   mca::control::ControlBarrierFilterInput input;

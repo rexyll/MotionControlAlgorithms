@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 #include "mca/control/nonlinear_mpc.hpp"
 #include "mca/control/constrained_qp.hpp"
+#include "mca/control/generic_mpc.hpp"
 
 namespace {
 using namespace mca::control;
@@ -94,5 +95,65 @@ TEST(ConstrainedQp, RejectsNonConvexHessian) {
   p.upper_bound=Eigen::VectorXd::Constant(2,1.0);
   ConstrainedQpResult r;
   EXPECT_FALSE(solve_constrained_qp(p,ConstrainedQpOptions{},r));
+}
+
+TEST(GenericMpc, DelegatesSolverAndValidatesContract) {
+  GenericMpcProblem p;
+  p.initial_state=Eigen::Vector2d(1.0,-2.0);
+  p.control_lower=Eigen::Vector2d(-1.0,-0.5);
+  p.control_upper=Eigen::Vector2d(1.0,0.5);
+  p.horizon=3U;
+  GenericMpcOptions o; o.horizon=3U;
+  MpcSolverFunction solver=[](const GenericMpcProblem& problem,
+                              const GenericMpcOptions&,
+                              GenericMpcResult& result,
+                              std::string*) {
+    const Eigen::Index nx=problem.initial_state.size();
+    const Eigen::Index nu=problem.control_lower.size();
+    const Eigen::Index N=static_cast<Eigen::Index>(problem.horizon);
+    result.control_sequence=Eigen::MatrixXd::Zero(nu,N);
+    result.predicted_states=Eigen::MatrixXd::Zero(nx,N+1);
+    result.predicted_states.col(0)=problem.initial_state;
+    result.control=Eigen::VectorXd::Zero(nu);
+    result.cost=1.25;
+    return true;
+  };
+  GenericMpcResult r;
+  ASSERT_TRUE(solve_generic_mpc(p,o,solver,r));
+  EXPECT_EQ(r.control.size(),2);
+  EXPECT_EQ(r.control_sequence.cols(),3);
+  EXPECT_EQ(r.predicted_states.cols(),4);
+  EXPECT_DOUBLE_EQ(r.cost,1.25);
+}
+
+TEST(GenericMpc, RejectsInvalidProblemTransactionally) {
+  GenericMpcProblem p;
+  p.initial_state=Eigen::VectorXd::Zero(1);
+  p.control_lower=Eigen::VectorXd::Constant(1,1.0);
+  p.control_upper=Eigen::VectorXd::Constant(1,-1.0);
+  p.horizon=2U;
+  GenericMpcOptions o; o.horizon=2U;
+  GenericMpcResult r; r.control=Eigen::VectorXd::Constant(1,42.0);
+  const double old=r.control(0);
+  MpcSolverFunction solver=[](const GenericMpcProblem&,const GenericMpcOptions&,GenericMpcResult&,std::string*){ return true; };
+  EXPECT_FALSE(solve_generic_mpc(p,o,solver,r));
+  EXPECT_DOUBLE_EQ(r.control(0),old);
+}
+
+TEST(GenericMpc, RejectsInvalidSolverResult) {
+  GenericMpcProblem p;
+  p.initial_state=Eigen::VectorXd::Zero(1);
+  p.control_lower=Eigen::VectorXd::Constant(1,-1.0);
+  p.control_upper=Eigen::VectorXd::Constant(1,1.0);
+  p.horizon=2U;
+  GenericMpcOptions o; o.horizon=2U;
+  GenericMpcResult r; r.control=Eigen::VectorXd::Constant(1,42.0);
+  const double old=r.control(0);
+  MpcSolverFunction solver=[](const GenericMpcProblem&,const GenericMpcOptions&,GenericMpcResult& result,std::string*){
+    result.control=Eigen::VectorXd::Constant(1,2.0);
+    return true;
+  };
+  EXPECT_FALSE(solve_generic_mpc(p,o,solver,r));
+  EXPECT_DOUBLE_EQ(r.control(0),old);
 }
 }

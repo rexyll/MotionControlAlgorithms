@@ -47,8 +47,7 @@ class RelativeDegreeTwoCbfFilter {
     MultiInputCbfConfig inner;
     inner.control_min = config.control_min;
     inner.control_max = config.control_max;
-    inner.coefficient_tolerance = config.coefficient_tolerance;
-    inner.safety_margin = config.safety_margin;
+    inner.tolerance = config.coefficient_tolerance;
     inner.max_total_constraints = config.max_total_constraints;
     const auto status = inner_.configure(inner);
     if (!status.ok()) return status;
@@ -90,7 +89,8 @@ class RelativeDegreeTwoCbfFilter {
       transformed.drift_derivatives(i) =
           input.second_drift_derivatives(i) +
           config_.alpha1 * input.barrier_derivatives(i) +
-          config_.alpha1 * config_.alpha2 * input.barrier_values(i);
+          config_.alpha1 * config_.alpha2 * input.barrier_values(i) -
+          config_.safety_margin;
     }
 
     MultiInputCbfOutput candidate;
@@ -100,8 +100,9 @@ class RelativeDegreeTwoCbfFilter {
     RelativeDegreeTwoCbfOutput result;
     result.control = candidate.control;
     result.modified = candidate.modified;
-    result.active_constraint_count = candidate.active_constraint_count;
-    result.minimum_safety_margin = candidate.minimum_safety_margin;
+    result.active_constraint_count = candidate.active_constraints;
+    result.minimum_safety_margin =
+        candidate.minimum_safety_margin + config_.safety_margin;
     output = result;
     return {};
   }

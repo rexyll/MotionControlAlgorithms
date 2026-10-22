@@ -2,6 +2,7 @@
 #include <Eigen/Dense>
 #include <gtest/gtest.h>
 #include "mca/control/nonlinear_mpc.hpp"
+#include "mca/control/constrained_qp.hpp"
 
 namespace {
 using namespace mca::control;
@@ -40,5 +41,58 @@ TEST(NonlinearMpc, RejectsInvalidCallbacksAndOptions) {
   auto p=makeProblem(); Eigen::VectorXd x=Eigen::VectorXd::Zero(1); NonlinearMpcResult r;
   NonlinearMpcOptions o; o.horizon=0; EXPECT_FALSE(solve_nonlinear_mpc(p,x,o,r));
   p.dynamics={}; o.horizon=4; EXPECT_FALSE(solve_nonlinear_mpc(p,x,o,r));
+}
+
+TEST(ConstrainedQp, SolvesBoxConstrainedConvexProblem) {
+  ConstrainedQpProblem p;
+  p.hessian=2.0*Eigen::MatrixXd::Identity(2,2);
+  p.gradient=Eigen::Vector2d(-4.0,-6.0);
+  p.lower_bound=Eigen::Vector2d(-1.0,-1.0);
+  p.upper_bound=Eigen::Vector2d(1.0,1.5);
+  ConstrainedQpOptions o; o.max_iterations=500U;
+  ConstrainedQpResult r;
+  ASSERT_TRUE(solve_constrained_qp(p,o,r));
+  EXPECT_NEAR(r.solution(0),1.0,1e-5);
+  EXPECT_NEAR(r.solution(1),1.5,1e-5);
+  EXPECT_NEAR(r.objective,-8.25,1e-5);
+  EXPECT_LT(r.primal_residual,1e-5);
+}
+
+TEST(ConstrainedQp, HandlesEqualityAndBounds) {
+  ConstrainedQpProblem p;
+  p.hessian=2.0*Eigen::MatrixXd::Identity(2,2);
+  p.gradient=Eigen::Vector2d(-2.0,-4.0);
+  p.equality_matrix=Eigen::MatrixXd::Zero(1,2); p.equality_matrix(0,0)=1.0; p.equality_matrix(0,1)=1.0;
+  p.equality_rhs=Eigen::VectorXd::Constant(1,1.0);
+  p.lower_bound=Eigen::Vector2d(0.0,0.0);
+  p.upper_bound=Eigen::Vector2d(1.0,1.0);
+  ConstrainedQpOptions o; o.max_iterations=1000U; o.rho=1.0;
+  ConstrainedQpResult r;
+  ASSERT_TRUE(solve_constrained_qp(p,o,r));
+  EXPECT_NEAR(r.solution(0),0.0,2e-4);
+  EXPECT_NEAR(r.solution(1),1.0,2e-4);
+  EXPECT_NEAR((p.equality_matrix*r.solution-p.equality_rhs).norm(),0.0,2e-4);
+}
+
+TEST(ConstrainedQp, RejectsInvalidInputTransactionally) {
+  ConstrainedQpProblem p;
+  p.hessian=Eigen::MatrixXd::Identity(1,1);
+  p.gradient=Eigen::VectorXd::Zero(1);
+  p.lower_bound=Eigen::VectorXd::Constant(1,1.0);
+  p.upper_bound=Eigen::VectorXd::Constant(1,0.0);
+  ConstrainedQpResult r; r.solution=Eigen::VectorXd::Constant(1,42.0);
+  const double old=r.solution(0);
+  EXPECT_FALSE(solve_constrained_qp(p,ConstrainedQpOptions{},r));
+  EXPECT_DOUBLE_EQ(r.solution(0),old);
+}
+
+TEST(ConstrainedQp, RejectsNonConvexHessian) {
+  ConstrainedQpProblem p;
+  p.hessian=Eigen::MatrixXd::Identity(2,2); p.hessian(0,0)=-1.0;
+  p.gradient=Eigen::VectorXd::Zero(2);
+  p.lower_bound=Eigen::VectorXd::Constant(2,-1.0);
+  p.upper_bound=Eigen::VectorXd::Constant(2,1.0);
+  ConstrainedQpResult r;
+  EXPECT_FALSE(solve_constrained_qp(p,ConstrainedQpOptions{},r));
 }
 }

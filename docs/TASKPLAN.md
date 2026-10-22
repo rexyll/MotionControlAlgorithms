@@ -104,7 +104,7 @@ Acceptance: standing, walking and disturbance-recovery simulations.
 - [x] P6-03 contact wrench optimization (Run #522: Linux and Windows Configure/Build/Test passed; regularized projected-gradient wrench allocation, normal-force and friction-pyramid constraints, transactional validation, tests, benchmark and documentation accepted)
 - [x] P6-04 balance / ZMP / centroidal control (Run #524: Linux and Windows Configure/Build/Test passed; COM PD acceleration, flat-ground ZMP/support-region classification, finite-input and transactional-output tests, benchmark and documentation accepted)
 - [x] P6-05 whole-body QP (Run #527: Linux and Windows Configure/Build/Test passed; weighted least-squares QP wrapper, box bounds, reference regularization, validation tests, benchmark and scope documentation accepted)
-- [ ] P6-06 manipulation while walking
+- [ ] P6-06 manipulation while walking (bounded locomotion/manipulation task coordination, tests, benchmark and docs added; dual-platform CI pending)
 
 Acceptance: multi-contact benchmark with constraint and balance checks.
 

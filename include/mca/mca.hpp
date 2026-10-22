@@ -33,3 +33,5 @@
 #include "mca/legged/balance_zmp_control.hpp"
 
 #include "mca/legged/whole_body_qp.hpp"
+
+#include "mca/legged/walking_manipulation.hpp"

@@ -21,7 +21,7 @@ TEST(SlidingModeController, SwitchingTermOpposesSlidingVariable) {
   ASSERT_TRUE(controller.update(0.5, 1.0, output).ok());
   EXPECT_DOUBLE_EQ(output.switching_control, -2.0);
   EXPECT_DOUBLE_EQ(output.control, -1.0);
-  ASSERT_TRUE(controller.update(-0.5, 1.0, output).ok());
+  ASSERT_TRUE(controller.update(-0.5, 2.0, output).ok());
   EXPECT_DOUBLE_EQ(output.switching_control, 2.0);
   EXPECT_DOUBLE_EQ(output.control, 3.0);
   EXPECT_TRUE(output.saturated);

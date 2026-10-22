@@ -137,4 +137,4 @@ Acceptance: formation and degraded-communication benchmarks.
 
 - [x] P8-14 discrete-time multi-input CBF safety filter (Run #606: Linux and Windows Configure/Build/Test passed; one-step barrier prediction, decay factor and safety margin, actuator-bounded nominal projection, infeasibility and transactional validation tests, docs and unified-header export accepted)
 
-- [x] P8-15 robust discrete-time multi-input CBF filter (Run #608: Linux and Windows Configure/Build/Test passed; bounded additive one-step prediction error, worst-case lower-bound constraint, actuator-bounded projection, zero-uncertainty equivalence, invalid-bound and infeasibility/transactional tests, docs and unified-header export accepted)
+- [x] P8-15 robust discrete-time multi-input CBF filter (Run #608: Linux and Windows Configure/Build/Test passed; bounded additive one-step prediction error, worst-case lower-bound constraint, actuator-bounded projection, zero-uncertainty equivalence, invalid-bound and infeasibility/transactional tests, docs and unified-header export accepted; follow-up dimension validation and regression test passed Linux/Windows Configure/Build/Test in Runs #610-#611)

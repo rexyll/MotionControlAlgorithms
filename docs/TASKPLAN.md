@@ -100,8 +100,8 @@ Acceptance: standing, walking and disturbance-recovery simulations.
 ## P6 — Humanoid / whole-body
 
 - [x] P6-01 multi-contact model (Run #519: Linux and Windows Configure/Build/Test passed; multi-point force aggregation, reference-point moments, active-contact accounting, validation and transactional output, tests, benchmark and documentation accepted)
-- [ ] P6-02 task-space hierarchy (implementation added; dual-platform CI pending)
-- [ ] P6-03 contact wrench optimization
+- [x] P6-02 task-space hierarchy (Run #521: Linux and Windows Configure/Build/Test passed; ordered differential-IK levels, damped null-space updates, transactional validation, tests, benchmark and documentation accepted)
+- [ ] P6-03 contact wrench optimization (implementation added; dual-platform CI pending)
 - [ ] P6-04 balance / ZMP / centroidal control
 - [ ] P6-05 whole-body QP
 - [ ] P6-06 manipulation while walking

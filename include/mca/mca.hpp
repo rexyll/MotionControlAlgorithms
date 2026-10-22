@@ -29,3 +29,4 @@
 #include "mca/legged/locomotion_mpc.hpp"
 #include "mca/legged/multi_contact_model.hpp"
 #include "mca/legged/task_space_hierarchy.hpp"
+#include "mca/legged/contact_wrench_optimizer.hpp"

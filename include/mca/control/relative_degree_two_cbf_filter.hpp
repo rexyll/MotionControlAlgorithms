@@ -85,6 +85,8 @@ class RelativeDegreeTwoCbfFilter {
     transformed.control_derivatives = input.control_derivatives;
     transformed.nominal_control = input.nominal_control;
 
+    // Convert the relative-degree-two inequality to the first-order form
+    // G*u + base >= 0 by moving the requested safety margin into base.
     for (Eigen::Index i = 0; i < barriers; ++i) {
       transformed.drift_derivatives(i) =
           input.second_drift_derivatives(i) +
@@ -101,6 +103,9 @@ class RelativeDegreeTwoCbfFilter {
     result.control = candidate.control;
     result.modified = candidate.modified;
     result.active_constraint_count = candidate.active_constraints;
+    // candidate.margin is measured against the transformed inequality, so
+    // adding the requested margin restores the physical relative-degree-two
+    // barrier residual.
     result.minimum_safety_margin =
         candidate.minimum_safety_margin + config_.safety_margin;
     output = result;

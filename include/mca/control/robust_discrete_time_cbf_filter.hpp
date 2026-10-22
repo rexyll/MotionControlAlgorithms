@@ -27,7 +27,8 @@ class RobustDiscreteTimeCbfFilter {
                       DiscreteTimeCbfOutput& output) const {
     if (!configured_) return {core::StatusCode::NotConfigured};
     const Eigen::Index barriers = input.prediction.barrier_values.size();
-    if (barriers <= 0 || input.prediction_error_bounds.size() != barriers)
+    if (barriers <= 0 || input.prediction.predicted_drift.size() != barriers ||
+        input.prediction_error_bounds.size() != barriers)
       return {core::StatusCode::InvalidArgument};
     if (!input.prediction_error_bounds.allFinite() ||
         (input.prediction_error_bounds.array() < 0.0).any())

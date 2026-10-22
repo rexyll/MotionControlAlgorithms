@@ -122,7 +122,7 @@ Acceptance: formation and degraded-communication benchmarks.
 ## P8 — Advanced optimization/control
 
 - [x] P8-01 Linearization framework (Run #547: Linux and Windows Configure/Build/Test passed; central finite-difference A/B Jacobians, affine residual, evaluator/dimension/finite-value validation, transactional output, tests, benchmark and scope documentation accepted)
-- [ ] P8-02 LQR/LQG
+- [ ] P8-02 LQR/LQG (current scope: reusable discrete-time LQR Riccati solver, analytical/reference and closed-loop stability tests, benchmark and documentation; Kalman/LQG estimator integration remains pending)
 - [ ] P8-03 nonlinear MPC
 - [ ] P8-04 constrained QP infrastructure
 - [ ] P8-05 generic MPC interface

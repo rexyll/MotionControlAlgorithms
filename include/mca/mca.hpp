@@ -17,6 +17,7 @@
 #include "mca/control/control_barrier_filter.hpp"
 #include "mca/control/reference_governor.hpp"
 #include "mca/control/multi_barrier_filter.hpp"
+#include "mca/control/multi_input_cbf_filter.hpp"
 #include "mca/control/pid.hpp"
 #include "mca/core/filters.hpp"
 #include "mca/core/math.hpp"

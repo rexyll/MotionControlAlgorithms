@@ -132,3 +132,4 @@ Acceptance: formation and degraded-communication benchmarks.
 - [x] P8-09 control barrier function safety filter (Run #587: Linux and Windows Configure/Build/Test passed; scalar control-affine safety constraint, nominal-command projection under actuator bounds, infeasibility and transactional validation tests, documentation accepted)
 - [x] P8-10 reference command governor (Run #590: Linux and Windows Configure/Build/Test passed; position/velocity/acceleration limits, discrete stopping-speed bound, feasible velocity interval, transactional validation, boundary/convergence tests and documentation accepted)
 - [x] P8-11 multi-constraint scalar CBF filter (Run #592: Linux and Windows Configure/Build/Test passed; interval intersection across multiple scalar CBF inequalities, actuator bounds, infeasibility handling, transactional validation, tests and documentation accepted)
+- [ ] P8-12 multi-input CBF safety filter

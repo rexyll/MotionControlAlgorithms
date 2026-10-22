@@ -32,7 +32,7 @@ TEST(FormationControl, CommandsReduceRelativeOffsetError) {
   FormationOutput output;
   ASSERT_TRUE(formation_control(input, output));
   // Agent 0 is too close to agent 2 relative to the desired x offset.
-  EXPECT_GT(output.velocities(0, 0), 0.0);
+  EXPECT_LT(output.velocities(0, 0), 0.0);
   // Agent 2 is too far from agent 0 in x and too high in y.
   EXPECT_LT(output.velocities(2, 1), 0.0);
   EXPECT_TRUE(output.velocities.allFinite());

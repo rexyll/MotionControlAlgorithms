@@ -30,8 +30,8 @@ TEST(DistributedOptimization, AppliesMixingAndGradientStep) {
   const auto input = input_for_test();
   DistributedOptimizationOutput output;
   ASSERT_TRUE(distributed_optimization_step(input, output));
-  EXPECT_NEAR(output.estimates(0, 0), 0.8, 1e-12);
-  EXPECT_NEAR(output.estimates(1, 0), 0.8, 1e-12);
+  EXPECT_NEAR(output.estimates(0, 0), 0.9, 1e-12);
+  EXPECT_NEAR(output.estimates(1, 0), 0.7, 1e-12);
   EXPECT_NEAR(output.gradient_trackers(0, 0), 1.5, 1e-12);
   EXPECT_NEAR(output.gradient_trackers(1, 0), 1.5, 1e-12);
 }

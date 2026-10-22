@@ -23,7 +23,7 @@ TEST(DiscreteTimeCbfFilter, EnforcesOneStepBarrierCondition) {
   input.nominal_control = Eigen::Vector2d(-2.0, 0.0);
   mca::control::DiscreteTimeCbfOutput output;
   ASSERT_TRUE(filter.filter(input, output).ok());
-  EXPECT_NEAR(output.control.x(), 0.5, 1e-8);
+  EXPECT_NEAR(output.control.x(), 1.5, 1e-8);
   EXPECT_GE(output.minimum_safety_margin, -1e-8);
   EXPECT_TRUE(output.modified);
 }

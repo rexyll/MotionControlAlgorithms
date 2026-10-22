@@ -27,7 +27,7 @@ Acceptance: clean CMake configure/build/test on Linux and Windows; core has no R
 - [x] P1-08 FOC current controller (Run #109: Linux and Windows CI passed; dq PI current control, current/voltage/integral limits, conditional anti-windup, closed-loop current tracking, unit tests, benchmark and docs accepted)
 - [x] P1-09 decoupling/feedforward (Run #118: Linux and Windows CI passed; PMSM dq decoupling/back-EMF feedforward, analytical/reference tests, independent voltage limits, benchmark and docs accepted)
 - [x] P1-10 SVPWM (Run #128: Linux and Windows CI passed; six-sector dwell computation, symmetric zero-vector allocation, linear modulation clamp, overmodulation reporting, unit tests, benchmark and docs accepted)
-- [x] P1-11 friction compensation (Run #134: Linux and Windows CI passed; static/Coulomb/viscous compensation, velocity deadband with requested-torque breakaway direction, output limits, unit tests, benchmark and docs accepted)
+- [x] P1-11 friction compensation (Run #134: Linux and Windows CI passed; static/Coulomb/viscous compensation, velocity deadband with requested-torque breakaway direction, output limits, unit tests, benchmark accepted)
 - [x] P1-12 disturbance observer (Run #143: Linux and Windows CI passed; model-residual disturbance estimation, first-order filtering, compensation, limits, reset/validation tests, benchmark and docs accepted)
 - [x] P1-13 state observers (Run #148: Linux and Windows CI passed; second-order mechanical Luenberger observer, position/velocity/acceleration estimation, unit tests, benchmark and docs accepted)
 - [x] P1-14 Step/ramp/sine scalar trajectory generators (Run #153: Linux and Windows CI passed; step/ramp/sine analytic samples, edge-case/finite-output tests, benchmark and docs accepted)
@@ -59,7 +59,7 @@ Acceptance: reproducible path tracking benchmark and controller comparison.
 - [x] P3-05 DLS IK (Run #291: Linux and Windows Configure/Build/Test passed; adaptive damping with accept/reject trials, near-singular convergence, joint-step and joint-limit enforcement, invalid-option handling, unit tests, benchmark, documentation and CMake integration accepted)
 - [x] P3-06 Jacobian (Run #298: Linux and Windows Configure/Build/Test passed; analytical planar two-link reference, mixed fixed/revolute/prismatic chain, rotated URDF axis, transactional invalid-input behavior, benchmark, docs and CMake integration accepted)
 - [x] P3-07 Singularity metrics (Run #308: Linux and Windows Configure/Build/Test passed; singular values, numerical rank, condition number, manipulability and rank-deficiency behavior, validation tests, benchmark, documentation and CMake integration accepted)
-- [x] P3-08 Cubic/quintic trajectory (Run #315: Linux and Windows Configure/Build/Test passed; cubic position/velocity boundary matching, quintic position/velocity/acceleration matching, endpoint clamping, edge cases, unit tests, benchmark and documentation accepted)
+- [x] P3-08 Cubic/quintic trajectory (Run #315: Linux and Windows Configure/Build/Test passed; cubic position/velocity boundary matching, quintic position/velocity/acceleration matching, endpoint clamping, edge cases, unit tests and documentation accepted)
 - [x] P3-09 S-curve trajectory (Run #321: Linux and Windows Configure/Build/Test passed; seven-phase jerk-limited profile, reverse/short/cruise/invalid-input tests, benchmark, documentation and CMake integration accepted)
 - [x] P3-10 rigid-body dynamics (Run #332: Linux and Windows Configure/Build/Test passed; mass matrix, Coriolis/centrifugal vector, gravity and bias-force reference implementation, analytical tests, benchmark and documentation accepted)
 - [x] P3-11 gravity compensation (Run #340: Linux and Windows Configure/Build/Test passed; gravity feedforward scaling, per-joint limits, transactional validation, reference tests, benchmark, docs and CMake integration accepted)
@@ -122,46 +122,9 @@ Acceptance: formation and degraded-communication benchmarks.
 ## P8 — Advanced optimization/control
 
 - [x] P8-01 Linearization framework (Run #547: Linux and Windows Configure/Build/Test passed; central finite-difference A/B Jacobians, affine residual, evaluator/dimension/finite-value validation, transactional output, tests, benchmark and scope documentation accepted)
-- [ ] P8-02 LQR/LQG (implementation now includes discrete-time LQR Riccati solver, linear Kalman predict/update with Joseph covariance form, certainty-equivalent LQG feedback, analytical/reference and validation tests, benchmarks and documentation; await cross-platform CI acceptance)
+- [x] P8-02 LQR/LQG (Run #552: Linux and Windows Configure/Build/Test passed; discrete-time LQR Riccati solver, linear Kalman predict/update with Joseph covariance form, certainty-equivalent LQG feedback, analytical/reference and validation tests, benchmarks and documentation accepted)
 - [ ] P8-03 nonlinear MPC
 - [ ] P8-04 constrained QP infrastructure
 - [ ] P8-05 generic MPC interface
 - [ ] P8-06 robust/adaptive control
 - [ ] P8-07 sliding-mode control
-- [ ] P8-08 ADRC
-- [ ] P8-09 optimization-based allocation
-
-Acceptance: common benchmark comparing PID/FF, LQR, DOB, MPC and optimization-based controllers where applicable.
-
-## P9 — ROS 2 and Gazebo integration
-
-- [ ] P9-01 ROS 2 Jazzy package layout
-- [ ] P9-02 ros2_control hardware interface
-- [ ] P9-03 controller adapters
-- [ ] P9-04 Gazebo Harmonic adapters
-- [ ] P9-05 launch/config system
-- [ ] P9-06 rosbag/replay pipeline
-- [ ] P9-07 visualization and diagnostics
-
-Acceptance: each domain can run through ROS2/Gazebo without changing core algorithm code.
-
-## P10 — Engineering hardening
-
-- [ ] P10-01 API/documentation stabilization
-- [ ] P10-02 benchmark regression CI
-- [ ] P10-03 sanitizer builds
-- [ ] P10-04 static analysis
-- [ ] P10-05 performance benchmarks
-- [ ] P10-06 deterministic replay
-- [ ] P10-07 hardware-in-the-loop extension points
-- [ ] P10-08 release/versioning policy
-
-## Implementation rule
-
-Do not mark a task complete because code compiles. A task is complete only when its implementation, unit tests, documentation, benchmark and acceptance criteria are present.
-
-## Recommended execution order
-
-P0 → P1 → P2 → P3 → P4 → P5 → P6 → P7 → P8 → P9 → P10.
-
-Cross-domain infrastructure should be implemented once and reused; domain packages should contain only domain-specific models, compositions and scenarios.

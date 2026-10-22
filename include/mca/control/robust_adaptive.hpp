@@ -1,6 +1,8 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
+#include <utility>
 #include <cstddef>
 #include <Eigen/Core>
 

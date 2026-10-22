@@ -59,14 +59,14 @@ Acceptance: reproducible path tracking benchmark and controller comparison.
 - [x] P3-05 DLS IK (Run #291: Linux and Windows Configure/Build/Test passed; adaptive damping with accept/reject trials, near-singular convergence, joint-step and joint-limit enforcement, invalid-option handling, unit tests, benchmark, documentation and CMake integration accepted)
 - [x] P3-06 Jacobian (Run #298: Linux and Windows Configure/Build/Test passed; analytical planar two-link reference, mixed fixed/revolute/prismatic chain, rotated URDF axis, transactional invalid-input behavior, benchmark, docs and CMake integration accepted)
 - [x] P3-07 Singularity metrics (Run #308: Linux and Windows Configure/Build/Test passed; singular values, numerical rank, condition number, manipulability and rank-deficiency behavior, validation tests, benchmark, documentation and CMake integration accepted)
-- [x] P3-08 Cubic/quintic trajectory (Run #315: Linux and Windows Configure/Build/Test passed; cubic position/velocity boundary matching, quintic position/velocity/acceleration matching, endpoint clamping, edge cases, unit tests, benchmark, documentation and CMake integration accepted)
+- [x] P3-08 Cubic/quintic trajectory (Run #315: Linux and Windows Configure/Build/Test passed; cubic position/velocity boundary matching, quintic position/velocity/acceleration matching, endpoint clamping, edge cases, unit tests, benchmark and documentation accepted)
 - [x] P3-09 S-curve trajectory (Run #321: Linux and Windows Configure/Build/Test passed; seven-phase jerk-limited profile, reverse/short/cruise/invalid-input tests, benchmark, documentation and CMake integration accepted)
 - [x] P3-10 rigid-body dynamics (Run #332: Linux and Windows Configure/Build/Test passed; mass matrix, Coriolis/centrifugal vector, gravity and bias-force reference implementation, analytical tests, benchmark and documentation accepted)
 - [x] P3-11 gravity compensation (Run #340: Linux and Windows Configure/Build/Test passed; gravity feedforward scaling, per-joint limits, transactional validation, reference tests, benchmark, docs and CMake integration accepted)
 - [x] P3-12 computed torque (Run #348: Linux and Windows Configure/Build/Test passed; model-based joint-space computed torque, PD feedback, torque saturation, transactional validation, analytical/reference tests, benchmark and documentation accepted)
 - [x] P3-13 Cartesian control (Run #356: Linux and Windows Configure/Build/Test passed; task-space PD/feedforward wrench control, Jacobian-transpose mapping, orientation feedback, torque saturation, transactional validation, tests, benchmark and documentation accepted)
-- [x] P3-14 impedance control (Run #364: Linux and Windows Configure/Build/Test passed; Cartesian virtual spring-damper impedance, feedforward wrench, wrench limiting, transactional validation, reference tests, benchmark, documentation and CMake integration accepted)
-- [x] P3-15 admittance control (Run #372: Linux and Windows Configure/Build/Test passed; base-frame orientation residual, overflowing-quaternion rejection, transactional state preservation, reference tests, benchmark and documentation and CMake integration accepted)
+- [x] P3-14 impedance control (Run #364: Linux and Windows Configure/Build/Test passed; Cartesian virtual spring-damper impedance, feedforward wrench, wrench limiting, transactional validation, reference tests, benchmark and CMake integration accepted)
+- [x] P3-15 admittance control (Run #372: Linux and Windows Configure/Build/Test passed; base-frame orientation residual, overflowing-quaternion rejection, transactional state preservation, reference tests, benchmark, documentation and CMake integration accepted)
 - [x] P3-16 redundancy/null-space control (Run #386: Linux and Windows Configure/Build/Test passed; exact null-space projection, primary-task leakage/idempotence, damped near-singular behavior, non-finite input rejection with transactional output preservation, deterministic benchmark, documentation and CMake integration accepted)
 
 Acceptance: FK/IK/Jacobian numerical validation; joint and Cartesian tracking benchmarks; contact-control scenario.
@@ -93,7 +93,7 @@ Acceptance: waypoint, trajectory and disturbance benchmarks.
 - [x] P5-06 whole-body control (Run #495: Linux and Windows Configure/Build/Test passed; baseline task-wrench torque aggregation, feedforward/secondary torque composition, per-joint saturation, validation tests, benchmark and documentation accepted)
 - [x] P5-07 QP task hierarchy (Run #503: Linux and Windows Configure/Build/Test passed; weighted convex QP baseline with box constraints, projected-gradient solver, validation tests, benchmark and documentation accepted)
 - [x] P5-08 joint impedance/torque control (Run #505: Linux and Windows Configure/Build/Test passed; joint-space spring-damper torque law, feedforward composition, per-joint saturation, validation tests, benchmark and documentation accepted)
-- [ ] P5-09 locomotion MPC (implementation restored; dual-platform CI pending)
+- [x] P5-09 locomotion MPC (Run #510: Linux and Windows Configure/Build/Test passed; COM-level linear MPC with projected-gradient acceleration optimization, standing/walking/disturbance-recovery and transactional validation tests, benchmark and documentation accepted)
 
 Acceptance: standing, walking and disturbance-recovery simulations.
 

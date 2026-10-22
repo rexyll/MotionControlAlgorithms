@@ -105,4 +105,92 @@ TEST(CbfSafetyFilterIntegration, AllVariantsPreserveOutputOnFailure) {
             mca::core::StatusCode::ConstraintViolation);
   EXPECT_TRUE(sentinel.control.isApprox(Eigen::Vector2d(7.0, 8.0)));
 }
+
+TEST(CbfSafetyFilterIntegration, BoundaryConstraintRemainsFeasibleAcrossVariants) {
+  const auto config = make_config();
+  auto prediction = make_prediction();
+  prediction.predicted_drift[0] = -0.5;
+  prediction.nominal_control = Eigen::Vector2d(1.0, 0.0);
+
+  mca::control::DiscreteTimeCbfFilter nominal;
+  mca::control::RobustDiscreteTimeCbfFilter robust;
+  mca::control::CbfSlewRateFilter slew;
+  mca::control::RobustCbfSlewRateFilter robust_slew;
+  ASSERT_TRUE(nominal.configure(config).ok());
+  ASSERT_TRUE(robust.configure(config).ok());
+  ASSERT_TRUE(slew.configure(config).ok());
+  ASSERT_TRUE(robust_slew.configure(config).ok());
+
+  mca::control::DiscreteTimeCbfOutput output;
+  ASSERT_TRUE(nominal.filter(prediction, output).ok());
+  EXPECT_NEAR(output.control[0], 1.0, 1.0e-8);
+  EXPECT_GE(output.minimum_safety_margin, -1.0e-8);
+
+  mca::control::RobustDiscreteTimeCbfInput robust_input;
+  robust_input.prediction = prediction;
+  robust_input.prediction_error_bounds = Eigen::VectorXd::Zero(1);
+  ASSERT_TRUE(robust.filter(robust_input, output).ok());
+  EXPECT_NEAR(output.control[0], 1.0, 1.0e-8);
+
+  mca::control::CbfSlewRateInput slew_input;
+  slew_input.prediction = prediction;
+  slew_input.previous_control = Eigen::Vector2d::Zero();
+  slew_input.max_control_delta = Eigen::Vector2d::Constant(10.0);
+  ASSERT_TRUE(slew.filter(slew_input, output).ok());
+  EXPECT_NEAR(output.control[0], 1.0, 1.0e-8);
+
+  mca::control::RobustCbfSlewRateInput robust_slew_input;
+  robust_slew_input.robust_prediction = robust_input;
+  robust_slew_input.previous_control = slew_input.previous_control;
+  robust_slew_input.max_control_delta = slew_input.max_control_delta;
+  ASSERT_TRUE(robust_slew.filter(robust_slew_input, output).ok());
+  EXPECT_NEAR(output.control[0], 1.0, 1.0e-8);
+}
+
+TEST(CbfSafetyFilterIntegration, ArithmeticOverflowReturnsNumericalErrorTransactionally) {
+  const auto config = make_config();
+  auto prediction = make_prediction();
+  prediction.barrier_values[0] = 1.7e308;
+  prediction.predicted_drift[0] = -1.7e308;
+  prediction.nominal_control.setZero();
+
+  const Eigen::Vector2d sentinel_control(7.0, 8.0);
+  mca::control::DiscreteTimeCbfOutput output;
+  output.control = sentinel_control;
+
+  mca::control::DiscreteTimeCbfFilter nominal;
+  ASSERT_TRUE(nominal.configure(config).ok());
+  EXPECT_EQ(nominal.filter(prediction, output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_TRUE(output.control.isApprox(sentinel_control));
+
+  mca::control::RobustDiscreteTimeCbfFilter robust;
+  ASSERT_TRUE(robust.configure(config).ok());
+  mca::control::RobustDiscreteTimeCbfInput robust_input;
+  robust_input.prediction = prediction;
+  robust_input.prediction_error_bounds = Eigen::VectorXd::Zero(1);
+  EXPECT_EQ(robust.filter(robust_input, output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_TRUE(output.control.isApprox(sentinel_control));
+
+  mca::control::CbfSlewRateFilter slew;
+  ASSERT_TRUE(slew.configure(config).ok());
+  mca::control::CbfSlewRateInput slew_input;
+  slew_input.prediction = prediction;
+  slew_input.previous_control = Eigen::Vector2d::Zero();
+  slew_input.max_control_delta = Eigen::Vector2d::Constant(10.0);
+  EXPECT_EQ(slew.filter(slew_input, output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_TRUE(output.control.isApprox(sentinel_control));
+
+  mca::control::RobustCbfSlewRateFilter robust_slew;
+  ASSERT_TRUE(robust_slew.configure(config).ok());
+  mca::control::RobustCbfSlewRateInput robust_slew_input;
+  robust_slew_input.robust_prediction = robust_input;
+  robust_slew_input.previous_control = slew_input.previous_control;
+  robust_slew_input.max_control_delta = slew_input.max_control_delta;
+  EXPECT_EQ(robust_slew.filter(robust_slew_input, output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_TRUE(output.control.isApprox(sentinel_control));
+}
 }  // namespace

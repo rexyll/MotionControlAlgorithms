@@ -6,7 +6,7 @@
 namespace {
 using namespace mca::control;
 TEST(DiscreteKalman, ScalarMeasurementMatchesAnalyticUpdate) {
-  DiscreteKalmanState prior; prior.x=Eigen::VectorXd::Constant(1,0.0); prior.P=Eigen::MatrixXd::Constant(1,2.0);
+  DiscreteKalmanState prior; prior.x=Eigen::VectorXd::Constant(1,0.0); prior.P=Eigen::MatrixXd::Constant(1,1,2.0);
   Eigen::MatrixXd C=Eigen::MatrixXd::Identity(1,1), R=Eigen::MatrixXd::Constant(1,1,1.0);
   Eigen::VectorXd y=Eigen::VectorXd::Constant(1,3.0); DiscreteKalmanState out;
   ASSERT_TRUE(kalman_update(C,R,y,prior,out));
@@ -15,7 +15,7 @@ TEST(DiscreteKalman, ScalarMeasurementMatchesAnalyticUpdate) {
 TEST(DiscreteKalman, PredictionUsesControlAndProcessNoise) {
   Eigen::MatrixXd A=Eigen::MatrixXd::Identity(1,1), B=Eigen::MatrixXd::Identity(1,1), Q=Eigen::MatrixXd::Constant(1,1,0.25);
   Eigen::VectorXd u=Eigen::VectorXd::Constant(1,2.0);
-  DiscreteKalmanState in; in.x=Eigen::VectorXd::Constant(1,1.0); in.P=Eigen::MatrixXd::Constant(1,2.0); DiscreteKalmanState out;
+  DiscreteKalmanState in; in.x=Eigen::VectorXd::Constant(1,1.0); in.P=Eigen::MatrixXd::Constant(1,1,2.0); DiscreteKalmanState out;
   ASSERT_TRUE(kalman_predict(A,B,u,Q,in,out)); EXPECT_DOUBLE_EQ(out.x(0),3.0); EXPECT_DOUBLE_EQ(out.P(0,0),2.25);
 }
 TEST(DiscreteKalman, LqgUsesEstimatedState) {

@@ -93,6 +93,33 @@ TEST(NonlinearMpc, ComputesRepresentableGradientWhenFiniteCostDifferenceWouldOve
   EXPECT_DOUBLE_EQ(r.cost,-1.2e308);
 }
 
+TEST(NonlinearMpc, PreservesGradientPrecisionWhenCostSubtractionIsSafe) {
+  NonlinearMpcProblem p;
+  p.control_lower=Eigen::VectorXd::Constant(1,-1.0e100);
+  p.control_upper=Eigen::VectorXd::Constant(1,1.0e100);
+  p.dynamics=[](const Eigen::VectorXd& x,const Eigen::VectorXd&,Eigen::VectorXd& next) {
+    next=x; return true;
+  };
+  const double high=1.0e308;
+  const double low=std::nextafter(high,0.0);
+  p.stage_cost=[high,low](const Eigen::VectorXd&,const Eigen::VectorXd& u) {
+    return u(0)<0.0?low:high;
+  };
+  p.terminal_cost=[](const Eigen::VectorXd&) { return 0.0; };
+  NonlinearMpcOptions o;
+  o.horizon=1; o.optimization_iterations=1;
+  o.finite_difference_step=1.0e100;
+  o.gradient_step=1.0e-300;
+  Eigen::VectorXd x=Eigen::VectorXd::Zero(1);
+  NonlinearMpcResult r;
+  ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));
+  const double expected=(high-low)/(2.0e100);
+  EXPECT_TRUE(std::isfinite(expected));
+  EXPECT_NEAR(r.projected_gradient_norm/expected,1.0,1.0e-12);
+  EXPECT_LT(r.control(0),0.0);
+  EXPECT_DOUBLE_EQ(r.cost,low);
+}
+
 TEST(NonlinearMpc, StopsWhenProjectedGradientToleranceIsSatisfied) {
   auto p=makeProblem();
   NonlinearMpcOptions o; o.horizon=4; o.optimization_iterations=20;

@@ -153,7 +153,13 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
     if(!gradient.allFinite()) return fail("nonlinear MPC gradient is non-finite");
     Eigen::MatrixXd projected_gradient(nu,static_cast<Eigen::Index>(N));
     for(Eigen::Index j=0;j<nu;++j) for(Eigen::Index k=0;k<projected_gradient.cols();++k) {
-      const double trial_value=controls(j,k)-options.gradient_step*gradient(j,k);
+      const double scaled_gradient=options.gradient_step*gradient(j,k);
+      // If the unconstrained step overflows, its sign still identifies which
+      // bound the projected descent step reaches; avoid relying on infinities
+      // flowing through the clamp implementation.
+      const double trial_value=std::isfinite(scaled_gradient)
+        ? controls(j,k)-scaled_gradient
+        : (gradient(j,k)>0.0?problem.control_lower(j):problem.control_upper(j));
       const double projected=std::clamp(trial_value,problem.control_lower(j),problem.control_upper(j));
       const double control_value=controls(j,k);
       const double max_control=std::numeric_limits<double>::max();

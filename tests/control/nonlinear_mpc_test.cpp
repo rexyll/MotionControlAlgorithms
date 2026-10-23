@@ -144,6 +144,31 @@ TEST(NonlinearMpc, ComputesRepresentableLargeProjectedGradientNormWithoutOverflo
   EXPECT_DOUBLE_EQ(r.cost,-1.0e200);
 }
 
+TEST(NonlinearMpc, KeepsRepresentableProjectedMappingWhenDisplacementOverflows) {
+  NonlinearMpcProblem p;
+  p.control_lower=Eigen::VectorXd::Constant(1,-1.7e308);
+  p.control_upper=Eigen::VectorXd::Constant(1,1.7e308);
+  p.dynamics=[](const Eigen::VectorXd& x,const Eigen::VectorXd&,Eigen::VectorXd& next) {
+    next=x; return true;
+  };
+  p.stage_cost=[](const Eigen::VectorXd&,const Eigen::VectorXd& u) {
+    return 1.5*u(0);
+  };
+  p.terminal_cost=[](const Eigen::VectorXd&) { return 0.0; };
+  NonlinearMpcOptions o;
+  o.horizon=1; o.optimization_iterations=1;
+  o.finite_difference_step=1.0e300;
+  o.gradient_step=1.5e308;
+  o.initial_control_sequence=Eigen::MatrixXd::Constant(1,1,1.0e308);
+  Eigen::VectorXd x=Eigen::VectorXd::Zero(1);
+  NonlinearMpcResult r;
+  ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));
+  EXPECT_TRUE(std::isfinite(r.projected_gradient_norm));
+  EXPECT_NEAR(r.projected_gradient_norm,1.8,1.0e-6);
+  EXPECT_TRUE(r.control_sequence.allFinite());
+  EXPECT_TRUE(std::isfinite(r.cost));
+}
+
 TEST(NonlinearMpc, StopsWhenProjectedGradientToleranceIsSatisfied) {
   auto p=makeProblem();
   NonlinearMpcOptions o; o.horizon=4; o.optimization_iterations=20;

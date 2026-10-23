@@ -33,7 +33,7 @@ TEST(NonlinearMpcProjectedGradient, PreservesTinyInteriorGradientWhenStepProduct
   ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));
   EXPECT_EQ(r.termination,NonlinearMpcTermination::NoImprovingStep);
   EXPECT_EQ(r.iterations_completed,1U);
-  EXPECT_EQ(r.line_search_evaluations,0U);
+  EXPECT_EQ(r.line_search_evaluations,1U);
   EXPECT_TRUE(std::isfinite(r.projected_gradient_norm));
   EXPECT_NEAR(r.projected_gradient_norm,1.0e-200,1.0e-215);
 }

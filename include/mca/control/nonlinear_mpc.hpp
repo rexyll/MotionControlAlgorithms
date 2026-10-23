@@ -45,11 +45,19 @@ inline bool shift_nonlinear_mpc_warm_start(const Eigen::MatrixXd& previous_seque
   return true;
 }
 
+enum class NonlinearMpcTermination {
+  IterationLimitReached,
+  NoImprovingStep
+};
+
 struct NonlinearMpcResult {
   Eigen::VectorXd control;
   Eigen::MatrixXd predicted_states;
   Eigen::MatrixXd control_sequence;
   double cost{0.0};
+  std::size_t iterations_completed{0U};
+  std::size_t line_search_evaluations{0U};
+  NonlinearMpcTermination termination{NonlinearMpcTermination::IterationLimitReached};
 };
 
 // Generic direct-shooting nonlinear MPC using projected finite-difference gradient descent.
@@ -104,7 +112,11 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
   if(!rollout(controls,states,current_cost)) return fail("initial nonlinear MPC rollout failed");
   Eigen::MatrixXd trial=controls, trial_states=states;
   Eigen::MatrixXd gradient=Eigen::MatrixXd::Zero(nu,static_cast<Eigen::Index>(N));
+  std::size_t iterations_completed=0U;
+  std::size_t line_search_evaluations=0U;
+  NonlinearMpcTermination termination=NonlinearMpcTermination::IterationLimitReached;
   for(std::size_t iteration=0;iteration<options.optimization_iterations;++iteration){
+    iterations_completed=iteration+1U;
     for(std::size_t k=0;k<N;++k) for(Eigen::Index j=0;j<nu;++j){
       const Eigen::Index kk=static_cast<Eigen::Index>(k); const double h=options.finite_difference_step;
       const double base=controls(j,kk);
@@ -124,6 +136,7 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
     bool accepted=false;
     double step=options.gradient_step;
     for(std::size_t line_search=0U;line_search<options.line_search_iterations;++line_search){
+      ++line_search_evaluations;
       trial=controls;
       for(Eigen::Index j=0;j<nu;++j) for(std::size_t k=0;k<N;++k){
         const Eigen::Index kk=static_cast<Eigen::Index>(k);
@@ -144,10 +157,16 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
       }
       step*=0.5;
     }
-    if(!accepted) break;
+    if(!accepted) {
+      termination=NonlinearMpcTermination::NoImprovingStep;
+      break;
+    }
   }
   NonlinearMpcResult candidate;
   candidate.control=controls.col(0); candidate.predicted_states=states; candidate.control_sequence=controls; candidate.cost=current_cost;
+  candidate.iterations_completed=iterations_completed;
+  candidate.line_search_evaluations=line_search_evaluations;
+  candidate.termination=termination;
   if(!candidate.control.allFinite()||!candidate.predicted_states.allFinite()||!candidate.control_sequence.allFinite()||!std::isfinite(candidate.cost))
     return fail("nonlinear MPC result is non-finite");
   output=std::move(candidate); if(error) error->clear(); return true;

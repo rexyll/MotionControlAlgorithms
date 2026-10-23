@@ -42,3 +42,5 @@ Tests cover nonlinear rollout/convergence, objective non-increase under an aggre
 
 
 P8-41 adds phase-specific exception regressions: the initial rollout succeeds, then a user callback throws during a finite-difference rollout or a line-search candidate rollout. Both cases must return the stable callback-exception failure and leave the caller's pre-existing result unchanged.
+
+P8-42 ensures finite-difference probes remain informative when the configured step is smaller than the local floating-point spacing: if `base + h` or `base - h` rounds back to `base`, the solver probes the nearest representable value in that feasible direction using `std::nextafter`. Fixed dimensions and cases with no distinct feasible representable probe still produce a zero gradient for that dimension. A regression starts from a large control value with a sub-ULP finite-difference step and verifies the solver can detect descent and reduce the objective.

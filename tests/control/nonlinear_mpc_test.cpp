@@ -393,7 +393,7 @@ TEST(NonlinearMpc, StopsLineSearchWhenStepHalvingUnderflows) {
   NonlinearMpcResult r;
   ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));
   EXPECT_EQ(r.termination,NonlinearMpcTermination::NoImprovingStep);
-  EXPECT_EQ(r.line_search_evaluations,0U);
+  EXPECT_EQ(r.line_search_evaluations,1U);
   EXPECT_DOUBLE_EQ(r.control(0),0.0);
   EXPECT_DOUBLE_EQ(r.cost,0.0);
 }

@@ -38,10 +38,35 @@ TEST(NonlinearMpc, RespectsBoundsAndTransactionalFailure) {
   const double old=r.control(0); EXPECT_FALSE(solve_nonlinear_mpc(bad,x,o,r)); EXPECT_DOUBLE_EQ(r.control(0),old);
 }
 
+TEST(NonlinearMpc, SupportsFixedControlBounds) {
+  auto p=makeProblem();
+  p.control_lower=Eigen::VectorXd::Constant(1,0.25);
+  p.control_upper=Eigen::VectorXd::Constant(1,0.25);
+  NonlinearMpcOptions o; o.horizon=4; o.optimization_iterations=8;
+  Eigen::VectorXd x(1); x<<0.5;
+  NonlinearMpcResult r;
+  ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));
+  EXPECT_NEAR(r.control(0),0.25,1e-12);
+  EXPECT_TRUE((r.control_sequence.array()==0.25).all());
+  EXPECT_TRUE(std::isfinite(r.cost));
+}
+
+TEST(NonlinearMpc, BacktrackingPreventsCostIncreaseWithAggressiveStep) {
+  auto p=makeProblem();
+  NonlinearMpcOptions o; o.horizon=8; o.optimization_iterations=35; o.gradient_step=100.0;
+  Eigen::VectorXd x(1); x<<1.0;
+  NonlinearMpcResult r;
+  ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));
+  // The initial midpoint sequence is all zeros: 8 unit stage costs + terminal cost 2.
+  EXPECT_LE(r.cost,10.0+1e-10);
+  EXPECT_LT(r.cost,10.0);
+}
+
 TEST(NonlinearMpc, RejectsInvalidCallbacksAndOptions) {
   auto p=makeProblem(); Eigen::VectorXd x=Eigen::VectorXd::Zero(1); NonlinearMpcResult r;
   NonlinearMpcOptions o; o.horizon=0; EXPECT_FALSE(solve_nonlinear_mpc(p,x,o,r));
-  p.dynamics={}; o.horizon=4; EXPECT_FALSE(solve_nonlinear_mpc(p,x,o,r));
+  o.horizon=4; o.line_search_iterations=0; EXPECT_FALSE(solve_nonlinear_mpc(p,x,o,r));
+  o.line_search_iterations=12; p.dynamics={}; EXPECT_FALSE(solve_nonlinear_mpc(p,x,o,r));
 }
 
 TEST(ConstrainedQp, SolvesBoxConstrainedConvexProblem) {

@@ -138,17 +138,29 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
       trial=controls; trial(j,kk)=minus; double minus_cost=0.0;
       const bool minus_ok=rollout(trial,trial_states,minus_cost);
       if(!plus_ok||!minus_ok) return fail("nonlinear MPC finite-difference rollout failed");
-      const double denominator=plus-minus;
-      if(!std::isfinite(denominator)||denominator<=0.0) return fail("invalid finite-difference interval");
       const double max_cost=std::numeric_limits<double>::max();
+      const bool denominator_overflows=
+        (minus<0.0&&plus>max_cost+minus)||
+        (minus>0.0&&plus< -max_cost+minus);
+      const double denominator=denominator_overflows?0.0:plus-minus;
+      if(!denominator_overflows&&(!std::isfinite(denominator)||denominator<=0.0))
+        return fail("invalid finite-difference interval");
       const bool difference_overflows=
         (minus_cost<0.0&&plus_cost>max_cost+minus_cost)||
         (minus_cost>0.0&&plus_cost< -max_cost+minus_cost);
       // Keep the more accurate difference-first path unless subtracting the
       // finite costs would overflow; only then scale before subtraction.
-      gradient(j,kk)=difference_overflows
-        ? plus_cost/denominator-minus_cost/denominator
-        : (plus_cost-minus_cost)/denominator;
+      if(denominator_overflows) {
+        // Opposite-sign finite controls can have an unrepresentable interval.
+        // Normalize by the larger control magnitude before forming the ratio.
+        const double scale=std::max(std::abs(plus),std::abs(minus));
+        const double scaled_denominator=plus/scale-minus/scale;
+        gradient(j,kk)=(plus_cost/scale-minus_cost/scale)/scaled_denominator;
+      } else {
+        gradient(j,kk)=difference_overflows
+          ? plus_cost/denominator-minus_cost/denominator
+          : (plus_cost-minus_cost)/denominator;
+      }
     }
     if(!gradient.allFinite()) return fail("nonlinear MPC gradient is non-finite");
     Eigen::MatrixXd projected_gradient(nu,static_cast<Eigen::Index>(N));

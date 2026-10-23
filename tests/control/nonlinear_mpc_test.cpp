@@ -95,8 +95,8 @@ TEST(NonlinearMpc, ComputesRepresentableGradientWhenFiniteCostDifferenceWouldOve
 
 TEST(NonlinearMpc, PreservesGradientPrecisionWhenCostSubtractionIsSafe) {
   NonlinearMpcProblem p;
-  p.control_lower=Eigen::VectorXd::Constant(1,-1.0e100);
-  p.control_upper=Eigen::VectorXd::Constant(1,1.0e100);
+  p.control_lower=Eigen::VectorXd::Constant(1,-1.0e150);
+  p.control_upper=Eigen::VectorXd::Constant(1,1.0e150);
   p.dynamics=[](const Eigen::VectorXd& x,const Eigen::VectorXd&,Eigen::VectorXd& next) {
     next=x; return true;
   };
@@ -109,7 +109,7 @@ TEST(NonlinearMpc, PreservesGradientPrecisionWhenCostSubtractionIsSafe) {
   NonlinearMpcOptions o;
   o.horizon=1; o.optimization_iterations=1;
   o.finite_difference_step=1.0e100;
-  o.gradient_step=1.0e-300;
+  o.gradient_step=1.0e-150;
   Eigen::VectorXd x=Eigen::VectorXd::Zero(1);
   NonlinearMpcResult r;
   ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));

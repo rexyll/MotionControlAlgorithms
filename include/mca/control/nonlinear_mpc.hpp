@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstddef>
 #include <functional>
+#include <limits>
 #include <string>
 #include <utility>
 #include <Eigen/Dense>
@@ -139,7 +140,15 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
       if(!plus_ok||!minus_ok) return fail("nonlinear MPC finite-difference rollout failed");
       const double denominator=plus-minus;
       if(!std::isfinite(denominator)||denominator<=0.0) return fail("invalid finite-difference interval");
-      gradient(j,kk)=plus_cost/denominator-minus_cost/denominator;
+      const double max_cost=std::numeric_limits<double>::max();
+      const bool difference_overflows=
+        (minus_cost<0.0&&plus_cost>max_cost+minus_cost)||
+        (minus_cost>0.0&&plus_cost< -max_cost+minus_cost);
+      // Keep the more accurate difference-first path unless subtracting the
+      // finite costs would overflow; only then scale before subtraction.
+      gradient(j,kk)=difference_overflows
+        ? plus_cost/denominator-minus_cost/denominator
+        : (plus_cost-minus_cost)/denominator;
     }
     if(!gradient.allFinite()) return fail("nonlinear MPC gradient is non-finite");
     Eigen::MatrixXd projected_gradient(nu,static_cast<Eigen::Index>(N));

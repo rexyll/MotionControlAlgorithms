@@ -108,6 +108,30 @@ TEST(NonlinearMpc, ProjectedGradientReportsNonstationarityAwayFromBounds) {
   EXPECT_NE(r.termination,NonlinearMpcTermination::ProjectedGradientToleranceSatisfied);
 }
 
+TEST(NonlinearMpc, ProjectedGradientDiagnosticIsInvariantToGradientStepScaling) {
+  NonlinearMpcProblem p;
+  p.control_lower=Eigen::VectorXd::Constant(1,-2.0);
+  p.control_upper=Eigen::VectorXd::Constant(1,2.0);
+  p.dynamics=[](const Eigen::VectorXd& x,const Eigen::VectorXd&,Eigen::VectorXd& next) { next=x; return true; };
+  p.stage_cost=[](const Eigen::VectorXd&,const Eigen::VectorXd& u) { return 0.5*u.squaredNorm(); };
+  p.terminal_cost=[](const Eigen::VectorXd&) { return 0.0; };
+  Eigen::VectorXd x=Eigen::VectorXd::Zero(1);
+
+  NonlinearMpcOptions small_step;
+  small_step.horizon=1; small_step.optimization_iterations=1; small_step.gradient_step=0.25;
+  small_step.initial_control_sequence=Eigen::MatrixXd::Constant(1,1,0.5);
+  NonlinearMpcResult small_result;
+  ASSERT_TRUE(solve_nonlinear_mpc(p,x,small_step,small_result));
+
+  NonlinearMpcOptions large_step=small_step;
+  large_step.gradient_step=1.0;
+  NonlinearMpcResult large_result;
+  ASSERT_TRUE(solve_nonlinear_mpc(p,x,large_step,large_result));
+
+  EXPECT_NEAR(small_result.projected_gradient_norm,large_result.projected_gradient_norm,1e-6);
+  EXPECT_NEAR(small_result.projected_gradient_norm,0.5,1e-6);
+}
+
 TEST(NonlinearMpc, RejectsInvalidProjectedGradientToleranceTransactionally) {
   auto p=makeProblem();
   NonlinearMpcOptions o; o.projected_gradient_tolerance=-1.0;

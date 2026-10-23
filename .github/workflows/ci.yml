@@ -25,6 +25,12 @@ jobs:
         run: cmake --build build-p8-39 --parallel
       - name: Test P8-39 exception regressions
         run: ctest --test-dir build-p8-39 --output-on-failure
+      - name: Configure P8-40 projected-gradient regressions
+        run: cmake -S tests/p8_40 -B build-p8-40 -G Ninja
+      - name: Build P8-40 projected-gradient regressions
+        run: cmake --build build-p8-40 --parallel
+      - name: Test P8-40 projected-gradient regressions
+        run: ctest --test-dir build-p8-40 --output-on-failure
 
   windows:
     runs-on: windows-latest
@@ -51,3 +57,12 @@ jobs:
         run: cmake --build build-p8-39 --config Release
       - name: Test P8-39 exception regressions
         run: ctest --test-dir build-p8-39 -C Release --output-on-failure
+      - name: Configure P8-40 projected-gradient regressions
+        shell: pwsh
+        run: |
+          $toolchain = Join-Path $env:VCPKG_INSTALLATION_ROOT 'scripts/buildsystems/vcpkg.cmake'
+          cmake -S tests/p8_40 -B build-p8-40 -A x64 "-DCMAKE_TOOLCHAIN_FILE=$toolchain"
+      - name: Build P8-40 projected-gradient regressions
+        run: cmake --build build-p8-40 --config Release
+      - name: Test P8-40 projected-gradient regressions
+        run: ctest --test-dir build-p8-40 -C Release --output-on-failure

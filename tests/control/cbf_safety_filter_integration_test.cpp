@@ -1,3 +1,7 @@
+#include <functional>
+#include <utility>
+#include <vector>
+
 #include <gtest/gtest.h>
 
 #include "mca/mca.hpp"
@@ -194,12 +198,63 @@ TEST(CbfSafetyFilterIntegration, ArithmeticOverflowReturnsNumericalErrorTransact
   EXPECT_TRUE(output.control.isApprox(sentinel_control));
 }
 
+using CbfStep = std::function<mca::core::Status(
+    const mca::control::DiscreteTimeCbfInput&, const Eigen::VectorXd&,
+    mca::control::DiscreteTimeCbfOutput&)>;
+
+struct CbfTrace {
+  std::vector<double> controls;
+  std::vector<double> barriers;
+  std::vector<bool> modified;
+};
+
+CbfTrace run_closed_loop(const CbfStep& step, bool use_robust, bool use_slew) {
+  CbfTrace trace;
+  trace.controls.reserve(12);
+  trace.barriers.reserve(12);
+  trace.modified.reserve(12);
+
+  double barrier = 1.0;
+  Eigen::VectorXd previous = Eigen::VectorXd::Zero(1);
+  for (int k = 0; k < 12; ++k) {
+    mca::control::DiscreteTimeCbfInput prediction;
+    prediction.barrier_values = Eigen::VectorXd::Constant(1, barrier);
+    prediction.predicted_drift = Eigen::VectorXd::Constant(1, barrier);
+    prediction.control_derivatives = Eigen::MatrixXd::Ones(1, 1);
+    prediction.nominal_control =
+        Eigen::VectorXd::Constant(1, (k % 2 == 0) ? -1.0 : 0.5);
+
+    mca::control::DiscreteTimeCbfOutput output;
+    const auto status = step(prediction, previous, output);
+    EXPECT_TRUE(status.ok());
+    if (!status.ok()) break;
+
+    EXPECT_TRUE(output.control.allFinite());
+    EXPECT_GE(output.control[0], -1.0 - 1.0e-9);
+    EXPECT_LE(output.control[0], 1.0 + 1.0e-9);
+    if (use_slew) {
+      EXPECT_LE(std::abs(output.control[0] - previous[0]), 0.25 + 1.0e-9);
+    }
+
+    const double error = use_robust ? -0.05 : 0.0;
+    const double next_barrier = barrier + output.control[0] + error;
+    EXPECT_GE(next_barrier, 0.8 * barrier - 2.0e-8);
+    EXPECT_GT(next_barrier, 0.0);
+
+    barrier = next_barrier;
+    previous = output.control;
+    trace.controls.push_back(output.control[0]);
+    trace.barriers.push_back(barrier);
+    trace.modified.push_back(output.modified);
+  }
+  return trace;
+}
+
 TEST(CbfSafetyFilterIntegration, MultiStepClosedLoopPreservesSafetyAndSlewInvariants) {
   mca::control::DiscreteTimeCbfConfig config;
   config.gamma = 0.2;
   config.control_min = Eigen::VectorXd::Constant(1, -1.0);
   config.control_max = Eigen::VectorXd::Constant(1, 1.0);
-  ASSERT_GT(config.max_total_constraints, 0U);
 
   mca::control::DiscreteTimeCbfFilter nominal;
   mca::control::RobustDiscreteTimeCbfFilter robust;
@@ -211,89 +266,58 @@ TEST(CbfSafetyFilterIntegration, MultiStepClosedLoopPreservesSafetyAndSlewInvari
   ASSERT_TRUE(robust_slew.configure(config).ok());
 
   const Eigen::VectorXd rate = Eigen::VectorXd::Constant(1, 0.25);
-  const double prediction_error = -0.05;
 
-  auto run = [&](auto& filter, bool use_robust, bool use_slew) {
-    double barrier = 1.0;
-    Eigen::VectorXd previous = Eigen::VectorXd::Zero(1);
-    std::vector<double> controls;
-    std::vector<double> barriers;
-    std::vector<bool> modified;
-    controls.reserve(12);
-    barriers.reserve(12);
-    modified.reserve(12);
-
-    for (int k = 0; k < 12; ++k) {
-      mca::control::DiscreteTimeCbfInput prediction;
-      prediction.barrier_values = Eigen::VectorXd::Constant(1, barrier);
-      prediction.predicted_drift = Eigen::VectorXd::Constant(1, barrier);
-      prediction.control_derivatives = Eigen::MatrixXd::Ones(1, 1);
-      prediction.nominal_control = Eigen::VectorXd::Constant(1, (k % 2 == 0) ? -1.0 : 0.5);
-
-      mca::control::DiscreteTimeCbfOutput output;
-      if (use_robust && use_slew) {
-        mca::control::RobustCbfSlewRateInput input;
-        input.robust_prediction.prediction = prediction;
-        input.robust_prediction.prediction_error_bounds = Eigen::VectorXd::Constant(1, 0.05);
-        input.previous_control = previous;
-        input.max_control_delta = rate;
-        ASSERT_TRUE(filter.filter(input, output).ok());
-      } else if (use_robust) {
-        mca::control::RobustDiscreteTimeCbfInput input;
-        input.prediction = prediction;
-        input.prediction_error_bounds = Eigen::VectorXd::Constant(1, 0.05);
-        ASSERT_TRUE(filter.filter(input, output).ok());
-      } else if (use_slew) {
-        mca::control::CbfSlewRateInput input;
-        input.prediction = prediction;
-        input.previous_control = previous;
-        input.max_control_delta = rate;
-        ASSERT_TRUE(filter.filter(input, output).ok());
-      } else {
-        ASSERT_TRUE(filter.filter(prediction, output).ok());
-      }
-
-      ASSERT_TRUE(output.control.allFinite());
-      EXPECT_GE(output.control[0], -1.0 - 1.0e-9);
-      EXPECT_LE(output.control[0], 1.0 + 1.0e-9);
-      if (use_slew) {
-        EXPECT_LE(std::abs(output.control[0] - previous[0]), 0.25 + 1.0e-9);
-      }
-
-      const double error = use_robust ? prediction_error : 0.0;
-      const double next_barrier = barrier + output.control[0] + error;
-      EXPECT_GE(next_barrier, 0.8 * barrier - 2.0e-8);
-      EXPECT_GT(next_barrier, 0.0);
-
-      barrier = next_barrier;
-      previous = output.control;
-      controls.push_back(output.control[0]);
-      barriers.push_back(barrier);
-      modified.push_back(output.modified);
-    }
-
-    EXPECT_GT(barriers.back(), 0.0);
-    return std::make_pair(controls, modified);
+  const CbfStep nominal_step = [&nominal](const auto& prediction,
+                                            const auto&, auto& output) {
+    return nominal.filter(prediction, output);
+  };
+  const CbfStep robust_step = [&robust](const auto& prediction,
+                                          const auto&, auto& output) {
+    mca::control::RobustDiscreteTimeCbfInput input;
+    input.prediction = prediction;
+    input.prediction_error_bounds = Eigen::VectorXd::Constant(1, 0.05);
+    return robust.filter(input, output);
+  };
+  const CbfStep slew_step = [&slew, &rate](const auto& prediction,
+                                             const auto& previous, auto& output) {
+    mca::control::CbfSlewRateInput input;
+    input.prediction = prediction;
+    input.previous_control = previous;
+    input.max_control_delta = rate;
+    return slew.filter(input, output);
+  };
+  const CbfStep robust_slew_step = [&robust_slew, &rate](
+      const auto& prediction, const auto& previous, auto& output) {
+    mca::control::RobustCbfSlewRateInput input;
+    input.robust_prediction.prediction = prediction;
+    input.robust_prediction.prediction_error_bounds =
+        Eigen::VectorXd::Constant(1, 0.05);
+    input.previous_control = previous;
+    input.max_control_delta = rate;
+    return robust_slew.filter(input, output);
   };
 
-  const auto nominal_trace = run(nominal, false, false);
-  const auto robust_trace = run(robust, true, false);
-  const auto slew_trace = run(slew, false, true);
-  const auto robust_slew_trace = run(robust_slew, true, true);
+  const auto nominal_trace = run_closed_loop(nominal_step, false, false);
+  const auto robust_trace = run_closed_loop(robust_step, true, false);
+  const auto slew_trace = run_closed_loop(slew_step, false, true);
+  const auto robust_slew_trace = run_closed_loop(robust_slew_step, true, true);
 
-  ASSERT_EQ(nominal_trace.first.size(), 12U);
-  ASSERT_EQ(robust_trace.first.size(), 12U);
-  ASSERT_EQ(slew_trace.first.size(), 12U);
-  ASSERT_EQ(robust_slew_trace.first.size(), 12U);
-  EXPECT_TRUE(robust_trace.second.front());
-  EXPECT_TRUE(slew_trace.second.front());
-  EXPECT_TRUE(robust_slew_trace.second.front());
+  ASSERT_EQ(nominal_trace.controls.size(), 12U);
+  ASSERT_EQ(robust_trace.controls.size(), 12U);
+  ASSERT_EQ(slew_trace.controls.size(), 12U);
+  ASSERT_EQ(robust_slew_trace.controls.size(), 12U);
+  ASSERT_TRUE(robust_trace.modified.front());
+  ASSERT_TRUE(slew_trace.modified.front());
+  ASSERT_TRUE(robust_slew_trace.modified.front());
 
-  const auto robust_slew_trace_repeat = run(robust_slew, true, true);
-  ASSERT_EQ(robust_slew_trace_repeat.first.size(), robust_slew_trace.first.size());
-  for (std::size_t i = 0; i < robust_slew_trace.first.size(); ++i) {
-    EXPECT_DOUBLE_EQ(robust_slew_trace_repeat.first[i], robust_slew_trace.first[i]);
-    EXPECT_EQ(robust_slew_trace_repeat.second[i], robust_slew_trace.second[i]);
+  const auto robust_slew_trace_repeat =
+      run_closed_loop(robust_slew_step, true, true);
+  ASSERT_EQ(robust_slew_trace_repeat.controls.size(),
+            robust_slew_trace.controls.size());
+  for (std::size_t i = 0; i < robust_slew_trace.controls.size(); ++i) {
+    EXPECT_DOUBLE_EQ(robust_slew_trace_repeat.controls[i],
+                     robust_slew_trace.controls[i]);
+    EXPECT_EQ(robust_slew_trace_repeat.modified[i], robust_slew_trace.modified[i]);
   }
 }
 }  // namespace

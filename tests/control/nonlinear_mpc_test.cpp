@@ -78,6 +78,25 @@ TEST(NonlinearMpc, UsesWarmStartAndProjectsItIntoBounds) {
   EXPECT_TRUE(std::isfinite(r.cost));
 }
 
+TEST(NonlinearMpc, WarmStartDoesNotRegressFromColdSolution) {
+  auto p=makeProblem();
+  Eigen::VectorXd x(1); x<<1.0;
+  NonlinearMpcOptions cold_options; cold_options.horizon=8;
+  cold_options.optimization_iterations=20; cold_options.gradient_step=0.12;
+  NonlinearMpcResult cold;
+  ASSERT_TRUE(solve_nonlinear_mpc(p,x,cold_options,cold));
+  ASSERT_TRUE(cold.control_sequence.allFinite());
+  ASSERT_TRUE(std::isfinite(cold.cost));
+
+  NonlinearMpcOptions warm_options=cold_options;
+  warm_options.initial_control_sequence=cold.control_sequence;
+  NonlinearMpcResult warm;
+  ASSERT_TRUE(solve_nonlinear_mpc(p,x,warm_options,warm));
+  EXPECT_LE(warm.cost,cold.cost+1e-10);
+  EXPECT_TRUE(warm.control_sequence.allFinite());
+  EXPECT_TRUE(warm.predicted_states.allFinite());
+}
+
 TEST(NonlinearMpc, RejectsInvalidWarmStartTransactionally) {
   auto p=makeProblem();
   NonlinearMpcOptions o; o.horizon=4;

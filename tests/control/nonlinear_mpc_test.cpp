@@ -373,7 +373,7 @@ TEST(NonlinearMpc, ReportsNoImprovingStepWithoutCallingItConvergence) {
   ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));
   EXPECT_EQ(r.termination,NonlinearMpcTermination::NoImprovingStep);
   EXPECT_EQ(r.iterations_completed,1U);
-  EXPECT_EQ(r.line_search_evaluations,o.line_search_iterations);
+  EXPECT_EQ(r.line_search_evaluations,0U);
   EXPECT_NEAR(r.cost,0.0,1e-12);
 }
 

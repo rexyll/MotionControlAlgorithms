@@ -1,4 +1,5 @@
 #include <cmath>
+#include <limits>
 #include <Eigen/Dense>
 #include <gtest/gtest.h>
 #include "mca/control/nonlinear_mpc.hpp"
@@ -60,6 +61,50 @@ TEST(NonlinearMpc, BacktrackingPreventsCostIncreaseWithAggressiveStep) {
   // The initial midpoint sequence is all zeros: 8 unit stage costs + terminal cost 2.
   EXPECT_LE(r.cost,10.0+1e-10);
   EXPECT_LT(r.cost,10.0);
+}
+
+TEST(NonlinearMpc, UsesWarmStartAndProjectsItIntoBounds) {
+  auto p=makeProblem();
+  NonlinearMpcOptions o; o.horizon=4; o.optimization_iterations=12;
+  o.initial_control_sequence=Eigen::MatrixXd::Constant(1,4,-0.6);
+  o.initial_control_sequence(0,0)=-4.0;
+  Eigen::VectorXd x(1); x<<1.0;
+  NonlinearMpcResult r;
+  ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));
+  EXPECT_LE(r.control_sequence.minCoeff(),1.0);
+  EXPECT_GE(r.control_sequence.minCoeff(),-1.0);
+  EXPECT_LE(r.control_sequence.maxCoeff(),1.0);
+  EXPECT_GE(r.control_sequence.maxCoeff(),-1.0);
+  EXPECT_TRUE(std::isfinite(r.cost));
+}
+
+TEST(NonlinearMpc, RejectsInvalidWarmStartTransactionally) {
+  auto p=makeProblem();
+  NonlinearMpcOptions o; o.horizon=4;
+  o.initial_control_sequence=Eigen::MatrixXd::Zero(2,4);
+  Eigen::VectorXd x(1); x<<0.5;
+  NonlinearMpcResult r; r.control=Eigen::VectorXd::Constant(1,42.0);
+  EXPECT_FALSE(solve_nonlinear_mpc(p,x,o,r));
+  EXPECT_DOUBLE_EQ(r.control(0),42.0);
+  o.initial_control_sequence=Eigen::MatrixXd::Constant(1,4,std::numeric_limits<double>::quiet_NaN());
+  EXPECT_FALSE(solve_nonlinear_mpc(p,x,o,r));
+  EXPECT_DOUBLE_EQ(r.control(0),42.0);
+}
+
+TEST(NonlinearMpc, ShiftsWarmStartTransactionally) {
+  Eigen::MatrixXd previous(1,3); previous<<0.1,0.2,0.3;
+  Eigen::MatrixXd shifted;
+  ASSERT_TRUE(shift_nonlinear_mpc_warm_start(previous,4,shifted));
+  ASSERT_EQ(shifted.rows(),1); ASSERT_EQ(shifted.cols(),4);
+  EXPECT_NEAR(shifted(0,0),0.2,1e-12);
+  EXPECT_NEAR(shifted(0,1),0.3,1e-12);
+  EXPECT_NEAR(shifted(0,2),0.3,1e-12);
+  EXPECT_NEAR(shifted(0,3),0.3,1e-12);
+  Eigen::MatrixXd sentinel=Eigen::MatrixXd::Constant(1,1,42.0);
+  Eigen::MatrixXd invalid=previous; invalid(0,1)=std::numeric_limits<double>::infinity();
+  EXPECT_FALSE(shift_nonlinear_mpc_warm_start(invalid,2,sentinel));
+  ASSERT_EQ(sentinel.rows(),1); ASSERT_EQ(sentinel.cols(),1);
+  EXPECT_DOUBLE_EQ(sentinel(0,0),42.0);
 }
 
 TEST(NonlinearMpc, RejectsInvalidCallbacksAndOptions) {

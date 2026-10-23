@@ -14,6 +14,7 @@ struct NonlinearMpcOptions {
   double gradient_step{0.05};
   double finite_difference_step{1e-5};
   std::size_t line_search_iterations{12U};
+  Eigen::MatrixXd initial_control_sequence;
 };
 struct NonlinearMpcProblem {
   std::function<bool(const Eigen::VectorXd&, const Eigen::VectorXd&, Eigen::VectorXd&)> dynamics;
@@ -22,6 +23,28 @@ struct NonlinearMpcProblem {
   Eigen::VectorXd control_lower;
   Eigen::VectorXd control_upper;
 };
+
+// Shift a previous receding-horizon control sequence by one step. The last
+// available control is repeated when the requested horizon is longer. Output
+// is updated only after all inputs have been validated.
+inline bool shift_nonlinear_mpc_warm_start(const Eigen::MatrixXd& previous_sequence,
+                                           std::size_t new_horizon,
+                                           Eigen::MatrixXd& output,
+                                           std::string* error = nullptr) {
+  const auto fail=[error](const char* message){ if(error) *error=message; return false; };
+  if(previous_sequence.rows()<=0||previous_sequence.cols()<=0||
+     new_horizon==0U||new_horizon>200U||!previous_sequence.allFinite())
+    return fail("invalid nonlinear MPC warm-start sequence or horizon");
+  Eigen::MatrixXd candidate(previous_sequence.rows(),static_cast<Eigen::Index>(new_horizon));
+  for(std::size_t k=0;k<new_horizon;++k) {
+    const Eigen::Index source=std::min(static_cast<Eigen::Index>(k+1U),previous_sequence.cols()-1);
+    candidate.col(static_cast<Eigen::Index>(k))=previous_sequence.col(source);
+  }
+  output=std::move(candidate);
+  if(error) error->clear();
+  return true;
+}
+
 struct NonlinearMpcResult {
   Eigen::VectorXd control;
   Eigen::MatrixXd predicted_states;
@@ -49,8 +72,19 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
     return fail("invalid nonlinear MPC state or control bounds");
   const std::size_t N=options.horizon;
   const Eigen::Index nx=initial_state.size();
-  Eigen::MatrixXd controls=Eigen::MatrixXd::Zero(nu,static_cast<Eigen::Index>(N));
-  for(Eigen::Index k=0;k<controls.cols();++k) controls.col(k)=0.5*(problem.control_lower+problem.control_upper);
+  Eigen::MatrixXd controls(nu,static_cast<Eigen::Index>(N));
+  const bool has_warm_start=options.initial_control_sequence.rows()!=0||options.initial_control_sequence.cols()!=0;
+  if(has_warm_start) {
+    if(options.initial_control_sequence.rows()!=nu||
+       options.initial_control_sequence.cols()!=static_cast<Eigen::Index>(N)||
+       !options.initial_control_sequence.allFinite())
+      return fail("invalid nonlinear MPC initial control sequence");
+    controls=options.initial_control_sequence;
+    for(Eigen::Index j=0;j<nu;++j) for(Eigen::Index k=0;k<controls.cols();++k)
+      controls(j,k)=std::clamp(controls(j,k),problem.control_lower(j),problem.control_upper(j));
+  } else {
+    for(Eigen::Index k=0;k<controls.cols();++k) controls.col(k)=0.5*(problem.control_lower+problem.control_upper);
+  }
   Eigen::MatrixXd states(nx,static_cast<Eigen::Index>(N+1U));
   Eigen::VectorXd next(nx);
   const auto rollout=[&](const Eigen::MatrixXd& sequence,Eigen::MatrixXd& rollout_states,double& total_cost)->bool{

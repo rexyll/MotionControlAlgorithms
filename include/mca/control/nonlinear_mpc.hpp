@@ -169,9 +169,14 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
       // If the unconstrained step overflows, its sign still identifies which
       // bound the projected descent step reaches; avoid relying on infinities
       // flowing through the clamp implementation.
-      const double trial_value=std::isfinite(scaled_gradient)
-        ? controls(j,k)-scaled_gradient
-        : (gradient(j,k)>0.0?problem.control_lower(j):problem.control_upper(j));
+      const double control_value=controls(j,k);
+      const double max_control=std::numeric_limits<double>::max();
+      const bool subtraction_overflows=std::isfinite(scaled_gradient)&&
+        ((scaled_gradient>0.0&&control_value< -max_control+scaled_gradient)||
+         (scaled_gradient<0.0&&control_value> max_control+scaled_gradient));
+      const double trial_value=!std::isfinite(scaled_gradient)||subtraction_overflows
+        ? (gradient(j,k)>0.0?problem.control_lower(j):problem.control_upper(j))
+        : control_value-scaled_gradient;
       const double projected=std::clamp(trial_value,problem.control_lower(j),problem.control_upper(j));
       const double control_value=controls(j,k);
       const double max_control=std::numeric_limits<double>::max();
@@ -200,9 +205,14 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
         const Eigen::Index kk=static_cast<Eigen::Index>(k);
         const double direction=gradient(j,kk);
         const double delta=step*direction;
-        const double proposed=std::isfinite(delta)
-          ? controls(j,kk)-delta
-          : (direction>0.0?problem.control_lower(j):problem.control_upper(j));
+        const double control_value=controls(j,kk);
+        const double max_control=std::numeric_limits<double>::max();
+        const bool subtraction_overflows=std::isfinite(delta)&&
+          ((delta>0.0&&control_value< -max_control+delta)||
+           (delta<0.0&&control_value> max_control+delta));
+        const double proposed=!std::isfinite(delta)||subtraction_overflows
+          ? (direction>0.0?problem.control_lower(j):problem.control_upper(j))
+          : control_value-delta;
         trial(j,kk)=std::clamp(proposed,problem.control_lower(j),problem.control_upper(j));
       }
       double candidate_cost=0.0;

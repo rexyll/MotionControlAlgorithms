@@ -31,6 +31,30 @@ TEST(NonlinearMpc, DrivesScalarStateTowardZero) {
   EXPECT_TRUE(std::isfinite(r.cost));
 }
 
+TEST(NonlinearMpc, ReportsIterationLimitAndWorkCounters) {
+  auto p=makeProblem();
+  NonlinearMpcOptions o; o.horizon=4; o.optimization_iterations=1; o.gradient_step=0.01;
+  Eigen::VectorXd x(1); x<<1.0;
+  NonlinearMpcResult r;
+  ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));
+  EXPECT_EQ(r.termination,NonlinearMpcTermination::IterationLimitReached);
+  EXPECT_EQ(r.iterations_completed,1U);
+  EXPECT_GE(r.line_search_evaluations,1U);
+  EXPECT_LE(r.line_search_evaluations,o.line_search_iterations);
+}
+
+TEST(NonlinearMpc, ReportsNoImprovingStepWithoutCallingItConvergence) {
+  auto p=makeProblem();
+  NonlinearMpcOptions o; o.horizon=3; o.optimization_iterations=10;
+  Eigen::VectorXd x=Eigen::VectorXd::Zero(1);
+  NonlinearMpcResult r;
+  ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));
+  EXPECT_EQ(r.termination,NonlinearMpcTermination::NoImprovingStep);
+  EXPECT_EQ(r.iterations_completed,1U);
+  EXPECT_EQ(r.line_search_evaluations,o.line_search_iterations);
+  EXPECT_NEAR(r.cost,0.0,1e-12);
+}
+
 TEST(NonlinearMpc, RespectsBoundsAndTransactionalFailure) {
   auto p=makeProblem(); NonlinearMpcOptions o; o.horizon=4; o.optimization_iterations=5;
   Eigen::VectorXd x(1); x<<0.5; NonlinearMpcResult r; r.control=Eigen::VectorXd::Constant(1,42.0);

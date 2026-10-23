@@ -14,6 +14,8 @@ struct NonlinearMpcOptions {
   double gradient_step{0.05};
   double finite_difference_step{1e-5};
   std::size_t line_search_iterations{12U};
+  // Disabled when zero; otherwise stop when the projected-gradient mapping norm is within tolerance.
+  double projected_gradient_tolerance{0.0};
   Eigen::MatrixXd initial_control_sequence;
 };
 struct NonlinearMpcProblem {
@@ -47,7 +49,8 @@ inline bool shift_nonlinear_mpc_warm_start(const Eigen::MatrixXd& previous_seque
 
 enum class NonlinearMpcTermination {
   IterationLimitReached,
-  NoImprovingStep
+  NoImprovingStep,
+  ProjectedGradientToleranceSatisfied
 };
 
 struct NonlinearMpcResult {
@@ -55,6 +58,7 @@ struct NonlinearMpcResult {
   Eigen::MatrixXd predicted_states;
   Eigen::MatrixXd control_sequence;
   double cost{0.0};
+  double projected_gradient_norm{0.0};
   std::size_t iterations_completed{0U};
   std::size_t line_search_evaluations{0U};
   NonlinearMpcTermination termination{NonlinearMpcTermination::IterationLimitReached};
@@ -73,7 +77,8 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
      options.optimization_iterations==0U||options.optimization_iterations>1000U||
      !std::isfinite(options.gradient_step)||options.gradient_step<=0.0||
      !std::isfinite(options.finite_difference_step)||options.finite_difference_step<=0.0||
-     options.line_search_iterations==0U||options.line_search_iterations>100U)
+     options.line_search_iterations==0U||options.line_search_iterations>100U||
+     !std::isfinite(options.projected_gradient_tolerance)||options.projected_gradient_tolerance<0.0)
     return fail("invalid nonlinear MPC configuration or callbacks");
   if(!initial_state.allFinite()||!problem.control_lower.allFinite()||!problem.control_upper.allFinite()||
      (problem.control_lower.array()>problem.control_upper.array()).any())
@@ -115,6 +120,7 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
   std::size_t iterations_completed=0U;
   std::size_t line_search_evaluations=0U;
   NonlinearMpcTermination termination=NonlinearMpcTermination::IterationLimitReached;
+  double projected_gradient_norm=0.0;
   for(std::size_t iteration=0;iteration<options.optimization_iterations;++iteration){
     iterations_completed=iteration+1U;
     for(std::size_t k=0;k<N;++k) for(Eigen::Index j=0;j<nu;++j){
@@ -133,6 +139,18 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
       gradient(j,kk)=(plus_cost-minus_cost)/denominator;
     }
     if(!gradient.allFinite()) return fail("nonlinear MPC gradient is non-finite");
+    Eigen::MatrixXd projected_gradient(nu,static_cast<Eigen::Index>(N));
+    for(Eigen::Index j=0;j<nu;++j) for(Eigen::Index k=0;k<projected_gradient.cols();++k) {
+      const double trial_value=controls(j,k)-gradient(j,k);
+      const double projected=std::clamp(trial_value,problem.control_lower(j),problem.control_upper(j));
+      projected_gradient(j,k)=controls(j,k)-projected;
+    }
+    projected_gradient_norm=projected_gradient.norm();
+    if(!std::isfinite(projected_gradient_norm)) return fail("nonlinear MPC projected gradient is non-finite");
+    if(options.projected_gradient_tolerance>0.0&&projected_gradient_norm<=options.projected_gradient_tolerance) {
+      termination=NonlinearMpcTermination::ProjectedGradientToleranceSatisfied;
+      break;
+    }
     bool accepted=false;
     double step=options.gradient_step;
     for(std::size_t line_search=0U;line_search<options.line_search_iterations;++line_search){
@@ -164,6 +182,7 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
   }
   NonlinearMpcResult candidate;
   candidate.control=controls.col(0); candidate.predicted_states=states; candidate.control_sequence=controls; candidate.cost=current_cost;
+  candidate.projected_gradient_norm=projected_gradient_norm;
   candidate.iterations_completed=iterations_completed;
   candidate.line_search_evaluations=line_search_evaluations;
   candidate.termination=termination;

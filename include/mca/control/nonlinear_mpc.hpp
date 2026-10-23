@@ -141,9 +141,9 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
     if(!gradient.allFinite()) return fail("nonlinear MPC gradient is non-finite");
     Eigen::MatrixXd projected_gradient(nu,static_cast<Eigen::Index>(N));
     for(Eigen::Index j=0;j<nu;++j) for(Eigen::Index k=0;k<projected_gradient.cols();++k) {
-      const double trial_value=controls(j,k)-gradient(j,k);
+      const double trial_value=controls(j,k)-options.gradient_step*gradient(j,k);
       const double projected=std::clamp(trial_value,problem.control_lower(j),problem.control_upper(j));
-      projected_gradient(j,k)=controls(j,k)-projected;
+      projected_gradient(j,k)=(controls(j,k)-projected)/options.gradient_step;
     }
     projected_gradient_norm=projected_gradient.norm();
     if(!std::isfinite(projected_gradient_norm)) return fail("nonlinear MPC projected gradient is non-finite");

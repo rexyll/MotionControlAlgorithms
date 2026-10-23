@@ -139,7 +139,7 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
       if(!plus_ok||!minus_ok) return fail("nonlinear MPC finite-difference rollout failed");
       const double denominator=plus-minus;
       if(!std::isfinite(denominator)||denominator<=0.0) return fail("invalid finite-difference interval");
-      gradient(j,kk)=(plus_cost-minus_cost)/denominator;
+      gradient(j,kk)=plus_cost/denominator-minus_cost/denominator;
     }
     if(!gradient.allFinite()) return fail("nonlinear MPC gradient is non-finite");
     Eigen::MatrixXd projected_gradient(nu,static_cast<Eigen::Index>(N));

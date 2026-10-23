@@ -155,7 +155,16 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
     for(Eigen::Index j=0;j<nu;++j) for(Eigen::Index k=0;k<projected_gradient.cols();++k) {
       const double trial_value=controls(j,k)-options.gradient_step*gradient(j,k);
       const double projected=std::clamp(trial_value,problem.control_lower(j),problem.control_upper(j));
-      projected_gradient(j,k)=(controls(j,k)-projected)/options.gradient_step;
+      const double control_value=controls(j,k);
+      const double max_control=std::numeric_limits<double>::max();
+      const bool displacement_overflows=
+        (projected<0.0&&control_value>max_control+projected)||
+        (projected>0.0&&control_value< -max_control+projected);
+      // Divide the operands first only when their displacement itself cannot
+      // be represented; this keeps a representable scaled mapping finite.
+      projected_gradient(j,k)=displacement_overflows
+        ? control_value/options.gradient_step-projected/options.gradient_step
+        : (control_value-projected)/options.gradient_step;
     }
     // stableNorm avoids overflowing intermediate squares when the norm itself is representable.
     projected_gradient_norm=projected_gradient.stableNorm();

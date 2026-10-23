@@ -96,7 +96,10 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
     for(Eigen::Index j=0;j<nu;++j) for(Eigen::Index k=0;k<controls.cols();++k)
       controls(j,k)=std::clamp(controls(j,k),problem.control_lower(j),problem.control_upper(j));
   } else {
-    for(Eigen::Index k=0;k<controls.cols();++k) controls.col(k)=0.5*(problem.control_lower+problem.control_upper);
+    for(Eigen::Index j=0;j<nu;++j) {
+      const double midpoint=0.5*problem.control_lower(j)+0.5*problem.control_upper(j);
+      controls.row(j).setConstant(midpoint);
+    }
   }
   Eigen::MatrixXd states(nx,static_cast<Eigen::Index>(N+1U));
   Eigen::VectorXd next(nx);

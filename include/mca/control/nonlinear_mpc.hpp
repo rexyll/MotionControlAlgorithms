@@ -13,6 +13,7 @@ struct NonlinearMpcOptions {
   std::size_t optimization_iterations{40U};
   double gradient_step{0.05};
   double finite_difference_step{1e-5};
+  std::size_t line_search_iterations{12U};
 };
 struct NonlinearMpcProblem {
   std::function<bool(const Eigen::VectorXd&, const Eigen::VectorXd&, Eigen::VectorXd&)> dynamics;
@@ -40,7 +41,8 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
      problem.control_upper.size()!=nu||options.horizon==0U||options.horizon>200U||
      options.optimization_iterations==0U||options.optimization_iterations>1000U||
      !std::isfinite(options.gradient_step)||options.gradient_step<=0.0||
-     !std::isfinite(options.finite_difference_step)||options.finite_difference_step<=0.0)
+     !std::isfinite(options.finite_difference_step)||options.finite_difference_step<=0.0||
+     options.line_search_iterations==0U||options.line_search_iterations>100U)
     return fail("invalid nonlinear MPC configuration or callbacks");
   if(!initial_state.allFinite()||!problem.control_lower.allFinite()||!problem.control_upper.allFinite()||
      (problem.control_lower.array()>problem.control_upper.array()).any())
@@ -74,21 +76,41 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
       const double base=controls(j,kk);
       const double plus=std::min(problem.control_upper(j),base+h);
       const double minus=std::max(problem.control_lower(j),base-h);
-      const double actual_h=0.5*(plus-minus);
-      if(actual_h<=0.0||!std::isfinite(actual_h)) return fail("invalid finite-difference step at control bound");
+      if(plus==minus) { gradient(j,kk)=0.0; continue; }
       trial=controls; trial(j,kk)=plus; double plus_cost=0.0;
       const bool plus_ok=rollout(trial,trial_states,plus_cost);
       trial=controls; trial(j,kk)=minus; double minus_cost=0.0;
       const bool minus_ok=rollout(trial,trial_states,minus_cost);
       if(!plus_ok||!minus_ok) return fail("nonlinear MPC finite-difference rollout failed");
-      gradient(j,kk)=(plus_cost-minus_cost)/(2.0*actual_h);
+      const double denominator=plus-minus;
+      if(!std::isfinite(denominator)||denominator<=0.0) return fail("invalid finite-difference interval");
+      gradient(j,kk)=(plus_cost-minus_cost)/denominator;
     }
     if(!gradient.allFinite()) return fail("nonlinear MPC gradient is non-finite");
-    for(Eigen::Index j=0;j<nu;++j) for(std::size_t k=0;k<N;++k){
-      const Eigen::Index kk=static_cast<Eigen::Index>(k);
-      controls(j,kk)=std::clamp(controls(j,kk)-options.gradient_step*gradient(j,kk),problem.control_lower(j),problem.control_upper(j));
+    bool accepted=false;
+    double step=options.gradient_step;
+    for(std::size_t line_search=0U;line_search<options.line_search_iterations;++line_search){
+      trial=controls;
+      for(Eigen::Index j=0;j<nu;++j) for(std::size_t k=0;k<N;++k){
+        const Eigen::Index kk=static_cast<Eigen::Index>(k);
+        const double direction=gradient(j,kk);
+        const double delta=step*direction;
+        const double proposed=std::isfinite(delta)
+          ? controls(j,kk)-delta
+          : (direction>0.0?problem.control_lower(j):problem.control_upper(j));
+        trial(j,kk)=std::clamp(proposed,problem.control_lower(j),problem.control_upper(j));
+      }
+      double candidate_cost=0.0;
+      if(rollout(trial,trial_states,candidate_cost)&&candidate_cost<current_cost){
+        controls=trial;
+        states=trial_states;
+        current_cost=candidate_cost;
+        accepted=true;
+        break;
+      }
+      step*=0.5;
     }
-    if(!rollout(controls,states,current_cost)) return fail("nonlinear MPC rollout failed");
+    if(!accepted) break;
   }
   NonlinearMpcResult candidate;
   candidate.control=controls.col(0); candidate.predicted_states=states; candidate.control_sequence=controls; candidate.cost=current_cost;

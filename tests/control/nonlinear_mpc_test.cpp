@@ -31,6 +31,29 @@ TEST(NonlinearMpc, DrivesScalarStateTowardZero) {
   EXPECT_TRUE(std::isfinite(r.cost));
 }
 
+TEST(NonlinearMpc, StopsWhenProjectedGradientToleranceIsSatisfied) {
+  auto p=makeProblem();
+  NonlinearMpcOptions o; o.horizon=4; o.optimization_iterations=20;
+  o.projected_gradient_tolerance=1e-8;
+  Eigen::VectorXd x=Eigen::VectorXd::Zero(1);
+  NonlinearMpcResult r;
+  ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));
+  EXPECT_EQ(r.termination,NonlinearMpcTermination::ProjectedGradientToleranceSatisfied);
+  EXPECT_EQ(r.iterations_completed,1U);
+  EXPECT_EQ(r.line_search_evaluations,0U);
+  EXPECT_LE(r.projected_gradient_norm,o.projected_gradient_tolerance);
+  EXPECT_NEAR(r.cost,0.0,1e-12);
+}
+
+TEST(NonlinearMpc, RejectsInvalidProjectedGradientToleranceTransactionally) {
+  auto p=makeProblem();
+  NonlinearMpcOptions o; o.projected_gradient_tolerance=-1.0;
+  Eigen::VectorXd x=Eigen::VectorXd::Zero(1);
+  NonlinearMpcResult r; r.cost=123.0;
+  EXPECT_FALSE(solve_nonlinear_mpc(p,x,o,r));
+  EXPECT_DOUBLE_EQ(r.cost,123.0);
+}
+
 TEST(NonlinearMpc, ReportsIterationLimitAndWorkCounters) {
   auto p=makeProblem();
   NonlinearMpcOptions o; o.horizon=4; o.optimization_iterations=1; o.gradient_step=0.01;

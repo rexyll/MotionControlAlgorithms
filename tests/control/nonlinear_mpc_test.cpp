@@ -108,12 +108,12 @@ TEST(NonlinearMpc, PreservesGradientPrecisionWhenCostSubtractionIsSafe) {
   p.terminal_cost=[](const Eigen::VectorXd&) { return 0.0; };
   NonlinearMpcOptions o;
   o.horizon=1; o.optimization_iterations=1;
-  o.finite_difference_step=1.0e100;
+  o.finite_difference_step=1.0e150;
   o.gradient_step=1.0e-150;
   Eigen::VectorXd x=Eigen::VectorXd::Zero(1);
   NonlinearMpcResult r;
   ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));
-  const double expected=(high-low)/(2.0e100);
+  const double expected=(high-low)/(2.0e150);
   EXPECT_TRUE(std::isfinite(expected));
   EXPECT_NEAR(r.projected_gradient_norm/expected,1.0,1.0e-12);
   EXPECT_LT(r.control(0),0.0);

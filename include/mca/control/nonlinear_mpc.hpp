@@ -178,8 +178,6 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
         ? (gradient(j,k)>0.0?problem.control_lower(j):problem.control_upper(j))
         : control_value-scaled_gradient;
       const double projected=std::clamp(trial_value,problem.control_lower(j),problem.control_upper(j));
-      const double control_value=controls(j,k);
-      const double max_control=std::numeric_limits<double>::max();
       const bool displacement_overflows=
         (projected<0.0&&control_value>max_control+projected)||
         (projected>0.0&&control_value< -max_control+projected);

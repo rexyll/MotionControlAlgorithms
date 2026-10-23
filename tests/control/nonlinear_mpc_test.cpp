@@ -377,6 +377,27 @@ TEST(NonlinearMpc, ReportsNoImprovingStepWithoutCallingItConvergence) {
   EXPECT_NEAR(r.cost,0.0,1e-12);
 }
 
+TEST(NonlinearMpc, StopsLineSearchWhenStepHalvingUnderflows) {
+  NonlinearMpcProblem p;
+  p.control_lower=Eigen::VectorXd::Constant(1,-1.0);
+  p.control_upper=Eigen::VectorXd::Constant(1,1.0);
+  p.dynamics=[](const Eigen::VectorXd& x,const Eigen::VectorXd&,Eigen::VectorXd& next) {
+    next=x; return true;
+  };
+  p.stage_cost=[](const Eigen::VectorXd&,const Eigen::VectorXd& u) { return -0.5*u(0); };
+  p.terminal_cost=[](const Eigen::VectorXd&) { return 0.0; };
+  NonlinearMpcOptions o;
+  o.horizon=1U; o.optimization_iterations=1U; o.gradient_step=std::numeric_limits<double>::denorm_min();
+  o.line_search_iterations=100U;
+  Eigen::VectorXd x=Eigen::VectorXd::Zero(1);
+  NonlinearMpcResult r;
+  ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));
+  EXPECT_EQ(r.termination,NonlinearMpcTermination::NoImprovingStep);
+  EXPECT_EQ(r.line_search_evaluations,1U);
+  EXPECT_DOUBLE_EQ(r.control(0),0.0);
+  EXPECT_DOUBLE_EQ(r.cost,0.0);
+}
+
 TEST(NonlinearMpc, RespectsBoundsAndTransactionalFailure) {
   auto p=makeProblem(); NonlinearMpcOptions o; o.horizon=4; o.optimization_iterations=5;
   Eigen::VectorXd x(1); x<<0.5; NonlinearMpcResult r; r.control=Eigen::VectorXd::Constant(1,42.0);

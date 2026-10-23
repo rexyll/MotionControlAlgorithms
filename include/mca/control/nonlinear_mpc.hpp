@@ -222,6 +222,9 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
         break;
       }
       step*=0.5;
+      // Once halving underflows the step to zero, every remaining candidate
+      // is identical to the current controls; stop without redundant rollouts.
+      if(step==0.0) break;
     }
     if(!accepted) {
       termination=NonlinearMpcTermination::NoImprovingStep;

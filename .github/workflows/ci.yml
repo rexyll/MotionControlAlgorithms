@@ -76,7 +76,7 @@ jobs:
         shell: pwsh
         run: |
           $toolchain = Join-Path $env:VCPKG_INSTALLATION_ROOT 'scripts/buildsystems/vcpkg.cmake'
-          cmake -S tests/p8_41 -B build-p8-41 -A x64 `"-DCMAKE_TOOLCHAIN_FILE=$toolchain`"
+          cmake -S tests/p8_41 -B build-p8-41 -A x64 "-DCMAKE_TOOLCHAIN_FILE=$toolchain"
       - name: Build P8-41 callback exception regressions
         run: cmake --build build-p8-41 --config Release
       - name: Test P8-41 callback exception regressions

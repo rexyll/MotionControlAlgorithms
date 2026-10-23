@@ -144,6 +144,47 @@ TEST(NonlinearMpc, WarmStartDoesNotRegressFromColdSolution) {
   EXPECT_TRUE(warm.predicted_states.allFinite());
 }
 
+TEST(NonlinearMpc, RecedingHorizonWarmStartTracksAcrossControlCycles) {
+  auto p=makeProblem();
+  constexpr std::size_t horizon=8U;
+  constexpr std::size_t control_cycles=12U;
+  NonlinearMpcOptions o; o.horizon=horizon; o.optimization_iterations=20;
+  o.gradient_step=0.12;
+  Eigen::VectorXd x(1); x<<1.0;
+  NonlinearMpcResult r;
+  ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));
+  const double initial_abs_state=std::abs(x(0));
+
+  for(std::size_t cycle=0U;cycle<control_cycles;++cycle) {
+    ASSERT_EQ(r.control.size(),1);
+    ASSERT_TRUE(r.control.allFinite());
+    EXPECT_GE(r.control(0),-1.0);
+    EXPECT_LE(r.control(0),1.0);
+
+    Eigen::VectorXd next;
+    ASSERT_TRUE(p.dynamics(x,r.control,next));
+    ASSERT_EQ(next.size(),1);
+    ASSERT_TRUE(next.allFinite());
+    x=next;
+
+    if(cycle+1U<control_cycles) {
+      Eigen::MatrixXd shifted;
+      ASSERT_TRUE(shift_nonlinear_mpc_warm_start(r.control_sequence,horizon,shifted));
+      ASSERT_EQ(shifted.rows(),1);
+      ASSERT_EQ(shifted.cols(),static_cast<Eigen::Index>(horizon));
+      EXPECT_TRUE(shifted.allFinite());
+      EXPECT_GE(shifted.minCoeff(),-1.0);
+      EXPECT_LE(shifted.maxCoeff(),1.0);
+      o.initial_control_sequence=shifted;
+      ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));
+      EXPECT_TRUE(r.predicted_states.allFinite());
+      EXPECT_TRUE(std::isfinite(r.cost));
+    }
+  }
+
+  EXPECT_LT(std::abs(x(0)),initial_abs_state);
+}
+
 TEST(NonlinearMpc, RejectsInvalidWarmStartTransactionally) {
   auto p=makeProblem();
   NonlinearMpcOptions o; o.horizon=4;

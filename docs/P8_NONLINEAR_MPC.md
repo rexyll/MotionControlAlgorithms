@@ -14,18 +14,20 @@ the solver minimizes
 
 subject to element-wise control bounds `u_min <= u[k] <= u_max`.
 
-The optimizer initializes the complete control sequence at the midpoint of the bounds, rolls out the nonlinear model, estimates the objective gradient with central finite differences, and projects every gradient step back into the control bounds. The first control vector is returned for receding-horizon use.
+The optimizer initializes the complete control sequence at the midpoint of the bounds, rolls out the nonlinear model, estimates the objective gradient with finite differences, and uses bounded backtracking to accept only steps that strictly reduce the objective. Every candidate is projected into the control bounds; fixed control dimensions (equal lower/upper bounds) are supported with zero gradient for that dimension. If no improving step is found within the configured line-search budget, optimization stops and returns the best accepted sequence. The first control vector is returned for receding-horizon use.
 
 ## Scope and guarantees
 
 - generic state/control dimensions through Eigen dynamic vectors;
 - caller-supplied nonlinear dynamics and stage/terminal costs;
-- deterministic bounded iteration count;
+- deterministic bounded optimization and line-search iteration counts;
+- non-increasing objective across accepted optimization iterations;
+- support for fixed control dimensions where lower and upper bounds are equal;
 - explicit element-wise control bounds;
 - finite-value and dimension validation;
 - transactional output: an invalid solve leaves the caller's result unchanged;
 - no external nonlinear-programming dependency.
 
-This is a reference/baseline solver rather than a real-time SQP or interior-point implementation. Direct shooting with finite-difference gradients scales poorly with horizon and control dimension, and state/path constraints are intentionally outside this baseline. Production MPC should consider analytic/automatic derivatives, warm starts, line search/trust regions, constraint handling, and solver-specific real-time guarantees.
+This is a reference/baseline solver rather than a real-time SQP or interior-point implementation. Direct shooting with finite-difference gradients scales poorly with horizon and control dimension, and state/path constraints are intentionally outside this baseline. Production MPC should consider analytic/automatic derivatives, warm starts, trust regions, state/path constraint handling, and solver-specific real-time guarantees.
 
-Tests cover nonlinear rollout/convergence, control bounds, invalid configuration, callback validation, and transactional failure behavior. The benchmark measures deterministic solve cost for several horizons.
+Tests cover nonlinear rollout/convergence, objective non-increase under an aggressive initial step, fixed control bounds, invalid line-search configuration, callback validation, and transactional failure behavior. The benchmark measures deterministic solve cost for several horizons.

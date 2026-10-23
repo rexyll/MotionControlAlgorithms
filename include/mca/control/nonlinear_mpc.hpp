@@ -197,7 +197,6 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
     bool accepted=false;
     double step=options.gradient_step;
     for(std::size_t line_search=0U;line_search<options.line_search_iterations;++line_search){
-      ++line_search_evaluations;
       trial=controls;
       for(Eigen::Index j=0;j<nu;++j) for(std::size_t k=0;k<N;++k){
         const Eigen::Index kk=static_cast<Eigen::Index>(k);
@@ -213,6 +212,10 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
           : control_value-delta;
         trial(j,kk)=std::clamp(proposed,problem.control_lower(j),problem.control_upper(j));
       }
+      // A rounded-to-zero update or active-bound projection may leave every
+      // control unchanged; do not rerun dynamics/cost for an identical point.
+      if((trial.array()==controls.array()).all()) break;
+      ++line_search_evaluations;
       double candidate_cost=0.0;
       if(rollout(trial,trial_states,candidate_cost)&&candidate_cost<current_cost){
         controls=trial;

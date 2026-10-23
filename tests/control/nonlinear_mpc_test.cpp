@@ -31,6 +31,43 @@ TEST(NonlinearMpc, DrivesScalarStateTowardZero) {
   EXPECT_TRUE(std::isfinite(r.cost));
 }
 
+TEST(NonlinearMpc, InitializesLargeFiniteSameSignBoundsWithoutOverflow) {
+  NonlinearMpcProblem p;
+  p.control_lower=Eigen::VectorXd::Constant(1,1.0e308);
+  p.control_upper=Eigen::VectorXd::Constant(1,1.1e308);
+  p.dynamics=[](const Eigen::VectorXd& x,const Eigen::VectorXd&,Eigen::VectorXd& next) {
+    next=x; return true;
+  };
+  p.stage_cost=[](const Eigen::VectorXd&,const Eigen::VectorXd&) { return 0.0; };
+  p.terminal_cost=[](const Eigen::VectorXd&) { return 0.0; };
+  NonlinearMpcOptions o; o.horizon=2; o.optimization_iterations=1;
+  Eigen::VectorXd x=Eigen::VectorXd::Zero(1);
+  NonlinearMpcResult r;
+  ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));
+  ASSERT_EQ(r.control_sequence.rows(),1);
+  ASSERT_EQ(r.control_sequence.cols(),2);
+  EXPECT_TRUE(r.control_sequence.allFinite());
+  for(Eigen::Index k=0;k<r.control_sequence.cols();++k) {
+    EXPECT_GE(r.control_sequence(0,k),p.control_lower(0));
+    EXPECT_LE(r.control_sequence(0,k),p.control_upper(0));
+    EXPECT_NEAR(r.control_sequence(0,k)/1.0e308,1.05,1e-12);
+  }
+}
+
+TEST(NonlinearMpc, PreservesOutputWhenLargeBoundInitializationRolloutFails) {
+  NonlinearMpcProblem p;
+  p.control_lower=Eigen::VectorXd::Constant(1,1.0e308);
+  p.control_upper=Eigen::VectorXd::Constant(1,1.1e308);
+  p.dynamics=[](const Eigen::VectorXd&,const Eigen::VectorXd&,Eigen::VectorXd&) { return false; };
+  p.stage_cost=[](const Eigen::VectorXd&,const Eigen::VectorXd&) { return 0.0; };
+  p.terminal_cost=[](const Eigen::VectorXd&) { return 0.0; };
+  NonlinearMpcOptions o; o.horizon=2;
+  Eigen::VectorXd x=Eigen::VectorXd::Zero(1);
+  NonlinearMpcResult r; r.cost=42.0;
+  EXPECT_FALSE(solve_nonlinear_mpc(p,x,o,r));
+  EXPECT_DOUBLE_EQ(r.cost,42.0);
+}
+
 TEST(NonlinearMpc, StopsWhenProjectedGradientToleranceIsSatisfied) {
   auto p=makeProblem();
   NonlinearMpcOptions o; o.horizon=4; o.optimization_iterations=20;

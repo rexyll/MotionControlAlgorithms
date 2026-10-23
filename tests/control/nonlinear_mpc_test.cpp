@@ -534,6 +534,35 @@ TEST(NonlinearMpc, ShiftsWarmStartTransactionally) {
   EXPECT_DOUBLE_EQ(sentinel(0,0),42.0);
 }
 
+TEST(NonlinearMpc, UsesNearestRepresentableFiniteDifferenceWhenConfiguredStepRoundsAway) {
+  NonlinearMpcProblem p;
+  p.control_lower=Eigen::VectorXd::Constant(1,9999.0);
+  p.control_upper=Eigen::VectorXd::Constant(1,10001.0);
+  p.dynamics=[](const Eigen::VectorXd& x,const Eigen::VectorXd&,Eigen::VectorXd& next) {
+    next=x;
+    return true;
+  };
+  p.stage_cost=[](const Eigen::VectorXd&,const Eigen::VectorXd& u) {
+    return (u(0)-10000.0)*1000.0;
+  };
+  p.terminal_cost=[](const Eigen::VectorXd&) { return 0.0; };
+
+  NonlinearMpcOptions o;
+  o.horizon=1U;
+  o.optimization_iterations=1U;
+  o.gradient_step=1e-4;
+  o.finite_difference_step=1e-14;
+  o.initial_control_sequence=Eigen::MatrixXd::Constant(1,1,10000.0);
+  Eigen::VectorXd x=Eigen::VectorXd::Zero(1);
+  NonlinearMpcResult r;
+
+  ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));
+  EXPECT_LT(r.control(0),10000.0);
+  EXPECT_LT(r.cost,0.0);
+  EXPECT_GE(r.control(0),9999.0);
+  EXPECT_LE(r.control(0),10001.0);
+}
+
 TEST(NonlinearMpc, RejectsInvalidCallbacksAndOptions) {
   auto p=makeProblem(); Eigen::VectorXd x=Eigen::VectorXd::Zero(1); NonlinearMpcResult r;
   NonlinearMpcOptions o; o.horizon=0; EXPECT_FALSE(solve_nonlinear_mpc(p,x,o,r));

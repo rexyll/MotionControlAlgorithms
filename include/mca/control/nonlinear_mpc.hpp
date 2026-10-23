@@ -157,7 +157,8 @@ inline bool solve_nonlinear_mpc(const NonlinearMpcProblem& problem,
       const double projected=std::clamp(trial_value,problem.control_lower(j),problem.control_upper(j));
       projected_gradient(j,k)=(controls(j,k)-projected)/options.gradient_step;
     }
-    projected_gradient_norm=projected_gradient.norm();
+    // stableNorm avoids overflowing intermediate squares when the norm itself is representable.
+    projected_gradient_norm=projected_gradient.stableNorm();
     if(!std::isfinite(projected_gradient_norm)) return fail("nonlinear MPC projected gradient is non-finite");
     if(options.projected_gradient_tolerance>0.0&&projected_gradient_norm<=options.projected_gradient_tolerance) {
       termination=NonlinearMpcTermination::ProjectedGradientToleranceSatisfied;

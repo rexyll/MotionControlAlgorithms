@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <limits>
+
 #include "mca/plant/dc_motor.hpp"
 
 TEST(DcMotor, RejectsInvalidConfiguration) {
@@ -68,4 +70,48 @@ TEST(DcMotor, BackEmfReducesCurrentAtSpeed) {
   }
 
   EXPECT_LT(motor.current(), 2.0);
+}
+
+TEST(DcMotor, InvalidReconfigurationPreservesWorkingModel) {
+  mca::plant::DcMotorConfig valid_config;
+  valid_config.resistance_ohm = 2.0;
+  mca::plant::DcMotor motor(valid_config);
+  ASSERT_TRUE(motor.configured());
+  ASSERT_TRUE(motor.reset(0.25, 1.5, 0.75).ok());
+
+  auto invalid_config = valid_config;
+  invalid_config.inductance_h = 0.0;
+  EXPECT_EQ(motor.configure(invalid_config).code,
+            mca::core::StatusCode::InvalidArgument);
+  EXPECT_TRUE(motor.configured());
+  EXPECT_DOUBLE_EQ(motor.config().resistance_ohm, 2.0);
+  EXPECT_DOUBLE_EQ(motor.position(), 0.25);
+  EXPECT_DOUBLE_EQ(motor.velocity(), 1.5);
+  EXPECT_DOUBLE_EQ(motor.current(), 0.75);
+
+  ASSERT_TRUE(motor.step(1.0, 0.0, 0.001).ok());
+  EXPECT_NE(motor.current(), 0.75);
+}
+
+TEST(DcMotor, NumericalOverflowDoesNotCommitPartialState) {
+  mca::plant::DcMotor motor;
+  ASSERT_TRUE(motor.configure(mca::plant::DcMotorConfig{}).ok());
+  ASSERT_TRUE(motor.reset(0.25, 1.5, 0.75).ok());
+  const double position_before = motor.position();
+  const double velocity_before = motor.velocity();
+  const double current_before = motor.current();
+
+  EXPECT_EQ(motor.step(std::numeric_limits<double>::max(), 0.0, 1.0).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(motor.position(), position_before);
+  EXPECT_DOUBLE_EQ(motor.velocity(), velocity_before);
+  EXPECT_DOUBLE_EQ(motor.current(), current_before);
+
+  EXPECT_EQ(motor.step(1.0, std::numeric_limits<double>::max(), 1.0).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(motor.position(), position_before);
+  EXPECT_DOUBLE_EQ(motor.velocity(), velocity_before);
+  EXPECT_DOUBLE_EQ(motor.current(), current_before);
+
+  EXPECT_TRUE(motor.step(1.0, 0.0, 0.001).ok());
 }

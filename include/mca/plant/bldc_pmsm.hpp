@@ -45,6 +45,23 @@ class BldcPmsm {
         !core::is_finite(ib) || !core::is_finite(ic)) {
       return {core::StatusCode::InvalidArgument};
     }
+    const double pole_pairs = static_cast<double>(config_.pole_pairs);
+    const double electrical_angle = mechanical_angle_rad * pole_pairs;
+    const double electrical_speed = mechanical_speed_rad_s * pole_pairs;
+    const double base_back_emf =
+        config_.back_emf_constant_v_per_rad_s * electrical_speed;
+    const double theta = wrap_angle(electrical_angle);
+    const double offset = 2.0 * kPi / 3.0;
+    const double torque =
+        config_.torque_constant_nm_per_a *
+        (emf_shape(theta) * ia + emf_shape(theta - offset) * ib +
+         emf_shape(theta + offset) * ic);
+    if (!core::is_finite(electrical_angle) ||
+        !core::is_finite(electrical_speed) ||
+        !core::is_finite(base_back_emf) || !core::is_finite(torque)) {
+      return {core::StatusCode::NumericalError};
+    }
+
     angle_rad_ = mechanical_angle_rad;
     speed_rad_s_ = mechanical_speed_rad_s;
     currents_[0] = ia;

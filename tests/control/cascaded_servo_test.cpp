@@ -1,4 +1,5 @@
 #include <cmath>
+#include <limits>
 
 #include <gtest/gtest.h>
 
@@ -77,4 +78,31 @@ TEST(CascadedServoTest, ExposesIntermediateReferences) {
   EXPECT_DOUBLE_EQ(servo.torque_reference(), 0.5);
   EXPECT_DOUBLE_EQ(voltage, 2.5);
   EXPECT_DOUBLE_EQ(servo.actuator_command(), voltage);
+}
+
+TEST(CascadedServoTest, InnerLoopFailureDoesNotCommitOuterState) {
+  auto config = make_config();
+  config.velocity.kp = std::numeric_limits<double>::max();
+  mca::control::CascadedServo servo(config);
+  ASSERT_TRUE(servo.configured());
+  ASSERT_TRUE(servo.reset().ok());
+
+  double actuator_command = 17.0;
+  const auto status = servo.update(0.5, 0.0, 0.0, 0.0, 0.001, actuator_command);
+
+  EXPECT_EQ(status.code, mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(actuator_command, 17.0);
+  EXPECT_DOUBLE_EQ(servo.velocity_reference(), 0.0);
+  EXPECT_DOUBLE_EQ(servo.torque_reference(), 0.0);
+  EXPECT_DOUBLE_EQ(servo.actuator_command(), 0.0);
+
+  // The failed cycle must not poison the controller: once the configuration
+  // is recreated with finite gains, the first valid update starts from reset
+  // state rather than a partially committed outer-loop reference.
+  config.velocity.kp = 1.0;
+  ASSERT_TRUE(servo.configure(config).ok());
+  ASSERT_TRUE(servo.update(0.5, 0.0, 0.0, 0.0, 0.001, actuator_command).ok());
+  EXPECT_DOUBLE_EQ(servo.velocity_reference(), 5.0);
+  EXPECT_DOUBLE_EQ(servo.torque_reference(), 0.5);
+  EXPECT_DOUBLE_EQ(actuator_command, 2.5);
 }

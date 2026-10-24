@@ -186,13 +186,17 @@ TEST(PmsmDq, CheckedElectromagneticTorqueReportsNotConfiguredAndPreservesOutput)
 }
 
 TEST(PmsmDq, CheckedElectromagneticTorqueUsesFiniteLifecycleState) {
-  mca::plant::PmsmDq motor(mca::plant::PmsmDqConfig{});
+  mca::plant::PmsmDqConfig config;
+  config.d_axis_inductance_h = 0.002;
+  config.q_axis_inductance_h = 0.001;
+  mca::plant::PmsmDq motor(config);
   ASSERT_TRUE(motor.reset(0.0, 0.0, 0.0, 0.0).ok());
   double checked = 9.0;
 
-  // Public reset rejects the overflowing derived torque before it can enter
-  // runtime state; the checked accessor must continue to expose the prior
-  // valid state and leave the caller output unchanged on the failed reset.
+  // With nonzero saliency, DBL_MAX d/q currents make the derived torque
+  // overflow. Public reset must reject that candidate before it can enter
+  // runtime state; the checked accessor must still expose the prior valid
+  // state and leave the caller output unchanged on the failed reset.
   const auto reset_status = motor.reset(0.0, 0.0,
                                         std::numeric_limits<double>::max(),
                                         std::numeric_limits<double>::max());

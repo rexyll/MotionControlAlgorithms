@@ -21,20 +21,29 @@ class CascadedServo {
   explicit CascadedServo(const CascadedServoConfig& config) { configure(config); }
 
   core::Status configure(const CascadedServoConfig& config) noexcept {
-    if (auto status = position_.configure(config.position); !status.ok()) {
-      configured_ = false;
+    // Prepare all loops on local copies so a bad inner-loop configuration
+    // cannot leave a previously configured cascade partially reconfigured.
+    PidController position_trial = position_;
+    PidController velocity_trial = velocity_;
+    PidController torque_trial = torque_;
+
+    if (auto status = position_trial.configure(config.position); !status.ok()) {
       return status;
     }
-    if (auto status = velocity_.configure(config.velocity); !status.ok()) {
-      configured_ = false;
+    if (auto status = velocity_trial.configure(config.velocity); !status.ok()) {
       return status;
     }
-    if (auto status = torque_.configure(config.torque); !status.ok()) {
-      configured_ = false;
+    if (auto status = torque_trial.configure(config.torque); !status.ok()) {
       return status;
     }
+
+    position_ = position_trial;
+    velocity_ = velocity_trial;
+    torque_ = torque_trial;
     configured_ = true;
-    reset();
+    velocity_reference_ = 0.0;
+    torque_reference_ = 0.0;
+    actuator_command_ = 0.0;
     return {};
   }
 

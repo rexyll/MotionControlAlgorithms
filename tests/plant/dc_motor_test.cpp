@@ -93,6 +93,28 @@ TEST(DcMotor, InvalidReconfigurationPreservesWorkingModel) {
   EXPECT_NE(motor.current(), 0.75);
 }
 
+TEST(DcMotor, ResetTorqueOverflowPreservesState) {
+  mca::plant::DcMotorConfig config;
+  config.torque_constant_nm_per_a = 2.0;
+  mca::plant::DcMotor motor(config);
+  ASSERT_TRUE(motor.configured());
+  ASSERT_TRUE(motor.reset(0.25, 1.5, 0.75).ok());
+  const double position_before = motor.position();
+  const double velocity_before = motor.velocity();
+  const double current_before = motor.current();
+
+  EXPECT_EQ(motor.reset(9.0, 8.0, std::numeric_limits<double>::max()).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(motor.position(), position_before);
+  EXPECT_DOUBLE_EQ(motor.velocity(), velocity_before);
+  EXPECT_DOUBLE_EQ(motor.current(), current_before);
+  EXPECT_DOUBLE_EQ(motor.torque(), config.torque_constant_nm_per_a * current_before);
+
+  ASSERT_TRUE(motor.reset(0.0, 0.0, 0.5).ok());
+  EXPECT_DOUBLE_EQ(motor.torque(), 1.0);
+  EXPECT_TRUE(motor.step(1.0, 0.0, 0.001).ok());
+}
+
 TEST(DcMotor, NumericalOverflowDoesNotCommitPartialState) {
   mca::plant::DcMotor motor;
   ASSERT_TRUE(motor.configure(mca::plant::DcMotorConfig{}).ok());

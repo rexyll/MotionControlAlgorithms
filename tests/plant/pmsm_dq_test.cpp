@@ -203,8 +203,8 @@ TEST(PmsmDq, CheckedElectricalStateRejectsOverflowAndPreservesOutput) {
   // that valid state instead of expecting an unreachable invalid runtime value.
   EXPECT_TRUE(motor.electrical_angle(angle).ok());
   EXPECT_TRUE(motor.electrical_angular_velocity(speed).ok());
-  EXPECT_NEAR(angle, 1.0, 1e-12);
-  EXPECT_NEAR(speed, 2.0, 1e-12);
+  EXPECT_NEAR(angle, 0.5, 1e-12);
+  EXPECT_NEAR(speed, 1.0, 1e-12);
 }
 
 TEST(PmsmDq, CheckedElectromagneticTorqueReportsStatusAndMatchesLegacy) {

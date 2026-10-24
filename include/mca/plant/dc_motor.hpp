@@ -26,7 +26,7 @@ class DcMotor {
 
   core::Status configure(const DcMotorConfig& config) noexcept {
     if (!valid(config)) {
-      configured_ = false;
+      // Reject bad reconfiguration without disabling an already-valid model.
       return {core::StatusCode::InvalidArgument};
     }
     config_ = config;
@@ -55,19 +55,41 @@ class DcMotor {
       return {core::StatusCode::InvalidArgument};
     }
 
-    const double current_dot =
-        (voltage_v - config_.resistance_ohm * current_a_ -
-         config_.back_emf_constant_v_per_rad_s * velocity_rad_s_) /
-        config_.inductance_h;
-    current_a_ += current_dot * dt;
+    // Integrate into local candidates. Finite inputs can still overflow
+    // intermediate products; never commit a partially advanced plant state.
+    const double resistive_voltage = config_.resistance_ohm * current_a_;
+    const double back_emf = config_.back_emf_constant_v_per_rad_s * velocity_rad_s_;
+    if (!core::is_finite(resistive_voltage) || !core::is_finite(back_emf)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double electrical_numerator = voltage_v - resistive_voltage - back_emf;
+    if (!core::is_finite(electrical_numerator)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double current_dot = electrical_numerator / config_.inductance_h;
+    if (!core::is_finite(current_dot)) return {core::StatusCode::NumericalError};
+    const double current_candidate = current_a_ + current_dot * dt;
+    if (!core::is_finite(current_candidate)) return {core::StatusCode::NumericalError};
 
-    const double torque_nm = config_.torque_constant_nm_per_a * current_a_;
-    const double acceleration =
-        (torque_nm - config_.viscous_damping_nm_per_rad_s * velocity_rad_s_ -
-         load_torque_nm) /
-        config_.inertia_kg_m2;
-    velocity_rad_s_ += acceleration * dt;
-    position_rad_ += velocity_rad_s_ * dt;
+    const double torque_nm = config_.torque_constant_nm_per_a * current_candidate;
+    const double viscous_torque = config_.viscous_damping_nm_per_rad_s * velocity_rad_s_;
+    if (!core::is_finite(torque_nm) || !core::is_finite(viscous_torque)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double mechanical_numerator = torque_nm - viscous_torque - load_torque_nm;
+    if (!core::is_finite(mechanical_numerator)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double acceleration = mechanical_numerator / config_.inertia_kg_m2;
+    if (!core::is_finite(acceleration)) return {core::StatusCode::NumericalError};
+    const double velocity_candidate = velocity_rad_s_ + acceleration * dt;
+    if (!core::is_finite(velocity_candidate)) return {core::StatusCode::NumericalError};
+    const double position_candidate = position_rad_ + velocity_candidate * dt;
+    if (!core::is_finite(position_candidate)) return {core::StatusCode::NumericalError};
+
+    current_a_ = current_candidate;
+    velocity_rad_s_ = velocity_candidate;
+    position_rad_ = position_candidate;
     return {};
   }
 

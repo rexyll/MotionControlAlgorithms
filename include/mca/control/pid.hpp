@@ -23,10 +23,12 @@ class PidController {
   explicit PidController(const PidConfig& config) { configure(config); }
 
   core::Status configure(const PidConfig& config) noexcept {
+    // Validate before touching configuration or runtime state. A rejected
+    // reconfiguration must leave an already-working controller usable.
     if (!valid(config)) {
-      configured_ = false;
       return {core::StatusCode::InvalidArgument};
     }
+
     config_ = config;
     configured_ = true;
     reset();

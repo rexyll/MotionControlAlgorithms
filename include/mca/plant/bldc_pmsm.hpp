@@ -29,10 +29,7 @@ class BldcPmsm {
   explicit BldcPmsm(const BldcPmsmConfig& config) { configure(config); }
 
   core::Status configure(const BldcPmsmConfig& config) noexcept {
-    if (!valid(config)) {
-      configured_ = false;
-      return {core::StatusCode::InvalidArgument};
-    }
+    if (!valid(config)) return {core::StatusCode::InvalidArgument};
     config_ = config;
     configured_ = true;
     return reset();
@@ -67,28 +64,67 @@ class BldcPmsm {
 
     const double theta = electrical_angle();
     const double two_pi_over_three = 2.0 * kPi / 3.0;
+    if (!core::is_finite(theta)) return {core::StatusCode::NumericalError};
     const double ea = config_.back_emf_constant_v_per_rad_s *
-                      config_.pole_pairs * speed_rad_s_ * emf_shape(theta);
+                      static_cast<double>(config_.pole_pairs) * speed_rad_s_ *
+                      emf_shape(theta);
     const double eb = config_.back_emf_constant_v_per_rad_s *
-                      config_.pole_pairs * speed_rad_s_ *
+                      static_cast<double>(config_.pole_pairs) * speed_rad_s_ *
                       emf_shape(theta - two_pi_over_three);
     const double ec = config_.back_emf_constant_v_per_rad_s *
-                      config_.pole_pairs * speed_rad_s_ *
+                      static_cast<double>(config_.pole_pairs) * speed_rad_s_ *
                       emf_shape(theta + two_pi_over_three);
+    if (!core::is_finite(ea) || !core::is_finite(eb) ||
+        !core::is_finite(ec)) {
+      return {core::StatusCode::NumericalError};
+    }
 
-    currents_[0] += (va - config_.phase_resistance_ohm * currents_[0] - ea) /
-                    config_.phase_inductance_h * dt;
-    currents_[1] += (vb - config_.phase_resistance_ohm * currents_[1] - eb) /
-                    config_.phase_inductance_h * dt;
-    currents_[2] += (vc - config_.phase_resistance_ohm * currents_[2] - ec) /
-                    config_.phase_inductance_h * dt;
+    const double old_a = currents_[0];
+    const double old_b = currents_[1];
+    const double old_c = currents_[2];
+    const double derivative_a =
+        (va - config_.phase_resistance_ohm * old_a - ea) /
+        config_.phase_inductance_h;
+    const double derivative_b =
+        (vb - config_.phase_resistance_ohm * old_b - eb) /
+        config_.phase_inductance_h;
+    const double derivative_c =
+        (vc - config_.phase_resistance_ohm * old_c - ec) /
+        config_.phase_inductance_h;
+    const double next_a = old_a + derivative_a * dt;
+    const double next_b = old_b + derivative_b * dt;
+    const double next_c = old_c + derivative_c * dt;
+    if (!core::is_finite(derivative_a) || !core::is_finite(derivative_b) ||
+        !core::is_finite(derivative_c) || !core::is_finite(next_a) ||
+        !core::is_finite(next_b) || !core::is_finite(next_c)) {
+      return {core::StatusCode::NumericalError};
+    }
 
-    const double torque = electromagnetic_torque();
+    const double offset = two_pi_over_three;
+    const double torque =
+        config_.torque_constant_nm_per_a *
+        (emf_shape(theta) * next_a +
+         emf_shape(theta - offset) * next_b +
+         emf_shape(theta + offset) * next_c);
+    const double damping_torque =
+        config_.viscous_damping_nm_per_rad_s * speed_rad_s_;
     const double acceleration =
-        (torque - config_.viscous_damping_nm_per_rad_s * speed_rad_s_ -
-         load_torque_nm) / config_.inertia_kg_m2;
-    speed_rad_s_ += acceleration * dt;
-    angle_rad_ += speed_rad_s_ * dt;
+        (torque - damping_torque - load_torque_nm) /
+        config_.inertia_kg_m2;
+    const double next_speed = speed_rad_s_ + acceleration * dt;
+    const double next_angle = angle_rad_ + next_speed * dt;
+    if (!core::is_finite(torque) || !core::is_finite(damping_torque) ||
+        !core::is_finite(acceleration) || !core::is_finite(next_speed) ||
+        !core::is_finite(next_angle) ||
+        !core::is_finite(next_angle * static_cast<double>(config_.pole_pairs))) {
+      return {core::StatusCode::NumericalError};
+    }
+
+    currents_[0] = next_a;
+    currents_[1] = next_b;
+    currents_[2] = next_c;
+    speed_rad_s_ = next_speed;
+    angle_rad_ = next_angle;
     return {};
   }
 

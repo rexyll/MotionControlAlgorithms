@@ -18,7 +18,6 @@ TEST(PmsmDq, RejectsInvalidConfigurationAndStepArguments) {
   EXPECT_FALSE(motor.step(0.0, 0.0, 0.0, 0.0).ok());
 }
 
-
 TEST(PmsmDq, InvalidReconfigurationPreservesWorkingState) {
   mca::plant::PmsmDq motor(mca::plant::PmsmDqConfig{});
   ASSERT_TRUE(motor.reset(0.25, 0.5, 0.1, -0.2).ok());
@@ -35,7 +34,6 @@ TEST(PmsmDq, InvalidReconfigurationPreservesWorkingState) {
   EXPECT_DOUBLE_EQ(motor.q_current(), -0.2);
   EXPECT_TRUE(motor.step(0.0, 0.0, 0.0, 0.001).ok());
 }
-
 
 TEST(PmsmDq, ResetDerivedOverflowPreservesState) {
   mca::plant::PmsmDq motor(mca::plant::PmsmDqConfig{});
@@ -159,6 +157,49 @@ TEST(PmsmDq, ElectricalAngleUsesPolePairs) {
   ASSERT_TRUE(motor.reset(0.2, 1.5, 0.0, 0.0).ok());
   EXPECT_NEAR(motor.electrical_angle(), 1.4, 1e-12);
   EXPECT_NEAR(motor.electrical_angular_velocity(), 10.5, 1e-12);
+}
+
+TEST(PmsmDq, CheckedElectromagneticTorqueReportsStatusAndMatchesLegacy) {
+  mca::plant::PmsmDqConfig config;
+  config.permanent_magnet_flux_wb = 0.05;
+  config.d_axis_inductance_h = 0.002;
+  config.q_axis_inductance_h = 0.001;
+  config.pole_pairs = 2;
+
+  mca::plant::PmsmDq motor(config);
+  ASSERT_TRUE(motor.reset(0.0, 0.0, 4.0, 3.0).ok());
+
+  double checked = -123.0;
+  const auto status = motor.electromagnetic_torque(checked);
+  EXPECT_TRUE(status.ok());
+  EXPECT_NEAR(checked, 0.486, 1e-12);
+  EXPECT_DOUBLE_EQ(checked, motor.electromagnetic_torque());
+}
+
+TEST(PmsmDq, CheckedElectromagneticTorqueReportsNotConfiguredAndPreservesOutput) {
+  mca::plant::PmsmDq motor;
+  double checked = 7.5;
+
+  const auto status = motor.electromagnetic_torque(checked);
+  EXPECT_EQ(status.code, mca::core::StatusCode::NotConfigured);
+  EXPECT_DOUBLE_EQ(checked, 7.5);
+}
+
+TEST(PmsmDq, CheckedElectromagneticTorqueUsesFiniteLifecycleState) {
+  mca::plant::PmsmDq motor(mca::plant::PmsmDqConfig{});
+  ASSERT_TRUE(motor.reset(0.0, 0.0, 0.0, 0.0).ok());
+  double checked = 9.0;
+
+  // Public reset rejects the overflowing derived torque before it can enter
+  // runtime state; the checked accessor must continue to expose the prior
+  // valid state and leave the caller output unchanged on the failed reset.
+  const auto reset_status = motor.reset(0.0, 0.0,
+                                        std::numeric_limits<double>::max(),
+                                        std::numeric_limits<double>::max());
+  EXPECT_EQ(reset_status.code, mca::core::StatusCode::NumericalError);
+  const auto torque_status = motor.electromagnetic_torque(checked);
+  EXPECT_TRUE(torque_status.ok());
+  EXPECT_DOUBLE_EQ(checked, 0.0);
 }
 
 }  // namespace

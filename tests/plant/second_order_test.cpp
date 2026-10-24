@@ -41,6 +41,33 @@ TEST(SecondOrderPlant, InvalidReconfigurationPreservesWorkingState) {
   ASSERT_TRUE(plant.step(1.0, 0.001).ok());
 }
 
+TEST(SecondOrderPlant, CheckedAccelerationReportsStatusAndPreservesOutput) {
+  mca::plant::SecondOrderPlant unconfigured;
+  double output = 123.0;
+  EXPECT_EQ(unconfigured.acceleration(1.0, output).code,
+            mca::core::StatusCode::NotConfigured);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+
+  mca::plant::SecondOrderPlant plant(2.0, 0.5, 3.0);
+  ASSERT_TRUE(plant.reset(0.25, -0.5).ok());
+  ASSERT_TRUE(plant.acceleration(1.0, output).ok());
+  EXPECT_DOUBLE_EQ(output, plant.acceleration(1.0));
+
+  output = 123.0;
+  EXPECT_EQ(plant.acceleration(std::numeric_limits<double>::infinity(), output).code,
+            mca::core::StatusCode::InvalidArgument);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+}
+
+TEST(SecondOrderPlant, CheckedAccelerationRejectsOverflowWithoutWritingOutput) {
+  mca::plant::SecondOrderPlant plant(1e-308, 0.0, 0.0);
+  ASSERT_TRUE(plant.configured());
+  double output = 42.0;
+  EXPECT_EQ(plant.acceleration(std::numeric_limits<double>::max(), output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(output, 42.0);
+}
+
 TEST(SecondOrderPlant, NumericalOverflowDoesNotCommitState) {
   mca::plant::SecondOrderPlant plant(1e-308, 0.0, 0.0);
   ASSERT_TRUE(plant.configured());

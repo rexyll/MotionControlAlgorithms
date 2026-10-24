@@ -162,6 +162,32 @@ class BldcPmsm {
             emf_shape(theta - offset) * currents_[1] +
             emf_shape(theta + offset) * currents_[2]);
   }
+
+  // Checked diagnostic variant. Output is updated only after all derived
+  // arithmetic has been validated as finite.
+  core::Status electromagnetic_torque(double& output) const noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    const double electrical_angle_candidate =
+        angle_rad_ * static_cast<double>(config_.pole_pairs);
+    if (!core::is_finite(electrical_angle_candidate)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double theta = wrap_angle(electrical_angle_candidate);
+    const double offset = 2.0 * kPi / 3.0;
+    const double phase_a = emf_shape(theta) * currents_[0];
+    const double phase_b = emf_shape(theta - offset) * currents_[1];
+    const double phase_c = emf_shape(theta + offset) * currents_[2];
+    if (!core::is_finite(phase_a) || !core::is_finite(phase_b) ||
+        !core::is_finite(phase_c)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double phase_sum = phase_a + phase_b + phase_c;
+    if (!core::is_finite(phase_sum)) return {core::StatusCode::NumericalError};
+    const double candidate = config_.torque_constant_nm_per_a * phase_sum;
+    if (!core::is_finite(candidate)) return {core::StatusCode::NumericalError};
+    output = candidate;
+    return {};
+  }
   [[nodiscard]] const BldcPmsmConfig& config() const noexcept { return config_; }
 
  private:

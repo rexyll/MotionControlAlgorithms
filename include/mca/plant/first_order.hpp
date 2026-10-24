@@ -19,7 +19,6 @@ class FirstOrderPlant {
   core::Status configure(double time_constant, double gain = 1.0) noexcept {
     if (!(time_constant > 0.0) || !core::is_finite(time_constant) ||
         !core::is_finite(gain)) {
-      configured_ = false;
       return {core::StatusCode::InvalidArgument};
     }
     time_constant_ = time_constant;
@@ -42,7 +41,18 @@ class FirstOrderPlant {
       return {core::StatusCode::InvalidArgument};
     }
     const double a = std::exp(-dt / time_constant_);
-    output_ = a * output_ + gain_ * (1.0 - a) * input;
+    const double retained_output = a * output_;
+    const double input_gain = gain_ * (1.0 - a);
+    if (!core::is_finite(retained_output) || !core::is_finite(input_gain)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double input_contribution = input_gain * input;
+    if (!core::is_finite(input_contribution)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double candidate = retained_output + input_contribution;
+    if (!core::is_finite(candidate)) return {core::StatusCode::NumericalError};
+    output_ = candidate;
     return {};
   }
 

@@ -144,6 +144,45 @@ class PmsmDq {
   }
   [[nodiscard]] double d_current() const noexcept { return d_current_a_; }
   [[nodiscard]] double q_current() const noexcept { return q_current_a_; }
+
+  // Checked diagnostic variant. Output is updated only after all derived
+  // arithmetic has been validated as finite.
+  core::Status electromagnetic_torque(double& output) const noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    const double p = static_cast<double>(config_.pole_pairs);
+    if (!core::is_finite(p)) return {core::StatusCode::NumericalError};
+    const double saliency =
+        config_.d_axis_inductance_h - config_.q_axis_inductance_h;
+    if (!core::is_finite(saliency)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double flux_torque =
+        config_.permanent_magnet_flux_wb * q_current_a_;
+    if (!core::is_finite(flux_torque)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double dq_product = d_current_a_ * q_current_a_;
+    if (!core::is_finite(dq_product)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double saliency_torque = saliency * dq_product;
+    if (!core::is_finite(saliency_torque)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double torque_terms = flux_torque + saliency_torque;
+    if (!core::is_finite(torque_terms)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double scale = 1.5 * p;
+    if (!core::is_finite(scale)) return {core::StatusCode::NumericalError};
+    const double candidate = scale * torque_terms;
+    if (!core::is_finite(candidate)) {
+      return {core::StatusCode::NumericalError};
+    }
+    output = candidate;
+    return {};
+  }
+
   [[nodiscard]] double electromagnetic_torque() const noexcept {
     const double p = static_cast<double>(config_.pole_pairs);
     return 1.5 * p *

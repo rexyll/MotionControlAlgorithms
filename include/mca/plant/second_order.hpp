@@ -75,6 +75,24 @@ class SecondOrderPlant {
   [[nodiscard]] double acceleration(double effort) const noexcept {
     return (effort - damping_ * velocity_ - stiffness_ * position_) / inertia_;
   }
+
+  // Checked diagnostic variant for callers that need explicit numerical status.
+  // The output argument is committed only when the complete calculation is finite.
+  core::Status acceleration(double effort, double& output) const noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    if (!core::is_finite(effort)) return {core::StatusCode::InvalidArgument};
+    const double damping_effort = damping_ * velocity_;
+    const double spring_effort = stiffness_ * position_;
+    if (!core::is_finite(damping_effort) || !core::is_finite(spring_effort)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double net_effort = effort - damping_effort - spring_effort;
+    if (!core::is_finite(net_effort)) return {core::StatusCode::NumericalError};
+    const double candidate = net_effort / inertia_;
+    if (!core::is_finite(candidate)) return {core::StatusCode::NumericalError};
+    output = candidate;
+    return {};
+  }
   [[nodiscard]] double inertia() const noexcept { return inertia_; }
   [[nodiscard]] double damping() const noexcept { return damping_; }
   [[nodiscard]] double stiffness() const noexcept { return stiffness_; }

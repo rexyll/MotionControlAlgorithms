@@ -43,6 +43,23 @@ class PmsmDq {
         !core::is_finite(d_current_a) || !core::is_finite(q_current_a)) {
       return {core::StatusCode::InvalidArgument};
     }
+    const double p = static_cast<double>(config_.pole_pairs);
+    const double electrical_angle = p * position_rad;
+    const double electrical_speed = p * velocity_rad_s;
+    const double saliency =
+        config_.d_axis_inductance_h - config_.q_axis_inductance_h;
+    const double flux_torque =
+        config_.permanent_magnet_flux_wb * q_current_a;
+    const double saliency_torque =
+        saliency * d_current_a * q_current_a;
+    const double torque = 1.5 * p * (flux_torque + saliency_torque);
+    if (!core::is_finite(electrical_angle) ||
+        !core::is_finite(electrical_speed) ||
+        !core::is_finite(saliency) || !core::is_finite(flux_torque) ||
+        !core::is_finite(saliency_torque) || !core::is_finite(torque)) {
+      return {core::StatusCode::NumericalError};
+    }
+
     position_rad_ = position_rad;
     velocity_rad_s_ = velocity_rad_s;
     d_current_a_ = d_current_a;

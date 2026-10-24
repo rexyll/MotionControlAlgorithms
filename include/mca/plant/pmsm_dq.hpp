@@ -145,6 +145,32 @@ class PmsmDq {
   [[nodiscard]] double d_current() const noexcept { return d_current_a_; }
   [[nodiscard]] double q_current() const noexcept { return q_current_a_; }
 
+  // Checked diagnostic variant. Output is updated only after the electrical
+  // angle derivation has been validated as finite.
+  core::Status electrical_angle(double& output) const noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    const double candidate =
+        static_cast<double>(config_.pole_pairs) * position_rad_;
+    if (!core::is_finite(candidate)) {
+      return {core::StatusCode::NumericalError};
+    }
+    output = candidate;
+    return {};
+  }
+
+  // Checked diagnostic variant. Output is updated only after the electrical
+  // angular-velocity derivation has been validated as finite.
+  core::Status electrical_angular_velocity(double& output) const noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    const double candidate =
+        static_cast<double>(config_.pole_pairs) * velocity_rad_s_;
+    if (!core::is_finite(candidate)) {
+      return {core::StatusCode::NumericalError};
+    }
+    output = candidate;
+    return {};
+  }
+
   // Checked diagnostic variant. Output is updated only after all derived
   // arithmetic has been validated as finite.
   core::Status electromagnetic_torque(double& output) const noexcept {

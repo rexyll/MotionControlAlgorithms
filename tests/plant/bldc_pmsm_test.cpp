@@ -82,12 +82,12 @@ TEST(BldcPmsm, CheckedElectricalStateRejectsOverflowAndPreservesOutput) {
   ASSERT_TRUE(motor.reset(0.25, std::numeric_limits<double>::max()).code ==
               mca::core::StatusCode::NumericalError);
 
-  EXPECT_EQ(motor.electrical_angle(angle).code,
-            mca::core::StatusCode::NumericalError);
-  EXPECT_EQ(motor.electrical_angular_velocity(speed).code,
-            mca::core::StatusCode::NumericalError);
-  EXPECT_DOUBLE_EQ(angle, 21.0);
-  EXPECT_DOUBLE_EQ(speed, 22.0);
+  // The failed resets are transactional, so the previous finite state remains
+  // queryable; checked diagnostics must not fabricate an invalid live state.
+  EXPECT_TRUE(motor.electrical_angle(angle).ok());
+  EXPECT_TRUE(motor.electrical_angular_velocity(speed).ok());
+  EXPECT_NEAR(angle, 0.5, 1e-12);
+  EXPECT_NEAR(speed, 1.0, 1e-12);
 }
 
 TEST(BldcPmsm, RejectsNonFiniteInputAndInvalidStep) {

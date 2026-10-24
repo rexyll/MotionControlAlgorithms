@@ -211,6 +211,28 @@ class BldcPmsm {
     output = candidate;
     return {};
   }
+  // Checked mechanical acceleration diagnostic; this query never mutates state.
+  core::Status acceleration(double load_torque_nm, double& output) const noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    if (!core::is_finite(load_torque_nm)) {
+      return {core::StatusCode::InvalidArgument};
+    }
+    double torque_candidate = 0.0;
+    const auto torque_status = electromagnetic_torque(torque_candidate);
+    if (!torque_status.ok()) return torque_status;
+    const double damping_torque =
+        config_.viscous_damping_nm_per_rad_s * speed_rad_s_;
+    if (!core::is_finite(damping_torque)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double numerator = torque_candidate - damping_torque - load_torque_nm;
+    if (!core::is_finite(numerator)) return {core::StatusCode::NumericalError};
+    const double candidate = numerator / config_.inertia_kg_m2;
+    if (!core::is_finite(candidate)) return {core::StatusCode::NumericalError};
+    output = candidate;
+    return {};
+  }
+
   // Legacy unchecked accessor retained for source compatibility. Prefer the
   // status-returning overload when callers need to handle invalid state.
   [[nodiscard]] double electromagnetic_torque() const noexcept {

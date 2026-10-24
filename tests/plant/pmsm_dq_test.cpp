@@ -159,6 +159,54 @@ TEST(PmsmDq, ElectricalAngleUsesPolePairs) {
   EXPECT_NEAR(motor.electrical_angular_velocity(), 10.5, 1e-12);
 }
 
+TEST(PmsmDq, CheckedElectricalStateReportsStatusAndMatchesLegacy) {
+  mca::plant::PmsmDqConfig config;
+  config.pole_pairs = 7;
+  mca::plant::PmsmDq motor(config);
+  ASSERT_TRUE(motor.reset(0.2, 1.5, 0.0, 0.0).ok());
+
+  double angle = -1.0;
+  double speed = -2.0;
+  EXPECT_TRUE(motor.electrical_angle(angle).ok());
+  EXPECT_TRUE(motor.electrical_angular_velocity(speed).ok());
+  EXPECT_NEAR(angle, motor.electrical_angle(), 1e-12);
+  EXPECT_NEAR(speed, motor.electrical_angular_velocity(), 1e-12);
+}
+
+TEST(PmsmDq, CheckedElectricalStateReportsNotConfiguredAndPreservesOutput) {
+  mca::plant::PmsmDq motor;
+  double angle = 11.0;
+  double speed = 12.0;
+
+  EXPECT_EQ(motor.electrical_angle(angle).code,
+            mca::core::StatusCode::NotConfigured);
+  EXPECT_EQ(motor.electrical_angular_velocity(speed).code,
+            mca::core::StatusCode::NotConfigured);
+  EXPECT_DOUBLE_EQ(angle, 11.0);
+  EXPECT_DOUBLE_EQ(speed, 12.0);
+}
+
+TEST(PmsmDq, CheckedElectricalStateRejectsOverflowAndPreservesOutput) {
+  mca::plant::PmsmDqConfig config;
+  config.pole_pairs = 2;
+  mca::plant::PmsmDq motor(config);
+  ASSERT_TRUE(motor.reset(0.25, 0.5, 0.0, 0.0).ok());
+
+  double angle = 21.0;
+  double speed = 22.0;
+  ASSERT_EQ(motor.reset(std::numeric_limits<double>::max(), 0.5, 0.0, 0.0).code,
+            mca::core::StatusCode::NumericalError);
+  ASSERT_EQ(motor.reset(0.25, std::numeric_limits<double>::max(), 0.0, 0.0).code,
+            mca::core::StatusCode::NumericalError);
+
+  EXPECT_EQ(motor.electrical_angle(angle).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_EQ(motor.electrical_angular_velocity(speed).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(angle, 21.0);
+  EXPECT_DOUBLE_EQ(speed, 22.0);
+}
+
 TEST(PmsmDq, CheckedElectromagneticTorqueReportsStatusAndMatchesLegacy) {
   mca::plant::PmsmDqConfig config;
   config.permanent_magnet_flux_wb = 0.05;

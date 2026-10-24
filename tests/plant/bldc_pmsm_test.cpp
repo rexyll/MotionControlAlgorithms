@@ -67,6 +67,22 @@ TEST(BldcPmsm, InvalidReconfigurationPreservesWorkingState) {
   EXPECT_TRUE(motor.step(0.0, 0.0, 0.0, 0.0, 0.001).ok());
 }
 
+
+TEST(BldcPmsm, ResetDerivedOverflowPreservesState) {
+  mca::plant::BldcPmsm motor(mca::plant::BldcPmsmConfig{});
+  ASSERT_TRUE(motor.reset(0.25, 0.5, 0.1, -0.2, 0.3).ok());
+
+  const auto status = motor.reset(std::numeric_limits<double>::max(), 0.5,
+                                  0.1, -0.2, 0.3);
+  EXPECT_EQ(status.code, mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(motor.mechanical_angle(), 0.25);
+  EXPECT_DOUBLE_EQ(motor.speed(), 0.5);
+  EXPECT_DOUBLE_EQ(motor.current_a(), 0.1);
+  EXPECT_DOUBLE_EQ(motor.current_b(), -0.2);
+  EXPECT_DOUBLE_EQ(motor.current_c(), 0.3);
+  EXPECT_TRUE(motor.step(0.0, 0.0, 0.0, 0.0, 0.001).ok());
+}
+
 TEST(BldcPmsm, NumericalOverflowDoesNotCommitState) {
   mca::plant::BldcPmsmConfig config;
   config.phase_inductance_h = 1e-308;

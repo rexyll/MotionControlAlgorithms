@@ -114,6 +114,31 @@ class DcMotor {
     output = candidate;
     return {};
   }
+  // Checked diagnostic for the mechanical acceleration at the current state.
+  // The supplied load torque is external input; this query never mutates state.
+  // The output is written only after every derived value has been validated.
+  core::Status acceleration(double load_torque_nm, double& output) const noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    if (!core::is_finite(load_torque_nm)) {
+      return {core::StatusCode::InvalidArgument};
+    }
+    const double torque_candidate = config_.torque_constant_nm_per_a * current_a_;
+    if (!core::is_finite(torque_candidate)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double viscous_torque =
+        config_.viscous_damping_nm_per_rad_s * velocity_rad_s_;
+    if (!core::is_finite(viscous_torque)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double numerator = torque_candidate - viscous_torque - load_torque_nm;
+    if (!core::is_finite(numerator)) return {core::StatusCode::NumericalError};
+    const double candidate = numerator / config_.inertia_kg_m2;
+    if (!core::is_finite(candidate)) return {core::StatusCode::NumericalError};
+    output = candidate;
+    return {};
+  }
+
   [[nodiscard]] const DcMotorConfig& config() const noexcept { return config_; }
 
  private:

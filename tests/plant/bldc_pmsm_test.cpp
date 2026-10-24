@@ -99,3 +99,15 @@ TEST(BldcPmsm, NumericalOverflowDoesNotCommitState) {
   EXPECT_DOUBLE_EQ(motor.current_c(), 0.0);
   EXPECT_TRUE(motor.step(0.0, 0.0, 0.0, 0.0, 0.001).ok());
 }
+TEST(BldcPmsm, CheckedElectromagneticTorqueReportsStatusAndPreservesOutput) {
+  mca::plant::BldcPmsm unconfigured;
+  double output = 123.0;
+  EXPECT_EQ(unconfigured.electromagnetic_torque(output).code,
+            mca::core::StatusCode::NotConfigured);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+
+  mca::plant::BldcPmsm motor(mca::plant::BldcPmsmConfig{});
+  ASSERT_TRUE(motor.reset(0.2, 0.0, 1.0, -0.25, 0.5).ok());
+  ASSERT_TRUE(motor.electromagnetic_torque(output).ok());
+  EXPECT_NEAR(output, motor.electromagnetic_torque(), 1e-12);
+}

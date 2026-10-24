@@ -21,7 +21,6 @@ class SecondOrderPlant {
     if (!(inertia > 0.0) || damping < 0.0 || stiffness < 0.0 ||
         !core::is_finite(inertia) || !core::is_finite(damping) ||
         !core::is_finite(stiffness)) {
-      configured_ = false;
       return {core::StatusCode::InvalidArgument};
     }
     inertia_ = inertia;
@@ -48,10 +47,25 @@ class SecondOrderPlant {
     if (!core::is_finite(effort) || !(dt > 0.0) || !core::is_finite(dt)) {
       return {core::StatusCode::InvalidArgument};
     }
-    const double acceleration =
-        (effort - damping_ * velocity_ - stiffness_ * position_) / inertia_;
-    velocity_ += acceleration * dt;
-    position_ += velocity_ * dt;
+    const double damping_effort = damping_ * velocity_;
+    const double spring_effort = stiffness_ * position_;
+    if (!core::is_finite(damping_effort) || !core::is_finite(spring_effort)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double net_effort = effort - damping_effort - spring_effort;
+    if (!core::is_finite(net_effort)) return {core::StatusCode::NumericalError};
+    const double acceleration = net_effort / inertia_;
+    if (!core::is_finite(acceleration)) return {core::StatusCode::NumericalError};
+    const double velocity_candidate = velocity_ + acceleration * dt;
+    if (!core::is_finite(velocity_candidate)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double position_candidate = position_ + velocity_candidate * dt;
+    if (!core::is_finite(position_candidate)) {
+      return {core::StatusCode::NumericalError};
+    }
+    velocity_ = velocity_candidate;
+    position_ = position_candidate;
     return {};
   }
 

@@ -52,27 +52,59 @@ class PidController {
         !(dt > 0.0) || !core::is_finite(dt)) {
       return {core::StatusCode::InvalidArgument};
     }
-    if (!initialized_) reset(0.0, measurement);
 
+    // Compute the complete sample transactionally. In particular, finite
+    // inputs can still overflow during multiplication, division or addition.
+    // Do not initialize or update persistent state until every intermediate
+    // and the final command has been proven finite.
+    const double previous_measurement = initialized_ ? previous_measurement_ : measurement;
+    const double current_integral = initialized_ ? integral_ : 0.0;
     const double error = setpoint - measurement;
-    const double derivative = (measurement - previous_measurement_) / dt;
+    if (!core::is_finite(error)) return {core::StatusCode::NumericalError};
+
+    const double derivative_delta = measurement - previous_measurement;
+    if (!core::is_finite(derivative_delta)) return {core::StatusCode::NumericalError};
+    const double derivative = derivative_delta / dt;
+    if (!core::is_finite(derivative)) return {core::StatusCode::NumericalError};
+
     const double p = config_.kp * error;
     const double d = -config_.kd * derivative;
+    const double integral_increment = config_.ki * error * dt;
+    if (!core::is_finite(p) || !core::is_finite(d) ||
+        !core::is_finite(integral_increment)) {
+      return {core::StatusCode::NumericalError};
+    }
+
     const double candidate_integral = math::clamp(
-        integral_ + config_.ki * error * dt,
+        current_integral + integral_increment,
         config_.integral_min, config_.integral_max);
+    if (!core::is_finite(candidate_integral)) {
+      return {core::StatusCode::NumericalError};
+    }
+
     const double candidate_unsaturated = p + candidate_integral + d;
+    if (!core::is_finite(candidate_unsaturated)) {
+      return {core::StatusCode::NumericalError};
+    }
     const double saturated = math::clamp(
         candidate_unsaturated, config_.output_min, config_.output_max);
+    if (!core::is_finite(saturated)) {
+      return {core::StatusCode::NumericalError};
+    }
 
     const bool pushing_high = saturated >= config_.output_max && error > 0.0;
     const bool pushing_low = saturated <= config_.output_min && error < 0.0;
-    if (!(pushing_high || pushing_low)) integral_ = candidate_integral;
+    const double next_integral = (pushing_high || pushing_low)
+                                     ? current_integral
+                                     : candidate_integral;
+    if (!core::is_finite(next_integral)) {
+      return {core::StatusCode::NumericalError};
+    }
 
-    // Output must still use the candidate integral for this sample. Rejecting
-    // its accumulation prevents windup without suppressing a pure-I controller.
-    output_ = saturated;
+    integral_ = next_integral;
     previous_measurement_ = measurement;
+    output_ = saturated;
+    initialized_ = true;
     output = output_;
     return {};
   }

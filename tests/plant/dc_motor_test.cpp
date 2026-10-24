@@ -137,3 +137,17 @@ TEST(DcMotor, NumericalOverflowDoesNotCommitPartialState) {
 
   EXPECT_TRUE(motor.step(1.0, 0.0, 0.001).ok());
 }
+TEST(DcMotor, CheckedTorqueReportsStatusAndPreservesOutput) {
+  mca::plant::DcMotor unconfigured;
+  double output = 123.0;
+  EXPECT_EQ(unconfigured.torque(output).code,
+            mca::core::StatusCode::NotConfigured);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+
+  mca::plant::DcMotor motor;
+  ASSERT_TRUE(motor.configure(mca::plant::DcMotorConfig{}).ok());
+  ASSERT_TRUE(motor.reset(0.0, 0.0, 1.25).ok());
+  ASSERT_TRUE(motor.torque(output).ok());
+  EXPECT_DOUBLE_EQ(output, motor.torque());
+  EXPECT_DOUBLE_EQ(output, 0.125);
+}

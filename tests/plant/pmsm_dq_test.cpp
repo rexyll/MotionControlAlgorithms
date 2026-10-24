@@ -207,6 +207,43 @@ TEST(PmsmDq, CheckedElectricalStateRejectsOverflowAndPreservesOutput) {
   EXPECT_NEAR(speed, 1.0, 1e-12);
 }
 
+TEST(PmsmDq, CheckedAccelerationReportsStatusAndPreservesOutput) {
+  mca::plant::PmsmDq unconfigured;
+  double output = 123.0;
+  EXPECT_EQ(unconfigured.acceleration(0.0, output).code,
+            mca::core::StatusCode::NotConfigured);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+
+  mca::plant::PmsmDq motor;
+  ASSERT_TRUE(motor.configure(mca::plant::PmsmDqConfig{}).ok());
+  ASSERT_TRUE(motor.reset(0.0, 2.0, 1.0, 3.0).ok());
+  EXPECT_EQ(motor.acceleration(std::numeric_limits<double>::infinity(), output).code,
+            mca::core::StatusCode::InvalidArgument);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+
+  double torque = 0.0;
+  ASSERT_TRUE(motor.electromagnetic_torque(torque).ok());
+  const double expected = (torque - motor.config().viscous_damping_nm_per_rad_s *
+                           motor.velocity() - 0.2) / motor.config().inertia_kg_m2;
+  ASSERT_TRUE(motor.acceleration(0.2, output).ok());
+  EXPECT_DOUBLE_EQ(output, expected);
+  EXPECT_DOUBLE_EQ(motor.velocity(), 2.0);
+  EXPECT_DOUBLE_EQ(motor.q_current(), 3.0);
+}
+
+TEST(PmsmDq, CheckedAccelerationRejectsOverflowWithoutChangingOutput) {
+  mca::plant::PmsmDqConfig config;
+  config.viscous_damping_nm_per_rad_s = std::numeric_limits<double>::max() / 2.0;
+  mca::plant::PmsmDq motor;
+  ASSERT_TRUE(motor.configure(config).ok());
+  ASSERT_TRUE(motor.reset(0.0, 4.0, 0.0, 0.0).ok());
+  double output = -77.0;
+  EXPECT_EQ(motor.acceleration(0.0, output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(output, -77.0);
+  EXPECT_DOUBLE_EQ(motor.velocity(), 4.0);
+}
+
 TEST(PmsmDq, CheckedElectromagneticTorqueReportsStatusAndMatchesLegacy) {
   mca::plant::PmsmDqConfig config;
   config.permanent_magnet_flux_wb = 0.05;

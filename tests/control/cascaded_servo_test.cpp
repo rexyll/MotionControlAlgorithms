@@ -104,3 +104,33 @@ TEST(CascadedServoTest, InnerLoopFailureDoesNotCommitOuterState) {
   EXPECT_DOUBLE_EQ(servo.torque_reference(), 0.0);
   EXPECT_DOUBLE_EQ(actuator_command, 0.0);
 }
+
+TEST(CascadedServoTest, InvalidReconfigurationPreservesWorkingCascade) {
+  auto config = make_config();
+  config.position.ki = 1.0;
+  mca::control::CascadedServo servo(config);
+  ASSERT_TRUE(servo.configured());
+
+  double actuator_command = 0.0;
+  ASSERT_TRUE(servo.update(0.5, 0.0, 0.0, 0.0, 0.001, actuator_command).ok());
+  const double previous_velocity_reference = servo.velocity_reference();
+  const double previous_torque_reference = servo.torque_reference();
+  const double previous_actuator_command = servo.actuator_command();
+
+  auto invalid = config;
+  invalid.position.kp = 100.0;
+  invalid.velocity.output_min = 1.0;
+  invalid.velocity.output_max = -1.0;
+  EXPECT_EQ(servo.configure(invalid).code, mca::core::StatusCode::InvalidArgument);
+
+  EXPECT_TRUE(servo.configured());
+  EXPECT_DOUBLE_EQ(servo.velocity_reference(), previous_velocity_reference);
+  EXPECT_DOUBLE_EQ(servo.torque_reference(), previous_torque_reference);
+  EXPECT_DOUBLE_EQ(servo.actuator_command(), previous_actuator_command);
+
+  // The original configuration remains active and the next cycle is usable.
+  ASSERT_TRUE(servo.update(0.5, 0.0, 0.0, 0.0, 0.001, actuator_command).ok());
+  EXPECT_DOUBLE_EQ(servo.velocity_reference(), previous_velocity_reference + 0.0005);
+  EXPECT_DOUBLE_EQ(servo.torque_reference(), previous_torque_reference);
+  EXPECT_DOUBLE_EQ(servo.actuator_command(), previous_actuator_command);
+}

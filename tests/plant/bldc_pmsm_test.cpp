@@ -147,6 +147,43 @@ TEST(BldcPmsm, NumericalOverflowDoesNotCommitState) {
   EXPECT_DOUBLE_EQ(motor.current_c(), 0.0);
   EXPECT_TRUE(motor.step(0.0, 0.0, 0.0, 0.0, 0.001).ok());
 }
+TEST(BldcPmsm, CheckedAccelerationReportsStatusAndPreservesOutput) {
+  mca::plant::BldcPmsm unconfigured;
+  double output = 123.0;
+  EXPECT_EQ(unconfigured.acceleration(0.0, output).code,
+            mca::core::StatusCode::NotConfigured);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+
+  mca::plant::BldcPmsm motor;
+  ASSERT_TRUE(motor.configure(mca::plant::BldcPmsmConfig{}).ok());
+  ASSERT_TRUE(motor.reset(0.0, 2.0, 1.0, -0.5, 0.25).ok());
+  EXPECT_EQ(motor.acceleration(std::numeric_limits<double>::quiet_NaN(), output).code,
+            mca::core::StatusCode::InvalidArgument);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+
+  double torque = 0.0;
+  ASSERT_TRUE(motor.electromagnetic_torque(torque).ok());
+  const double expected = (torque - motor.config().viscous_damping_nm_per_rad_s *
+                           motor.speed() - 0.2) / motor.config().inertia_kg_m2;
+  ASSERT_TRUE(motor.acceleration(0.2, output).ok());
+  EXPECT_DOUBLE_EQ(output, expected);
+  EXPECT_DOUBLE_EQ(motor.speed(), 2.0);
+  EXPECT_DOUBLE_EQ(motor.current_a(), 1.0);
+}
+
+TEST(BldcPmsm, CheckedAccelerationRejectsOverflowWithoutChangingOutput) {
+  mca::plant::BldcPmsmConfig config;
+  config.viscous_damping_nm_per_rad_s = std::numeric_limits<double>::max() / 2.0;
+  mca::plant::BldcPmsm motor;
+  ASSERT_TRUE(motor.configure(config).ok());
+  ASSERT_TRUE(motor.reset(0.0, 4.0, 0.0, 0.0, 0.0).ok());
+  double output = -77.0;
+  EXPECT_EQ(motor.acceleration(0.0, output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(output, -77.0);
+  EXPECT_DOUBLE_EQ(motor.speed(), 4.0);
+}
+
 TEST(BldcPmsm, CheckedElectromagneticTorqueReportsStatusAndPreservesOutput) {
   mca::plant::BldcPmsm unconfigured;
   double output = 123.0;

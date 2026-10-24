@@ -35,12 +35,13 @@ TEST(NonlinearMpcP846, ReusesCurrentCostForClippedUpperProbe) {
   NonlinearMpcResult r;
 
   ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));
-  EXPECT_EQ(r.line_search_evaluations,0U);
-  EXPECT_DOUBLE_EQ(r.cost,0.5);
-  EXPECT_DOUBLE_EQ(r.control(0),1.0);
-  // Initial rollout only: the +h probe is clipped to the current upper bound,
-  // so it must reuse current_cost; the -h probe is the only finite-difference rollout.
-  EXPECT_EQ(stage_calls,2U);
+  EXPECT_EQ(r.line_search_evaluations,1U);
+  EXPECT_DOUBLE_EQ(r.cost,0.41632812499999999);
+  EXPECT_DOUBLE_EQ(r.control(0),0.91249999999999998);
+  // Initial rollout + one finite-difference rollout + one accepted line-search rollout.
+  // The +h probe is clipped to the current upper bound and must reuse current_cost;
+  // a redundant rollout would increase stage_calls to four.
+  EXPECT_EQ(stage_calls,3U);
 }
 
 TEST(NonlinearMpcP846, ReusesCurrentCostForClippedLowerProbe) {
@@ -56,10 +57,12 @@ TEST(NonlinearMpcP846, ReusesCurrentCostForClippedLowerProbe) {
   NonlinearMpcResult r;
 
   ASSERT_TRUE(solve_nonlinear_mpc(p,x,o,r));
-  EXPECT_EQ(r.line_search_evaluations,0U);
-  EXPECT_DOUBLE_EQ(r.cost,0.5);
-  EXPECT_DOUBLE_EQ(r.control(0),-1.0);
-  EXPECT_EQ(stage_calls,2U);
+  EXPECT_EQ(r.line_search_evaluations,1U);
+  EXPECT_DOUBLE_EQ(r.cost,0.41632812499999999);
+  EXPECT_DOUBLE_EQ(r.control(0),-0.91249999999999998);
+  // Initial rollout + one finite-difference rollout + one accepted line-search rollout.
+  // The -h probe is clipped to the current lower bound and must reuse current_cost.
+  EXPECT_EQ(stage_calls,3U);
 }
 
 TEST(NonlinearMpcP846, CentralDifferenceStillEvaluatesBothFullProbes) {

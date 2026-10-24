@@ -42,6 +42,54 @@ TEST(BldcPmsm, ElectricalAngleUsesPolePairCount) {
   EXPECT_NEAR(motor.electrical_angle(), 1.0, 1e-12);
 }
 
+TEST(BldcPmsm, CheckedElectricalStateReportsStatusAndMatchesLegacy) {
+  mca::plant::BldcPmsmConfig config;
+  config.pole_pairs = 5;
+  mca::plant::BldcPmsm motor(config);
+  ASSERT_TRUE(motor.reset(0.2, 1.5).ok());
+
+  double angle = -1.0;
+  double speed = -2.0;
+  EXPECT_TRUE(motor.electrical_angle(angle).ok());
+  EXPECT_TRUE(motor.electrical_angular_velocity(speed).ok());
+  EXPECT_NEAR(angle, motor.electrical_angle(), 1e-12);
+  EXPECT_NEAR(speed, 7.5, 1e-12);
+}
+
+TEST(BldcPmsm, CheckedElectricalStateReportsNotConfiguredAndPreservesOutput) {
+  mca::plant::BldcPmsm motor;
+  double angle = 11.0;
+  double speed = 12.0;
+
+  EXPECT_EQ(motor.electrical_angle(angle).code,
+            mca::core::StatusCode::NotConfigured);
+  EXPECT_EQ(motor.electrical_angular_velocity(speed).code,
+            mca::core::StatusCode::NotConfigured);
+  EXPECT_DOUBLE_EQ(angle, 11.0);
+  EXPECT_DOUBLE_EQ(speed, 12.0);
+}
+
+TEST(BldcPmsm, CheckedElectricalStateRejectsOverflowAndPreservesOutput) {
+  mca::plant::BldcPmsmConfig config;
+  config.pole_pairs = 2;
+  mca::plant::BldcPmsm motor(config);
+  ASSERT_TRUE(motor.reset(0.25, 0.5).ok());
+
+  double angle = 21.0;
+  double speed = 22.0;
+  ASSERT_EQ(motor.reset(std::numeric_limits<double>::max(), 0.5).code,
+            mca::core::StatusCode::NumericalError);
+  ASSERT_TRUE(motor.reset(0.25, std::numeric_limits<double>::max()).code ==
+              mca::core::StatusCode::NumericalError);
+
+  EXPECT_EQ(motor.electrical_angle(angle).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_EQ(motor.electrical_angular_velocity(speed).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(angle, 21.0);
+  EXPECT_DOUBLE_EQ(speed, 22.0);
+}
+
 TEST(BldcPmsm, RejectsNonFiniteInputAndInvalidStep) {
   mca::plant::BldcPmsm motor(mca::plant::BldcPmsmConfig{});
   EXPECT_FALSE(motor.step(0.0, 0.0, 0.0, 0.0, 0.0).ok());

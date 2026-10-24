@@ -64,22 +64,38 @@ class CascadedServo {
       return {core::StatusCode::InvalidArgument};
     }
 
-    if (auto status = position_.update(position_reference, position, dt,
-                                       velocity_reference_);
+    // Execute the complete cascade on local copies. A failure in an inner
+    // loop must not leave an outer loop, intermediate reference, or actuator
+    // command partially advanced. Commit only after every loop succeeds.
+    PidController position_trial = position_;
+    PidController velocity_trial = velocity_;
+    PidController torque_trial = torque_;
+    double velocity_reference_trial = velocity_reference_;
+    double torque_reference_trial = torque_reference_;
+    double actuator_command_trial = actuator_command_;
+
+    if (auto status = position_trial.update(position_reference, position, dt,
+                                            velocity_reference_trial);
         !status.ok()) {
       return status;
     }
-    if (auto status = velocity_.update(velocity_reference_, velocity, dt,
-                                       torque_reference_);
+    if (auto status = velocity_trial.update(velocity_reference_trial, velocity, dt,
+                                            torque_reference_trial);
         !status.ok()) {
       return status;
     }
-    if (auto status = torque_.update(torque_reference_, torque, dt,
-                                     actuator_command_);
+    if (auto status = torque_trial.update(torque_reference_trial, torque, dt,
+                                          actuator_command_trial);
         !status.ok()) {
       return status;
     }
 
+    position_ = position_trial;
+    velocity_ = velocity_trial;
+    torque_ = torque_trial;
+    velocity_reference_ = velocity_reference_trial;
+    torque_reference_ = torque_reference_trial;
+    actuator_command_ = actuator_command_trial;
     actuator_command = actuator_command_;
     return {};
   }

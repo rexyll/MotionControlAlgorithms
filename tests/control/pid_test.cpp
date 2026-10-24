@@ -225,3 +225,29 @@ TEST(PidController, FirstUpdateOverflowDoesNotInitializeState) {
   EXPECT_DOUBLE_EQ(pid.output(), 0.0);
   EXPECT_DOUBLE_EQ(pid.integral(), 0.0);
 }
+
+TEST(PidController, InvalidReconfigurationPreservesWorkingState) {
+  mca::control::PidConfig config;
+  config.ki = 1.0;
+  config.output_min = -10.0;
+  config.output_max = 10.0;
+  config.integral_min = -10.0;
+  config.integral_max = 10.0;
+  mca::control::PidController pid(config);
+  double output = 0.0;
+  ASSERT_TRUE(pid.update(2.0, 0.0, 0.5, output).ok());
+  const double previous_output = pid.output();
+  const double previous_integral = pid.integral();
+
+  auto invalid = config;
+  invalid.output_min = 2.0;
+  invalid.output_max = -2.0;
+  EXPECT_EQ(pid.configure(invalid).code, mca::core::StatusCode::InvalidArgument);
+  EXPECT_TRUE(pid.configured());
+  EXPECT_DOUBLE_EQ(pid.output(), previous_output);
+  EXPECT_DOUBLE_EQ(pid.integral(), previous_integral);
+
+  ASSERT_TRUE(pid.update(2.0, 0.0, 0.5, output).ok());
+  EXPECT_DOUBLE_EQ(output, 2.0);
+  EXPECT_DOUBLE_EQ(pid.integral(), 2.0);
+}

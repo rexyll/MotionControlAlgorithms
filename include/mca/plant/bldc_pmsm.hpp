@@ -211,6 +211,17 @@ class BldcPmsm {
     output = candidate;
     return {};
   }
+  // Legacy unchecked accessor retained for source compatibility. Prefer the
+  // status-returning overload when callers need to handle invalid state.
+  [[nodiscard]] double electromagnetic_torque() const noexcept {
+    const double theta = electrical_angle();
+    const double offset = 2.0 * kPi / 3.0;
+    return config_.torque_constant_nm_per_a *
+           (emf_shape(theta) * currents_[0] +
+            emf_shape(theta - offset) * currents_[1] +
+            emf_shape(theta + offset) * currents_[2]);
+  }
+
   [[nodiscard]] const BldcPmsmConfig& config() const noexcept { return config_; }
 
  private:

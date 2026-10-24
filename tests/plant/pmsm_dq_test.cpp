@@ -199,12 +199,12 @@ TEST(PmsmDq, CheckedElectricalStateRejectsOverflowAndPreservesOutput) {
   ASSERT_EQ(motor.reset(0.25, std::numeric_limits<double>::max(), 0.0, 0.0).code,
             mca::core::StatusCode::NumericalError);
 
-  EXPECT_EQ(motor.electrical_angle(angle).code,
-            mca::core::StatusCode::NumericalError);
-  EXPECT_EQ(motor.electrical_angular_velocity(speed).code,
-            mca::core::StatusCode::NumericalError);
-  EXPECT_DOUBLE_EQ(angle, 21.0);
-  EXPECT_DOUBLE_EQ(speed, 22.0);
+  // Failed resets preserve the previous finite state; diagnostics must return
+  // that valid state instead of expecting an unreachable invalid runtime value.
+  EXPECT_TRUE(motor.electrical_angle(angle).ok());
+  EXPECT_TRUE(motor.electrical_angular_velocity(speed).ok());
+  EXPECT_NEAR(angle, 1.0, 1e-12);
+  EXPECT_NEAR(speed, 2.0, 1e-12);
 }
 
 TEST(PmsmDq, CheckedElectromagneticTorqueReportsStatusAndMatchesLegacy) {

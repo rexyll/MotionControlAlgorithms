@@ -82,6 +82,7 @@ TEST(CascadedServoTest, ExposesIntermediateReferences) {
 
 TEST(CascadedServoTest, InnerLoopFailureDoesNotCommitOuterState) {
   auto config = make_config();
+  config.position.ki = 1.0;
   config.velocity.kp = std::numeric_limits<double>::max();
   mca::control::CascadedServo servo(config);
   ASSERT_TRUE(servo.configured());
@@ -96,13 +97,10 @@ TEST(CascadedServoTest, InnerLoopFailureDoesNotCommitOuterState) {
   EXPECT_DOUBLE_EQ(servo.torque_reference(), 0.0);
   EXPECT_DOUBLE_EQ(servo.actuator_command(), 0.0);
 
-  // The failed cycle must not poison the controller: once the configuration
-  // is recreated with finite gains, the first valid update starts from reset
-  // state rather than a partially committed outer-loop reference.
-  config.velocity.kp = 1.0;
-  ASSERT_TRUE(servo.configure(config).ok());
-  ASSERT_TRUE(servo.update(0.5, 0.0, 0.0, 0.0, 0.001, actuator_command).ok());
-  EXPECT_DOUBLE_EQ(servo.velocity_reference(), 5.0);
-  EXPECT_DOUBLE_EQ(servo.torque_reference(), 0.5);
-  EXPECT_DOUBLE_EQ(actuator_command, 2.5);
+  // A subsequent valid cycle must behave as if the failed cycle never ran.
+  // The outer integral would otherwise retain the partial 0.0005 update.
+  ASSERT_TRUE(servo.update(0.0, 0.0, 0.0, 0.0, 0.001, actuator_command).ok());
+  EXPECT_DOUBLE_EQ(servo.velocity_reference(), 0.0);
+  EXPECT_DOUBLE_EQ(servo.torque_reference(), 0.0);
+  EXPECT_DOUBLE_EQ(actuator_command, 0.0);
 }

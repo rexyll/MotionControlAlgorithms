@@ -36,6 +36,21 @@ TEST(PmsmDq, InvalidReconfigurationPreservesWorkingState) {
   EXPECT_TRUE(motor.step(0.0, 0.0, 0.0, 0.001).ok());
 }
 
+
+TEST(PmsmDq, ResetDerivedOverflowPreservesState) {
+  mca::plant::PmsmDq motor(mca::plant::PmsmDqConfig{});
+  ASSERT_TRUE(motor.reset(0.25, 0.5, 0.1, -0.2).ok());
+
+  const auto status = motor.reset(std::numeric_limits<double>::max(), 0.5,
+                                  0.1, -0.2);
+  EXPECT_EQ(status.code, mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(motor.position(), 0.25);
+  EXPECT_DOUBLE_EQ(motor.velocity(), 0.5);
+  EXPECT_DOUBLE_EQ(motor.d_current(), 0.1);
+  EXPECT_DOUBLE_EQ(motor.q_current(), -0.2);
+  EXPECT_TRUE(motor.step(0.0, 0.0, 0.0, 0.001).ok());
+}
+
 TEST(PmsmDq, NumericalOverflowDoesNotCommitState) {
   mca::plant::PmsmDqConfig config;
   config.d_axis_inductance_h = 1e-308;

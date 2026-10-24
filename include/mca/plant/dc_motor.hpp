@@ -104,6 +104,16 @@ class DcMotor {
   [[nodiscard]] double torque() const noexcept {
     return config_.torque_constant_nm_per_a * current_a_;
   }
+
+  // Checked diagnostic variant for callers that need explicit numerical status.
+  // The output argument is committed only when the derived torque is finite.
+  core::Status torque(double& output) const noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    const double candidate = config_.torque_constant_nm_per_a * current_a_;
+    if (!core::is_finite(candidate)) return {core::StatusCode::NumericalError};
+    output = candidate;
+    return {};
+  }
   [[nodiscard]] const DcMotorConfig& config() const noexcept { return config_; }
 
  private:

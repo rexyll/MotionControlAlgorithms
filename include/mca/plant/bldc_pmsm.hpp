@@ -154,13 +154,36 @@ class BldcPmsm {
   [[nodiscard]] double current_a() const noexcept { return currents_[0]; }
   [[nodiscard]] double current_b() const noexcept { return currents_[1]; }
   [[nodiscard]] double current_c() const noexcept { return currents_[2]; }
-  [[nodiscard]] double electromagnetic_torque() const noexcept {
-    const double theta = electrical_angle();
-    const double offset = 2.0 * kPi / 3.0;
-    return config_.torque_constant_nm_per_a *
-           (emf_shape(theta) * currents_[0] +
-            emf_shape(theta - offset) * currents_[1] +
-            emf_shape(theta + offset) * currents_[2]);
+
+  // Checked diagnostic variant. Output is updated only after the electrical
+  // angle derivation has been validated as finite; the wrapped angle is then
+  // returned using the same convention as the legacy accessor.
+  core::Status electrical_angle(double& output) const noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    const double candidate =
+        angle_rad_ * static_cast<double>(config_.pole_pairs);
+    if (!core::is_finite(candidate)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double wrapped = wrap_angle(candidate);
+    if (!core::is_finite(wrapped)) {
+      return {core::StatusCode::NumericalError};
+    }
+    output = wrapped;
+    return {};
+  }
+
+  // Checked diagnostic variant for the mechanical-to-electrical speed
+  // conversion used by back-EMF and FOC calculations.
+  core::Status electrical_angular_velocity(double& output) const noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    const double candidate =
+        speed_rad_s_ * static_cast<double>(config_.pole_pairs);
+    if (!core::is_finite(candidate)) {
+      return {core::StatusCode::NumericalError};
+    }
+    output = candidate;
+    return {};
   }
 
   // Checked diagnostic variant. Output is updated only after all derived

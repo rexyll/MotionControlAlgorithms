@@ -22,3 +22,9 @@ Acceptance for P8-45: bound-clipped finite differences use a full feasible one-s
 Acceptance for P8-46: no finite-difference rollout is performed for a probe that is exactly the current control because it is clipped by an active bound; the solver reuses `current_cost`, preserves the computed gradient and all existing transactional/error semantics, and the dedicated evaluation-count regression passes on Linux and Windows together with the full regression suites (Run #768).
 
 Acceptance for P8-47: the representability/boundary regressions are stored in the repository and run in both Linux and Windows CI; tests cover large-control sub-ULP perturbations, an underflowed step-gradient product that still yields an improving representable update, and a bound-clipped finite-difference probe using the feasible one-sided quotient. Full Configure/Build/Test and the existing P8-39/P8-40/P8-41/P8-46 suites passed on both platforms in Run #771.
+
+## P9 — Controller engineering robustness and simulation validation
+
+- [ ] P9-01 PID numerical overflow containment and runtime-state safety (detect non-finite intermediate/output values caused by finite-but-overflowing gain/error arithmetic; return `NumericalError` without committing invalid controller state; add regression coverage for proportional, integral and derivative overflow paths; preserve normal saturation/anti-windup behavior)
+
+Acceptance for P9-01: a configured PID must never publish a non-finite output or commit a non-finite integral/measurement state; finite input/configuration values that overflow intermediate arithmetic are reported as `NumericalError`; the prior valid runtime state and output remain unchanged on failure; existing PID behavior and Linux/Windows Configure/Build/Test remain green. This task is a deterministic algorithm-level safety contract and does not require Gazebo; simulation validation will be added in a later P9 scenario task where closed-loop behavior is materially affected.

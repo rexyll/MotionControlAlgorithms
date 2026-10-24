@@ -41,6 +41,10 @@ class DcMotor {
         !core::is_finite(current)) {
       return {core::StatusCode::InvalidArgument};
     }
+    const double torque_candidate = config_.torque_constant_nm_per_a * current;
+    if (!core::is_finite(torque_candidate)) {
+      return {core::StatusCode::NumericalError};
+    }
     position_rad_ = position;
     velocity_rad_s_ = velocity;
     current_a_ = current;

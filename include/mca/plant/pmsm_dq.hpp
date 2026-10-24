@@ -29,10 +29,7 @@ class PmsmDq {
   explicit PmsmDq(const PmsmDqConfig& config) { configure(config); }
 
   core::Status configure(const PmsmDqConfig& config) noexcept {
-    if (!valid(config)) {
-      configured_ = false;
-      return {core::StatusCode::InvalidArgument};
-    }
+    if (!valid(config)) return {core::StatusCode::InvalidArgument};
     config_ = config;
     configured_ = true;
     return reset();
@@ -62,34 +59,60 @@ class PmsmDq {
       return {core::StatusCode::InvalidArgument};
     }
 
-    const double electrical_speed = electrical_angular_velocity();
+    const double p = static_cast<double>(config_.pole_pairs);
+    const double electrical_speed = p * velocity_rad_s_;
     const double old_d_current = d_current_a_;
     const double old_q_current = q_current_a_;
+    const double d_resistive = config_.resistance_ohm * old_d_current;
+    const double d_coupling =
+        electrical_speed * config_.q_axis_inductance_h * old_q_current;
+    const double q_resistive = config_.resistance_ohm * old_q_current;
+    const double q_flux =
+        config_.d_axis_inductance_h * old_d_current +
+        config_.permanent_magnet_flux_wb;
+    const double q_coupling = electrical_speed * q_flux;
     const double d_current_dot =
-        (d_voltage_v - config_.resistance_ohm * old_d_current +
-         electrical_speed * config_.q_axis_inductance_h * old_q_current) /
+        (d_voltage_v - d_resistive + d_coupling) /
         config_.d_axis_inductance_h;
     const double q_current_dot =
-        (q_voltage_v - config_.resistance_ohm * old_q_current -
-         electrical_speed *
-             (config_.d_axis_inductance_h * old_d_current +
-              config_.permanent_magnet_flux_wb)) /
+        (q_voltage_v - q_resistive - q_coupling) /
         config_.q_axis_inductance_h;
+    const double next_d_current = old_d_current + d_current_dot * dt;
+    const double next_q_current = old_q_current + q_current_dot * dt;
+    if (!core::is_finite(electrical_speed) ||
+        !core::is_finite(d_resistive) || !core::is_finite(d_coupling) ||
+        !core::is_finite(q_resistive) || !core::is_finite(q_flux) ||
+        !core::is_finite(q_coupling) || !core::is_finite(d_current_dot) ||
+        !core::is_finite(q_current_dot) ||
+        !core::is_finite(next_d_current) ||
+        !core::is_finite(next_q_current)) {
+      return {core::StatusCode::NumericalError};
+    }
 
-    // Both electrical derivatives use the same pre-step state. This is the
-    // explicit-Euler evaluation of the coupled dq current equations; the
-    // mechanical state is then advanced semi-implicitly using the updated
-    // electromagnetic torque/current state.
-    d_current_a_ = old_d_current + d_current_dot * dt;
-    q_current_a_ = old_q_current + q_current_dot * dt;
-
+    const double saliency = config_.d_axis_inductance_h -
+                            config_.q_axis_inductance_h;
+    const double torque =
+        1.5 * p *
+        (config_.permanent_magnet_flux_wb * next_q_current +
+         saliency * next_d_current * next_q_current);
+    const double damping_torque =
+        config_.viscous_damping_nm_per_rad_s * velocity_rad_s_;
     const double acceleration =
-        (electromagnetic_torque() -
-         config_.viscous_damping_nm_per_rad_s * velocity_rad_s_ -
-         load_torque_nm) /
+        (torque - damping_torque - load_torque_nm) /
         config_.inertia_kg_m2;
-    velocity_rad_s_ += acceleration * dt;
-    position_rad_ += velocity_rad_s_ * dt;
+    const double next_velocity = velocity_rad_s_ + acceleration * dt;
+    const double next_position = position_rad_ + next_velocity * dt;
+    if (!core::is_finite(saliency) || !core::is_finite(torque) ||
+        !core::is_finite(damping_torque) || !core::is_finite(acceleration) ||
+        !core::is_finite(next_velocity) || !core::is_finite(next_position) ||
+        !core::is_finite(p * next_position)) {
+      return {core::StatusCode::NumericalError};
+    }
+
+    d_current_a_ = next_d_current;
+    q_current_a_ = next_q_current;
+    velocity_rad_s_ = next_velocity;
+    position_rad_ = next_position;
     return {};
   }
 

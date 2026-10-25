@@ -24,6 +24,36 @@ TEST(BenchmarkMetrics, Reset) {
   EXPECT_EQ(accumulator.result().samples, 0U);
 }
 
+TEST(BenchmarkMetrics, TrackingAccumulatorIgnoresNonFiniteSamples) {
+  mca::benchmark::TrackingAccumulator accumulator;
+  accumulator.add(1.0, 0.0, 2.0);
+
+  accumulator.add(std::numeric_limits<double>::max(),
+                  -std::numeric_limits<double>::max(), 1.0);
+  accumulator.add(1.0, 0.0, std::numeric_limits<double>::infinity());
+  accumulator.add(std::numeric_limits<double>::quiet_NaN(), 0.0, 1.0);
+
+  const auto result = accumulator.result();
+  EXPECT_EQ(result.samples, 1U);
+  EXPECT_DOUBLE_EQ(result.rmse, 1.0);
+  EXPECT_DOUBLE_EQ(result.max_abs_error, 1.0);
+  EXPECT_DOUBLE_EQ(result.control_effort_rms, 2.0);
+}
+
+TEST(BenchmarkMetrics, TrackingAccumulatorRejectsCumulativeSumOverflow) {
+  mca::benchmark::TrackingAccumulator accumulator;
+  const double sample = std::sqrt(std::numeric_limits<double>::max()) * 0.75;
+
+  accumulator.add(sample, 0.0, sample);
+  accumulator.add(sample, 0.0, sample);
+
+  const auto result = accumulator.result();
+  EXPECT_EQ(result.samples, 1U);
+  EXPECT_DOUBLE_EQ(result.rmse, sample);
+  EXPECT_DOUBLE_EQ(result.max_abs_error, sample);
+  EXPECT_DOUBLE_EQ(result.control_effort_rms, sample);
+}
+
 TEST(BenchmarkMetrics, StepResponseOvershootAndSettling) {
   mca::benchmark::StepResponseAccumulator accumulator;
   ASSERT_TRUE(accumulator.configure(0.0, 1.0, 0.02, 0.1));

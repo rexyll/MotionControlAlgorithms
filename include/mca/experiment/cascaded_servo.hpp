@@ -143,16 +143,18 @@ class CascadedServoExperiment {
         voltage = math::clamp(voltage, -config_.max_voltage_v,
                               config_.max_voltage_v);
       }
+      const auto plant_status =
+          motor_.step(voltage, config_.load_torque_nm, config_.dt);
+      if (!plant_status.ok()) return plant_status;
+
+      // Current is a plant state updated by step(). Check the post-step value
+      // so a threshold crossing on the final sample is not silently missed.
       if (std::abs(motor_.current()) > config_.max_current_a) {
         const double violation = std::abs(motor_.current()) - config_.max_current_a;
         ++constraints_.violations;
         constraints_.max_violation =
             std::max(constraints_.max_violation, violation);
       }
-
-      const auto plant_status =
-          motor_.step(voltage, config_.load_torque_nm, config_.dt);
-      if (!plant_status.ok()) return plant_status;
 
       const double sample_time_s = time_s + config_.dt;
       position_accumulator_.add(sample.position, motor_.position(), voltage);

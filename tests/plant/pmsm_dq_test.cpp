@@ -358,6 +358,7 @@ TEST(PmsmDq, CheckedElectricalPowerReportsStatusAndPreservesState) {
   EXPECT_DOUBLE_EQ(output, 123.0);
 
   mca::plant::PmsmDq motor;
+  ASSERT_TRUE(motor.configure({}).ok());
   ASSERT_TRUE(motor.reset(0.2, 1.5, 2.0, -3.0).ok());
   EXPECT_EQ(motor.electrical_power(std::numeric_limits<double>::infinity(),
                                    5.0, output).code,

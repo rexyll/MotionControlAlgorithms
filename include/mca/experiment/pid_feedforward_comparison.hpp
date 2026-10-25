@@ -73,6 +73,18 @@ class PidFeedforwardComparison {
       return {core::StatusCode::NumericalError};
     }
 
+    const double reference_delta = config.ramp_target - config.initial_position;
+    if (!core::is_finite(reference_delta)) {
+      return {core::StatusCode::NumericalError};
+    }
+    if (reference_delta == 0.0) {
+      return {core::StatusCode::InvalidArgument};
+    }
+    const double ramp_velocity = reference_delta / config.ramp_duration_s;
+    if (!core::is_finite(ramp_velocity) || ramp_velocity == 0.0) {
+      return {core::StatusCode::NumericalError};
+    }
+
     // Build a complete candidate so rejected reconfiguration leaves the
     // previously working comparison and its runtime state untouched.
     auto trial = *this;

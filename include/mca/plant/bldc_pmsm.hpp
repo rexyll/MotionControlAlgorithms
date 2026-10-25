@@ -234,6 +234,34 @@ class BldcPmsm {
     return {};
   }
 
+  // Checked three-phase electrical input power, sum(v_phase * i_phase).
+  // Output and plant state remain unchanged on invalid input or overflow.
+  core::Status electrical_power(double va, double vb, double vc,
+                                double& output) const noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    if (!core::is_finite(va) || !core::is_finite(vb) ||
+        !core::is_finite(vc)) {
+      return {core::StatusCode::InvalidArgument};
+    }
+    const double phase_a = va * currents_[0];
+    const double phase_b = vb * currents_[1];
+    const double phase_c = vc * currents_[2];
+    if (!core::is_finite(phase_a) || !core::is_finite(phase_b) ||
+        !core::is_finite(phase_c)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double partial = phase_a + phase_b;
+    if (!core::is_finite(partial)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double candidate = partial + phase_c;
+    if (!core::is_finite(candidate)) {
+      return {core::StatusCode::NumericalError};
+    }
+    output = candidate;
+    return {};
+  }
+
   // Checked mechanical-power diagnostic. It derives shaft power from the
   // checked electromagnetic torque and current mechanical speed; no state is
   // mutated and the caller output is committed only after all arithmetic is finite.

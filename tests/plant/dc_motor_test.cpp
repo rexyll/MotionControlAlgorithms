@@ -1,8 +1,11 @@
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <limits>
 
+#include "mca/plant/bldc_pmsm.hpp"
 #include "mca/plant/dc_motor.hpp"
+#include "mca/plant/pmsm_dq.hpp"
 
 TEST(DcMotor, RejectsInvalidConfiguration) {
   mca::plant::DcMotor motor;
@@ -137,6 +140,7 @@ TEST(DcMotor, NumericalOverflowDoesNotCommitPartialState) {
 
   EXPECT_TRUE(motor.step(1.0, 0.0, 0.001).ok());
 }
+
 TEST(DcMotor, CheckedAccelerationReportsStatusAndPreservesOutput) {
   mca::plant::DcMotor unconfigured;
   double output = 123.0;
@@ -297,4 +301,134 @@ TEST(DcMotor, PowerDiagnosticsHandleZeroAndNegativeCurrentConvention) {
   ASSERT_TRUE(motor.copper_loss(copper).ok());
   EXPECT_DOUBLE_EQ(electrical, 0.0);
   EXPECT_DOUBLE_EQ(copper, 0.0);
+}
+
+TEST(PowerDiagnosticsCrossModel, MechanicalPowerSignZeroAndFiniteBoundaryAreConsistent) {
+  const double max = std::numeric_limits<double>::max();
+  const double tiny = std::numeric_limits<double>::denorm_min();
+
+  mca::plant::DcMotorConfig dc_config;
+  dc_config.torque_constant_nm_per_a = 1.0;
+  mca::plant::DcMotor dc(dc_config);
+  ASSERT_TRUE(dc.reset(0.0, 4.0, 2.0).ok());
+  double dc_power = 0.0;
+  ASSERT_TRUE(dc.mechanical_power(dc_power).ok());
+  EXPECT_DOUBLE_EQ(dc_power, 8.0);
+  ASSERT_TRUE(dc.reset(0.0, -4.0, 2.0).ok());
+  ASSERT_TRUE(dc.mechanical_power(dc_power).ok());
+  EXPECT_DOUBLE_EQ(dc_power, -8.0);
+  ASSERT_TRUE(dc.reset(0.0, 0.0, 2.0).ok());
+  ASSERT_TRUE(dc.mechanical_power(dc_power).ok());
+  EXPECT_DOUBLE_EQ(dc_power, 0.0);
+  ASSERT_TRUE(dc.reset(0.0, max, tiny).ok());
+  ASSERT_TRUE(dc.mechanical_power(dc_power).ok());
+  EXPECT_TRUE(std::isfinite(dc_power));
+  EXPECT_GT(dc_power, 0.0);
+
+  mca::plant::BldcPmsmConfig bldc_config;
+  bldc_config.kind = mca::plant::ThreePhaseMotorKind::SinusoidalPmsm;
+  bldc_config.torque_constant_nm_per_a = 1.0;
+  bldc_config.pole_pairs = 1;
+  mca::plant::BldcPmsm bldc(bldc_config);
+  ASSERT_TRUE(bldc.reset(0.0, 4.0, 0.0, -2.0 / std::sqrt(3.0), 0.0).ok());
+  double bldc_torque = 0.0;
+  double bldc_power = 0.0;
+  ASSERT_TRUE(bldc.electromagnetic_torque(bldc_torque).ok());
+  ASSERT_TRUE(bldc.mechanical_power(bldc_power).ok());
+  EXPECT_GT(bldc_torque, 0.0);
+  EXPECT_DOUBLE_EQ(bldc_power, bldc_torque * 4.0);
+  ASSERT_TRUE(bldc.reset(0.0, -4.0, 0.0, -2.0 / std::sqrt(3.0), 0.0).ok());
+  ASSERT_TRUE(bldc.mechanical_power(bldc_power).ok());
+  EXPECT_DOUBLE_EQ(bldc_power, -bldc_torque * 4.0);
+  ASSERT_TRUE(bldc.reset(0.0, 0.0, 0.0, 0.0, 0.0).ok());
+  ASSERT_TRUE(bldc.mechanical_power(bldc_power).ok());
+  EXPECT_DOUBLE_EQ(bldc_power, 0.0);
+  ASSERT_TRUE(bldc.reset(0.0, max, tiny, 0.0, 0.0).ok());
+  ASSERT_TRUE(bldc.mechanical_power(bldc_power).ok());
+  EXPECT_TRUE(std::isfinite(bldc_power));
+
+  mca::plant::PmsmDqConfig dq_config;
+  dq_config.permanent_magnet_flux_wb = 0.05;
+  dq_config.pole_pairs = 2;
+  mca::plant::PmsmDq dq(dq_config);
+  ASSERT_TRUE(dq.reset(0.0, 4.0, 0.0, 2.0).ok());
+  double dq_torque = 0.0;
+  double dq_power = 0.0;
+  ASSERT_TRUE(dq.electromagnetic_torque(dq_torque).ok());
+  ASSERT_TRUE(dq.mechanical_power(dq_power).ok());
+  EXPECT_DOUBLE_EQ(dq_power, dq_torque * 4.0);
+  ASSERT_TRUE(dq.reset(0.0, -4.0, 0.0, 2.0).ok());
+  ASSERT_TRUE(dq.mechanical_power(dq_power).ok());
+  EXPECT_DOUBLE_EQ(dq_power, -dq_torque * 4.0);
+  ASSERT_TRUE(dq.reset(0.0, 0.0, 0.0, 2.0).ok());
+  ASSERT_TRUE(dq.mechanical_power(dq_power).ok());
+  EXPECT_DOUBLE_EQ(dq_power, 0.0);
+  ASSERT_TRUE(dq.reset(0.0, max, tiny, 0.0).ok());
+  ASSERT_TRUE(dq.mechanical_power(dq_power).ok());
+  EXPECT_TRUE(std::isfinite(dq_power));
+}
+
+TEST(PowerDiagnosticsCrossModel, ElectricalAndCopperLossSignsRemainIndependent) {
+  mca::plant::DcMotor dc;
+  ASSERT_TRUE(dc.configure({}).ok());
+  ASSERT_TRUE(dc.reset(0.0, 0.0, -2.0).ok());
+  double electrical = 0.0;
+  double copper = 0.0;
+  ASSERT_TRUE(dc.electrical_power(3.0, electrical).ok());
+  ASSERT_TRUE(dc.copper_loss(copper).ok());
+  EXPECT_DOUBLE_EQ(electrical, -6.0);
+  EXPECT_DOUBLE_EQ(copper, 4.0);
+
+  mca::plant::BldcPmsm bldc;
+  ASSERT_TRUE(bldc.configure({}).ok());
+  ASSERT_TRUE(bldc.reset(0.0, 0.0, -1.0, 0.0, 0.0).ok());
+  ASSERT_TRUE(bldc.electrical_power(2.0, 0.0, 0.0, electrical).ok());
+  ASSERT_TRUE(bldc.copper_loss(copper).ok());
+  EXPECT_DOUBLE_EQ(electrical, -2.0);
+  EXPECT_DOUBLE_EQ(copper, 0.2);
+
+  mca::plant::PmsmDq dq;
+  ASSERT_TRUE(dq.configure({}).ok());
+  ASSERT_TRUE(dq.reset(0.0, 0.0, -2.0, 0.0).ok());
+  ASSERT_TRUE(dq.electrical_power(3.0, 0.0, electrical).ok());
+  ASSERT_TRUE(dq.copper_loss(copper).ok());
+  EXPECT_DOUBLE_EQ(electrical, -9.0);
+  EXPECT_DOUBLE_EQ(copper, 3.0);
+}
+
+TEST(PowerDiagnosticsCrossModel, DiagnosticFailuresPreserveOutputAndRuntimeState) {
+  double output = 91.0;
+
+  mca::plant::DcMotor dc;
+  ASSERT_TRUE(dc.configure({}).ok());
+  ASSERT_TRUE(dc.reset(0.1, 2.0, 3.0).ok());
+  EXPECT_EQ(dc.electrical_power(std::numeric_limits<double>::quiet_NaN(), output).code,
+            mca::core::StatusCode::InvalidArgument);
+  EXPECT_DOUBLE_EQ(output, 91.0);
+  EXPECT_DOUBLE_EQ(dc.position(), 0.1);
+  EXPECT_DOUBLE_EQ(dc.velocity(), 2.0);
+  EXPECT_DOUBLE_EQ(dc.current(), 3.0);
+
+  mca::plant::BldcPmsm bldc;
+  ASSERT_TRUE(bldc.configure({}).ok());
+  ASSERT_TRUE(bldc.reset(0.2, 2.0, 1.0, -1.0, 0.5).ok());
+  EXPECT_EQ(bldc.electrical_power(std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0, output).code,
+            mca::core::StatusCode::InvalidArgument);
+  EXPECT_DOUBLE_EQ(output, 91.0);
+  EXPECT_DOUBLE_EQ(bldc.mechanical_angle(), 0.2);
+  EXPECT_DOUBLE_EQ(bldc.speed(), 2.0);
+  EXPECT_DOUBLE_EQ(bldc.current_a(), 1.0);
+  EXPECT_DOUBLE_EQ(bldc.current_b(), -1.0);
+  EXPECT_DOUBLE_EQ(bldc.current_c(), 0.5);
+
+  mca::plant::PmsmDq dq;
+  ASSERT_TRUE(dq.configure({}).ok());
+  ASSERT_TRUE(dq.reset(0.3, 2.0, 1.0, -2.0).ok());
+  EXPECT_EQ(dq.electrical_power(std::numeric_limits<double>::quiet_NaN(), 0.0, output).code,
+            mca::core::StatusCode::InvalidArgument);
+  EXPECT_DOUBLE_EQ(output, 91.0);
+  EXPECT_DOUBLE_EQ(dq.position(), 0.3);
+  EXPECT_DOUBLE_EQ(dq.velocity(), 2.0);
+  EXPECT_DOUBLE_EQ(dq.d_current(), 1.0);
+  EXPECT_DOUBLE_EQ(dq.q_current(), -2.0);
 }

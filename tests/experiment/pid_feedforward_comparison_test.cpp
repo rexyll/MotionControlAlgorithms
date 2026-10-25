@@ -53,6 +53,28 @@ TEST(PidFeedforwardComparison, QuantifiesFeedforwardBenefit) {
   EXPECT_TRUE(std::isfinite(result.pid_plus_feedforward.tracking.overshoot));
 }
 
+TEST(PidFeedforwardComparison, ReportsCompleteFiniteTrackingMetrics) {
+  mca::experiment::PidFeedforwardComparison runner;
+  auto config = make_config();
+  config.steps = 37;
+  ASSERT_TRUE(runner.configure(config).ok());
+
+  mca::experiment::PidFeedforwardComparisonResult result;
+  ASSERT_TRUE(runner.run(result).ok());
+
+  const auto expect_valid_metrics = [](const mca::benchmark::TrackingMetrics& metrics) {
+    EXPECT_EQ(metrics.samples, 37U);
+    EXPECT_TRUE(std::isfinite(metrics.rmse));
+    EXPECT_TRUE(std::isfinite(metrics.max_abs_error));
+    EXPECT_TRUE(std::isfinite(metrics.overshoot));
+    EXPECT_TRUE(std::isfinite(metrics.control_effort_rms));
+    EXPECT_TRUE(std::isfinite(metrics.settling_time_s) ||
+                std::isnan(metrics.settling_time_s));
+  };
+  expect_valid_metrics(result.pid_only.tracking);
+  expect_valid_metrics(result.pid_plus_feedforward.tracking);
+}
+
 TEST(PidFeedforwardComparison, SameReferenceAndPlantAreUsed) {
   mca::experiment::PidFeedforwardComparison runner;
   auto config = make_config();

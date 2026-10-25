@@ -281,3 +281,34 @@ TEST(BldcPmsm, CheckedElectricalPowerRejectsOverflowWithoutChangingOutput) {
   EXPECT_DOUBLE_EQ(output, -77.0);
   EXPECT_DOUBLE_EQ(motor.current_a(), std::numeric_limits<double>::max());
 }
+
+TEST(BldcPmsm, CheckedCopperLossReportsStatusAndPreservesState) {
+  mca::plant::BldcPmsm unconfigured;
+  double output = 123.0;
+  EXPECT_EQ(unconfigured.copper_loss(output).code,
+            mca::core::StatusCode::NotConfigured);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+
+  mca::plant::BldcPmsm motor;
+  ASSERT_TRUE(motor.configure({}).ok());
+  ASSERT_TRUE(motor.reset(0.0, 1.5, 1.0, -2.0, 3.0).ok());
+  ASSERT_TRUE(motor.copper_loss(output).ok());
+  EXPECT_DOUBLE_EQ(output, 0.2 * (1.0 + 4.0 + 9.0));
+  EXPECT_DOUBLE_EQ(motor.mechanical_angle(), 0.0);
+  EXPECT_DOUBLE_EQ(motor.speed(), 1.5);
+  EXPECT_DOUBLE_EQ(motor.current_a(), 1.0);
+  EXPECT_DOUBLE_EQ(motor.current_b(), -2.0);
+  EXPECT_DOUBLE_EQ(motor.current_c(), 3.0);
+}
+
+TEST(BldcPmsm, CheckedCopperLossRejectsOverflowWithoutChangingOutput) {
+  mca::plant::BldcPmsm motor;
+  ASSERT_TRUE(motor.configure({}).ok());
+  ASSERT_TRUE(motor.reset(0.0, 0.0, std::numeric_limits<double>::max(),
+                          0.0, 0.0).ok());
+  double output = -77.0;
+  EXPECT_EQ(motor.copper_loss(output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(output, -77.0);
+  EXPECT_DOUBLE_EQ(motor.current_a(), std::numeric_limits<double>::max());
+}

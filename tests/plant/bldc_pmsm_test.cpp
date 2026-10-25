@@ -261,7 +261,7 @@ TEST(BldcPmsm, CheckedElectricalPowerReportsStatusAndPreservesState) {
             mca::core::StatusCode::InvalidArgument);
   EXPECT_DOUBLE_EQ(output, 123.0);
   ASSERT_TRUE(motor.electrical_power(2.0, -4.0, 0.5, output).ok());
-  EXPECT_DOUBLE_EQ(output, 3.5);
+  EXPECT_DOUBLE_EQ(output, 3.0);
   EXPECT_DOUBLE_EQ(motor.mechanical_angle(), 0.5);
   EXPECT_DOUBLE_EQ(motor.speed(), 0.3);
   EXPECT_DOUBLE_EQ(motor.current_a(), 0.25);

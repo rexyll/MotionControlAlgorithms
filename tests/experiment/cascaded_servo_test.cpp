@@ -65,20 +65,20 @@ TEST(CascadedServoExperimentTest, FailedReconfigurationPreservesWorkingExperimen
   auto invalid_experiment_config = config;
   invalid_experiment_config.settling_tolerance_ratio = 1.0;
   EXPECT_EQ(experiment.configure(invalid_experiment_config, make_servo_config(),
-                                 make_motor_config()).code(),
+                                 make_motor_config()).code,
             mca::core::StatusCode::InvalidArgument);
 
   auto invalid_motor_config = make_motor_config();
   invalid_motor_config.resistance_ohm = -1.0;
   EXPECT_EQ(experiment.configure(config, make_servo_config(),
-                                 invalid_motor_config).code(),
+                                 invalid_motor_config).code,
             mca::core::StatusCode::InvalidArgument);
 
   auto invalid_servo_config = make_servo_config();
   invalid_servo_config.torque.output_min = 2.0;
   invalid_servo_config.torque.output_max = -2.0;
   EXPECT_EQ(experiment.configure(config, invalid_servo_config,
-                                 make_motor_config()).code(),
+                                 make_motor_config()).code,
             mca::core::StatusCode::InvalidArgument);
 
   mca::experiment::CascadedServoResult after_failures;

@@ -79,15 +79,32 @@ void StepResponseAccumulator::add(double time_s, double actual) noexcept {
   const bool rising = target_reference_ > initial_reference_;
   const double directional_overshoot =
       rising ? actual - target_reference_ : target_reference_ - actual;
-  peak_overshoot_ = std::max(peak_overshoot_,
-                             std::max(0.0, directional_overshoot) /
-                                 step_amplitude_);
+  const double target_error = target_reference_ - actual;
+  if (!std::isfinite(directional_overshoot) || !std::isfinite(target_error)) {
+    return;
+  }
 
-  if (std::abs(target_reference_ - actual) <= tolerance_) {
+  const double normalized_overshoot =
+      std::max(0.0, directional_overshoot) / step_amplitude_;
+  if (!std::isfinite(normalized_overshoot)) return;
+
+  // Validate the time delta before touching settling state. Very large but
+  // finite timestamps can otherwise overflow the subtraction and make a
+  // valid candidate appear to have satisfied the hold time.
+  double candidate_duration = 0.0;
+  if (std::isfinite(candidate_settling_time_s_)) {
+    candidate_duration = time_s - candidate_settling_time_s_;
+    if (!std::isfinite(candidate_duration)) return;
+  }
+
+  peak_overshoot_ = std::max(peak_overshoot_, normalized_overshoot);
+
+  if (std::abs(target_error) <= tolerance_) {
     if (!std::isfinite(candidate_settling_time_s_)) {
       candidate_settling_time_s_ = time_s;
+      candidate_duration = 0.0;
     }
-    if (time_s - candidate_settling_time_s_ >= hold_time_s_) {
+    if (candidate_duration >= hold_time_s_) {
       settling_time_s_ = candidate_settling_time_s_;
     }
   } else {

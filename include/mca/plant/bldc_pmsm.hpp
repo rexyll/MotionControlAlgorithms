@@ -289,7 +289,11 @@ class BldcPmsm {
   }
 
   static bool valid(const BldcPmsmConfig& c) noexcept {
-    return core::is_finite(c.phase_resistance_ohm) &&
+    const bool valid_kind =
+        c.kind == ThreePhaseMotorKind::BldcTrapezoidal ||
+        c.kind == ThreePhaseMotorKind::PmsmSinusoidal;
+    return valid_kind &&
+           core::is_finite(c.phase_resistance_ohm) &&
            core::is_finite(c.phase_inductance_h) &&
            core::is_finite(c.torque_constant_nm_per_a) &&
            core::is_finite(c.back_emf_constant_v_per_rad_s) &&

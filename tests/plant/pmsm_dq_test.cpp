@@ -291,4 +291,61 @@ TEST(PmsmDq, CheckedElectromagneticTorqueUsesFiniteLifecycleState) {
   EXPECT_DOUBLE_EQ(checked, 0.0);
 }
 
+
+TEST(PmsmDq, CheckedMechanicalPowerReportsStatusAndPreservesState) {
+  mca::plant::PmsmDq motor;
+  double output = 123.0;
+  EXPECT_EQ(motor.mechanical_power(output).code,
+            mca::core::StatusCode::NotConfigured);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+
+  mca::plant::PmsmDqConfig config;
+  config.permanent_magnet_flux_wb = 0.05;
+  config.pole_pairs = 2;
+  mca::plant::PmsmDq configured(config);
+  ASSERT_TRUE(configured.reset(0.25, 3.0, 0.0, 4.0).ok());
+
+  double torque = 0.0;
+  ASSERT_TRUE(configured.electromagnetic_torque(torque).ok());
+  const double expected = torque * configured.velocity();
+  const double before_position = configured.position();
+  const double before_velocity = configured.velocity();
+  const double before_d = configured.d_current();
+  const double before_q = configured.q_current();
+
+  ASSERT_TRUE(configured.mechanical_power(output).ok());
+  EXPECT_DOUBLE_EQ(output, expected);
+  EXPECT_DOUBLE_EQ(configured.position(), before_position);
+  EXPECT_DOUBLE_EQ(configured.velocity(), before_velocity);
+  EXPECT_DOUBLE_EQ(configured.d_current(), before_d);
+  EXPECT_DOUBLE_EQ(configured.q_current(), before_q);
+}
+
+TEST(PmsmDq, CheckedMechanicalPowerRejectsOverflowWithoutChangingOutputOrState) {
+  mca::plant::PmsmDqConfig config;
+  config.permanent_magnet_flux_wb =
+      std::numeric_limits<double>::max() / 10.0;
+  config.pole_pairs = 4;
+  mca::plant::PmsmDq motor(config);
+  ASSERT_TRUE(motor.reset(0.0, 2.0, 0.0, 1.0).ok());
+
+  double torque = 0.0;
+  ASSERT_TRUE(motor.electromagnetic_torque(torque).ok());
+  ASSERT_TRUE(std::isfinite(torque));
+  ASSERT_GT(std::abs(torque), std::numeric_limits<double>::max() / 2.0);
+
+  const double before_position = motor.position();
+  const double before_velocity = motor.velocity();
+  const double before_d = motor.d_current();
+  const double before_q = motor.q_current();
+  double output = -77.0;
+  EXPECT_EQ(motor.mechanical_power(output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(output, -77.0);
+  EXPECT_DOUBLE_EQ(motor.position(), before_position);
+  EXPECT_DOUBLE_EQ(motor.velocity(), before_velocity);
+  EXPECT_DOUBLE_EQ(motor.d_current(), before_d);
+  EXPECT_DOUBLE_EQ(motor.q_current(), before_q);
+}
+
 }  // namespace

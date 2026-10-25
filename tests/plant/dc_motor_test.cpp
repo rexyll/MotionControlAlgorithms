@@ -326,7 +326,7 @@ TEST(PowerDiagnosticsCrossModel, MechanicalPowerSignZeroAndFiniteBoundaryAreCons
   EXPECT_GT(dc_power, 0.0);
 
   mca::plant::BldcPmsmConfig bldc_config;
-  bldc_config.kind = mca::plant::ThreePhaseMotorKind::SinusoidalPmsm;
+  bldc_config.kind = mca::plant::ThreePhaseMotorKind::PmsmSinusoidal;
   bldc_config.torque_constant_nm_per_a = 1.0;
   bldc_config.pole_pairs = 1;
   mca::plant::BldcPmsm bldc(bldc_config);

@@ -12,6 +12,29 @@ TEST(BldcPmsm, RejectsInvalidConfiguration) {
   EXPECT_FALSE(motor.configured());
 }
 
+TEST(BldcPmsm, RejectsUnknownMotorKindAndPreservesWorkingModel) {
+  mca::plant::BldcPmsmConfig config;
+  config.kind = static_cast<mca::plant::ThreePhaseMotorKind>(999);
+  mca::plant::BldcPmsm unconfigured;
+  EXPECT_EQ(unconfigured.configure(config).code,
+            mca::core::StatusCode::InvalidArgument);
+  EXPECT_FALSE(unconfigured.configured());
+
+  mca::plant::BldcPmsm motor(mca::plant::BldcPmsmConfig{});
+  ASSERT_TRUE(motor.reset(0.25, 0.5, 0.1, -0.2, 0.3).ok());
+  const auto before_config = motor.config();
+  const auto status = motor.configure(config);
+  EXPECT_EQ(status.code, mca::core::StatusCode::InvalidArgument);
+  EXPECT_TRUE(motor.configured());
+  EXPECT_EQ(motor.config().kind, before_config.kind);
+  EXPECT_DOUBLE_EQ(motor.mechanical_angle(), 0.25);
+  EXPECT_DOUBLE_EQ(motor.speed(), 0.5);
+  EXPECT_DOUBLE_EQ(motor.current_a(), 0.1);
+  EXPECT_DOUBLE_EQ(motor.current_b(), -0.2);
+  EXPECT_DOUBLE_EQ(motor.current_c(), 0.3);
+  EXPECT_TRUE(motor.step(0.0, 0.0, 0.0, 0.0, 0.001).ok());
+}
+
 TEST(BldcPmsm, AppliesThreePhaseVoltageAndProducesCurrent) {
   mca::plant::BldcPmsmConfig config;
   config.phase_resistance_ohm = 1.0;

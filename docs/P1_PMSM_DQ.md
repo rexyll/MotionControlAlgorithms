@@ -75,3 +75,4 @@ P1-07 is the plant. It does not contain PI current controllers, voltage decoupli
 ## Checked power diagnostics
 
 `electrical_power(vd, vq, output)` computes dq-frame electrical input power using the model's amplitude-invariant transform convention: `P_e = 3/2 * (vd * i_d + vq * i_q)`. `mechanical_power(output)` computes shaft power from electromagnetic torque and mechanical speed. Both are status-returning, diagnostic-only APIs: they preserve caller output on failure, never mutate runtime state, and report invalid inputs or non-finite intermediate/final arithmetic explicitly. These equations do not include inverter losses or switching effects.
+`copper_loss(output)` reports stator winding loss using the amplitude-invariant dq convention: `P_cu = 3/2 * R_s * (i_d^2 + i_q^2)`. Intermediate squares, sum, resistance product, and final scaling are checked; output and runtime state remain unchanged on failure.

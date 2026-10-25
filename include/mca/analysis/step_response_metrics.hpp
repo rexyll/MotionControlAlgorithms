@@ -98,8 +98,13 @@ inline core::Status compute_step_response_metrics(
     }
   }
 
+  const double overshoot_percent = peak_overshoot * 100.0;
+  if (!core::is_finite(overshoot_percent)) {
+    return {core::StatusCode::InvalidArgument};
+  }
+
   output.overshoot_fraction = peak_overshoot;
-  output.overshoot_percent = peak_overshoot * 100.0;
+  output.overshoot_percent = overshoot_percent;
   output.peak_value = peak_value;
   output.peak_time_s = peak_time;
   output.settling_time_s = settling_time;

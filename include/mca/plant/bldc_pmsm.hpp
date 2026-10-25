@@ -262,6 +262,31 @@ class BldcPmsm {
     return {};
   }
 
+  // Checked total three-phase winding copper loss, R * sum(i_phase^2).
+  // Intermediate overflow is reported without changing output or plant state.
+  core::Status copper_loss(double& output) const noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    const double square_a = currents_[0] * currents_[0];
+    const double square_b = currents_[1] * currents_[1];
+    const double square_c = currents_[2] * currents_[2];
+    if (!core::is_finite(square_a) || !core::is_finite(square_b) ||
+        !core::is_finite(square_c)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double partial = square_a + square_b;
+    if (!core::is_finite(partial)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double sum = partial + square_c;
+    if (!core::is_finite(sum)) return {core::StatusCode::NumericalError};
+    const double candidate = config_.phase_resistance_ohm * sum;
+    if (!core::is_finite(candidate)) {
+      return {core::StatusCode::NumericalError};
+    }
+    output = candidate;
+    return {};
+  }
+
   // Checked mechanical-power diagnostic. It derives shaft power from the
   // checked electromagnetic torque and current mechanical speed; no state is
   // mutated and the caller output is committed only after all arithmetic is finite.

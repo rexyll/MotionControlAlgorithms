@@ -139,6 +139,21 @@ class DcMotor {
     return {};
   }
 
+  // Checked electrical input power from terminal voltage and armature current.
+  // Invalid input and overflow leave the caller's output untouched.
+  core::Status electrical_power(double voltage_v, double& output) const noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    if (!core::is_finite(voltage_v)) {
+      return {core::StatusCode::InvalidArgument};
+    }
+    const double candidate = voltage_v * current_a_;
+    if (!core::is_finite(candidate)) {
+      return {core::StatusCode::NumericalError};
+    }
+    output = candidate;
+    return {};
+  }
+
   // Checked mechanical-power diagnostic. This is derived from the current
   // electromagnetic torque and mechanical speed and never mutates state.
   core::Status mechanical_power(double& output) const noexcept {

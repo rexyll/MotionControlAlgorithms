@@ -253,3 +253,31 @@ TEST(DcMotor, CheckedElectricalPowerRejectsOverflowWithoutChangingOutput) {
   EXPECT_DOUBLE_EQ(output, -77.0);
   EXPECT_DOUBLE_EQ(motor.current(), std::numeric_limits<double>::max());
 }
+
+TEST(DcMotor, CheckedCopperLossReportsStatusAndPreservesState) {
+  mca::plant::DcMotor unconfigured;
+  double output = 123.0;
+  EXPECT_EQ(unconfigured.copper_loss(output).code,
+            mca::core::StatusCode::NotConfigured);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+
+  mca::plant::DcMotor motor;
+  ASSERT_TRUE(motor.configure({}).ok());
+  ASSERT_TRUE(motor.reset(0.2, 1.5, -3.0).ok());
+  ASSERT_TRUE(motor.copper_loss(output).ok());
+  EXPECT_DOUBLE_EQ(output, 9.0);
+  EXPECT_DOUBLE_EQ(motor.position(), 0.2);
+  EXPECT_DOUBLE_EQ(motor.velocity(), 1.5);
+  EXPECT_DOUBLE_EQ(motor.current(), -3.0);
+}
+
+TEST(DcMotor, CheckedCopperLossRejectsOverflowWithoutChangingOutput) {
+  mca::plant::DcMotor motor;
+  ASSERT_TRUE(motor.configure({}).ok());
+  ASSERT_TRUE(motor.reset(0.0, 0.0, std::numeric_limits<double>::max()).ok());
+  double output = -77.0;
+  EXPECT_EQ(motor.copper_loss(output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(output, -77.0);
+  EXPECT_DOUBLE_EQ(motor.current(), std::numeric_limits<double>::max());
+}

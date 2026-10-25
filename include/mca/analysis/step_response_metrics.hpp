@@ -38,12 +38,19 @@ inline core::Status compute_step_response_metrics(
   }
 
   const double step = target_value - initial_value;
+  if (!core::is_finite(step)) {
+    return {core::StatusCode::InvalidArgument};
+  }
   const double step_amplitude = std::abs(step);
   const double tolerance = tolerance_ratio * step_amplitude;
   const double tolerance_margin =
       32.0 * std::numeric_limits<double>::epsilon() *
       std::max({1.0, std::abs(target_value), step_amplitude});
   const double settling_limit = tolerance + tolerance_margin;
+  if (!core::is_finite(step_amplitude) || !core::is_finite(tolerance) ||
+      !core::is_finite(tolerance_margin) || !core::is_finite(settling_limit)) {
+    return {core::StatusCode::InvalidArgument};
+  }
 
   double peak_overshoot = 0.0;
   double peak_value = values[0];
@@ -62,15 +69,23 @@ inline core::Status compute_step_response_metrics(
 
     const double directional_overshoot =
         step > 0.0 ? value - target_value : target_value - value;
+    const double target_error = value - target_value;
+    if (!core::is_finite(directional_overshoot) ||
+        !core::is_finite(target_error)) {
+      return {core::StatusCode::InvalidArgument};
+    }
     const double normalized_overshoot =
         std::max(0.0, directional_overshoot) / step_amplitude;
+    if (!core::is_finite(normalized_overshoot)) {
+      return {core::StatusCode::InvalidArgument};
+    }
     if (normalized_overshoot > peak_overshoot) {
       peak_overshoot = normalized_overshoot;
       peak_value = value;
       peak_time = time;
     }
 
-    if (std::abs(value - target_value) <= settling_limit) {
+    if (std::abs(target_error) <= settling_limit) {
       if (!core::is_finite(candidate_start)) candidate_start = time;
       if (time - candidate_start >= hold_time_s) {
         settling_time = candidate_start;

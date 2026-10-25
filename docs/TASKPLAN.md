@@ -94,10 +94,13 @@ Acceptance for P9-29: a failed reconfiguration must not disable an already confi
 
 - [x] P9-30 cascaded servo post-step current-limit telemetry (evaluate the current constraint after each successful plant integration so a limit crossing on the final simulation step is counted; add a one-step regression that crosses the current limit; Linux/Windows Configure/Build/Test passed: Run #943)
 - [x] P9-31 step-response metrics transactional configuration (reject invalid or overflowed derived step amplitudes without disabling the previously active configuration; add regressions for equal endpoints and finite endpoints whose subtraction overflows; Linux/Windows Configure/Build/Test passed: Run #947)
-- [ ] P9-32 sampled step-response metrics overflow validation (reject finite reference endpoints whose subtraction overflows, and reject non-finite derived tolerance calculations; add regression for invalid input and verify Linux/Windows Configure/Build/Test)
+- [x] P9-32 sampled step-response metrics overflow validation (reject finite reference endpoints whose subtraction overflows, and reject non-finite derived tolerance/overshoot calculations; regression tests added; Linux/Windows Configure/Build/Test passed: Run #952)
 
 
 Acceptance for P9-30: after each successful DC motor integration, evaluate the resulting current against `max_current_a` and update constraint violation count and maximum violation before proceeding to metrics collection. A one-step experiment with a deliberately low current limit verifies that a threshold crossing on the final integration is reported in `final_current` and constraint metrics. Linux and Windows Configure/Build/Test passed in Run #943. This telemetry-boundary regression is deterministic and does not require Gazebo.
 
 
 Acceptance for P9-31: `StepResponseAccumulator::configure` validates the reference difference and derived tolerance before changing active fields. Invalid input, equal endpoints, or overflow in the derived amplitude returns false without disabling or overwriting an existing valid configuration. Regression tests confirm the original configuration continues to settle correctly after each rejected reconfiguration. Linux and Windows Configure/Build/Test passed in Run #947. No Gazebo validation is required for this deterministic metrics-state contract.
+
+
+Acceptance for P9-32: sampled step-response metric calculation now rejects overflow in the reference step and non-finite derived tolerance, tolerance margin, settling limit, directional overshoot, target error, or normalized overshoot with `InvalidArgument` rather than emitting invalid metrics. Regression tests cover finite endpoints whose subtraction overflows and overflow in overshoot intermediates. Linux and Windows Configure/Build/Test passed in Run #952.

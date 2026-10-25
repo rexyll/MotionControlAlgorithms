@@ -139,6 +139,23 @@ class DcMotor {
     return {};
   }
 
+  // Checked mechanical-power diagnostic. This is derived from the current
+  // electromagnetic torque and mechanical speed and never mutates state.
+  core::Status mechanical_power(double& output) const noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    const double torque_candidate =
+        config_.torque_constant_nm_per_a * current_a_;
+    if (!core::is_finite(torque_candidate)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double candidate = torque_candidate * velocity_rad_s_;
+    if (!core::is_finite(candidate)) {
+      return {core::StatusCode::NumericalError};
+    }
+    output = candidate;
+    return {};
+  }
+
   [[nodiscard]] const DcMotorConfig& config() const noexcept { return config_; }
 
  private:

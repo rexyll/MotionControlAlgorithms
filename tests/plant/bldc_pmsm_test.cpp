@@ -312,3 +312,20 @@ TEST(BldcPmsm, CheckedCopperLossRejectsOverflowWithoutChangingOutput) {
   EXPECT_DOUBLE_EQ(output, -77.0);
   EXPECT_DOUBLE_EQ(motor.current_a(), std::numeric_limits<double>::max());
 }
+
+TEST(BldcPmsm, PowerDiagnosticsHandleZeroAndNegativePhaseCurrentConvention) {
+  mca::plant::BldcPmsm motor;
+  ASSERT_TRUE(motor.configure({}).ok());
+  ASSERT_TRUE(motor.reset(0.0, 0.0, -1.0, 0.0, 0.0).ok());
+  double electrical = 99.0;
+  double copper = 99.0;
+  ASSERT_TRUE(motor.electrical_power(2.0, 0.0, 0.0, electrical).ok());
+  ASSERT_TRUE(motor.copper_loss(copper).ok());
+  EXPECT_DOUBLE_EQ(electrical, -2.0);
+  EXPECT_DOUBLE_EQ(copper, 0.2);
+  ASSERT_TRUE(motor.reset(0.0, 0.0, 0.0, 0.0, 0.0).ok());
+  ASSERT_TRUE(motor.electrical_power(0.0, 0.0, 0.0, electrical).ok());
+  ASSERT_TRUE(motor.copper_loss(copper).ok());
+  EXPECT_DOUBLE_EQ(electrical, 0.0);
+  EXPECT_DOUBLE_EQ(copper, 0.0);
+}

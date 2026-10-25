@@ -190,3 +190,34 @@ TEST(DcMotor, CheckedTorqueReportsStatusAndPreservesOutput) {
   EXPECT_DOUBLE_EQ(output, motor.torque());
   EXPECT_DOUBLE_EQ(output, 0.125);
 }
+
+TEST(DcMotor, CheckedMechanicalPowerReportsStatusAndPreservesOutput) {
+  mca::plant::DcMotor unconfigured;
+  double output = 123.0;
+  EXPECT_EQ(unconfigured.mechanical_power(output).code,
+            mca::core::StatusCode::NotConfigured);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+
+  mca::plant::DcMotorConfig config;
+  config.torque_constant_nm_per_a = 0.5;
+  mca::plant::DcMotor motor(config);
+  ASSERT_TRUE(motor.reset(0.25, 4.0, 6.0).ok());
+  ASSERT_TRUE(motor.mechanical_power(output).ok());
+  EXPECT_DOUBLE_EQ(output, 12.0);
+  EXPECT_DOUBLE_EQ(motor.position(), 0.25);
+  EXPECT_DOUBLE_EQ(motor.velocity(), 4.0);
+  EXPECT_DOUBLE_EQ(motor.current(), 6.0);
+}
+
+TEST(DcMotor, CheckedMechanicalPowerRejectsOverflowWithoutChangingOutput) {
+  mca::plant::DcMotorConfig config;
+  config.torque_constant_nm_per_a = 1.0;
+  mca::plant::DcMotor motor(config);
+  ASSERT_TRUE(motor.reset(0.0, 2.0, std::numeric_limits<double>::max()).ok());
+  double output = -77.0;
+  EXPECT_EQ(motor.mechanical_power(output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(output, -77.0);
+  EXPECT_DOUBLE_EQ(motor.velocity(), 2.0);
+  EXPECT_DOUBLE_EQ(motor.current(), std::numeric_limits<double>::max());
+}

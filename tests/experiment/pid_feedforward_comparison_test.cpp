@@ -131,6 +131,31 @@ TEST(PidFeedforwardComparison, FailedRunPreservesCallerResultAndRunner) {
 }
 
 
+TEST(PidFeedforwardComparison, RejectsOverflowingTimeHorizonTransactionally) {
+  mca::experiment::PidFeedforwardComparison runner;
+  const auto valid = make_config();
+  ASSERT_TRUE(runner.configure(valid).ok());
+
+  mca::experiment::PidFeedforwardComparisonResult baseline;
+  ASSERT_TRUE(runner.run(baseline).ok());
+
+  auto invalid = valid;
+  invalid.dt = std::numeric_limits<double>::max();
+  invalid.steps = 2;
+  const auto status = runner.configure(invalid);
+  EXPECT_EQ(status.code(), mca::core::StatusCode::NumericalError);
+  EXPECT_TRUE(runner.configured());
+
+  mca::experiment::PidFeedforwardComparisonResult after_invalid;
+  ASSERT_TRUE(runner.run(after_invalid).ok());
+  EXPECT_DOUBLE_EQ(after_invalid.pid_only.final_position,
+                   baseline.pid_only.final_position);
+  EXPECT_DOUBLE_EQ(after_invalid.pid_plus_feedforward.final_position,
+                   baseline.pid_plus_feedforward.final_position);
+  EXPECT_DOUBLE_EQ(after_invalid.pid_only.tracking.rmse,
+                   baseline.pid_only.tracking.rmse);
+}
+
 TEST(PidFeedforwardComparison, UnconfiguredPlantReconfigurationPreservesRunner) {
   mca::experiment::PidFeedforwardComparison runner;
   const auto valid = make_config();

@@ -48,6 +48,52 @@ TEST(CascadedServoExperimentTest, RejectsInvalidConfiguration) {
                    .ok());
 }
 
+TEST(CascadedServoExperimentTest, FailedReconfigurationPreservesWorkingExperiment) {
+  mca::experiment::CascadedServoConfig config;
+  config.dt = 1.0e-4;
+  config.steps = 10000;
+  config.position_reference = 1.0;
+  config.max_current_a = 12.0;
+
+  mca::experiment::CascadedServoExperiment experiment;
+  ASSERT_TRUE(experiment.configure(config, make_servo_config(),
+                                   make_motor_config()).ok());
+
+  mca::experiment::CascadedServoResult baseline;
+  ASSERT_TRUE(experiment.run(baseline).ok());
+
+  auto invalid_experiment_config = config;
+  invalid_experiment_config.settling_tolerance_ratio = 1.0;
+  EXPECT_EQ(experiment.configure(invalid_experiment_config, make_servo_config(),
+                                 make_motor_config()).code(),
+            mca::core::StatusCode::InvalidArgument);
+
+  auto invalid_motor_config = make_motor_config();
+  invalid_motor_config.resistance_ohm = -1.0;
+  EXPECT_EQ(experiment.configure(config, make_servo_config(),
+                                 invalid_motor_config).code(),
+            mca::core::StatusCode::InvalidArgument);
+
+  auto invalid_servo_config = make_servo_config();
+  invalid_servo_config.torque.output_min = 2.0;
+  invalid_servo_config.torque.output_max = -2.0;
+  EXPECT_EQ(experiment.configure(config, invalid_servo_config,
+                                 make_motor_config()).code(),
+            mca::core::StatusCode::InvalidArgument);
+
+  mca::experiment::CascadedServoResult after_failures;
+  ASSERT_TRUE(experiment.run(after_failures).ok());
+  EXPECT_DOUBLE_EQ(after_failures.final_position, baseline.final_position);
+  EXPECT_DOUBLE_EQ(after_failures.final_velocity, baseline.final_velocity);
+  EXPECT_DOUBLE_EQ(after_failures.final_current, baseline.final_current);
+  EXPECT_DOUBLE_EQ(after_failures.final_torque, baseline.final_torque);
+  EXPECT_DOUBLE_EQ(after_failures.final_voltage, baseline.final_voltage);
+  EXPECT_DOUBLE_EQ(after_failures.position.rmse, baseline.position.rmse);
+  EXPECT_EQ(after_failures.position.samples, baseline.position.samples);
+  EXPECT_EQ(after_failures.constraints.violations,
+            baseline.constraints.violations);
+}
+
 TEST(CascadedServoExperimentTest, ProducesTrackingBenchmark) {
   mca::experiment::CascadedServoConfig config;
   config.dt = 1.0e-4;

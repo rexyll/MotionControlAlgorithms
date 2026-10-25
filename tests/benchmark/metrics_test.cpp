@@ -50,3 +50,21 @@ TEST(BenchmarkMetrics, RejectsInvalidStepConfiguration) {
   EXPECT_FALSE(accumulator.configure(1.0, 1.0));
   EXPECT_FALSE(accumulator.configure(0.0, 1.0, 1.0));
 }
+
+TEST(BenchmarkMetrics, FailedStepConfigurationPreservesActiveConfiguration) {
+  mca::benchmark::StepResponseAccumulator accumulator;
+  ASSERT_TRUE(accumulator.configure(0.0, 1.0, 0.02, 0.05));
+
+  EXPECT_FALSE(accumulator.configure(1.0, 1.0, 0.02, 0.05));
+  accumulator.add(0.0, 1.0);
+  accumulator.add(0.06, 1.0);
+  EXPECT_DOUBLE_EQ(accumulator.settling_time_s(), 0.0);
+
+  accumulator.reset();
+  EXPECT_FALSE(accumulator.configure(-std::numeric_limits<double>::max(),
+                                     std::numeric_limits<double>::max(),
+                                     0.02, 0.05));
+  accumulator.add(0.0, 1.0);
+  accumulator.add(0.06, 1.0);
+  EXPECT_DOUBLE_EQ(accumulator.settling_time_s(), 0.0);
+}

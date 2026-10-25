@@ -125,3 +125,27 @@ TEST(PidFeedforwardComparison, FailedRunPreservesCallerResultAndRunner) {
   EXPECT_EQ(recovered.pid_only.tracking.samples, 100U);
   EXPECT_EQ(recovered.pid_plus_feedforward.tracking.samples, 100U);
 }
+
+
+TEST(PidFeedforwardComparison, UnconfiguredPlantReconfigurationPreservesRunner) {
+  mca::experiment::PidFeedforwardComparison runner;
+  const auto valid = make_config();
+  ASSERT_TRUE(runner.configure(valid).ok());
+
+  mca::experiment::PidFeedforwardComparisonResult baseline;
+  ASSERT_TRUE(runner.run(baseline).ok());
+
+  auto invalid = valid;
+  invalid.plant = mca::plant::SecondOrderPlant{};
+  EXPECT_FALSE(runner.configure(invalid).ok());
+  EXPECT_TRUE(runner.configured());
+
+  mca::experiment::PidFeedforwardComparisonResult after_invalid;
+  ASSERT_TRUE(runner.run(after_invalid).ok());
+  EXPECT_DOUBLE_EQ(after_invalid.pid_only.final_position,
+                   baseline.pid_only.final_position);
+  EXPECT_DOUBLE_EQ(after_invalid.pid_plus_feedforward.final_position,
+                   baseline.pid_plus_feedforward.final_position);
+  EXPECT_DOUBLE_EQ(after_invalid.pid_only.tracking.rmse,
+                   baseline.pid_only.tracking.rmse);
+}

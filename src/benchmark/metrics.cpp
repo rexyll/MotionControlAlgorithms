@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace mca::benchmark {
 
@@ -13,10 +14,37 @@ void TrackingAccumulator::reset() noexcept {
 }
 
 void TrackingAccumulator::add(double reference, double actual, double control) {
+  if (!std::isfinite(reference) || !std::isfinite(actual) ||
+      !std::isfinite(control)) {
+    return;
+  }
+
   const double error = reference - actual;
-  squared_error_sum_ += error * error;
-  control_squared_sum_ += control * control;
-  max_abs_error_ = std::max(max_abs_error_, std::abs(error));
+  if (!std::isfinite(error)) return;
+
+  const double error_square = error * error;
+  const double control_square = control * control;
+  if (!std::isfinite(error_square) || !std::isfinite(control_square)) {
+    return;
+  }
+
+  const double next_squared_error_sum = squared_error_sum_ + error_square;
+  const double next_control_squared_sum =
+      control_squared_sum_ + control_square;
+  if (!std::isfinite(next_squared_error_sum) ||
+      !std::isfinite(next_control_squared_sum)) {
+    return;
+  }
+
+  const double abs_error = std::abs(error);
+  if (!std::isfinite(abs_error)) return;
+
+  // Invalid/non-finite samples are ignored rather than poisoning the
+  // accumulator. samples_ counts only samples that can be represented by the
+  // finite sum-of-squares state used by this lightweight benchmark metric.
+  squared_error_sum_ = next_squared_error_sum;
+  control_squared_sum_ = next_control_squared_sum;
+  max_abs_error_ = std::max(max_abs_error_, abs_error);
   ++samples_;
 }
 

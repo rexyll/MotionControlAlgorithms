@@ -387,4 +387,35 @@ TEST(PmsmDq, CheckedElectricalPowerRejectsOverflowWithoutChangingOutput) {
   EXPECT_DOUBLE_EQ(motor.q_current(), std::numeric_limits<double>::max());
 }
 
-}  // namespace}  // namespace
+}  // namespace
+TEST(PmsmDq, CheckedCopperLossReportsStatusAndPreservesState) {
+  mca::plant::PmsmDq unconfigured;
+  double output = 123.0;
+  EXPECT_EQ(unconfigured.copper_loss(output).code,
+            mca::core::StatusCode::NotConfigured);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+
+  mca::plant::PmsmDq motor;
+  ASSERT_TRUE(motor.configure({}).ok());
+  ASSERT_TRUE(motor.reset(0.2, 1.5, 2.0, -3.0).ok());
+  ASSERT_TRUE(motor.copper_loss(output).ok());
+  EXPECT_DOUBLE_EQ(output, 1.5 * 0.5 * (4.0 + 9.0));
+  EXPECT_DOUBLE_EQ(motor.position(), 0.2);
+  EXPECT_DOUBLE_EQ(motor.velocity(), 1.5);
+  EXPECT_DOUBLE_EQ(motor.d_current(), 2.0);
+  EXPECT_DOUBLE_EQ(motor.q_current(), -3.0);
+}
+
+TEST(PmsmDq, CheckedCopperLossRejectsOverflowWithoutChangingOutput) {
+  mca::plant::PmsmDq motor;
+  ASSERT_TRUE(motor.configure({}).ok());
+  ASSERT_TRUE(motor.reset(0.0, 0.0, 0.0,
+                          std::numeric_limits<double>::max()).ok());
+  double output = -77.0;
+  EXPECT_EQ(motor.copper_loss(output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(output, -77.0);
+  EXPECT_DOUBLE_EQ(motor.q_current(), std::numeric_limits<double>::max());
+}
+
+}  // namespace

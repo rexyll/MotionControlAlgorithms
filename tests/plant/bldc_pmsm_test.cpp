@@ -330,6 +330,56 @@ TEST(BldcPmsm, PowerDiagnosticsHandleZeroAndNegativePhaseCurrentConvention) {
   EXPECT_DOUBLE_EQ(copper, 0.0);
 }
 
+TEST(BldcPmsm, CheckedElectricalPowerRejectsOverflowingPhaseSumWithoutChangingOutputOrState) {
+  mca::plant::BldcPmsmConfig config;
+  config.torque_constant_nm_per_a = 1e-300;
+  mca::plant::BldcPmsm motor(config);
+  const double current = std::numeric_limits<double>::max() * 0.75;
+  ASSERT_TRUE(motor.reset(0.0, 1.5, current, current, 0.0).ok());
+
+  const double before_angle = motor.mechanical_angle();
+  const double before_speed = motor.speed();
+  const double before_a = motor.current_a();
+  const double before_b = motor.current_b();
+  const double before_c = motor.current_c();
+  double output = 123.0;
+
+  // Each phase product is finite, but adding the first two overflows.
+  EXPECT_EQ(motor.electrical_power(1.0, 1.0, 0.0, output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+  EXPECT_DOUBLE_EQ(motor.mechanical_angle(), before_angle);
+  EXPECT_DOUBLE_EQ(motor.speed(), before_speed);
+  EXPECT_DOUBLE_EQ(motor.current_a(), before_a);
+  EXPECT_DOUBLE_EQ(motor.current_b(), before_b);
+  EXPECT_DOUBLE_EQ(motor.current_c(), before_c);
+}
+
+TEST(BldcPmsm, CheckedCopperLossRejectsOverflowingPhaseSquareSumWithoutChangingOutputOrState) {
+  mca::plant::BldcPmsmConfig config;
+  config.torque_constant_nm_per_a = 1e-300;
+  mca::plant::BldcPmsm motor(config);
+  const double current = std::sqrt(std::numeric_limits<double>::max()) * 0.9;
+  ASSERT_TRUE(motor.reset(0.0, 1.5, current, current, 0.0).ok());
+
+  const double before_angle = motor.mechanical_angle();
+  const double before_speed = motor.speed();
+  const double before_a = motor.current_a();
+  const double before_b = motor.current_b();
+  const double before_c = motor.current_c();
+  double output = 123.0;
+
+  // Each phase square is finite, but the sum of the first two overflows.
+  EXPECT_EQ(motor.copper_loss(output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+  EXPECT_DOUBLE_EQ(motor.mechanical_angle(), before_angle);
+  EXPECT_DOUBLE_EQ(motor.speed(), before_speed);
+  EXPECT_DOUBLE_EQ(motor.current_a(), before_a);
+  EXPECT_DOUBLE_EQ(motor.current_b(), before_b);
+  EXPECT_DOUBLE_EQ(motor.current_c(), before_c);
+}
+
 TEST(BldcPmsm, CheckedElectricalPowerRejectsNonFiniteVoltageInEveryPhase) {
   mca::plant::BldcPmsm motor;
   ASSERT_TRUE(motor.configure({}).ok());

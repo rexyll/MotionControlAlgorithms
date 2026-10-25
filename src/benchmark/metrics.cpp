@@ -39,16 +39,25 @@ bool StepResponseAccumulator::configure(double initial_reference,
       !std::isfinite(settling_tolerance_ratio) ||
       !std::isfinite(settling_hold_time_s) ||
       settling_tolerance_ratio <= 0.0 || settling_tolerance_ratio >= 1.0 ||
-      settling_hold_time_s < 0.0 ||
-      std::abs(target_reference - initial_reference) <=
-          std::numeric_limits<double>::epsilon()) {
-    configured_ = false;
+      settling_hold_time_s < 0.0) {
     return false;
   }
+
+  // Validate derived values before mutating the active configuration. Finite
+  // endpoints can still produce an infinite difference when subtracted.
+  const double amplitude = target_reference - initial_reference;
+  if (!std::isfinite(amplitude) ||
+      std::abs(amplitude) <= std::numeric_limits<double>::epsilon()) {
+    return false;
+  }
+  const double step_amplitude = std::abs(amplitude);
+  const double tolerance = settling_tolerance_ratio * step_amplitude;
+  if (!std::isfinite(tolerance)) return false;
+
   initial_reference_ = initial_reference;
   target_reference_ = target_reference;
-  step_amplitude_ = std::abs(target_reference - initial_reference);
-  tolerance_ = settling_tolerance_ratio * step_amplitude_;
+  step_amplitude_ = step_amplitude;
+  tolerance_ = tolerance;
   hold_time_s_ = settling_hold_time_s;
   configured_ = true;
   reset();

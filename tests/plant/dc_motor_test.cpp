@@ -257,7 +257,6 @@ TEST(DcMotor, CheckedElectricalPowerRejectsOverflowWithoutChangingOutput) {
   EXPECT_DOUBLE_EQ(output, -77.0);
   EXPECT_DOUBLE_EQ(motor.current(), std::numeric_limits<double>::max());
 }
-
 TEST(DcMotor, CheckedCopperLossReportsStatusAndPreservesState) {
   mca::plant::DcMotor unconfigured;
   double output = 123.0;
@@ -363,7 +362,8 @@ TEST(PowerDiagnosticsCrossModel, MechanicalPowerSignZeroAndFiniteBoundaryAreCons
   ASSERT_TRUE(dq.reset(0.0, 0.0, 0.0, 2.0).ok());
   ASSERT_TRUE(dq.mechanical_power(dq_power).ok());
   EXPECT_DOUBLE_EQ(dq_power, 0.0);
-  ASSERT_TRUE(dq.reset(0.0, max, tiny, 0.0).ok());
+  // Keep electrical speed (pole_pairs * mechanical speed) finite at the boundary.
+  ASSERT_TRUE(dq.reset(0.0, max / 2.0, tiny, 0.0).ok());
   ASSERT_TRUE(dq.mechanical_power(dq_power).ok());
   EXPECT_TRUE(std::isfinite(dq_power));
 }

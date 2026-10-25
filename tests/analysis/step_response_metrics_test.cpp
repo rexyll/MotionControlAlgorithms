@@ -126,4 +126,14 @@ TEST(StepResponseMetrics, RejectsOverflowedOvershootIntermediate) {
             mca::core::StatusCode::InvalidArgument);
 }
 
+TEST(StepResponseMetrics, RejectsOverflowedOvershootPercentage) {
+  const double time[] = {0.0, 0.1};
+  const double value[] = {0.0, 1.0e307};
+  mca::analysis::StepResponseMetrics metrics;
+
+  EXPECT_EQ(mca::analysis::compute_step_response_metrics(
+                time, value, 2U, 0.0, 1.0, 0.02, 0.05, metrics).code,
+            mca::core::StatusCode::InvalidArgument);
+}
+
 }  // namespace

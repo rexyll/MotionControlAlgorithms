@@ -91,3 +91,4 @@ P1-05 extends the plant model toward BLDC/PMSM dynamics, preserving the same sep
 ## Checked power diagnostics
 
 `electrical_power(voltage_v, output)` reports terminal electrical input power `V * i` using the supplied terminal voltage and the model's current state. `mechanical_power(output)` reports shaft mechanical power `T_e * omega`. Both APIs return a status, preserve the output argument on failure, and do not mutate plant state. Non-finite inputs are rejected; non-finite intermediate or final arithmetic is reported as `NumericalError`. These diagnostics are useful for deterministic energy/power checks but do not model inverter losses or switching.
+`copper_loss(output)` provides checked armature winding loss `R * i^2`; it reports unconfigured/overflow status and commits output only on success without mutating state.

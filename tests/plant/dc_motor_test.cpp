@@ -281,3 +281,20 @@ TEST(DcMotor, CheckedCopperLossRejectsOverflowWithoutChangingOutput) {
   EXPECT_DOUBLE_EQ(output, -77.0);
   EXPECT_DOUBLE_EQ(motor.current(), std::numeric_limits<double>::max());
 }
+
+TEST(DcMotor, PowerDiagnosticsHandleZeroAndNegativeCurrentConvention) {
+  mca::plant::DcMotor motor;
+  ASSERT_TRUE(motor.configure({}).ok());
+  ASSERT_TRUE(motor.reset(0.0, 0.0, -2.0).ok());
+  double electrical = 99.0;
+  double copper = 99.0;
+  ASSERT_TRUE(motor.electrical_power(3.0, electrical).ok());
+  ASSERT_TRUE(motor.copper_loss(copper).ok());
+  EXPECT_DOUBLE_EQ(electrical, -6.0);
+  EXPECT_DOUBLE_EQ(copper, 4.0);
+  ASSERT_TRUE(motor.reset(0.0, 0.0, 0.0).ok());
+  ASSERT_TRUE(motor.electrical_power(0.0, electrical).ok());
+  ASSERT_TRUE(motor.copper_loss(copper).ok());
+  EXPECT_DOUBLE_EQ(electrical, 0.0);
+  EXPECT_DOUBLE_EQ(copper, 0.0);
+}

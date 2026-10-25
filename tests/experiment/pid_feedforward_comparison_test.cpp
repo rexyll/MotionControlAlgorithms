@@ -53,6 +53,52 @@ TEST(PidFeedforwardComparison, QuantifiesFeedforwardBenefit) {
   EXPECT_TRUE(std::isfinite(result.pid_plus_feedforward.tracking.overshoot));
 }
 
+TEST(PidFeedforwardComparison, RejectsUnrepresentableRampConfigurationTransactionally) {
+  mca::experiment::PidFeedforwardComparison runner;
+  const auto valid = make_config();
+  ASSERT_TRUE(runner.configure(valid).ok());
+
+  mca::experiment::PidFeedforwardComparisonResult baseline;
+  ASSERT_TRUE(runner.run(baseline).ok());
+
+  const auto expect_rejected_without_mutation =
+      [&](const mca::experiment::PidFeedforwardComparisonConfig& invalid,
+          mca::core::StatusCode expected_code) {
+        const auto status = runner.configure(invalid);
+        EXPECT_EQ(status.code, expected_code);
+        EXPECT_TRUE(runner.configured());
+
+        mca::experiment::PidFeedforwardComparisonResult after_invalid;
+        ASSERT_TRUE(runner.run(after_invalid).ok());
+        EXPECT_DOUBLE_EQ(after_invalid.pid_only.final_position,
+                         baseline.pid_only.final_position);
+        EXPECT_DOUBLE_EQ(after_invalid.pid_plus_feedforward.final_position,
+                         baseline.pid_plus_feedforward.final_position);
+        EXPECT_DOUBLE_EQ(after_invalid.pid_only.tracking.rmse,
+                         baseline.pid_only.tracking.rmse);
+        EXPECT_DOUBLE_EQ(after_invalid.rmse_reduction_fraction,
+                         baseline.rmse_reduction_fraction);
+      };
+
+  auto invalid = valid;
+  invalid.ramp_target = invalid.initial_position;
+  expect_rejected_without_mutation(invalid, mca::core::StatusCode::InvalidArgument);
+
+  invalid = valid;
+  invalid.initial_position = -std::numeric_limits<double>::max();
+  invalid.ramp_target = std::numeric_limits<double>::max();
+  expect_rejected_without_mutation(invalid, mca::core::StatusCode::NumericalError);
+
+  invalid = valid;
+  invalid.ramp_duration_s = std::numeric_limits<double>::denorm_min();
+  expect_rejected_without_mutation(invalid, mca::core::StatusCode::NumericalError);
+
+  invalid = valid;
+  invalid.ramp_target = std::numeric_limits<double>::denorm_min();
+  invalid.ramp_duration_s = std::numeric_limits<double>::max();
+  expect_rejected_without_mutation(invalid, mca::core::StatusCode::NumericalError);
+}
+
 TEST(PidFeedforwardComparison, ReportsCompleteFiniteTrackingMetrics) {
   mca::experiment::PidFeedforwardComparison runner;
   auto config = make_config();

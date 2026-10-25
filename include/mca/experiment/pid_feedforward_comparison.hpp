@@ -112,6 +112,17 @@ class PidFeedforwardComparison {
   }
 
  private:
+  static bool tracking_metrics_valid(const benchmark::TrackingMetrics& metrics,
+                                     int expected_samples) noexcept {
+    const bool settling_is_nan = metrics.settling_time_s != metrics.settling_time_s;
+    return metrics.samples == static_cast<std::size_t>(expected_samples) &&
+           core::is_finite(metrics.rmse) &&
+           core::is_finite(metrics.max_abs_error) &&
+           core::is_finite(metrics.overshoot) &&
+           core::is_finite(metrics.control_effort_rms) &&
+           (core::is_finite(metrics.settling_time_s) || settling_is_nan);
+  }
+
   core::Status reset_impl() noexcept {
     if (!configured_) return {core::StatusCode::NotConfigured};
     if (!pid_only_.reset().ok() || !pid_ff_.reset().ok() ||
@@ -185,6 +196,10 @@ class PidFeedforwardComparison {
     result.pid_plus_feedforward.tracking = ff_metrics.result();
     result.pid_plus_feedforward.tracking.overshoot = ff_step.overshoot();
     result.pid_plus_feedforward.tracking.settling_time_s = ff_step.settling_time_s();
+    if (!tracking_metrics_valid(result.pid_only.tracking, config_.steps) ||
+        !tracking_metrics_valid(result.pid_plus_feedforward.tracking, config_.steps)) {
+      return {core::StatusCode::NumericalError};
+    }
     result.pid_plus_feedforward.final_position = plant_ff_.position();
     result.pid_plus_feedforward.final_velocity = plant_ff_.velocity();
     result.pid_plus_feedforward.peak_position =

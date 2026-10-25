@@ -102,8 +102,8 @@ Acceptance for P9-29: a failed reconfiguration must not disable an already confi
 - [x] P9-37 PID/feedforward comparison transactional configuration, reset, and execution (preserve the working runner after invalid reconfiguration; run on a trial copy and leave caller result unchanged on failure; validate combined effort, sample time, and final derived metrics; Linux/Windows Configure/Build/Test passed after correcting the failure-path regression trigger: Runs #965–#968)
 - [x] P9-38 PID/feedforward comparison simulation-horizon overflow preflight (reject a finite timestep/sample count whose derived final sample time overflows before mutating the active runner; preserve prior configuration; Linux/Windows Configure/Build/Test passed: Runs #972–#973)
 - [x] P9-39 PID/feedforward comparison complete metrics contract (validate all required tracking metrics and exact sample counts before committing results; permit NaN settling time only as the documented “not settled” sentinel; preserve caller result on invalid metrics; Linux/Windows Configure/Build/Test and P8-39 through P8-46 dedicated regression suites passed: Run #976)
-
 - [ ] P9-40 PID/feedforward ramp-reference arithmetic preflight (reject zero/overflowed reference amplitude and non-finite derived ramp velocity during configuration; preserve the active runner on rejection; add transactional regression coverage; Linux/Windows Configure/Build/Test pending)
+
 
 Acceptance for P9-30: after each successful DC motor integration, evaluate the resulting current against `max_current_a` and update constraint violation count and maximum violation before proceeding to metrics collection. A one-step experiment with a deliberately low current limit verifies that a threshold crossing on the final integration is reported in `final_current` and constraint metrics. Linux and Windows Configure/Build/Test passed in Run #943. This telemetry-boundary regression is deterministic and does not require Gazebo.
 

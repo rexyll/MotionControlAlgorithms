@@ -167,6 +167,24 @@ TEST(CascadedServoExperimentTest, ProducesTrackingBenchmark) {
   EXPECT_LE(std::abs(result.final_voltage), 12.0);
 }
 
+TEST(CascadedServoExperimentTest, DetectsCurrentLimitCrossingOnFinalPlantStep) {
+  mca::experiment::CascadedServoConfig config;
+  config.dt = 1.0e-4;
+  config.steps = 1;
+  config.max_current_a = 1.0e-12;
+
+  mca::experiment::CascadedServoExperiment experiment;
+  ASSERT_TRUE(experiment.configure(config, make_servo_config(),
+                                   make_motor_config()).ok());
+
+  mca::experiment::CascadedServoResult result;
+  ASSERT_TRUE(experiment.run(result).ok());
+
+  EXPECT_GT(std::abs(result.final_current), config.max_current_a);
+  EXPECT_GT(result.constraints.violations, 0U);
+  EXPECT_GT(result.constraints.max_violation, 0.0);
+}
+
 TEST(CascadedServoExperimentTest, ReportsActuatorConstraintViolation) {
   mca::experiment::CascadedServoConfig config;
   config.dt = 1.0e-4;

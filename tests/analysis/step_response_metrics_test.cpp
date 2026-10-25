@@ -105,4 +105,25 @@ TEST(StepResponseMetrics, RejectsInvalidInput) {
             mca::core::StatusCode::InvalidArgument);
 }
 
+TEST(StepResponseMetrics, RejectsOverflowedReferenceDifference) {
+  const double time[] = {0.0, 0.1};
+  const double value[] = {0.0, 1.0};
+  mca::analysis::StepResponseMetrics metrics;
+
+  EXPECT_EQ(mca::analysis::compute_step_response_metrics(
+                time, value, 2U, -std::numeric_limits<double>::max(),
+                std::numeric_limits<double>::max(), 0.02, 0.05, metrics).code,
+            mca::core::StatusCode::InvalidArgument);
+}
+
+TEST(StepResponseMetrics, RejectsOverflowedOvershootIntermediate) {
+  const double time[] = {0.0, 0.1};
+  const double value[] = {0.0, 1.0e308};
+  mca::analysis::StepResponseMetrics metrics;
+
+  EXPECT_EQ(mca::analysis::compute_step_response_metrics(
+                time, value, 2U, 0.0, -1.0e308, 0.02, 0.05, metrics).code,
+            mca::core::StatusCode::InvalidArgument);
+}
+
 }  // namespace

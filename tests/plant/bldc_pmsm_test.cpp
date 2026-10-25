@@ -27,9 +27,6 @@ TEST(BldcPmsm, AppliesThreePhaseVoltageAndProducesCurrent) {
 
   EXPECT_GT(motor.current_a(), 0.0);
   EXPECT_LT(motor.current_b(), 0.0);
-  // Phase-C is initially unexcited, but its current evolves from the
-  // electrical state/back-EMF coupling; assert the physically relevant
-  // small-current bound rather than exact zero.
   EXPECT_NEAR(motor.current_c(), 0.0, 1e-4);
   EXPECT_GT(motor.speed(), 0.0);
 }
@@ -79,11 +76,9 @@ TEST(BldcPmsm, CheckedElectricalStateRejectsOverflowAndPreservesOutput) {
   double speed = 22.0;
   ASSERT_EQ(motor.reset(std::numeric_limits<double>::max(), 0.5).code,
             mca::core::StatusCode::NumericalError);
-  ASSERT_TRUE(motor.reset(0.25, std::numeric_limits<double>::max()).code ==
-              mca::core::StatusCode::NumericalError);
+  ASSERT_EQ(motor.reset(0.25, std::numeric_limits<double>::max()).code,
+            mca::core::StatusCode::NumericalError);
 
-  // The failed resets are transactional, so the previous finite state remains
-  // queryable; checked diagnostics must not fabricate an invalid live state.
   EXPECT_TRUE(motor.electrical_angle(angle).ok());
   EXPECT_TRUE(motor.electrical_angular_velocity(speed).ok());
   EXPECT_NEAR(angle, 0.5, 1e-12);
@@ -114,7 +109,6 @@ TEST(BldcPmsm, InvalidReconfigurationPreservesWorkingState) {
   EXPECT_DOUBLE_EQ(motor.current_c(), 0.3);
   EXPECT_TRUE(motor.step(0.0, 0.0, 0.0, 0.0, 0.001).ok());
 }
-
 
 TEST(BldcPmsm, ResetDerivedOverflowPreservesState) {
   mca::plant::BldcPmsm motor(mca::plant::BldcPmsmConfig{});
@@ -147,6 +141,7 @@ TEST(BldcPmsm, NumericalOverflowDoesNotCommitState) {
   EXPECT_DOUBLE_EQ(motor.current_c(), 0.0);
   EXPECT_TRUE(motor.step(0.0, 0.0, 0.0, 0.0, 0.001).ok());
 }
+
 TEST(BldcPmsm, CheckedAccelerationReportsStatusAndPreservesOutput) {
   mca::plant::BldcPmsm unconfigured;
   double output = 123.0;
@@ -195,4 +190,35 @@ TEST(BldcPmsm, CheckedElectromagneticTorqueReportsStatusAndPreservesOutput) {
   ASSERT_TRUE(motor.reset(0.2, 0.0, 1.0, -0.25, 0.5).ok());
   ASSERT_TRUE(motor.electromagnetic_torque(output).ok());
   EXPECT_NEAR(output, motor.electromagnetic_torque(), 1e-12);
+}
+
+TEST(BldcPmsm, CheckedMechanicalPowerReportsStatusAndPreservesState) {
+  mca::plant::BldcPmsm unconfigured;
+  double output = 123.0;
+  EXPECT_EQ(unconfigured.mechanical_power(output).code,
+            mca::core::StatusCode::NotConfigured);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+
+  mca::plant::BldcPmsm motor(mca::plant::BldcPmsmConfig{});
+  ASSERT_TRUE(motor.reset(0.2, 3.0, 1.0, -0.25, 0.5).ok());
+  double torque = 0.0;
+  ASSERT_TRUE(motor.electromagnetic_torque(torque).ok());
+  ASSERT_TRUE(motor.mechanical_power(output).ok());
+  EXPECT_DOUBLE_EQ(output, torque * 3.0);
+  EXPECT_DOUBLE_EQ(motor.mechanical_angle(), 0.2);
+  EXPECT_DOUBLE_EQ(motor.speed(), 3.0);
+  EXPECT_DOUBLE_EQ(motor.current_a(), 1.0);
+}
+
+TEST(BldcPmsm, CheckedMechanicalPowerRejectsOverflowWithoutChangingOutput) {
+  mca::plant::BldcPmsmConfig config;
+  config.torque_constant_nm_per_a = std::numeric_limits<double>::max() / 2.0;
+  mca::plant::BldcPmsm motor(config);
+  ASSERT_TRUE(motor.reset(0.0, 4.0, 1.0, 0.0, 0.0).ok());
+  double output = -77.0;
+  EXPECT_EQ(motor.mechanical_power(output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(output, -77.0);
+  EXPECT_DOUBLE_EQ(motor.speed(), 4.0);
+  EXPECT_DOUBLE_EQ(motor.current_a(), 1.0);
 }

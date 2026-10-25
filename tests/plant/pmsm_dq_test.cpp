@@ -489,6 +489,31 @@ TEST(PmsmDq, CheckedElectricalPowerRejectsOverflowingSumWithoutChangingOutputOrS
   EXPECT_DOUBLE_EQ(motor.q_current(), before_q);
 }
 
+TEST(PmsmDq, CheckedElectricalPowerRejectsOverflowAtDqScalingWithoutChangingOutputOrState) {
+  mca::plant::PmsmDqConfig config;
+  config.d_axis_inductance_h = 0.001;
+  config.q_axis_inductance_h = 0.001;
+  config.permanent_magnet_flux_wb = 1e-300;
+  mca::plant::PmsmDq motor(config);
+  const double current = std::numeric_limits<double>::max() * 0.4;
+  ASSERT_TRUE(motor.reset(0.25, 1.5, current, current).ok());
+
+  const double before_position = motor.position();
+  const double before_velocity = motor.velocity();
+  const double before_d = motor.d_current();
+  const double before_q = motor.q_current();
+  double output = 123.0;
+
+  // Both products and their sum are finite; multiplying the sum by 1.5 overflows.
+  EXPECT_EQ(motor.electrical_power(1.0, 1.0, output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+  EXPECT_DOUBLE_EQ(motor.position(), before_position);
+  EXPECT_DOUBLE_EQ(motor.velocity(), before_velocity);
+  EXPECT_DOUBLE_EQ(motor.d_current(), before_d);
+  EXPECT_DOUBLE_EQ(motor.q_current(), before_q);
+}
+
 TEST(PmsmDq, CheckedElectricalPowerRejectsNonFiniteVoltageOnBothAxes) {
   mca::plant::PmsmDq motor;
   ASSERT_TRUE(motor.configure({}).ok());

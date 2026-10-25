@@ -1,4 +1,5 @@
 #include <cmath>
+#include <limits>
 
 #include <gtest/gtest.h>
 
@@ -41,4 +42,89 @@ TEST(SingleAxisExperiment, RejectsInvalidTimeStep) {
   mca::control::PidConfig pid;
   pid.kp = 1.0;
   EXPECT_FALSE(experiment.configure(config, plant, pid).ok());
+}
+
+TEST(SingleAxisExperiment, FailedReconfigurationPreservesActiveExperiment) {
+  mca::experiment::SingleAxisExperiment experiment;
+  mca::experiment::SingleAxisConfig config;
+  config.dt = 0.001;
+  config.steps = 1000;
+  config.reference = 1.0;
+
+  mca::plant::SecondOrderPlant plant(1.0, 4.0, 0.0);
+  mca::control::PidConfig pid;
+  pid.kp = 100.0;
+  pid.kd = 20.0;
+  pid.ki = 10.0;
+  pid.output_min = -100.0;
+  pid.output_max = 100.0;
+  pid.integral_min = -20.0;
+  pid.integral_max = 20.0;
+
+  ASSERT_TRUE(experiment.configure(config, plant, pid).ok());
+
+  mca::experiment::SingleAxisResult baseline;
+  ASSERT_TRUE(experiment.run(baseline).ok());
+
+  auto invalid_config = config;
+  invalid_config.dt = 0.0;
+  EXPECT_FALSE(experiment.configure(invalid_config, plant, pid).ok());
+
+  mca::experiment::SingleAxisResult after_invalid;
+  ASSERT_TRUE(experiment.run(after_invalid).ok());
+  EXPECT_DOUBLE_EQ(after_invalid.final_position, baseline.final_position);
+  EXPECT_DOUBLE_EQ(after_invalid.final_velocity, baseline.final_velocity);
+  EXPECT_DOUBLE_EQ(after_invalid.metrics.rmse, baseline.metrics.rmse);
+  EXPECT_EQ(after_invalid.metrics.samples, baseline.metrics.samples);
+  EXPECT_DOUBLE_EQ(after_invalid.metrics.overshoot, baseline.metrics.overshoot);
+  EXPECT_DOUBLE_EQ(after_invalid.metrics.settling_time_s,
+                   baseline.metrics.settling_time_s);
+
+  mca::plant::SecondOrderPlant unconfigured_plant;
+  EXPECT_FALSE(experiment.configure(config, unconfigured_plant, pid).ok());
+  mca::experiment::SingleAxisResult after_invalid_plant;
+  ASSERT_TRUE(experiment.run(after_invalid_plant).ok());
+  EXPECT_DOUBLE_EQ(after_invalid_plant.final_position, baseline.final_position);
+  EXPECT_DOUBLE_EQ(after_invalid_plant.final_velocity, baseline.final_velocity);
+  EXPECT_EQ(after_invalid_plant.metrics.samples, baseline.metrics.samples);
+}
+
+TEST(SingleAxisExperiment, FailedRunPreservesStateAndResult) {
+  mca::experiment::SingleAxisExperiment experiment;
+  mca::experiment::SingleAxisConfig config;
+  config.dt = 1.0e308;
+  config.steps = 1;
+  config.reference = 1.0;
+
+  mca::plant::SecondOrderPlant plant(1.0, 0.0, 0.0);
+  mca::control::PidConfig pid;
+  pid.kp = 1.0;
+  pid.output_min = -1.0;
+  pid.output_max = 1.0;
+
+  ASSERT_TRUE(experiment.configure(config, plant, pid).ok());
+
+  mca::experiment::SingleAxisResult result;
+  result.final_position = 123.0;
+  result.final_velocity = 456.0;
+  result.metrics.samples = 789U;
+  result.metrics.rmse = 3.0;
+
+  const auto before_position = experiment.run(result);
+  EXPECT_FALSE(before_position.ok());
+  EXPECT_DOUBLE_EQ(result.final_position, 123.0);
+  EXPECT_DOUBLE_EQ(result.final_velocity, 456.0);
+  EXPECT_EQ(result.metrics.samples, 789U);
+  EXPECT_DOUBLE_EQ(result.metrics.rmse, 3.0);
+
+  // The failed run must not poison the active experiment. Reconfiguration to
+  // a valid deterministic setup and a subsequent run must still succeed.
+  config.dt = 0.001;
+  config.steps = 100;
+  ASSERT_TRUE(experiment.configure(config, plant, pid).ok());
+  mca::experiment::SingleAxisResult recovered;
+  ASSERT_TRUE(experiment.run(recovered).ok());
+  EXPECT_EQ(recovered.metrics.samples, 100U);
+  EXPECT_TRUE(std::isfinite(recovered.final_position));
+  EXPECT_TRUE(std::isfinite(recovered.final_velocity));
 }

@@ -329,3 +329,29 @@ TEST(BldcPmsm, PowerDiagnosticsHandleZeroAndNegativePhaseCurrentConvention) {
   EXPECT_DOUBLE_EQ(electrical, 0.0);
   EXPECT_DOUBLE_EQ(copper, 0.0);
 }
+
+TEST(BldcPmsm, CheckedElectricalPowerRejectsNonFiniteVoltageInEveryPhase) {
+  mca::plant::BldcPmsm motor;
+  ASSERT_TRUE(motor.configure({}).ok());
+  ASSERT_TRUE(motor.reset(0.25, 1.5, 1.0, -2.0, 0.5).ok());
+
+  double output = 123.0;
+  const double nan = std::numeric_limits<double>::quiet_NaN();
+  const double inf = std::numeric_limits<double>::infinity();
+
+  EXPECT_EQ(motor.electrical_power(nan, 0.0, 0.0, output).code,
+            mca::core::StatusCode::InvalidArgument);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+  EXPECT_EQ(motor.electrical_power(0.0, inf, 0.0, output).code,
+            mca::core::StatusCode::InvalidArgument);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+  EXPECT_EQ(motor.electrical_power(0.0, 0.0, nan, output).code,
+            mca::core::StatusCode::InvalidArgument);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+
+  EXPECT_DOUBLE_EQ(motor.mechanical_angle(), 0.25);
+  EXPECT_DOUBLE_EQ(motor.speed(), 1.5);
+  EXPECT_DOUBLE_EQ(motor.current_a(), 1.0);
+  EXPECT_DOUBLE_EQ(motor.current_b(), -2.0);
+  EXPECT_DOUBLE_EQ(motor.current_c(), 0.5);
+}

@@ -88,3 +88,6 @@ The class contains only fixed-size state and performs no dynamic allocation duri
 P1-05 extends the plant model toward BLDC/PMSM dynamics, preserving the same separation between plant/model, controller and external simulation adapters. The expected progression is:
 
 `DC motor -> BLDC/PMSM -> Clarke/Park -> PMSM dq -> FOC current loop -> decoupling/feedforward -> SVPWM`.
+## Checked power diagnostics
+
+`electrical_power(voltage_v, output)` reports terminal electrical input power `V * i` using the supplied terminal voltage and the model's current state. `mechanical_power(output)` reports shaft mechanical power `T_e * omega`. Both APIs return a status, preserve the output argument on failure, and do not mutate plant state. Non-finite inputs are rejected; non-finite intermediate or final arithmetic is reported as `NumericalError`. These diagnostics are useful for deterministic energy/power checks but do not model inverter losses or switching.

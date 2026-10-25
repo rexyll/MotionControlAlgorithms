@@ -437,6 +437,33 @@ TEST(PmsmDq, PowerDiagnosticsHandleZeroAndNegativeDqCurrentConvention) {
 
 }  // namespace
 
+TEST(PmsmDq, CheckedElectricalPowerRejectsOverflowingSumWithoutChangingOutputOrState) {
+  mca::plant::PmsmDqConfig config;
+  // Equal inductances and zero PM flux make the diagnostic operating point
+  // torque-neutral even with very large finite currents.
+  config.d_axis_inductance_h = 0.001;
+  config.q_axis_inductance_h = 0.001;
+  config.permanent_magnet_flux_wb = 0.0;
+  mca::plant::PmsmDq motor(config);
+  const double max = std::numeric_limits<double>::max();
+  ASSERT_TRUE(motor.reset(0.25, 1.5, max, max).ok());
+
+  const double before_position = motor.position();
+  const double before_velocity = motor.velocity();
+  const double before_d = motor.d_current();
+  const double before_q = motor.q_current();
+  double output = 123.0;
+
+  // Each product is finite; their sum overflows before dq scaling.
+  EXPECT_EQ(motor.electrical_power(1.0, 1.0, output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+  EXPECT_DOUBLE_EQ(motor.position(), before_position);
+  EXPECT_DOUBLE_EQ(motor.velocity(), before_velocity);
+  EXPECT_DOUBLE_EQ(motor.d_current(), before_d);
+  EXPECT_DOUBLE_EQ(motor.q_current(), before_q);
+}
+
 TEST(PmsmDq, CheckedElectricalPowerRejectsNonFiniteVoltageOnBothAxes) {
   mca::plant::PmsmDq motor;
   ASSERT_TRUE(motor.configure({}).ok());

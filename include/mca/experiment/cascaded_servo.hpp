@@ -51,29 +51,44 @@ class CascadedServoExperiment {
         !core::is_finite(experiment_config.max_voltage_v) ||
         !core::is_finite(experiment_config.max_current_a) ||
         !(experiment_config.settling_tolerance_ratio > 0.0) ||
+        !(experiment_config.settling_tolerance_ratio < 1.0) ||
         !(experiment_config.settling_hold_time_s >= 0.0) ||
         !core::is_finite(experiment_config.settling_tolerance_ratio) ||
         !core::is_finite(experiment_config.settling_hold_time_s)) {
-      configured_ = false;
       return {core::StatusCode::InvalidArgument};
     }
-    if (!servo_.configure(servo_config).ok()) {
-      configured_ = false;
+
+    // Configure copies first. A failure in any component must not disable or
+    // partially replace a previously usable experiment.
+    auto servo_trial = servo_;
+    auto motor_trial = motor_;
+    auto position_step_trial = position_step_;
+    if (auto status = servo_trial.configure(servo_config); !status.ok()) {
+      return status;
+    }
+    if (auto status = motor_trial.configure(motor_config); !status.ok()) {
+      return status;
+    }
+    if (!position_step_trial.configure(
+            0.0, experiment_config.position_reference,
+            experiment_config.settling_tolerance_ratio,
+            experiment_config.settling_hold_time_s)) {
       return {core::StatusCode::InvalidArgument};
     }
-    if (!motor_.configure(motor_config).ok()) {
-      configured_ = false;
-      return {core::StatusCode::InvalidArgument};
-    }
-    if (!position_step_.configure(0.0, experiment_config.position_reference,
-                                  experiment_config.settling_tolerance_ratio,
-                                  experiment_config.settling_hold_time_s)) {
-      configured_ = false;
-      return {core::StatusCode::InvalidArgument};
-    }
+    if (auto status = servo_trial.reset(); !status.ok()) return status;
+    if (auto status = motor_trial.reset(); !status.ok()) return status;
+
     config_ = experiment_config;
+    servo_ = servo_trial;
+    motor_ = motor_trial;
+    position_step_ = position_step_trial;
+    position_accumulator_.reset();
+    velocity_accumulator_.reset();
+    torque_accumulator_.reset();
+    constraints_ = {};
+    final_voltage_ = 0.0;
     configured_ = true;
-    return reset();
+    return {};
   }
 
   core::Status reset() noexcept {

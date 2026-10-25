@@ -61,25 +61,49 @@ class PidFeedforwardComparison {
         !core::is_finite(config.feedforward.velocity_gain) ||
         !core::is_finite(config.feedforward.acceleration_gain) ||
         !core::is_finite(config.feedforward.constant_bias)) {
-      configured_ = false;
       return {core::StatusCode::InvalidArgument};
     }
-    if (!pid_only_.configure(config.pid).ok() ||
-        !pid_ff_.configure(config.pid).ok() ||
-        !plant_only_.configure(config.plant.inertia(), config.plant.damping(),
-                               config.plant.stiffness()).ok() ||
-        !plant_ff_.configure(config.plant.inertia(), config.plant.damping(),
-                             config.plant.stiffness()).ok()) {
-      configured_ = false;
+
+    // Build a complete candidate so rejected reconfiguration leaves the
+    // previously working comparison and its runtime state untouched.
+    auto trial = *this;
+    if (!trial.pid_only_.configure(config.pid).ok() ||
+        !trial.pid_ff_.configure(config.pid).ok() ||
+        !trial.plant_only_.configure(config.plant.inertia(), config.plant.damping(),
+                                    config.plant.stiffness()).ok() ||
+        !trial.plant_ff_.configure(config.plant.inertia(), config.plant.damping(),
+                                   config.plant.stiffness()).ok()) {
       return {core::StatusCode::InvalidArgument};
     }
-    config_ = config;
-    feedforward_ = control::PidFeedforward(config.feedforward);
-    configured_ = true;
-    return reset();
+    trial.config_ = config;
+    trial.feedforward_ = control::PidFeedforward(config.feedforward);
+    trial.configured_ = true;
+    if (auto status = trial.reset_impl(); !status.ok()) return status;
+    *this = trial;
+    return {};
   }
 
   core::Status reset() noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    auto trial = *this;
+    if (auto status = trial.reset_impl(); !status.ok()) return status;
+    *this = trial;
+    return {};
+  }
+
+  core::Status run(PidFeedforwardComparisonResult& result) noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    auto trial = *this;
+    PidFeedforwardComparisonResult trial_result{};
+    const auto status = trial.run_impl(trial_result);
+    if (!status.ok()) return status;
+    *this = trial;
+    result = trial_result;
+    return {};
+  }
+
+ private:
+  core::Status reset_impl() noexcept {
     if (!configured_) return {core::StatusCode::NotConfigured};
     if (!pid_only_.reset().ok() || !pid_ff_.reset().ok() ||
         !plant_only_.reset(config_.initial_position, 0.0).ok() ||
@@ -89,9 +113,9 @@ class PidFeedforwardComparison {
     return {};
   }
 
-  core::Status run(PidFeedforwardComparisonResult& result) noexcept {
+  core::Status run_impl(PidFeedforwardComparisonResult& result) noexcept {
     if (!configured_) return {core::StatusCode::NotConfigured};
-    if (!reset().ok()) return {core::StatusCode::InvalidArgument};
+    if (auto status = reset_impl(); !status.ok()) return status;
 
     trajectory::RampTrajectory reference(config_.initial_position,
                                          config_.ramp_target,
@@ -122,12 +146,18 @@ class PidFeedforwardComparison {
       }
       const double combined_output =
           ff_pid_output + feedforward_.compute(sample.velocity, sample.acceleration);
+      if (!core::is_finite(combined_output)) {
+        return {core::StatusCode::NumericalError};
+      }
       if (!plant_only_.step(pid_output, config_.dt).ok() ||
           !plant_ff_.step(combined_output, config_.dt).ok()) {
-        return {core::StatusCode::InvalidArgument};
+        return {core::StatusCode::NumericalError};
       }
 
       const double sample_time_s = time_s + config_.dt;
+      if (!core::is_finite(time_s) || !core::is_finite(sample_time_s)) {
+        return {core::StatusCode::NumericalError};
+      }
       pid_metrics.add(sample.position, plant_only_.position(), pid_output);
       ff_metrics.add(sample.position, plant_ff_.position(), combined_output);
       pid_step.add(sample_time_s, plant_only_.position());
@@ -163,9 +193,20 @@ class PidFeedforwardComparison {
             ? (baseline_effort - result.pid_plus_feedforward.tracking.control_effort_rms) /
                   baseline_effort
             : 0.0;
+    if (!core::is_finite(result.pid_only.peak_position) ||
+        !core::is_finite(result.pid_plus_feedforward.peak_position) ||
+        !core::is_finite(result.rmse_reduction_fraction) ||
+        !core::is_finite(result.control_effort_reduction_fraction) ||
+        !core::is_finite(result.pid_only.final_position) ||
+        !core::is_finite(result.pid_only.final_velocity) ||
+        !core::is_finite(result.pid_plus_feedforward.final_position) ||
+        !core::is_finite(result.pid_plus_feedforward.final_velocity)) {
+      return {core::StatusCode::NumericalError};
+    }
     return {};
   }
 
+ public:
   [[nodiscard]] bool configured() const noexcept { return configured_; }
 
  private:

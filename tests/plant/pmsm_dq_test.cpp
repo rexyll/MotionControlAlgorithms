@@ -387,7 +387,6 @@ TEST(PmsmDq, CheckedElectricalPowerRejectsOverflowWithoutChangingOutput) {
   EXPECT_DOUBLE_EQ(motor.q_current(), std::numeric_limits<double>::max());
 }
 
-}  // namespace
 TEST(PmsmDq, CheckedCopperLossReportsStatusAndPreservesState) {
   mca::plant::PmsmDq unconfigured;
   double output = 123.0;

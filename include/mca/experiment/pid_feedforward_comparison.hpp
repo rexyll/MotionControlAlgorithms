@@ -60,7 +60,8 @@ class PidFeedforwardComparison {
         !core::is_finite(config.pid.integral_min) || !core::is_finite(config.pid.integral_max) ||
         !core::is_finite(config.feedforward.velocity_gain) ||
         !core::is_finite(config.feedforward.acceleration_gain) ||
-        !core::is_finite(config.feedforward.constant_bias)) {
+        !core::is_finite(config.feedforward.constant_bias) ||
+        !config.plant.configured()) {
       return {core::StatusCode::InvalidArgument};
     }
 

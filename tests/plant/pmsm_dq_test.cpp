@@ -436,3 +436,25 @@ TEST(PmsmDq, PowerDiagnosticsHandleZeroAndNegativeDqCurrentConvention) {
 }
 
 }  // namespace
+
+TEST(PmsmDq, CheckedElectricalPowerRejectsNonFiniteVoltageOnBothAxes) {
+  mca::plant::PmsmDq motor;
+  ASSERT_TRUE(motor.configure({}).ok());
+  ASSERT_TRUE(motor.reset(0.25, 1.5, 1.0, -2.0).ok());
+
+  double output = 123.0;
+  const double nan = std::numeric_limits<double>::quiet_NaN();
+  const double inf = std::numeric_limits<double>::infinity();
+
+  EXPECT_EQ(motor.electrical_power(nan, 0.0, output).code,
+            mca::core::StatusCode::InvalidArgument);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+  EXPECT_EQ(motor.electrical_power(0.0, inf, output).code,
+            mca::core::StatusCode::InvalidArgument);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+
+  EXPECT_DOUBLE_EQ(motor.position(), 0.25);
+  EXPECT_DOUBLE_EQ(motor.velocity(), 1.5);
+  EXPECT_DOUBLE_EQ(motor.d_current(), 1.0);
+  EXPECT_DOUBLE_EQ(motor.q_current(), -2.0);
+}

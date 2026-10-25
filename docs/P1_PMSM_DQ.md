@@ -72,3 +72,6 @@ These are analytical/reference tests rather than controller-tuning tests. The mo
 ## Boundary with later stages
 
 P1-07 is the plant. It does not contain PI current controllers, voltage decoupling/feedforward, current limiting, PWM generation, inverter dead time, saturation, magnetic nonlinearities, or switching behavior. P1-08 will add FOC current control, while P1-09 will add explicit decoupling/feedforward terms around the same electrical equations.
+## Checked power diagnostics
+
+`electrical_power(vd, vq, output)` computes dq-frame electrical input power using the model's amplitude-invariant transform convention: `P_e = 3/2 * (vd * i_d + vq * i_q)`. `mechanical_power(output)` computes shaft power from electromagnetic torque and mechanical speed. Both are status-returning, diagnostic-only APIs: they preserve caller output on failure, never mutate runtime state, and report invalid inputs or non-finite intermediate/final arithmetic explicitly. These equations do not include inverter losses or switching effects.

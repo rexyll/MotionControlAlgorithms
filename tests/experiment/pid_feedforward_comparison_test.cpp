@@ -69,3 +69,59 @@ TEST(PidFeedforwardComparison, SameReferenceAndPlantAreUsed) {
   EXPECT_NEAR(result.pid_plus_feedforward.tracking.rmse,
               result.pid_only.tracking.rmse, 1e-12);
 }
+
+
+TEST(PidFeedforwardComparison, InvalidReconfigurationPreservesWorkingRunner) {
+  mca::experiment::PidFeedforwardComparison runner;
+  const auto valid = make_config();
+  ASSERT_TRUE(runner.configure(valid).ok());
+
+  mca::experiment::PidFeedforwardComparisonResult baseline;
+  ASSERT_TRUE(runner.run(baseline).ok());
+
+  auto invalid = valid;
+  invalid.dt = 0.0;
+  EXPECT_FALSE(runner.configure(invalid).ok());
+  EXPECT_TRUE(runner.configured());
+
+  mca::experiment::PidFeedforwardComparisonResult after_invalid;
+  ASSERT_TRUE(runner.run(after_invalid).ok());
+  EXPECT_DOUBLE_EQ(after_invalid.pid_only.final_position,
+                   baseline.pid_only.final_position);
+  EXPECT_DOUBLE_EQ(after_invalid.pid_plus_feedforward.final_position,
+                   baseline.pid_plus_feedforward.final_position);
+  EXPECT_DOUBLE_EQ(after_invalid.pid_only.tracking.rmse,
+                   baseline.pid_only.tracking.rmse);
+  EXPECT_DOUBLE_EQ(after_invalid.rmse_reduction_fraction,
+                   baseline.rmse_reduction_fraction);
+}
+
+TEST(PidFeedforwardComparison, FailedRunPreservesCallerResultAndRunner) {
+  mca::experiment::PidFeedforwardComparison runner;
+  auto config = make_config();
+  config.dt = 1.0e308;
+  config.steps = 1;
+  config.ramp_duration_s = 1.0;
+  config.feedforward.velocity_gain = 1.0;
+  config.feedforward.acceleration_gain = 0.0;
+  ASSERT_TRUE(runner.configure(config).ok());
+
+  mca::experiment::PidFeedforwardComparisonResult result;
+  result.pid_only.final_position = 123.0;
+  result.pid_plus_feedforward.final_velocity = 456.0;
+  result.rmse_reduction_fraction = 7.0;
+
+  EXPECT_FALSE(runner.run(result).ok());
+  EXPECT_TRUE(runner.configured());
+  EXPECT_DOUBLE_EQ(result.pid_only.final_position, 123.0);
+  EXPECT_DOUBLE_EQ(result.pid_plus_feedforward.final_velocity, 456.0);
+  EXPECT_DOUBLE_EQ(result.rmse_reduction_fraction, 7.0);
+
+  config.dt = 0.001;
+  config.steps = 100;
+  ASSERT_TRUE(runner.configure(config).ok());
+  mca::experiment::PidFeedforwardComparisonResult recovered;
+  ASSERT_TRUE(runner.run(recovered).ok());
+  EXPECT_EQ(recovered.pid_only.tracking.samples, 100U);
+  EXPECT_EQ(recovered.pid_plus_feedforward.tracking.samples, 100U);
+}

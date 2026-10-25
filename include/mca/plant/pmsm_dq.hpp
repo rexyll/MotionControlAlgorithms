@@ -231,6 +231,29 @@ class PmsmDq {
     return {};
   }
 
+  // Checked stator electrical input power under this model's dq convention:
+  // P = 3/2 * (vd * id + vq * iq). Output/state are transactional on failure.
+  core::Status electrical_power(double vd, double vq,
+                                double& output) const noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    if (!core::is_finite(vd) || !core::is_finite(vq)) {
+      return {core::StatusCode::InvalidArgument};
+    }
+    const double d_power = vd * d_current_a_;
+    const double q_power = vq * q_current_a_;
+    if (!core::is_finite(d_power) || !core::is_finite(q_power)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double sum = d_power + q_power;
+    if (!core::is_finite(sum)) return {core::StatusCode::NumericalError};
+    const double candidate = 1.5 * sum;
+    if (!core::is_finite(candidate)) {
+      return {core::StatusCode::NumericalError};
+    }
+    output = candidate;
+    return {};
+  }
+
   // Checked mechanical shaft-power diagnostic; this query never mutates state.
   core::Status mechanical_power(double& output) const noexcept {
     if (!configured_) return {core::StatusCode::NotConfigured};

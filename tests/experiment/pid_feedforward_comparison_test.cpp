@@ -143,7 +143,7 @@ TEST(PidFeedforwardComparison, RejectsOverflowingTimeHorizonTransactionally) {
   invalid.dt = std::numeric_limits<double>::max();
   invalid.steps = 2;
   const auto status = runner.configure(invalid);
-  EXPECT_EQ(status.code(), mca::core::StatusCode::NumericalError);
+  EXPECT_EQ(status.code, mca::core::StatusCode::NumericalError);
   EXPECT_TRUE(runner.configured());
 
   mca::experiment::PidFeedforwardComparisonResult after_invalid;

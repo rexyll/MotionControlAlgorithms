@@ -245,3 +245,37 @@ TEST(BldcPmsm, CheckedMechanicalPowerRejectsOverflowWithoutChangingOutput) {
   EXPECT_DOUBLE_EQ(motor.speed(), 4.0);
   EXPECT_DOUBLE_EQ(motor.current_a(), 1.0);
 }
+
+TEST(BldcPmsm, CheckedElectricalPowerReportsStatusAndPreservesState) {
+  mca::plant::BldcPmsm unconfigured;
+  double output = 123.0;
+  EXPECT_EQ(unconfigured.electrical_power(1.0, 2.0, 3.0, output).code,
+            mca::core::StatusCode::NotConfigured);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+
+  mca::plant::BldcPmsm motor;
+  ASSERT_TRUE(motor.reset(0.5, 0.3, 0.25, -0.5, 1.0).ok());
+  EXPECT_EQ(motor.electrical_power(std::numeric_limits<double>::quiet_NaN(),
+                                   2.0, 3.0, output).code,
+            mca::core::StatusCode::InvalidArgument);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+  ASSERT_TRUE(motor.electrical_power(2.0, -4.0, 0.5, output).ok());
+  EXPECT_DOUBLE_EQ(output, 3.5);
+  EXPECT_DOUBLE_EQ(motor.mechanical_angle(), 0.5);
+  EXPECT_DOUBLE_EQ(motor.speed(), 0.3);
+  EXPECT_DOUBLE_EQ(motor.current_a(), 0.25);
+  EXPECT_DOUBLE_EQ(motor.current_b(), -0.5);
+  EXPECT_DOUBLE_EQ(motor.current_c(), 1.0);
+}
+
+TEST(BldcPmsm, CheckedElectricalPowerRejectsOverflowWithoutChangingOutput) {
+  mca::plant::BldcPmsm motor;
+  ASSERT_TRUE(motor.reset(0.0, 0.0, std::numeric_limits<double>::max(),
+                          0.0, 0.0).ok());
+  double output = -77.0;
+  EXPECT_EQ(motor.electrical_power(std::numeric_limits<double>::max(),
+                                   0.0, 0.0, output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(output, -77.0);
+  EXPECT_DOUBLE_EQ(motor.current_a(), std::numeric_limits<double>::max());
+}

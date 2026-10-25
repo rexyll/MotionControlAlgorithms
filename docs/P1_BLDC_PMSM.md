@@ -30,3 +30,6 @@ The state uses SI units and semi-implicit Euler integration. For numerical stabi
 ## Limitations and next step
 
 This phase-domain model intentionally precedes the Clarke/Park transforms and the dedicated PMSM dq model. It does not claim current-regulated FOC behavior. P1-06 introduces reference-tested coordinate transforms; P1-07 then adds the rotor-frame dq equations.
+## Checked power diagnostics
+
+`electrical_power(va, vb, vc, output)` computes instantaneous terminal input power as `va * ia + vb * ib + vc * ic` from the supplied phase voltages and stored phase currents. `mechanical_power(output)` computes shaft power from checked electromagnetic torque and mechanical speed. The status-returning diagnostics preserve the output argument on failure, do not mutate plant state, reject non-finite voltage inputs, and report `NumericalError` for non-finite intermediate products or sums. They do not include inverter losses or switching effects.

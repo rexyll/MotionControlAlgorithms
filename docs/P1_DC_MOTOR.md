@@ -94,4 +94,7 @@ P1-05 extends the plant model toward BLDC/PMSM dynamics, preserving the same sep
 `copper_loss(output)` provides checked armature winding loss `R * i^2`; it reports unconfigured/overflow status and commits output only on success without mutating state.
 
 Worked point (default armature resistance `R = 1 Ω`): after setting the stored current to `i = 2 A`, calling `electrical_power(3 V, output)` returns `6 W` and `copper_loss(output)` returns `4 W`. With `i = -2 A` and the same supplied voltage, terminal power is `-6 W` while copper loss remains `4 W`. These are instantaneous diagnostic values, not a complete transient energy balance.
+
+Mechanical-power worked point (default torque constant `K_t = 0.1 N·m/A`): with stored current `i = 2 A` and mechanical speed `ω = 10 rad/s`, electromagnetic torque is `T_e = K_t*i = 0.2 N·m` and `mechanical_power(output)` returns `T_e*ω = 2 W`. Reversing speed to `-10 rad/s` while keeping current fixed yields `-2 W`, indicating power flows from the modeled shaft into the plant under the `T_e*ω` convention. This shaft-power value is distinct from terminal electrical input power and copper loss.
+
 Sign convention: electrical input power is `voltage * current`. Positive values mean electrical power enters the modeled motor at the supplied terminal; negative values mean the instantaneous terminal power flows back toward the source under this convention. Copper loss is nonnegative for valid positive resistance and is independent of current sign.

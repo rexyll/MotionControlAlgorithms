@@ -68,3 +68,23 @@ TEST(BenchmarkMetrics, FailedStepConfigurationPreservesActiveConfiguration) {
   accumulator.add(0.06, 1.0);
   EXPECT_DOUBLE_EQ(accumulator.settling_time_s(), 0.0);
 }
+
+TEST(BenchmarkMetrics, StepResponseOverflowingSamplePreservesMetrics) {
+  mca::benchmark::StepResponseAccumulator accumulator;
+  ASSERT_TRUE(accumulator.configure(0.0, -0.5 * std::numeric_limits<double>::max(),
+                                    0.02, 0.05));
+  accumulator.add(0.0, -0.5 * std::numeric_limits<double>::max());
+  accumulator.add(0.06, -0.5 * std::numeric_limits<double>::max());
+  ASSERT_DOUBLE_EQ(accumulator.overshoot(), 0.0);
+  ASSERT_DOUBLE_EQ(accumulator.settling_time_s(), 0.0);
+
+  // target - actual overflows here; the invalid sample must not turn the
+  // persistent peak or settling state into non-finite values.
+  accumulator.add(0.07, std::numeric_limits<double>::max());
+  EXPECT_DOUBLE_EQ(accumulator.overshoot(), 0.0);
+  EXPECT_DOUBLE_EQ(accumulator.settling_time_s(), 0.0);
+
+  accumulator.add(0.08, -0.5 * std::numeric_limits<double>::max());
+  EXPECT_DOUBLE_EQ(accumulator.overshoot(), 0.0);
+  EXPECT_DOUBLE_EQ(accumulator.settling_time_s(), 0.0);
+}

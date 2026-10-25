@@ -441,7 +441,7 @@ TEST(PmsmDq, CheckedCopperLossRejectsOverflowingCurrentSquareSum) {
   mca::plant::PmsmDqConfig config;
   config.d_axis_inductance_h = 0.001;
   config.q_axis_inductance_h = 0.001;
-  config.permanent_magnet_flux_wb = 0.0;
+  config.permanent_magnet_flux_wb = 1e-300;
   mca::plant::PmsmDq motor(config);
   const double current = std::sqrt(std::numeric_limits<double>::max()) * 0.9;
   ASSERT_TRUE(motor.reset(0.25, 1.5, current, current).ok());
@@ -468,7 +468,7 @@ TEST(PmsmDq, CheckedElectricalPowerRejectsOverflowingSumWithoutChangingOutputOrS
   // torque-neutral even with very large finite currents.
   config.d_axis_inductance_h = 0.001;
   config.q_axis_inductance_h = 0.001;
-  config.permanent_magnet_flux_wb = 0.0;
+  config.permanent_magnet_flux_wb = 1e-300;
   mca::plant::PmsmDq motor(config);
   const double max = std::numeric_limits<double>::max();
   ASSERT_TRUE(motor.reset(0.25, 1.5, max, max).ok());

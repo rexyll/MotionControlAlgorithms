@@ -355,6 +355,23 @@ TEST(BldcPmsm, CheckedElectricalPowerRejectsOverflowingPhaseSumWithoutChangingOu
   EXPECT_DOUBLE_EQ(motor.current_c(), before_c);
 }
 
+TEST(BldcPmsm, CheckedCopperLossRejectsResistanceProductOverflowWithoutChangingOutputOrState) {
+  mca::plant::BldcPmsmConfig config;
+  config.phase_resistance_ohm = std::numeric_limits<double>::max() / 2.0;
+  mca::plant::BldcPmsm motor(config);
+  ASSERT_TRUE(motor.reset(0.0, 1.5, 1.0, 1.0, 0.0).ok());
+
+  double output = 123.0;
+  EXPECT_EQ(motor.copper_loss(output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+  EXPECT_DOUBLE_EQ(motor.mechanical_angle(), 0.0);
+  EXPECT_DOUBLE_EQ(motor.speed(), 1.5);
+  EXPECT_DOUBLE_EQ(motor.current_a(), 1.0);
+  EXPECT_DOUBLE_EQ(motor.current_b(), 1.0);
+  EXPECT_DOUBLE_EQ(motor.current_c(), 0.0);
+}
+
 TEST(BldcPmsm, CheckedCopperLossRejectsOverflowingPhaseSquareSumWithoutChangingOutputOrState) {
   mca::plant::BldcPmsmConfig config;
   config.torque_constant_nm_per_a = 1e-300;

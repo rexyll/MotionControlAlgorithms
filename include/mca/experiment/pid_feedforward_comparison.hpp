@@ -65,6 +65,14 @@ class PidFeedforwardComparison {
       return {core::StatusCode::InvalidArgument};
     }
 
+    // Validate the full simulation time horizon before touching the active
+    // runner. The last sample's end time is steps * dt; a finite timestep can
+    // still overflow when multiplied by the configured sample count.
+    const double final_sample_time = static_cast<double>(config.steps) * config.dt;
+    if (!core::is_finite(final_sample_time)) {
+      return {core::StatusCode::NumericalError};
+    }
+
     // Build a complete candidate so rejected reconfiguration leaves the
     // previously working comparison and its runtime state untouched.
     auto trial = *this;

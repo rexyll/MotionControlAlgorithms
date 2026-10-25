@@ -437,6 +437,44 @@ TEST(PmsmDq, PowerDiagnosticsHandleZeroAndNegativeDqCurrentConvention) {
 
 }  // namespace
 
+TEST(PmsmDq, CheckedCopperLossRejectsResistanceProductOverflowWithoutChangingOutputOrState) {
+  mca::plant::PmsmDqConfig config;
+  config.resistance_ohm = std::numeric_limits<double>::max() / 2.0;
+  config.d_axis_inductance_h = 0.001;
+  config.q_axis_inductance_h = 0.001;
+  config.permanent_magnet_flux_wb = 1e-300;
+  mca::plant::PmsmDq motor(config);
+  ASSERT_TRUE(motor.reset(0.25, 1.5, 1.0, 1.0).ok());
+
+  double output = 123.0;
+  EXPECT_EQ(motor.copper_loss(output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+  EXPECT_DOUBLE_EQ(motor.position(), 0.25);
+  EXPECT_DOUBLE_EQ(motor.velocity(), 1.5);
+  EXPECT_DOUBLE_EQ(motor.d_current(), 1.0);
+  EXPECT_DOUBLE_EQ(motor.q_current(), 1.0);
+}
+
+TEST(PmsmDq, CheckedCopperLossRejectsFinalScalingOverflowWithoutChangingOutputOrState) {
+  mca::plant::PmsmDqConfig config;
+  config.d_axis_inductance_h = 0.001;
+  config.q_axis_inductance_h = 0.001;
+  config.permanent_magnet_flux_wb = 1e-300;
+  mca::plant::PmsmDq motor(config);
+  const double current = std::sqrt(std::numeric_limits<double>::max() * 0.4);
+  ASSERT_TRUE(motor.reset(0.25, 1.5, current, current).ok());
+
+  double output = 123.0;
+  EXPECT_EQ(motor.copper_loss(output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+  EXPECT_DOUBLE_EQ(motor.position(), 0.25);
+  EXPECT_DOUBLE_EQ(motor.velocity(), 1.5);
+  EXPECT_DOUBLE_EQ(motor.d_current(), current);
+  EXPECT_DOUBLE_EQ(motor.q_current(), current);
+}
+
 TEST(PmsmDq, CheckedCopperLossRejectsOverflowingCurrentSquareSum) {
   mca::plant::PmsmDqConfig config;
   config.d_axis_inductance_h = 0.001;

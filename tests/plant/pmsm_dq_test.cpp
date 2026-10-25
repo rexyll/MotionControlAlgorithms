@@ -437,6 +437,31 @@ TEST(PmsmDq, PowerDiagnosticsHandleZeroAndNegativeDqCurrentConvention) {
 
 }  // namespace
 
+TEST(PmsmDq, CheckedCopperLossRejectsOverflowingCurrentSquareSum) {
+  mca::plant::PmsmDqConfig config;
+  config.d_axis_inductance_h = 0.001;
+  config.q_axis_inductance_h = 0.001;
+  config.permanent_magnet_flux_wb = 0.0;
+  mca::plant::PmsmDq motor(config);
+  const double current = std::sqrt(std::numeric_limits<double>::max()) * 0.9;
+  ASSERT_TRUE(motor.reset(0.25, 1.5, current, current).ok());
+
+  const double before_position = motor.position();
+  const double before_velocity = motor.velocity();
+  const double before_d = motor.d_current();
+  const double before_q = motor.q_current();
+  double output = 123.0;
+
+  // Each current square is finite, but their sum overflows.
+  EXPECT_EQ(motor.copper_loss(output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+  EXPECT_DOUBLE_EQ(motor.position(), before_position);
+  EXPECT_DOUBLE_EQ(motor.velocity(), before_velocity);
+  EXPECT_DOUBLE_EQ(motor.d_current(), before_d);
+  EXPECT_DOUBLE_EQ(motor.q_current(), before_q);
+}
+
 TEST(PmsmDq, CheckedElectricalPowerRejectsOverflowingSumWithoutChangingOutputOrState) {
   mca::plant::PmsmDqConfig config;
   // Equal inductances and zero PM flux make the diagnostic operating point

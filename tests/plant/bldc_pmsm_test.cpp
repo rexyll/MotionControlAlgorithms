@@ -254,6 +254,7 @@ TEST(BldcPmsm, CheckedElectricalPowerReportsStatusAndPreservesState) {
   EXPECT_DOUBLE_EQ(output, 123.0);
 
   mca::plant::BldcPmsm motor;
+  ASSERT_TRUE(motor.configure({}).ok());
   ASSERT_TRUE(motor.reset(0.5, 0.3, 0.25, -0.5, 1.0).ok());
   EXPECT_EQ(motor.electrical_power(std::numeric_limits<double>::quiet_NaN(),
                                    2.0, 3.0, output).code,
@@ -270,6 +271,7 @@ TEST(BldcPmsm, CheckedElectricalPowerReportsStatusAndPreservesState) {
 
 TEST(BldcPmsm, CheckedElectricalPowerRejectsOverflowWithoutChangingOutput) {
   mca::plant::BldcPmsm motor;
+  ASSERT_TRUE(motor.configure({}).ok());
   ASSERT_TRUE(motor.reset(0.0, 0.0, std::numeric_limits<double>::max(),
                           0.0, 0.0).ok());
   double output = -77.0;

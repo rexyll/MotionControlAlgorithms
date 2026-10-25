@@ -349,4 +349,41 @@ TEST(PmsmDq, CheckedMechanicalPowerRejectsOverflowWithoutChangingOutputOrState) 
   EXPECT_DOUBLE_EQ(motor.q_current(), before_q);
 }
 
-}  // namespace
+
+TEST(PmsmDq, CheckedElectricalPowerReportsStatusAndPreservesState) {
+  mca::plant::PmsmDq unconfigured;
+  double output = 123.0;
+  EXPECT_EQ(unconfigured.electrical_power(4.0, 5.0, output).code,
+            mca::core::StatusCode::NotConfigured);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+
+  mca::plant::PmsmDq motor;
+  ASSERT_TRUE(motor.reset(0.2, 1.5, 2.0, -3.0).ok());
+  EXPECT_EQ(motor.electrical_power(std::numeric_limits<double>::infinity(),
+                                   5.0, output).code,
+            mca::core::StatusCode::InvalidArgument);
+  EXPECT_DOUBLE_EQ(output, 123.0);
+  ASSERT_TRUE(motor.electrical_power(4.0, 5.0, output).ok());
+  EXPECT_DOUBLE_EQ(output, -10.5);
+  EXPECT_DOUBLE_EQ(motor.position(), 0.2);
+  EXPECT_DOUBLE_EQ(motor.velocity(), 1.5);
+  EXPECT_DOUBLE_EQ(motor.d_current(), 2.0);
+  EXPECT_DOUBLE_EQ(motor.q_current(), -3.0);
+}
+
+TEST(PmsmDq, CheckedElectricalPowerRejectsOverflowWithoutChangingOutput) {
+  mca::plant::PmsmDqConfig config;
+  config.permanent_magnet_flux_wb = 0.01;
+  config.pole_pairs = 2;
+  mca::plant::PmsmDq motor(config);
+  ASSERT_TRUE(motor.reset(0.0, 0.0, 0.0,
+                          std::numeric_limits<double>::max()).ok());
+  double output = -77.0;
+  EXPECT_EQ(motor.electrical_power(0.0, std::numeric_limits<double>::max(),
+                                   output).code,
+            mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(output, -77.0);
+  EXPECT_DOUBLE_EQ(motor.q_current(), std::numeric_limits<double>::max());
+}
+
+}  // namespace}  // namespace

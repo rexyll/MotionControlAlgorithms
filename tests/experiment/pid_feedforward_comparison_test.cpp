@@ -1,4 +1,5 @@
 #include <cmath>
+#include <limits>
 
 #include <gtest/gtest.h>
 
@@ -102,8 +103,9 @@ TEST(PidFeedforwardComparison, FailedRunPreservesCallerResultAndRunner) {
   config.dt = 1.0e308;
   config.steps = 1;
   config.ramp_duration_s = 1.0;
-  config.feedforward.velocity_gain = 1.0;
+  config.feedforward.velocity_gain = std::numeric_limits<double>::max();
   config.feedforward.acceleration_gain = 0.0;
+  config.feedforward.constant_bias = std::numeric_limits<double>::max();
   ASSERT_TRUE(runner.configure(config).ok());
 
   mca::experiment::PidFeedforwardComparisonResult result;
@@ -119,6 +121,8 @@ TEST(PidFeedforwardComparison, FailedRunPreservesCallerResultAndRunner) {
 
   config.dt = 0.001;
   config.steps = 100;
+  config.feedforward.velocity_gain = 1.0;
+  config.feedforward.constant_bias = 0.0;
   ASSERT_TRUE(runner.configure(config).ok());
   mca::experiment::PidFeedforwardComparisonResult recovered;
   ASSERT_TRUE(runner.run(recovered).ok());

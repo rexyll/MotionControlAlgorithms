@@ -154,6 +154,21 @@ class DcMotor {
     return {};
   }
 
+  // Checked winding copper loss, R * i^2. This diagnostic never mutates state.
+  core::Status copper_loss(double& output) const noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    const double current_squared = current_a_ * current_a_;
+    if (!core::is_finite(current_squared)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double candidate = config_.resistance_ohm * current_squared;
+    if (!core::is_finite(candidate)) {
+      return {core::StatusCode::NumericalError};
+    }
+    output = candidate;
+    return {};
+  }
+
   // Checked mechanical-power diagnostic. This is derived from the current
   // electromagnetic torque and mechanical speed and never mutates state.
   core::Status mechanical_power(double& output) const noexcept {

@@ -214,7 +214,7 @@ TEST(BldcPmsm, CheckedMechanicalPowerRejectsOverflowWithoutChangingOutput) {
   mca::plant::BldcPmsmConfig config;
   config.torque_constant_nm_per_a = std::numeric_limits<double>::max() / 2.0;
   mca::plant::BldcPmsm motor(config);
-  ASSERT_TRUE(motor.reset(0.0, 4.0, 1.0, 0.0, 0.0).ok());
+  ASSERT_TRUE(motor.reset(1.5707963267948966, 4.0, 1.0, 0.0, 0.0).ok());
   double output = -77.0;
   EXPECT_EQ(motor.mechanical_power(output).code,
             mca::core::StatusCode::NumericalError);

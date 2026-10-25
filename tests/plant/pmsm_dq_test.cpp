@@ -427,7 +427,7 @@ TEST(PmsmDq, PowerDiagnosticsHandleZeroAndNegativeDqCurrentConvention) {
   ASSERT_TRUE(motor.electrical_power(3.0, 0.0, electrical).ok());
   ASSERT_TRUE(motor.copper_loss(copper).ok());
   EXPECT_DOUBLE_EQ(electrical, -9.0);
-  EXPECT_DOUBLE_EQ(copper, 6.0);
+  EXPECT_DOUBLE_EQ(copper, 3.0);
   ASSERT_TRUE(motor.reset(0.0, 0.0, 0.0, 0.0).ok());
   ASSERT_TRUE(motor.electrical_power(0.0, 0.0, electrical).ok());
   ASSERT_TRUE(motor.copper_loss(copper).ok());

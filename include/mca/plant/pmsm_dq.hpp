@@ -254,6 +254,29 @@ class PmsmDq {
     return {};
   }
 
+  // Checked stator copper loss in the amplitude-invariant dq convention:
+  // P_cu = 3/2 * R * (id^2 + iq^2). Output is committed only on success.
+  core::Status copper_loss(double& output) const noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    const double d_squared = d_current_a_ * d_current_a_;
+    const double q_squared = q_current_a_ * q_current_a_;
+    if (!core::is_finite(d_squared) || !core::is_finite(q_squared)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double sum = d_squared + q_squared;
+    if (!core::is_finite(sum)) return {core::StatusCode::NumericalError};
+    const double resistive_loss = config_.resistance_ohm * sum;
+    if (!core::is_finite(resistive_loss)) {
+      return {core::StatusCode::NumericalError};
+    }
+    const double candidate = 1.5 * resistive_loss;
+    if (!core::is_finite(candidate)) {
+      return {core::StatusCode::NumericalError};
+    }
+    output = candidate;
+    return {};
+  }
+
   // Checked mechanical shaft-power diagnostic; this query never mutates state.
   core::Status mechanical_power(double& output) const noexcept {
     if (!configured_) return {core::StatusCode::NotConfigured};

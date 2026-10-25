@@ -458,6 +458,7 @@ TEST(PmsmDq, CheckedCopperLossRejectsResistanceProductOverflowWithoutChangingOut
 
 TEST(PmsmDq, CheckedCopperLossRejectsFinalScalingOverflowWithoutChangingOutputOrState) {
   mca::plant::PmsmDqConfig config;
+  config.resistance_ohm = 1.0;
   config.d_axis_inductance_h = 0.001;
   config.q_axis_inductance_h = 0.001;
   config.permanent_magnet_flux_wb = 1e-300;

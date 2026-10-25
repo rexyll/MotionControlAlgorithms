@@ -1,4 +1,5 @@
 #include <cmath>
+#include <limits>
 
 #include <gtest/gtest.h>
 
@@ -92,6 +93,47 @@ TEST(CascadedServoExperimentTest, FailedReconfigurationPreservesWorkingExperimen
   EXPECT_EQ(after_failures.position.samples, baseline.position.samples);
   EXPECT_EQ(after_failures.constraints.violations,
             baseline.constraints.violations);
+}
+
+TEST(CascadedServoExperimentTest, FailedRunPreservesExperimentAndCallerResult) {
+  mca::experiment::CascadedServoConfig config;
+  config.dt = 1.0e-4;
+  config.steps = 10;
+  config.load_torque_nm = std::numeric_limits<double>::max();
+
+  mca::experiment::CascadedServoExperiment experiment;
+  ASSERT_TRUE(experiment.configure(config, make_servo_config(),
+                                   make_motor_config()).ok());
+
+  const double position_before = experiment.motor().position();
+  const double velocity_before = experiment.motor().velocity();
+  const double current_before = experiment.motor().current();
+  const double velocity_reference_before =
+      experiment.controller().velocity_reference();
+  const double torque_reference_before =
+      experiment.controller().torque_reference();
+
+  mca::experiment::CascadedServoResult result;
+  result.final_position = 123.0;
+  result.final_velocity = 456.0;
+  result.final_current = 789.0;
+  result.position.rmse = 321.0;
+  result.position.samples = 77U;
+  const auto status = experiment.run(result);
+
+  EXPECT_EQ(status.code, mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(result.final_position, 123.0);
+  EXPECT_DOUBLE_EQ(result.final_velocity, 456.0);
+  EXPECT_DOUBLE_EQ(result.final_current, 789.0);
+  EXPECT_DOUBLE_EQ(result.position.rmse, 321.0);
+  EXPECT_EQ(result.position.samples, 77U);
+  EXPECT_DOUBLE_EQ(experiment.motor().position(), position_before);
+  EXPECT_DOUBLE_EQ(experiment.motor().velocity(), velocity_before);
+  EXPECT_DOUBLE_EQ(experiment.motor().current(), current_before);
+  EXPECT_DOUBLE_EQ(experiment.controller().velocity_reference(),
+                   velocity_reference_before);
+  EXPECT_DOUBLE_EQ(experiment.controller().torque_reference(),
+                   torque_reference_before);
 }
 
 TEST(CascadedServoExperimentTest, ProducesTrackingBenchmark) {

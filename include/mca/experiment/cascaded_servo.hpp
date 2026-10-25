@@ -107,6 +107,22 @@ class CascadedServoExperiment {
 
   core::Status run(CascadedServoResult& result) noexcept {
     if (!configured_) return {core::StatusCode::NotConfigured};
+
+    // Execute the full benchmark on a trial copy. A controller/plant failure
+    // may occur after several successful steps; do not expose a partially
+    // advanced experiment or overwrite the caller's result in that case.
+    auto trial = *this;
+    CascadedServoResult trial_result{};
+    const auto status = trial.run_impl(trial_result);
+    if (!status.ok()) return status;
+    *this = trial;
+    result = trial_result;
+    return {};
+  }
+
+ private:
+  core::Status run_impl(CascadedServoResult& result) noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
     if (!reset().ok()) return {core::StatusCode::InvalidArgument};
 
     const trajectory::StepTrajectory reference(config_.position_reference);
@@ -162,6 +178,7 @@ class CascadedServoExperiment {
     return {};
   }
 
+ public:
   [[nodiscard]] const control::CascadedServo& controller() const noexcept {
     return servo_;
   }

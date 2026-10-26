@@ -7,6 +7,7 @@
 #include "mca/control/feedforward.hpp"
 #include "mca/control/pid.hpp"
 #include "mca/plant/second_order.hpp"
+#include "mca/simulation/state_command.hpp"
 #include "mca/simulation/step.hpp"
 #include "mca/trajectory/scalar.hpp"
 
@@ -84,6 +85,25 @@ class SingleAxisExperiment {
     return {};
   }
 
+  // Export a fixed-size snapshot of the current internal plant state for
+  // simulator-neutral telemetry and adapter bridges. Acceleration is evaluated
+  // using the effort applied on the most recently completed step. The output is
+  // committed only when the complete snapshot is finite.
+  core::Status state_snapshot(simulation::ScalarSimulationState& output) const noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    simulation::ScalarSimulationState candidate;
+    candidate.position[0] = plant_.position();
+    candidate.velocity[0] = plant_.velocity();
+    double acceleration = 0.0;
+    if (auto status = plant_.acceleration(last_effort_, acceleration); !status.ok()) {
+      return status;
+    }
+    candidate.acceleration[0] = acceleration;
+    if (!candidate.finite()) return {core::StatusCode::NumericalError};
+    output = candidate;
+    return {};
+  }
+
   // Consume exactly one externally supplied simulation step. The experiment
   // does not own a clock: the same dt is forwarded to the controller and
   // plant, while the supplied time is used for trajectory sampling.
@@ -129,6 +149,7 @@ class SingleAxisExperiment {
     accumulator_.reset();
     step_metrics_.reset();
     executed_steps_ = 0;
+    last_effort_ = 0.0;
     if (auto status = plant_.reset(); !status.ok()) return status;
     if (auto status = pid_.reset(0.0, 0.0); !status.ok()) return status;
     return {};
@@ -169,6 +190,7 @@ class SingleAxisExperiment {
       step_metrics_.add(sample_time_s, plant_.position());
     }
     effort = candidate_effort;
+    last_effort_ = candidate_effort;
     ++executed_steps_;
     return {};
   }
@@ -213,6 +235,7 @@ class SingleAxisExperiment {
   benchmark::TrackingAccumulator accumulator_{};
   benchmark::StepResponseAccumulator step_metrics_{};
   std::size_t executed_steps_{0};
+  double last_effort_{0.0};
   bool step_metrics_enabled_{false};
   bool configured_{false};
 };

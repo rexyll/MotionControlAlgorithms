@@ -4,6 +4,7 @@
 
 #include "mca/experiment/single_axis.hpp"
 #include "mca/simulation/lifecycle.hpp"
+#include "mca/simulation/replay.hpp"
 #include "mca/simulation/state_command.hpp"
 #include "mca/simulation/step.hpp"
 
@@ -216,4 +217,105 @@ TEST(SimulationStateCommand, ScalarAliasesExposeExplicitSingleAxisBoundary) {
   EXPECT_TRUE(command.finite());
   EXPECT_DOUBLE_EQ(state.position[0], 1.25);
   EXPECT_DOUBLE_EQ(command.effort[0], 2.0);
+}
+
+
+namespace {
+class FixedReplayBuffer final
+    : public mca::simulation::ISimulationLogSink<double, 1>,
+      public mca::simulation::ISimulationReplaySource<double, 1> {
+ public:
+  using Record = mca::simulation::ScalarSimulationRecord;
+
+  bool append(const Record& record) noexcept override {
+    if (!record.valid() || size_ >= records_.size()) return false;
+    if (size_ > 0 && record.step.step_index != records_[size_ - 1].step.step_index + 1) {
+      return false;
+    }
+    records_[size_++] = record;
+    return true;
+  }
+
+  bool reset() noexcept override {
+    cursor_ = 0;
+    return true;
+  }
+
+  bool next(Record& output) noexcept override {
+    if (cursor_ >= size_) return false;
+    output = records_[cursor_++];
+    return true;
+  }
+
+  std::size_t size() const noexcept { return size_; }
+
+ private:
+  std::array<Record, 4> records_{};
+  std::size_t size_{0};
+  std::size_t cursor_{0};
+};
+}  // namespace
+
+TEST(SimulationReplay, RecordValidatesStepStateAndCommandTogether) {
+  mca::simulation::ScalarSimulationRecord record;
+  record.step = {0.0, 0.01, 0};
+  record.state.position[0] = 0.25;
+  record.command.effort[0] = 1.5;
+  EXPECT_TRUE(record.valid());
+
+  record.command.effort[0] = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_FALSE(record.valid());
+  record.command.effort[0] = 1.5;
+  record.step.dt_s = 0.0;
+  EXPECT_FALSE(record.valid());
+}
+
+TEST(SimulationReplay, SinkRejectsInvalidAndNonSequentialRecordsWithoutMutation) {
+  FixedReplayBuffer buffer;
+  mca::simulation::ScalarSimulationRecord first;
+  first.step = {0.0, 0.01, 0};
+  ASSERT_TRUE(buffer.append(first));
+  EXPECT_EQ(buffer.size(), 1U);
+
+  auto invalid = first;
+  invalid.state.velocity[0] = std::numeric_limits<double>::infinity();
+  EXPECT_FALSE(buffer.append(invalid));
+  auto out_of_order = first;
+  out_of_order.step = {0.02, 0.01, 2};
+  EXPECT_FALSE(buffer.append(out_of_order));
+  EXPECT_EQ(buffer.size(), 1U);
+}
+
+TEST(SimulationReplay, ReplayPreservesExactRecordsAndResetRestartsSequence) {
+  FixedReplayBuffer buffer;
+  mca::simulation::ScalarSimulationRecord first;
+  first.step = {0.0, 0.01, 0};
+  first.state.position[0] = 1.25;
+  first.command.effort[0] = -0.5;
+  auto second = first;
+  second.step = {0.01, 0.01, 1};
+  second.state.position[0] = 1.5;
+  second.command.effort[0] = 0.75;
+  ASSERT_TRUE(buffer.append(first));
+  ASSERT_TRUE(buffer.append(second));
+  ASSERT_TRUE(buffer.reset());
+
+  mca::simulation::ScalarSimulationRecord output;
+  ASSERT_TRUE(buffer.next(output));
+  EXPECT_EQ(output.step.step_index, 0U);
+  EXPECT_DOUBLE_EQ(output.state.position[0], 1.25);
+  EXPECT_DOUBLE_EQ(output.command.effort[0], -0.5);
+  ASSERT_TRUE(buffer.next(output));
+  EXPECT_EQ(output.step.step_index, 1U);
+  EXPECT_DOUBLE_EQ(output.state.position[0], 1.5);
+  EXPECT_DOUBLE_EQ(output.command.effort[0], 0.75);
+
+  const auto last = output;
+  EXPECT_FALSE(buffer.next(output));
+  EXPECT_EQ(output.step.step_index, last.step.step_index);
+  EXPECT_DOUBLE_EQ(output.state.position[0], last.state.position[0]);
+
+  ASSERT_TRUE(buffer.reset());
+  ASSERT_TRUE(buffer.next(output));
+  EXPECT_EQ(output.step.step_index, 0U);
 }

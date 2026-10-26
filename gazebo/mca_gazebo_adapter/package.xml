@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>mca_gazebo_adapter</name>
+  <version>0.1.0</version>
+  <description>Optional Gazebo Harmonic system plugin implementing the scalar simulator adapter contract.</description>
+  <maintainer email="maintainers@example.invalid">MotionControlAlgorithms Maintainers</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>cmake</buildtool_depend>
+  <build_depend>libgz-sim8-dev</build_depend>
+  <build_depend>libgz-plugin2-dev</build_depend>
+  <build_depend>libgz-common5-dev</build_depend>
+  <build_depend>libgz-math7-dev</build_depend>
+  <export>
+    <build_type>cmake</build_type>
+  </export>
+</package>

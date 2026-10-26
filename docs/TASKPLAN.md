@@ -165,7 +165,7 @@ P10 acceptance correction and closure (2026-10-26): a build-system audit found t
 
 - [x] P11-01 integration workspace and dependency boundary audit — root `CMakeLists.txt` has no ROS 2/Gazebo package discovery; core build remains isolated from middleware/simulator dependencies.
 - [x] P11-02 concrete ROS 2 adapter — optional ROS 2 Jazzy scalar adapter implemented in `ros2/mca_ros2_adapter`. ROS 2 workflow Run #13 (commit `18e7460515b304cc5b9677044c3cb634f2268cc5`) passed package build/install and executed focused gtests; `colcon test-result` reported 4 tests, 0 errors, 0 failures, 0 skipped. Root CI Run #1073 on the same commit passed Linux and Windows Configure/Build/Test and P8-39 through P8-46 regression suites. The ROS 2 wire format remains prototype-only; no Gazebo runtime integration is claimed.
-- [ ] P11-03 concrete Gazebo adapter — implement and test the optional Gazebo Harmonic system/plugin.
+- [ ] P11-03 concrete Gazebo adapter — initial optional `gazebo/mca_gazebo_adapter` package and Gazebo Sim 8 plugin scaffold committed; dedicated Harmonic build workflow is running. Do not accept until the plugin compiles and a headless runtime smoke test verifies state/command behavior, reset, and missing-joint handling. Current known gaps: acceleration is reported as zero and external command ingress/thread-safety need resolution.
 - [ ] P11-04 launch-level single-axis integration — connect core, ROS 2, and Gazebo with deterministic reset and headless smoke coverage.
 - [ ] P11-05 runtime robustness and acceptance — validate stale/invalid commands, missing entities, reset/shutdown, and repeated launch; document real runtime evidence.
 

@@ -58,6 +58,15 @@ class CascadedServoExperiment {
       return {core::StatusCode::InvalidArgument};
     }
 
+    // The loop records the final sample at steps * dt. Reject a finite
+    // timestep/sample-count pair whose derived simulation horizon is not
+    // representable before replacing an already-working experiment.
+    const double final_sample_time =
+        static_cast<double>(experiment_config.steps) * experiment_config.dt;
+    if (!core::is_finite(final_sample_time)) {
+      return {core::StatusCode::NumericalError};
+    }
+
     // Configure copies first. A failure in any component must not disable or
     // partially replace a previously usable experiment.
     auto servo_trial = servo_;
@@ -121,13 +130,35 @@ class CascadedServoExperiment {
   }
 
  private:
+  static bool tracking_metrics_valid(const benchmark::TrackingMetrics& metrics,
+                                     int expected_samples) noexcept {
+    const bool settling_is_nan =
+        metrics.settling_time_s != metrics.settling_time_s;
+    return metrics.samples == static_cast<std::size_t>(expected_samples) &&
+           core::is_finite(metrics.rmse) &&
+           core::is_finite(metrics.max_abs_error) &&
+           core::is_finite(metrics.overshoot) &&
+           core::is_finite(metrics.control_effort_rms) &&
+           (core::is_finite(metrics.settling_time_s) || settling_is_nan);
+  }
+
   core::Status run_impl(CascadedServoResult& result) noexcept {
     if (!configured_) return {core::StatusCode::NotConfigured};
+
+    const double final_sample_time =
+        static_cast<double>(config_.steps) * config_.dt;
+    if (!core::is_finite(final_sample_time)) {
+      return {core::StatusCode::NumericalError};
+    }
+
     if (!reset().ok()) return {core::StatusCode::InvalidArgument};
 
     const trajectory::StepTrajectory reference(config_.position_reference);
     for (int i = 0; i < config_.steps; ++i) {
       const double time_s = static_cast<double>(i) * config_.dt;
+      if (!core::is_finite(time_s)) {
+        return {core::StatusCode::NumericalError};
+      }
       const auto sample = reference.sample(time_s);
       double voltage = 0.0;
       const auto control_status = servo_.update(
@@ -135,11 +166,20 @@ class CascadedServoExperiment {
           config_.dt, voltage);
       if (!control_status.ok()) return control_status;
 
+      if (!core::is_finite(voltage)) {
+        return {core::StatusCode::NumericalError};
+      }
       if (std::abs(voltage) > config_.max_voltage_v) {
         const double violation = std::abs(voltage) - config_.max_voltage_v;
+        if (!core::is_finite(violation)) {
+          return {core::StatusCode::NumericalError};
+        }
         ++constraints_.violations;
         constraints_.max_violation =
             std::max(constraints_.max_violation, violation);
+        if (!core::is_finite(constraints_.max_violation)) {
+          return {core::StatusCode::NumericalError};
+        }
         voltage = math::clamp(voltage, -config_.max_voltage_v,
                               config_.max_voltage_v);
       }
@@ -149,14 +189,27 @@ class CascadedServoExperiment {
 
       // Current is a plant state updated by step(). Check the post-step value
       // so a threshold crossing on the final sample is not silently missed.
+      if (!core::is_finite(motor_.current())) {
+        return {core::StatusCode::NumericalError};
+      }
       if (std::abs(motor_.current()) > config_.max_current_a) {
-        const double violation = std::abs(motor_.current()) - config_.max_current_a;
+        const double violation =
+            std::abs(motor_.current()) - config_.max_current_a;
+        if (!core::is_finite(violation)) {
+          return {core::StatusCode::NumericalError};
+        }
         ++constraints_.violations;
         constraints_.max_violation =
             std::max(constraints_.max_violation, violation);
+        if (!core::is_finite(constraints_.max_violation)) {
+          return {core::StatusCode::NumericalError};
+        }
       }
 
       const double sample_time_s = time_s + config_.dt;
+      if (!core::is_finite(sample_time_s)) {
+        return {core::StatusCode::NumericalError};
+      }
       position_accumulator_.add(sample.position, motor_.position(), voltage);
       velocity_accumulator_.add(servo_.velocity_reference(), motor_.velocity(),
                                 voltage);
@@ -177,6 +230,18 @@ class CascadedServoExperiment {
     result.final_current = motor_.current();
     result.final_torque = motor_.torque();
     result.final_voltage = final_voltage_;
+
+    if (!tracking_metrics_valid(result.position, config_.steps) ||
+        !tracking_metrics_valid(result.velocity, config_.steps) ||
+        !tracking_metrics_valid(result.torque, config_.steps) ||
+        !core::is_finite(result.final_position) ||
+        !core::is_finite(result.final_velocity) ||
+        !core::is_finite(result.final_current) ||
+        !core::is_finite(result.final_torque) ||
+        !core::is_finite(result.final_voltage) ||
+        !core::is_finite(result.constraints.max_violation)) {
+      return {core::StatusCode::NumericalError};
+    }
     return {};
   }
 

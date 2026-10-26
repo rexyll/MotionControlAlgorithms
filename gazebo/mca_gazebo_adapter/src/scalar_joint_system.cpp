@@ -66,6 +66,7 @@ class ScalarJointSystem final : public gz::sim::System,
       if (force && !force->Data().empty()) force->Data()[0] = 0.0;
       pending_command_ = false;
     }
+    if (step_index_ != std::numeric_limits<std::size_t>::max()) ++step_index_;
   }
 
   void PostUpdate(const gz::sim::UpdateInfo& info,
@@ -95,7 +96,6 @@ class ScalarJointSystem final : public gz::sim::System,
     cached_step_ = next_step;
     cached_state_ = next_state;
     state_valid_ = true;
-    if (step_index_ != std::numeric_limits<std::size_t>::max()) ++step_index_;
   }
 
   bool read_state(mca::simulation::SimulationStep& step,

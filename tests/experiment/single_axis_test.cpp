@@ -128,3 +128,68 @@ TEST(SingleAxisExperiment, FailedRunPreservesStateAndResult) {
   EXPECT_TRUE(std::isfinite(recovered.final_position));
   EXPECT_TRUE(std::isfinite(recovered.final_velocity));
 }
+
+
+TEST(SingleAxisExperiment, RejectsOverflowingSimulationHorizonTransactionally) {
+  mca::experiment::SingleAxisExperiment experiment;
+  mca::experiment::SingleAxisConfig config;
+  config.dt = 0.001;
+  config.steps = 100;
+  config.reference = 1.0;
+  mca::plant::SecondOrderPlant plant(1.0, 4.0, 0.0);
+  mca::control::PidConfig pid;
+  pid.kp = 100.0;
+  pid.kd = 20.0;
+  pid.ki = 10.0;
+  pid.output_min = -100.0;
+  pid.output_max = 100.0;
+  pid.integral_min = -20.0;
+  pid.integral_max = 20.0;
+
+  ASSERT_TRUE(experiment.configure(config, plant, pid).ok());
+  mca::experiment::SingleAxisResult baseline;
+  ASSERT_TRUE(experiment.run(baseline).ok());
+
+  auto invalid = config;
+  invalid.dt = std::numeric_limits<double>::max();
+  invalid.steps = 2;
+  const auto status = experiment.configure(invalid, plant, pid);
+  EXPECT_EQ(status.code, mca::core::StatusCode::NumericalError);
+
+  mca::experiment::SingleAxisResult after_invalid;
+  ASSERT_TRUE(experiment.run(after_invalid).ok());
+  EXPECT_DOUBLE_EQ(after_invalid.final_position, baseline.final_position);
+  EXPECT_DOUBLE_EQ(after_invalid.final_velocity, baseline.final_velocity);
+  EXPECT_DOUBLE_EQ(after_invalid.metrics.rmse, baseline.metrics.rmse);
+  EXPECT_EQ(after_invalid.metrics.samples, config.steps);
+}
+
+TEST(SingleAxisExperiment, ReportsCompleteFiniteMetrics) {
+  mca::experiment::SingleAxisExperiment experiment;
+  mca::experiment::SingleAxisConfig config;
+  config.dt = 0.001;
+  config.steps = 37;
+  config.reference = 1.0;
+  mca::plant::SecondOrderPlant plant(1.0, 4.0, 0.0);
+  mca::control::PidConfig pid;
+  pid.kp = 100.0;
+  pid.kd = 20.0;
+  pid.ki = 10.0;
+  pid.output_min = -100.0;
+  pid.output_max = 100.0;
+  pid.integral_min = -20.0;
+  pid.integral_max = 20.0;
+
+  ASSERT_TRUE(experiment.configure(config, plant, pid).ok());
+  mca::experiment::SingleAxisResult result;
+  ASSERT_TRUE(experiment.run(result).ok());
+  EXPECT_EQ(result.metrics.samples, 37U);
+  EXPECT_TRUE(std::isfinite(result.metrics.rmse));
+  EXPECT_TRUE(std::isfinite(result.metrics.max_abs_error));
+  EXPECT_TRUE(std::isfinite(result.metrics.overshoot));
+  EXPECT_TRUE(std::isfinite(result.metrics.control_effort_rms));
+  EXPECT_TRUE(std::isfinite(result.metrics.settling_time_s) ||
+              std::isnan(result.metrics.settling_time_s));
+  EXPECT_TRUE(std::isfinite(result.final_position));
+  EXPECT_TRUE(std::isfinite(result.final_velocity));
+}

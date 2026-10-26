@@ -34,6 +34,9 @@
 #include "mca/plant/dc_motor.hpp"
 #include "mca/plant/first_order.hpp"
 #include "mca/plant/second_order.hpp"
+#include "mca/simulation/lifecycle.hpp"
+#include "mca/simulation/state_command.hpp"
+#include "mca/simulation/step.hpp"
 #include "mca/trajectory/scalar.hpp"
 
 #include "mca/legged/floating_base_state.hpp"

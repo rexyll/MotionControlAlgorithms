@@ -5,6 +5,7 @@
 #include "mca/experiment/single_axis.hpp"
 #include "mca/simulation/lifecycle.hpp"
 #include "mca/simulation/replay.hpp"
+#include "mca/simulation/ros2_adapter.hpp"
 #include "mca/simulation/state_command.hpp"
 #include "mca/simulation/step.hpp"
 
@@ -318,4 +319,60 @@ TEST(SimulationReplay, ReplayPreservesExactRecordsAndResetRestartsSequence) {
   ASSERT_TRUE(buffer.reset());
   ASSERT_TRUE(buffer.next(output));
   EXPECT_EQ(output.step.step_index, 0U);
+}
+
+
+namespace {
+class FakeRos2SimulationAdapter final
+    : public mca::simulation::IScalarRos2SimulationAdapter {
+ public:
+  bool publish_state(const mca::simulation::SimulationStep& step,
+                     const State& state) noexcept override {
+    if (!step.valid() || !state.finite()) return false;
+    last_step = step;
+    last_state = state;
+    published = true;
+    return true;
+  }
+
+  bool read_command(Command& output) noexcept override {
+    if (!command_available) return false;
+    output = command;
+    return true;
+  }
+
+  mca::simulation::SimulationStep last_step{};
+  State last_state{};
+  Command command{};
+  bool published{false};
+  bool command_available{false};
+};
+}  // namespace
+
+TEST(Ros2SimulationAdapter, BoundaryAcceptsCoreValuesWithoutRosDependencies) {
+  FakeRos2SimulationAdapter adapter;
+  mca::simulation::ScalarSimulationState state;
+  state.position[0] = 0.125;
+  ASSERT_TRUE(adapter.publish_state({0.02, 0.01, 2}, state));
+  EXPECT_TRUE(adapter.published);
+  EXPECT_EQ(adapter.last_step.step_index, 2U);
+  EXPECT_DOUBLE_EQ(adapter.last_state.position[0], 0.125);
+}
+
+TEST(Ros2SimulationAdapter, RejectsInvalidStateAndPreservesCommandOnUnavailableRead) {
+  FakeRos2SimulationAdapter adapter;
+  mca::simulation::ScalarSimulationState invalid;
+  invalid.position[0] = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_FALSE(adapter.publish_state({0.0, 0.01, 0}, invalid));
+  EXPECT_FALSE(adapter.published);
+
+  mca::simulation::ScalarActuatorCommand output;
+  output.effort[0] = 4.0;
+  EXPECT_FALSE(adapter.read_command(output));
+  EXPECT_DOUBLE_EQ(output.effort[0], 4.0);
+
+  adapter.command.effort[0] = -2.0;
+  adapter.command_available = true;
+  ASSERT_TRUE(adapter.read_command(output));
+  EXPECT_DOUBLE_EQ(output.effort[0], -2.0);
 }

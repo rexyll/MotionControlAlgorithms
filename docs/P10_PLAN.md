@@ -9,8 +9,8 @@ P10 builds the simulator-independent execution contract before adding ROS 2 or G
 - [x] P10-03 unified timestep contract: make the single-axis plant/controller/experiment boundary consume one explicit `SimulationStep`; the experiment owns no competing clock and forwards the same `dt` to PID and plant.
 - [x] P10-04 simulation state/command boundary: introduce explicit value types for simulator state and actuator command exchange without coupling to ROS 2/Gazebo.
 - [x] P10-05 replay/log boundary: define deterministic record/replay value types and a core-neutral logging port.
-- [ ] P10-06 ROS 2 adapter minimum contract: add optional adapter interfaces without making ROS 2 a core dependency.
-- [ ] P10-07 Gazebo adapter minimum contract: add optional simulator adapter interfaces without making Gazebo a core dependency.
+- [x] P10-06 ROS 2 adapter minimum contract: add optional adapter interfaces without making ROS 2 a core dependency.
+- [x] P10-07 Gazebo adapter minimum contract: add optional simulator adapter interfaces without making Gazebo a core dependency.
 - [ ] P10-08 single-axis end-to-end simulation acceptance: connect controller → plant → experiment through the new contract; use Gazebo only if the deterministic adapter acceptance cannot cover the required integration boundary.
 
 ## P10-01 acceptance
@@ -57,3 +57,13 @@ No local ROS 2/Gazebo run is required for P10-06.
 `IGazeboSimulationAdapter` defines a dependency-free state-read/command-write boundary. A state snapshot and its `SimulationStep` are read together; failed reads preserve both output arguments. Command writes reject invalid steps and non-finite commands. The core header imports no Gazebo or ROS 2 types; a fake adapter validates the contract on Linux and Windows. This is an adapter contract, not a claim that a concrete Gazebo plugin has been implemented or run.
 
 No local Gazebo run is required for P10-07.
+
+
+## P10-06 CI evidence
+
+Runs #1027–#1030 completed successfully on both Linux and Windows. Each platform passed Configure, Build, and Test. The accepted scope is the dependency-free adapter contract and fake-adapter tests; this does not claim a concrete ROS 2 node/package or live middleware integration.
+
+## P10-07 CI evidence
+
+Runs #1031–#1035 completed successfully on both Linux and Windows. Each platform passed Configure, Build, and Test. The accepted scope is the dependency-free Gazebo adapter contract and fake-adapter tests; this does not claim a concrete Gazebo plugin or a live Gazebo runtime test.
+

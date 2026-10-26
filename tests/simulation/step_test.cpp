@@ -23,7 +23,7 @@ TEST(SimulationStep, ValidatesFiniteNonNegativeTimeAndPositiveDt) {
 TEST(SimulationClock, AdvancesDeterministicallyFromConfiguredStep) {
   mca::simulation::SimulationClock clock;
   EXPECT_FALSE(clock.advance());
-  ASSERT_TRUE(clock.configure(0.01));
+  ASSERT_TRUE(clock.configure(0.01).ok());
   ASSERT_TRUE(clock.reset());
 
   const auto initial = clock.current_step();
@@ -40,7 +40,7 @@ TEST(SimulationClock, AdvancesDeterministicallyFromConfiguredStep) {
 
 TEST(SimulationClock, InvalidConfigurationPreservesExistingClock) {
   mca::simulation::SimulationClock clock;
-  ASSERT_TRUE(clock.configure(0.02));
+  ASSERT_TRUE(clock.configure(0.02).ok());
   ASSERT_TRUE(clock.advance());
 
   EXPECT_FALSE(clock.configure(0.0));
@@ -56,7 +56,7 @@ TEST(SimulationClock, InvalidConfigurationPreservesExistingClock) {
 
 TEST(SimulationClock, ResetRestoresDeterministicBaseline) {
   mca::simulation::SimulationClock clock;
-  ASSERT_TRUE(clock.configure(0.05));
+  ASSERT_TRUE(clock.configure(0.05).ok());
   ASSERT_TRUE(clock.advance());
   ASSERT_TRUE(clock.advance());
   ASSERT_TRUE(clock.reset());
@@ -68,7 +68,7 @@ TEST(SimulationClock, ResetRestoresDeterministicBaseline) {
 
 TEST(SimulationClock, OverflowingAdvancePreservesState) {
   mca::simulation::SimulationClock clock;
-  ASSERT_TRUE(clock.configure(std::numeric_limits<double>::max()));
+  ASSERT_TRUE(clock.configure(std::numeric_limits<double>::max()).ok());
   ASSERT_TRUE(clock.advance());
   const auto before = clock.current_step();
 
@@ -142,7 +142,7 @@ TEST(SimulationLifecycle, ResetRestoresParticipantBaseline) {
 TEST(SimulationTimestep, SingleAxisUsesOneAuthoritativeDtForControllerAndPlant) {
   mca::experiment::SingleAxisExperiment experiment;
   mca::plant::SecondOrderPlant plant;
-  ASSERT_TRUE(plant.configure(1.0, 0.1));
+  ASSERT_TRUE(plant.configure(1.0, 0.1).ok());
 
   mca::control::PidConfig pid;
   pid.kp = 2.0;
@@ -170,7 +170,7 @@ TEST(SimulationTimestep, SingleAxisUsesOneAuthoritativeDtForControllerAndPlant) 
 TEST(SimulationTimestep, SingleAxisRejectsOutOfOrderExternalStepWithoutMutation) {
   mca::experiment::SingleAxisExperiment experiment;
   mca::plant::SecondOrderPlant plant;
-  ASSERT_TRUE(plant.configure(1.0, 0.1));
+  ASSERT_TRUE(plant.configure(1.0, 0.1).ok());
 
   mca::control::PidConfig pid;
   pid.kp = 1.0;
@@ -463,7 +463,7 @@ TEST(SingleAxisSimulationAcceptance, RunsClosedLoopAcrossAdapterAndReplayBoundar
   ASSERT_TRUE(experiment.configure(config, plant, pid).ok());
 
   simulation::SimulationClock clock;
-  ASSERT_TRUE(clock.configure(config.dt));
+  ASSERT_TRUE(clock.configure(config.dt).ok());
   ASSERT_TRUE(clock.reset());
 
   FakeRos2SimulationAdapter ros_adapter;

@@ -181,7 +181,8 @@ TEST(PidFeedforwardComparison, FailedRunPreservesCallerResultAndRunner) {
   result.pid_plus_feedforward.final_velocity = 456.0;
   result.rmse_reduction_fraction = 7.0;
 
-  EXPECT_FALSE(runner.run(result).ok());
+  const auto failed_status = runner.run(result);
+  EXPECT_EQ(failed_status.code, mca::core::StatusCode::NumericalError);
   EXPECT_TRUE(runner.configured());
   EXPECT_DOUBLE_EQ(result.pid_only.final_position, 123.0);
   EXPECT_DOUBLE_EQ(result.pid_plus_feedforward.final_velocity, 456.0);

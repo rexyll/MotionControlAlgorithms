@@ -1,0 +1,17 @@
+cmake_minimum_required(VERSION 3.16)
+project(mca_ros2_adapter LANGUAGES CXX)
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+add_library(mca_ros2_adapter INTERFACE)
+target_compile_features(mca_ros2_adapter INTERFACE cxx_std_17)
+target_include_directories(mca_ros2_adapter INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../include>
+  $<INSTALL_INTERFACE:include>)
+ament_target_dependencies(mca_ros2_adapter INTERFACE rclcpp std_msgs)
+install(DIRECTORY include/ DESTINATION include)
+install(TARGETS mca_ros2_adapter EXPORT export_mca_ros2_adapter)
+ament_export_targets(export_mca_ros2_adapter HAS_LIBRARY_TARGET)
+ament_export_dependencies(rclcpp std_msgs)
+ament_package()

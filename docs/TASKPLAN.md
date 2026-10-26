@@ -153,6 +153,9 @@ Audit note for P9-45: `SingleAxisExperiment` was reviewed for component status p
 
 ## P10 simulation/runtime adapter contracts
 
-- [x] P10-06 ROS 2 adapter minimum contract — dependency-free interface and fake-adapter regression; Run #1027–#1030 passed Linux and Windows Configure/Build/Test.
-- [x] P10-07 Gazebo adapter minimum contract — dependency-free state-read/command-write interface and fake-adapter regression; Run #1031–#1035 passed Linux and Windows Configure/Build/Test. This validates the contract only, not a concrete Gazebo plugin or runtime simulation.
+- [ ] P10-06 ROS 2 adapter minimum contract — dependency-free interface and fake-adapter regression; Run #1027–#1030 passed Linux and Windows Configure/Build/Test.
+- [ ] P10-07 Gazebo adapter minimum contract — dependency-free state-read/command-write interface and fake-adapter regression; Run #1031–#1035 passed Linux and Windows Configure/Build/Test. This validates the contract only, not a concrete Gazebo plugin or runtime simulation.
 - [ ] P10-08 single-axis end-to-end simulation acceptance — deterministically connect trajectory/controller/plant/experiment through the shared timestep contract, exchange state/command through the adapter boundary, and verify replay/log semantics and failure atomicity. Prefer a deterministic in-process test; request local Ubuntu/Gazebo only if a required integration property cannot be covered without it.
+
+
+P10 acceptance correction (2026-10-26): a build-system audit found that `tests/simulation/step_test.cpp` was not part of the `mca_core_tests` target. The earlier P10-06/P10-07 CI runs therefore did not compile or execute the adapter-contract regression file, and must not be treated as sufficient acceptance evidence. The test source has now been registered in CMake (commit `918de3c7`). P10-06, P10-07, and P10-08 remain pending until Linux and Windows Configure/Build/Test complete with the corrected test target.

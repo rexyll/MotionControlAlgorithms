@@ -1,0 +1,42 @@
+name: gazebo-adapter
+
+concurrency:
+  group: gazebo-adapter-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - "gazebo/mca_gazebo_adapter/**"
+      - "include/mca/simulation/**"
+      - ".github/workflows/gazebo-adapter.yml"
+  pull_request:
+    paths:
+      - "gazebo/mca_gazebo_adapter/**"
+      - "include/mca/simulation/**"
+      - ".github/workflows/gazebo-adapter.yml"
+
+jobs:
+  gazebo-harmonic-build:
+    runs-on: ubuntu-24.04
+    container:
+      image: ros:jazzy-ros-base
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Gazebo Harmonic development dependencies
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl gnupg cmake g++ pkg-config
+          curl -fsSL https://packages.osrfoundation.org/gazebo.gpg -o /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] https://packages.osrfoundation.org/gazebo/ubuntu-stable $(. /etc/os-release && echo ${UBUNTU_CODENAME}) main" > /etc/apt/sources.list.d/gazebo-stable.list
+          apt-get update
+          apt-get install -y --no-install-recommends gz-harmonic libgz-sim8-dev libgz-plugin2-dev libgz-common5-dev libgz-math7-dev
+      - name: Configure Gazebo adapter
+        shell: bash
+        run: cmake -S gazebo/mca_gazebo_adapter -B build/gazebo-adapter -DCMAKE_BUILD_TYPE=Release
+      - name: Build Gazebo adapter
+        shell: bash
+        run: cmake --build build/gazebo-adapter --parallel 2

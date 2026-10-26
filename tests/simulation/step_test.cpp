@@ -439,3 +439,89 @@ TEST(GazeboSimulationAdapter, FailedReadPreservesOutputsAndInvalidCommandIsRejec
   EXPECT_TRUE(adapter.command_written);
   EXPECT_EQ(adapter.last_command_step.step_index, 0U);
 }
+
+
+TEST(SingleAxisSimulationAcceptance, RunsClosedLoopAcrossAdapterAndReplayBoundaries) {
+  using namespace mca;
+
+  experiment::SingleAxisExperiment experiment;
+  experiment::SingleAxisConfig config;
+  config.dt = 0.001;
+  config.steps = 4;
+  config.reference = 1.0;
+
+  plant::SecondOrderPlant plant(1.0, 4.0, 0.0);
+  control::PidConfig pid;
+  pid.kp = 100.0;
+  pid.kd = 20.0;
+  pid.ki = 10.0;
+  pid.output_min = -100.0;
+  pid.output_max = 100.0;
+  pid.integral_min = -20.0;
+  pid.integral_max = 20.0;
+  ASSERT_TRUE(experiment.configure(config, plant, pid).ok());
+
+  simulation::SimulationClock clock;
+  ASSERT_TRUE(clock.configure(config.dt));
+  ASSERT_TRUE(clock.reset());
+
+  FakeRos2SimulationAdapter ros_adapter;
+  FakeGazeboSimulationAdapter gazebo_adapter;
+  FixedReplayBuffer log_and_replay;
+
+  for (int i = 0; i < config.steps; ++i) {
+    const auto step = clock.current_step();
+
+    // Publish the state at the start of this step, then compute the controller
+    // output and mirror the resulting actuator command across the adapter port.
+    simulation::ScalarSimulationState state;
+    ASSERT_TRUE(experiment.state_snapshot(state).ok());
+    ASSERT_TRUE(ros_adapter.publish_state(step, state));
+
+    double effort = 0.0;
+    ASSERT_TRUE(experiment.step(step, effort).ok());
+    simulation::ScalarActuatorCommand command;
+    command.effort[0] = effort;
+    ASSERT_TRUE(gazebo_adapter.write_command(step, command));
+
+    simulation::ScalarSimulationRecord record;
+    record.step = step;
+    record.state = state;
+    record.command = command;
+    ASSERT_TRUE(log_and_replay.append(record));
+    ASSERT_TRUE(clock.advance());
+  }
+
+  EXPECT_TRUE(ros_adapter.published);
+  EXPECT_TRUE(gazebo_adapter.command_written);
+  EXPECT_EQ(gazebo_adapter.last_command_step.step_index, 3U);
+  EXPECT_EQ(log_and_replay.size(), 4U);
+
+  simulation::ScalarSimulationState final_state;
+  ASSERT_TRUE(experiment.state_snapshot(final_state).ok());
+  EXPECT_TRUE(final_state.finite());
+  EXPECT_GT(final_state.position[0], 0.0);
+  EXPECT_TRUE(std::isfinite(final_state.velocity[0]));
+
+  ASSERT_TRUE(log_and_replay.reset());
+  for (std::size_t i = 0; i < 4U; ++i) {
+    simulation::ScalarSimulationRecord record;
+    ASSERT_TRUE(log_and_replay.next(record));
+    EXPECT_EQ(record.step.step_index, i);
+    EXPECT_TRUE(record.valid());
+    EXPECT_TRUE(ros_adapter.last_state.finite());
+  }
+  simulation::ScalarSimulationRecord unchanged;
+  unchanged.step.step_index = 99U;
+  EXPECT_FALSE(log_and_replay.next(unchanged));
+  EXPECT_EQ(unchanged.step.step_index, 99U);
+}
+
+TEST(SingleAxisSimulationAcceptance, SnapshotFailurePreservesCallerOutput) {
+  mca::experiment::SingleAxisExperiment experiment;
+  mca::simulation::ScalarSimulationState output;
+  output.position[0] = 42.0;
+  const auto status = experiment.state_snapshot(output);
+  EXPECT_EQ(status.code, mca::core::StatusCode::NotConfigured);
+  EXPECT_DOUBLE_EQ(output.position[0], 42.0);
+}

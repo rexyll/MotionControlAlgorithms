@@ -93,6 +93,7 @@ class ScalarJointSystem final : public gz::sim::System,
     const auto *velocity = ecm.Component<gz::sim::components::JointVelocity>(joint_);
     if (!std::isfinite(time_s) || !std::isfinite(dt_s) || time_s < 0.0 || dt_s <= 0.0 ||
         !position || !velocity || position->Data().empty() || velocity->Data().empty()) {
+      std::lock_guard<std::mutex> lock(mutex_);
       state_valid_ = false;
       return;
     }
@@ -105,6 +106,7 @@ class ScalarJointSystem final : public gz::sim::System,
     // is left at zero until a version-specific acceleration source is available.
     next_state.acceleration[0] = 0.0;
     if (!next_step.valid() || !next_state.finite()) {
+      std::lock_guard<std::mutex> lock(mutex_);
       state_valid_ = false;
       return;
     }

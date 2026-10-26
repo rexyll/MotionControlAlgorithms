@@ -291,3 +291,34 @@ TEST(PidFeedforwardComparison, ResetAndRepeatedRunsRestoreDeterministicBaseline)
   EXPECT_EQ(after_reset.pid_plus_feedforward.tracking.samples,
             first.pid_plus_feedforward.tracking.samples);
 }
+
+TEST(PidFeedforwardComparison, PreservesControllerNumericalErrorStatus) {
+  mca::experiment::PidFeedforwardComparison runner;
+  auto config = make_config();
+  config.dt = 0.5;
+  config.steps = 2;
+  config.ramp_target = 1.0e200;
+  config.ramp_duration_s = 1.0;
+  config.pid.kp = 1.0e200;
+  config.pid.ki = 0.0;
+  config.pid.kd = 0.0;
+  config.pid.output_min = -std::numeric_limits<double>::max();
+  config.pid.output_max = std::numeric_limits<double>::max();
+  config.pid.integral_min = -1.0;
+  config.pid.integral_max = 1.0;
+  config.feedforward = {};
+  ASSERT_TRUE(runner.configure(config).ok());
+
+  mca::experiment::PidFeedforwardComparisonResult result;
+  result.pid_only.final_position = 123.0;
+  result.pid_plus_feedforward.final_velocity = 456.0;
+  result.rmse_reduction_fraction = 7.0;
+
+  const auto status = runner.run(result);
+  EXPECT_EQ(status.code, mca::core::StatusCode::NumericalError);
+  EXPECT_TRUE(runner.configured());
+  EXPECT_DOUBLE_EQ(result.pid_only.final_position, 123.0);
+  EXPECT_DOUBLE_EQ(result.pid_plus_feedforward.final_velocity, 456.0);
+  EXPECT_DOUBLE_EQ(result.rmse_reduction_fraction, 7.0);
+}
+

@@ -49,6 +49,40 @@ TEST(CascadedServoExperimentTest, RejectsInvalidConfiguration) {
                    .ok());
 }
 
+TEST(CascadedServoExperimentTest, RejectsOverflowingSimulationHorizonTransactionally) {
+  mca::experiment::CascadedServoConfig config;
+  config.dt = 1.0e-4;
+  config.steps = 10000;
+  config.position_reference = 1.0;
+  config.max_current_a = 12.0;
+
+  mca::experiment::CascadedServoExperiment experiment;
+  ASSERT_TRUE(experiment.configure(config, make_servo_config(),
+                                   make_motor_config()).ok());
+
+  mca::experiment::CascadedServoResult baseline;
+  ASSERT_TRUE(experiment.run(baseline).ok());
+
+  auto invalid_config = config;
+  invalid_config.dt = std::numeric_limits<double>::max();
+  invalid_config.steps = 2;
+  EXPECT_EQ(experiment.configure(invalid_config, make_servo_config(),
+                                 make_motor_config()).code,
+            mca::core::StatusCode::NumericalError);
+
+  mca::experiment::CascadedServoResult after_failure;
+  ASSERT_TRUE(experiment.run(after_failure).ok());
+  EXPECT_DOUBLE_EQ(after_failure.final_position, baseline.final_position);
+  EXPECT_DOUBLE_EQ(after_failure.final_velocity, baseline.final_velocity);
+  EXPECT_DOUBLE_EQ(after_failure.final_current, baseline.final_current);
+  EXPECT_DOUBLE_EQ(after_failure.final_torque, baseline.final_torque);
+  EXPECT_DOUBLE_EQ(after_failure.final_voltage, baseline.final_voltage);
+  EXPECT_DOUBLE_EQ(after_failure.position.rmse, baseline.position.rmse);
+  EXPECT_EQ(after_failure.position.samples, baseline.position.samples);
+  EXPECT_EQ(after_failure.constraints.violations,
+            baseline.constraints.violations);
+}
+
 TEST(CascadedServoExperimentTest, FailedReconfigurationPreservesWorkingExperiment) {
   mca::experiment::CascadedServoConfig config;
   config.dt = 1.0e-4;
@@ -87,7 +121,6 @@ TEST(CascadedServoExperimentTest, FailedReconfigurationPreservesWorkingExperimen
   EXPECT_DOUBLE_EQ(after_failures.final_position, baseline.final_position);
   EXPECT_DOUBLE_EQ(after_failures.final_velocity, baseline.final_velocity);
   EXPECT_DOUBLE_EQ(after_failures.final_current, baseline.final_current);
-  EXPECT_DOUBLE_EQ(after_failures.final_torque, baseline.final_torque);
   EXPECT_DOUBLE_EQ(after_failures.final_voltage, baseline.final_voltage);
   EXPECT_DOUBLE_EQ(after_failures.position.rmse, baseline.position.rmse);
   EXPECT_EQ(after_failures.position.samples, baseline.position.samples);

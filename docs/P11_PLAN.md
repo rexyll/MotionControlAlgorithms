@@ -48,9 +48,10 @@ Known limitation: the array wire format is prototype-only; step index is encoded
 
 ## P11-03 implementation status (2026-10-26)
 
-The first concrete Gazebo Harmonic package scaffold is now present under `gazebo/mca_gazebo_adapter`:
+The first concrete Gazebo Harmonic package is present under `gazebo/mca_gazebo_adapter`:
 - CMake/package metadata targets Gazebo Sim 8 (Harmonic), plugin registration, and the simulator-independent scalar Gazebo adapter contract.
 - `ScalarJointSystem` resolves a model joint by SDF `joint_name`, captures position/velocity in `PostUpdate`, and applies finite, step-matched scalar effort in `PreUpdate`; absent commands default the joint force command to zero.
-- A dedicated `.github/workflows/gazebo-adapter.yml` installs the Harmonic development packages and attempts an isolated plugin build.
-- The first workflow run is still in progress at dependency installation; no successful plugin compilation or live simulation is claimed yet.
-- Known limitations before acceptance: acceleration is currently reported as zero; plugin lifecycle/reset behavior and thread-safe external command ingress need further validation; a headless SDF smoke test is still required.
+- Dedicated workflow `.github/workflows/gazebo-adapter.yml` installs Harmonic dependencies, builds the plugin, and runs the headless world `gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf`.
+- Gazebo workflow Run #4, commit `21af979501eb81469da38e7a9716c45b6f38461a`, passed: CMake configure/build succeeded and logs confirmed `mca_gazebo_adapter::ScalarJointSystem` loaded into the smoke world. Root CI Run #1086 on the same commit passed Linux and Windows core Configure/Build/Test.
+- Evidence boundary: this is plugin load/startup smoke evidence only. The smoke world does not yet assert state values, effort application, reset behavior, or ROS 2 ↔ Gazebo command/state flow.
+- Known gaps before acceptance: acceleration is currently reported as zero; reset semantics and safe command ingress need further work; missing-joint behavior and observable command/state flow are not yet tested.

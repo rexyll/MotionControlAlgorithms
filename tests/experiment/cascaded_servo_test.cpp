@@ -169,6 +169,34 @@ TEST(CascadedServoExperimentTest, FailedRunPreservesExperimentAndCallerResult) {
                    torque_reference_before);
 }
 
+TEST(CascadedServoExperimentTest, PreservesControllerNumericalErrorStatus) {
+  mca::experiment::CascadedServoConfig config;
+  config.dt = 1.0e-4;
+  config.steps = 2;
+  config.position_reference = std::numeric_limits<double>::max();
+
+  auto servo_config = make_servo_config();
+  servo_config.position.kp = std::numeric_limits<double>::max();
+  servo_config.position.output_min = -std::numeric_limits<double>::max();
+  servo_config.position.output_max = std::numeric_limits<double>::max();
+
+  mca::experiment::CascadedServoExperiment experiment;
+  ASSERT_TRUE(experiment.configure(config, servo_config, make_motor_config()).ok());
+
+  const double position_before = experiment.motor().position();
+  const double velocity_before = experiment.motor().velocity();
+  mca::experiment::CascadedServoResult result;
+  result.final_position = 123.0;
+  result.position.samples = 77U;
+
+  const auto status = experiment.run(result);
+  EXPECT_EQ(status.code, mca::core::StatusCode::NumericalError);
+  EXPECT_DOUBLE_EQ(result.final_position, 123.0);
+  EXPECT_EQ(result.position.samples, 77U);
+  EXPECT_DOUBLE_EQ(experiment.motor().position(), position_before);
+  EXPECT_DOUBLE_EQ(experiment.motor().velocity(), velocity_before);
+}
+
 TEST(CascadedServoExperimentTest, ProducesTrackingBenchmark) {
   mca::experiment::CascadedServoConfig config;
   config.dt = 1.0e-4;

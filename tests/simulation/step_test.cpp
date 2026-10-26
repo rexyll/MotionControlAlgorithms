@@ -6,6 +6,7 @@
 #include "mca/simulation/lifecycle.hpp"
 #include "mca/simulation/replay.hpp"
 #include "mca/simulation/ros2_adapter.hpp"
+#include "mca/simulation/gazebo_adapter.hpp"
 #include "mca/simulation/state_command.hpp"
 #include "mca/simulation/step.hpp"
 
@@ -375,4 +376,66 @@ TEST(Ros2SimulationAdapter, RejectsInvalidStateAndPreservesCommandOnUnavailableR
   adapter.command_available = true;
   ASSERT_TRUE(adapter.read_command(output));
   EXPECT_DOUBLE_EQ(output.effort[0], -2.0);
+}
+
+
+namespace {
+class FakeGazeboSimulationAdapter final
+    : public mca::simulation::IScalarGazeboSimulationAdapter {
+ public:
+  bool read_state(mca::simulation::SimulationStep& step,
+                  State& state) noexcept override {
+    if (!state_available) return false;
+    step = current_step;
+    state = current_state;
+    return true;
+  }
+
+  bool write_command(const mca::simulation::SimulationStep& step,
+                     const Command& command) noexcept override {
+    if (!step.valid() || !command.finite()) return false;
+    last_command_step = step;
+    last_command = command;
+    command_written = true;
+    return true;
+  }
+
+  mca::simulation::SimulationStep current_step{0.03, 0.01, 3};
+  State current_state{};
+  mca::simulation::SimulationStep last_command_step{};
+  Command last_command{};
+  bool state_available{false};
+  bool command_written{false};
+};
+}  // namespace
+
+TEST(GazeboSimulationAdapter, ReadsStateAndStepAsOneSnapshot) {
+  FakeGazeboSimulationAdapter adapter;
+  adapter.state_available = true;
+  adapter.current_state.position[0] = 0.3;
+  mca::simulation::SimulationStep step{0.0, 0.01, 0};
+  mca::simulation::ScalarSimulationState state;
+  ASSERT_TRUE(adapter.read_state(step, state));
+  EXPECT_EQ(step.step_index, 3U);
+  EXPECT_DOUBLE_EQ(step.time_s, 0.03);
+  EXPECT_DOUBLE_EQ(state.position[0], 0.3);
+}
+
+TEST(GazeboSimulationAdapter, FailedReadPreservesOutputsAndInvalidCommandIsRejected) {
+  FakeGazeboSimulationAdapter adapter;
+  mca::simulation::SimulationStep step{0.5, 0.01, 50};
+  mca::simulation::ScalarSimulationState state;
+  state.position[0] = 7.0;
+  EXPECT_FALSE(adapter.read_state(step, state));
+  EXPECT_EQ(step.step_index, 50U);
+  EXPECT_DOUBLE_EQ(state.position[0], 7.0);
+
+  mca::simulation::ScalarActuatorCommand command;
+  command.effort[0] = std::numeric_limits<double>::infinity();
+  EXPECT_FALSE(adapter.write_command({0.0, 0.01, 0}, command));
+  EXPECT_FALSE(adapter.command_written);
+  command.effort[0] = 1.0;
+  ASSERT_TRUE(adapter.write_command({0.0, 0.01, 0}, command));
+  EXPECT_TRUE(adapter.command_written);
+  EXPECT_EQ(adapter.last_command_step.step_index, 0U);
 }

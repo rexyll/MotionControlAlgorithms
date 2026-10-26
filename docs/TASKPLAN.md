@@ -159,3 +159,14 @@ Audit note for P9-45: `SingleAxisExperiment` was reviewed for component status p
 
 
 P10 acceptance correction and closure (2026-10-26): a build-system audit found that `tests/simulation/step_test.cpp` was not part of `mca_core_tests`, so earlier P10-06/P10-07 CI runs were not sufficient acceptance evidence. The source was registered in CMake (commit `918de3c7`). The first corrected runs exposed and fixed assertion type mismatches and duplicate GoogleTest names; the duplicate clock/step tests were removed from this file because equivalent tests already exist in `tests/experiment/wheel_robot_disturbance_test.cpp`. Run #1046 (commit `ce549fef`) then passed Configure, Build, and Test on both Linux and Windows with the corrected target. P10-06/P10-07 are accepted as dependency-free interface contracts only; P10-08 is accepted for deterministic in-process closed-loop/adapter/replay/failure-atomicity coverage. No concrete ROS 2 node, Gazebo plugin, or live simulator runtime integration is claimed.
+
+
+## P11 — Concrete ROS 2 and Gazebo runtime integration
+
+- [ ] P11-01 integration workspace and dependency boundary audit — define optional package layout and test strategy; default core build remains independent of ROS 2/Gazebo.
+- [ ] P11-02 concrete ROS 2 adapter — implement and test the optional ROS 2 Jazzy package.
+- [ ] P11-03 concrete Gazebo adapter — implement and test the optional Gazebo Harmonic system/plugin.
+- [ ] P11-04 launch-level single-axis integration — connect core, ROS 2, and Gazebo with deterministic reset and headless smoke coverage.
+- [ ] P11-05 runtime robustness and acceptance — validate stale/invalid commands, missing entities, reset/shutdown, and repeated launch; document real runtime evidence.
+
+Acceptance rule: keep core Configure/Build/Test independent of ROS 2 and Gazebo. Middleware-specific build and live simulator acceptance must run in explicitly enabled, version-pinned environments; fake adapters are not evidence of live integration.

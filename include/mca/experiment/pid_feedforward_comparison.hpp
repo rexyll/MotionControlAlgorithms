@@ -88,13 +88,17 @@ class PidFeedforwardComparison {
     // Build a complete candidate so rejected reconfiguration leaves the
     // previously working comparison and its runtime state untouched.
     auto trial = *this;
-    if (!trial.pid_only_.configure(config.pid).ok() ||
-        !trial.pid_ff_.configure(config.pid).ok() ||
-        !trial.plant_only_.configure(config.plant.inertia(), config.plant.damping(),
-                                    config.plant.stiffness()).ok() ||
-        !trial.plant_ff_.configure(config.plant.inertia(), config.plant.damping(),
-                                   config.plant.stiffness()).ok()) {
-      return {core::StatusCode::InvalidArgument};
+    if (auto status = trial.pid_only_.configure(config.pid); !status.ok()) return status;
+    if (auto status = trial.pid_ff_.configure(config.pid); !status.ok()) return status;
+    if (auto status = trial.plant_only_.configure(
+            config.plant.inertia(), config.plant.damping(),
+            config.plant.stiffness()); !status.ok()) {
+      return status;
+    }
+    if (auto status = trial.plant_ff_.configure(
+            config.plant.inertia(), config.plant.damping(),
+            config.plant.stiffness()); !status.ok()) {
+      return status;
     }
     trial.config_ = config;
     trial.feedforward_ = control::PidFeedforward(config.feedforward);
@@ -137,10 +141,15 @@ class PidFeedforwardComparison {
 
   core::Status reset_impl() noexcept {
     if (!configured_) return {core::StatusCode::NotConfigured};
-    if (!pid_only_.reset().ok() || !pid_ff_.reset().ok() ||
-        !plant_only_.reset(config_.initial_position, 0.0).ok() ||
-        !plant_ff_.reset(config_.initial_position, 0.0).ok()) {
-      return {core::StatusCode::InvalidArgument};
+    if (auto status = pid_only_.reset(); !status.ok()) return status;
+    if (auto status = pid_ff_.reset(); !status.ok()) return status;
+    if (auto status = plant_only_.reset(config_.initial_position, 0.0);
+        !status.ok()) {
+      return status;
+    }
+    if (auto status = plant_ff_.reset(config_.initial_position, 0.0);
+        !status.ok()) {
+      return status;
     }
     return {};
   }
@@ -170,20 +179,26 @@ class PidFeedforwardComparison {
       const auto sample = reference.sample(time_s);
       double pid_output = 0.0;
       double ff_pid_output = 0.0;
-      if (!pid_only_.update(sample.position, plant_only_.position(), config_.dt,
-                            pid_output).ok() ||
-          !pid_ff_.update(sample.position, plant_ff_.position(), config_.dt,
-                          ff_pid_output).ok()) {
-        return {core::StatusCode::InvalidArgument};
+      if (auto status = pid_only_.update(sample.position, plant_only_.position(),
+                                         config_.dt, pid_output);
+          !status.ok()) {
+        return status;
+      }
+      if (auto status = pid_ff_.update(sample.position, plant_ff_.position(),
+                                       config_.dt, ff_pid_output);
+          !status.ok()) {
+        return status;
       }
       const double combined_output =
           ff_pid_output + feedforward_.compute(sample.velocity, sample.acceleration);
       if (!core::is_finite(combined_output)) {
         return {core::StatusCode::NumericalError};
       }
-      if (!plant_only_.step(pid_output, config_.dt).ok() ||
-          !plant_ff_.step(combined_output, config_.dt).ok()) {
-        return {core::StatusCode::NumericalError};
+      if (auto status = plant_only_.step(pid_output, config_.dt); !status.ok()) {
+        return status;
+      }
+      if (auto status = plant_ff_.step(combined_output, config_.dt); !status.ok()) {
+        return status;
       }
 
       const double sample_time_s = time_s + config_.dt;

@@ -35,6 +35,14 @@ class SingleAxisExperiment {
       return {core::StatusCode::InvalidArgument};
     }
 
+    // The final sample time is steps * dt. Finite inputs can still produce
+    // an unrepresentable simulation horizon, so reject it before mutation.
+    const double final_sample_time =
+        static_cast<double>(experiment_config.steps) * experiment_config.dt;
+    if (!core::is_finite(final_sample_time)) {
+      return {core::StatusCode::NumericalError};
+    }
+
     // Configure a complete trial object first. A rejected experiment update
     // must not disable or partially replace an already usable experiment.
     auto trial = *this;
@@ -86,6 +94,17 @@ class SingleAxisExperiment {
   }
 
  private:
+  static bool tracking_metrics_valid(const benchmark::TrackingMetrics& metrics,
+                                     int expected_samples) noexcept {
+    const bool settling_is_nan = metrics.settling_time_s != metrics.settling_time_s;
+    return metrics.samples == static_cast<std::size_t>(expected_samples) &&
+           core::is_finite(metrics.rmse) &&
+           core::is_finite(metrics.max_abs_error) &&
+           core::is_finite(metrics.overshoot) &&
+           core::is_finite(metrics.control_effort_rms) &&
+           (core::is_finite(metrics.settling_time_s) || settling_is_nan);
+  }
+
   core::Status reset_impl() noexcept {
     if (!configured_) return {core::StatusCode::NotConfigured};
     accumulator_.reset();
@@ -102,6 +121,9 @@ class SingleAxisExperiment {
     const trajectory::StepTrajectory reference_trajectory(config_.reference);
     for (int i = 0; i < config_.steps; ++i) {
       const double time_s = static_cast<double>(i) * config_.dt;
+      if (!core::is_finite(time_s)) {
+        return {core::StatusCode::NumericalError};
+      }
       const auto reference = reference_trajectory.sample(time_s);
       double feedback = 0.0;
       const auto status = pid_.update(reference.position, plant_.position(),
@@ -133,6 +155,11 @@ class SingleAxisExperiment {
     }
     result.final_position = plant_.position();
     result.final_velocity = plant_.velocity();
+    if (!tracking_metrics_valid(result.metrics, config_.steps) ||
+        !core::is_finite(result.final_position) ||
+        !core::is_finite(result.final_velocity)) {
+      return {core::StatusCode::NumericalError};
+    }
     return {};
   }
 

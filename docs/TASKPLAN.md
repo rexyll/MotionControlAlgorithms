@@ -163,7 +163,7 @@ P10 acceptance correction and closure (2026-10-26): a build-system audit found t
 
 ## P11 — Concrete ROS 2 and Gazebo runtime integration
 
-- [ ] P11-01 integration workspace and dependency boundary audit — define optional package layout and test strategy; default core build remains independent of ROS 2/Gazebo.
+- [x] P11-01 integration workspace and dependency boundary audit — root `CMakeLists.txt` requires only Eigen3 and optional GoogleTest/benchmark, with no ROS 2/Gazebo package discovery; the core test target includes the simulator-independent contracts. `docs/P11_PLAN.md` records separate package/build/test gates and distinguishes contract tests from live runtime evidence.
 - [ ] P11-02 concrete ROS 2 adapter — implement and test the optional ROS 2 Jazzy package.
 - [ ] P11-03 concrete Gazebo adapter — implement and test the optional Gazebo Harmonic system/plugin.
 - [ ] P11-04 launch-level single-axis integration — connect core, ROS 2, and Gazebo with deterministic reset and headless smoke coverage.

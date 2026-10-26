@@ -1,5 +1,9 @@
 name: ros2-adapter
 
+concurrency:
+  group: ros2-adapter-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   push:

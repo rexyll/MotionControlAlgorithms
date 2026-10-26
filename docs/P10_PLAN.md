@@ -9,8 +9,8 @@ P10 builds the simulator-independent execution contract before adding ROS 2 or G
 - [x] P10-03 unified timestep contract: make the single-axis plant/controller/experiment boundary consume one explicit `SimulationStep`; the experiment owns no competing clock and forwards the same `dt` to PID and plant.
 - [x] P10-04 simulation state/command boundary: introduce explicit value types for simulator state and actuator command exchange without coupling to ROS 2/Gazebo.
 - [x] P10-05 replay/log boundary: define deterministic record/replay value types and a core-neutral logging port.
-- [x] P10-06 ROS 2 adapter minimum contract: add optional adapter interfaces without making ROS 2 a core dependency.
-- [ ] P10-07 Gazebo adapter minimum contract: add optional simulator adapter interfaces without making Gazebo a core dependency.
+- [ ] P10-06 ROS 2 adapter minimum contract: add optional adapter interfaces without making ROS 2 a core dependency.
+- [x] P10-07 Gazebo adapter minimum contract: add optional simulator adapter interfaces without making Gazebo a core dependency.
 - [ ] P10-08 single-axis end-to-end simulation acceptance: connect controller → plant → experiment through the new contract; use Gazebo only if the deterministic adapter acceptance cannot cover the required integration boundary.
 
 ## P10-01 acceptance
@@ -50,3 +50,10 @@ No ROS 2 or Gazebo environment is required for P10-05.
 `IRos2SimulationAdapter` is a dependency-free contract for an optional ROS 2 integration package. It exchanges the core's validated `SimulationStep`, `SimulationState`, and `ActuatorCommand` values while importing no `rclcpp`, ROS message, or middleware headers. State publication rejects invalid input; command reads preserve the caller's output when no command is available. Fake-adapter regressions run on Linux and Windows. This validates the adapter boundary only; a concrete ROS 2 package and runtime integration remain outside this task.
 
 No local ROS 2/Gazebo run is required for P10-06.
+
+
+## P10-07 acceptance
+
+`IGazeboSimulationAdapter` defines a dependency-free state-read/command-write boundary. A state snapshot and its `SimulationStep` are read together; failed reads preserve both output arguments. Command writes reject invalid steps and non-finite commands. The core header imports no Gazebo or ROS 2 types; a fake adapter validates the contract on Linux and Windows. This is an adapter contract, not a claim that a concrete Gazebo plugin has been implemented or run.
+
+No local Gazebo run is required for P10-07.

@@ -21,7 +21,7 @@ ament_export_dependencies(rclcpp std_msgs)
 
 if(BUILD_TESTING)
   ament_add_gtest(test_scalar_adapter test/test_scalar_adapter.cpp)
-  target_link_libraries(test_scalar_adapter mca_ros2_adapter)
+  target_link_libraries(test_scalar_adapter PRIVATE mca_ros2_adapter)
   ament_target_dependencies(test_scalar_adapter rclcpp std_msgs)
 endif()
 ament_package()

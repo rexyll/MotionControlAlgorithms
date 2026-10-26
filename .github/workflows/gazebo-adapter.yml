@@ -40,3 +40,24 @@ jobs:
       - name: Build Gazebo adapter
         shell: bash
         run: cmake --build build/gazebo-adapter --parallel 2
+      - name: Run headless Gazebo plugin smoke test
+        shell: bash
+        run: |
+          set +e
+          GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}" \
+            timeout 15s gz sim -s -r -v 4 gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-smoke.log 2>&1
+          status=$?
+          set -e
+          cat gazebo-smoke.log
+          if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
+            echo "Gazebo exited unexpectedly with status $status"
+            exit "$status"
+          fi
+          if grep -Eqi "Failed to load system plugin|Unable to load plugin|Error Code 11" gazebo-smoke.log; then
+            echo "Gazebo reported a plugin loading error"
+            exit 1
+          fi
+          if ! grep -Fq "mca_gazebo_adapter::ScalarJointSystem" gazebo-smoke.log; then
+            echo "Expected MCA scalar joint plugin name was not found in Gazebo logs"
+            exit 1
+          fi

@@ -42,4 +42,4 @@ jobs:
         run: |
           source /opt/ros/jazzy/setup.bash
           colcon test --base-paths ros2 --packages-select mca_ros2_adapter --event-handlers console_direct+
-          colcon test-result --base-paths ros2 --verbose
+          colcon test-result --test-result-base build/mca_ros2_adapter/test_results --verbose

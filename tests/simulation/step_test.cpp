@@ -4,6 +4,7 @@
 
 #include "mca/experiment/single_axis.hpp"
 #include "mca/simulation/lifecycle.hpp"
+#include "mca/simulation/state_command.hpp"
 #include "mca/simulation/step.hpp"
 
 TEST(SimulationStep, ValidatesFiniteNonNegativeTimeAndPositiveDt) {
@@ -183,4 +184,36 @@ TEST(SimulationTimestep, SingleAxisRejectsOutOfOrderExternalStepWithoutMutation)
   EXPECT_FALSE(experiment.step({0.02, 0.01, 2}, effort).ok());
   EXPECT_DOUBLE_EQ(effort, accepted_effort);
   EXPECT_TRUE(experiment.step({0.01, 0.01, 1}, effort).ok());
+}
+
+TEST(SimulationStateCommand, FixedSizeValueTypesAreFiniteAndAllocationFree) {
+  mca::simulation::SimulationState<double, 2> state;
+  state.position = {1.0, -2.0};
+  state.velocity = {0.5, -0.25};
+  state.acceleration = {0.0, 3.0};
+  EXPECT_TRUE(state.finite());
+
+  state.velocity[1] = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_FALSE(state.finite());
+
+  mca::simulation::ActuatorCommand<double, 2> command;
+  command.effort = {4.0, -1.0};
+  EXPECT_TRUE(command.finite());
+  command.effort[0] = std::numeric_limits<double>::infinity();
+  EXPECT_FALSE(command.finite());
+}
+
+TEST(SimulationStateCommand, ScalarAliasesExposeExplicitSingleAxisBoundary) {
+  mca::simulation::ScalarSimulationState state;
+  state.position[0] = 1.25;
+  state.velocity[0] = 0.5;
+  state.acceleration[0] = -0.1;
+
+  mca::simulation::ScalarActuatorCommand command;
+  command.effort[0] = 2.0;
+
+  EXPECT_TRUE(state.finite());
+  EXPECT_TRUE(command.finite());
+  EXPECT_DOUBLE_EQ(state.position[0], 1.25);
+  EXPECT_DOUBLE_EQ(command.effort[0], 2.0);
 }

@@ -6,15 +6,15 @@ P10 establishes simulator-independent ports and deterministic fake-adapter accep
 
 - Keep `include/mca/**` core interfaces independent of `rclcpp`, ROS messages, Gazebo headers, and simulator-owned types.
 - Put concrete integrations in separate optional packages; default root CMake configure/build must remain dependency-free apart from existing core dependencies.
-- Use ROS 2 Jazzy and Gazebo Harmonic as the target stack. Confirm installed package names and API versions in the target environment before binding plugin APIs.
+- Target ROS 2 Jazzy and Gazebo Harmonic. Verify installed package names and APIs in the pinned target environment before binding plugin APIs.
 - Make timing, command freshness, invalid-message handling, reset behavior, and shutdown explicit.
 - Do not claim runtime integration from fake-adapter tests. Record each real integration smoke test separately.
-- Prefer headless deterministic launch/smoke tests first. Request local Ubuntu/ROS 2/Gazebo validation only for behavior that cannot be proven in standard CI.
+- Prefer headless deterministic launch/smoke tests first. Request local Ubuntu/ROS 2/Gazebo validation only for behavior that cannot be proven in CI.
 
 ## Staged tasks
 
-- [x] P11-01 integration workspace and dependency boundary audit: document the optional package layout, supported ROS 2/Gazebo versions, root-build isolation, and test strategy before adding middleware-specific code.
-- [ ] P11-02 concrete ROS 2 adapter (implementation in progress): added an optional ament package at `ros2/mca_ros2_adapter`, with a scalar adapter that validates published state, rejects non-finite commands, preserves output on missing/stale commands, and uses steady-clock freshness. A compile-check translation unit, focused ROS 2 tests for invalid state, missing-command output preservation, and topic command flow, and a dedicated ROS 2 Jazzy workflow have been added; acceptance remains pending until that workflow passes. implement a ROS 2 Jazzy package that maps typed core state/command values to messages, validates incoming commands, preserves core output on unavailable/stale input, and has ROS-enabled compile/unit tests.
+- [x] P11-01 integration workspace and dependency boundary audit.
+- [x] P11-02 concrete ROS 2 adapter: optional ament package at `ros2/mca_ros2_adapter`; scalar state publication and effort command subscription; rejects invalid state/non-finite command; missing or stale reads preserve caller output; dedicated ROS 2 Jazzy CI builds, installs, runs tests, and reports results.
 - [ ] P11-03 concrete Gazebo adapter: implement the smallest supported Gazebo Harmonic system/plugin that reads a coherent state snapshot and applies validated actuator commands, with explicit simulation-step mapping and reset behavior.
 - [ ] P11-04 launch-level single-axis integration: wire a minimal single-axis model/controller path through ROS 2 and Gazebo, expose deterministic startup/reset/shutdown, and verify command/state flow in a headless smoke test.
 - [ ] P11-05 runtime robustness and acceptance: cover stale commands, malformed/non-finite inputs, missing entities, simulator reset, shutdown, and repeated launch; record CI and target-environment evidence independently.
@@ -30,11 +30,17 @@ P10 establishes simulator-independent ports and deterministic fake-adapter accep
 
 ## P11-01 acceptance
 
-Before implementation, inspect root CMake and CI to verify optional packages are excluded from default builds. Document package names, dependency gates, and which test runner owns each layer. No local Gazebo run is required for this planning/audit task.
+Audit result (2026-10-26): the root `CMakeLists.txt` requires Eigen3 and conditionally finds GoogleTest when `MCA_BUILD_TESTS` is enabled; benchmarks are opt-in. It does not discover ROS 2 or Gazebo and therefore keeps the default core build isolated from middleware/simulator dependencies. `tests/simulation/step_test.cpp` is registered in `mca_core_tests`. This audit is documentation/build-boundary evidence only; it does not claim ROS 2 or Gazebo runtime behavior.
 
-Audit result (2026-10-26): the root `CMakeLists.txt` requires Eigen3 and conditionally finds GoogleTest when `MCA_BUILD_TESTS` is enabled; benchmarks are opt-in. It does not discover ROS 2 or Gazebo and therefore keeps the default core build isolated from middleware/simulator dependencies. `tests/simulation/step_test.cpp` is registered in `mca_core_tests`. The next implementation step should create separately built optional packages and add explicitly enabled ROS 2/Gazebo CI rather than adding those dependencies to root CMake. This audit is documentation/build-boundary evidence only; it does not claim ROS 2 or Gazebo runtime behavior.
+## P11-02 acceptance — ROS 2 Jazzy scalar adapter
 
+Accepted 2026-10-26.
 
-## P11-02 implementation notes (2026-10-26)
+Implementation: `ros2/mca_ros2_adapter` publishes [simulation time, dt, step index, position, velocity, acceleration] via `std_msgs/Float64MultiArray` and consumes scalar effort via `std_msgs/Float64`. It rejects invalid state, ignores non-finite commands, and refuses missing/stale commands without modifying caller output. Freshness uses `std::chrono::steady_clock`.
 
-The first concrete adapter is deliberately scalar and prototype-scoped. It publishes [simulation time, dt, step index, position, velocity, acceleration] through `std_msgs/Float64MultiArray` and consumes scalar effort through `std_msgs/Float64`. Non-finite command messages are ignored; reads fail without modifying caller output when no fresh command is available. The ROS 2 package is separate from root CMake, and `.github/workflows/ros2-adapter.yml` explicitly configures ROS 2 Jazzy and builds/tests the package in that environment. The wire format uses a floating-point step index and is not suitable as a long-term compatibility contract; a versioned custom message is required before production use. Do not mark P11-02 accepted until the dedicated workflow passes and the runtime behavior has focused tests.
+Evidence:
+- ROS 2 Jazzy workflow Run #13, commit `18e7460515b304cc5b9677044c3cb634f2268cc5`: package configure/build/install succeeded; `colcon test` ran the adapter gtest target; `colcon test-result` reported 4 tests, 0 errors, 0 failures, 0 skipped. The four cases cover invalid state, missing command/output preservation, stale command/output preservation, and finite command topic flow.
+- Root CI Run #1073, same commit: Linux and Windows Configure/Build/Test and dedicated P8-39 through P8-46 regressions passed on both platforms.
+- Evidence class: ROS 2 package build/install + focused ROS 2 tests, and independent core cross-platform CI. This is not Gazebo integration or production deployment evidence.
+
+Known limitation: the array wire format is prototype-only; step index is encoded as a double. Before external deployment, replace it with a versioned custom message containing an integer step index, explicit units, and a schema compatibility policy. The topic test verifies ROS 2 topic command flow in CI, not end-to-end Gazebo behavior.

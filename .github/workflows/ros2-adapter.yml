@@ -1,0 +1,29 @@
+name: ros2-adapter
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - "ros2/mca_ros2_adapter/**"
+      - "include/mca/simulation/**"
+      - ".github/workflows/ros2-adapter.yml"
+  pull_request:
+    paths:
+      - "ros2/mca_ros2_adapter/**"
+      - "include/mca/simulation/**"
+      - ".github/workflows/ros2-adapter.yml"
+
+jobs:
+  ros2-jazzy-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ros-tooling/setup-ros@v0.7
+      - name: Install ROS 2 dependencies
+        run: sudo apt-get update && sudo apt-get install -y ros-jazzy-rclcpp ros-jazzy-std-msgs python3-colcon-common-extensions
+      - name: Build optional adapter package
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          colcon build --base-paths ros2 --packages-select mca_ros2_adapter --event-handlers console_direct+

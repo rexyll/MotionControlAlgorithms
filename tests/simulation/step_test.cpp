@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include "mca/experiment/single_axis.hpp"
 #include "mca/simulation/lifecycle.hpp"
 #include "mca/simulation/step.hpp"
 
@@ -78,6 +79,7 @@ class FakeSimulationParticipant final : public mca::simulation::ISimulationParti
  public:
   bool reset() noexcept override {
     state_ = 0;
+    expected_index_ = 0;
     return true;
   }
 
@@ -130,4 +132,55 @@ TEST(SimulationLifecycle, ResetRestoresParticipantBaseline) {
   EXPECT_EQ(participant.state(), 0);
   EXPECT_TRUE(participant.step({0.0, 0.01, 0}));
   EXPECT_EQ(participant.state(), 1);
+}
+
+TEST(SimulationTimestep, SingleAxisUsesOneAuthoritativeDtForControllerAndPlant) {
+  mca::experiment::SingleAxisExperiment experiment;
+  mca::plant::SecondOrderPlant plant;
+  ASSERT_TRUE(plant.configure(1.0, 0.1));
+
+  mca::control::PidConfig pid;
+  pid.kp = 2.0;
+  pid.ki = 0.5;
+  pid.kd = 0.0;
+
+  mca::experiment::SingleAxisConfig config;
+  config.dt = 0.01;
+  config.steps = 2;
+  config.reference = 1.0;
+  ASSERT_TRUE(experiment.configure(config, plant, pid).ok());
+
+  double effort0 = 0.0;
+  double effort1 = 0.0;
+  ASSERT_TRUE(experiment.step({0.0, 0.01, 0}, effort0).ok());
+  ASSERT_TRUE(experiment.step({0.01, 0.01, 1}, effort1).ok());
+  EXPECT_TRUE(std::isfinite(effort0));
+  EXPECT_TRUE(std::isfinite(effort1));
+
+  const double before = effort1;
+  EXPECT_FALSE(experiment.step({0.02, 0.02, 2}, effort1).ok());
+  EXPECT_DOUBLE_EQ(effort1, before);
+}
+
+TEST(SimulationTimestep, SingleAxisRejectsOutOfOrderExternalStepWithoutMutation) {
+  mca::experiment::SingleAxisExperiment experiment;
+  mca::plant::SecondOrderPlant plant;
+  ASSERT_TRUE(plant.configure(1.0, 0.1));
+
+  mca::control::PidConfig pid;
+  pid.kp = 1.0;
+
+  mca::experiment::SingleAxisConfig config;
+  config.dt = 0.01;
+  config.steps = 3;
+  config.reference = 1.0;
+  ASSERT_TRUE(experiment.configure(config, plant, pid).ok());
+
+  double effort = 0.0;
+  ASSERT_TRUE(experiment.step({0.0, 0.01, 0}, effort).ok());
+  const double accepted_effort = effort;
+
+  EXPECT_FALSE(experiment.step({0.02, 0.01, 2}, effort).ok());
+  EXPECT_DOUBLE_EQ(effort, accepted_effort);
+  EXPECT_TRUE(experiment.step({0.01, 0.01, 1}, effort).ok());
 }

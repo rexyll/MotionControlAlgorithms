@@ -102,15 +102,12 @@ class CascadedServoExperiment {
 
   core::Status reset() noexcept {
     if (!configured_) return {core::StatusCode::NotConfigured};
-    if (!motor_.reset().ok() || !servo_.reset().ok()) {
-      return {core::StatusCode::InvalidArgument};
-    }
-    position_accumulator_.reset();
-    velocity_accumulator_.reset();
-    torque_accumulator_.reset();
-    position_step_.reset();
-    constraints_ = {};
-    final_voltage_ = 0.0;
+
+    // Reset every component on a candidate so a partial failure cannot leave
+    // the active experiment with mismatched plant/controller/metric state.
+    auto trial = *this;
+    if (auto status = trial.reset_impl(); !status.ok()) return status;
+    *this = trial;
     return {};
   }
 
@@ -130,6 +127,19 @@ class CascadedServoExperiment {
   }
 
  private:
+  core::Status reset_impl() noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    if (auto status = motor_.reset(); !status.ok()) return status;
+    if (auto status = servo_.reset(); !status.ok()) return status;
+    position_accumulator_.reset();
+    velocity_accumulator_.reset();
+    torque_accumulator_.reset();
+    position_step_.reset();
+    constraints_ = {};
+    final_voltage_ = 0.0;
+    return {};
+  }
+
   static bool tracking_metrics_valid(const benchmark::TrackingMetrics& metrics,
                                      int expected_samples) noexcept {
     const bool settling_is_nan =

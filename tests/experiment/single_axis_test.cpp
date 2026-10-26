@@ -193,3 +193,39 @@ TEST(SingleAxisExperiment, ReportsCompleteFiniteMetrics) {
   EXPECT_TRUE(std::isfinite(result.final_position));
   EXPECT_TRUE(std::isfinite(result.final_velocity));
 }
+
+
+TEST(SingleAxisExperiment, ResetRestoresDeterministicBaseline) {
+  mca::experiment::SingleAxisExperiment experiment;
+  mca::experiment::SingleAxisConfig config;
+  config.dt = 0.001;
+  config.steps = 250;
+  config.reference = 0.75;
+  mca::plant::SecondOrderPlant plant(1.0, 4.0, 0.0);
+  mca::control::PidConfig pid;
+  pid.kp = 100.0;
+  pid.kd = 20.0;
+  pid.ki = 10.0;
+  pid.output_min = -100.0;
+  pid.output_max = 100.0;
+  pid.integral_min = -20.0;
+  pid.integral_max = 20.0;
+
+  ASSERT_TRUE(experiment.configure(config, plant, pid).ok());
+  mca::experiment::SingleAxisResult baseline;
+  ASSERT_TRUE(experiment.run(baseline).ok());
+
+  mca::experiment::SingleAxisResult second_run;
+  ASSERT_TRUE(experiment.run(second_run).ok());
+  ASSERT_TRUE(experiment.reset().ok());
+  mca::experiment::SingleAxisResult after_reset;
+  ASSERT_TRUE(experiment.run(after_reset).ok());
+
+  EXPECT_DOUBLE_EQ(after_reset.final_position, baseline.final_position);
+  EXPECT_DOUBLE_EQ(after_reset.final_velocity, baseline.final_velocity);
+  EXPECT_DOUBLE_EQ(after_reset.metrics.rmse, baseline.metrics.rmse);
+  EXPECT_DOUBLE_EQ(after_reset.metrics.control_effort_rms,
+                   baseline.metrics.control_effort_rms);
+  EXPECT_EQ(after_reset.metrics.samples, config.steps);
+  EXPECT_DOUBLE_EQ(second_run.final_position, baseline.final_position);
+}

@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include "mca/simulation/lifecycle.hpp"
 #include "mca/simulation/step.hpp"
 
 TEST(SimulationStep, ValidatesFiniteNonNegativeTimeAndPositiveDt) {
@@ -70,4 +71,63 @@ TEST(SimulationClock, OverflowingAdvancePreservesState) {
   EXPECT_DOUBLE_EQ(after.time_s, before.time_s);
   EXPECT_DOUBLE_EQ(after.dt_s, before.dt_s);
   EXPECT_EQ(after.step_index, before.step_index);
+}
+
+namespace {
+class FakeSimulationParticipant final : public mca::simulation::ISimulationParticipant {
+ public:
+  bool reset() noexcept override {
+    state_ = 0;
+    return true;
+  }
+
+  bool step(const mca::simulation::SimulationStep& step) noexcept override {
+    if (!mca::simulation::valid_step(step) || step.step_index != expected_index_) {
+      return false;
+    }
+    state_ += 1;
+    expected_index_ += 1;
+    return true;
+  }
+
+  int state() const noexcept { return state_; }
+
+ private:
+  int state_{0};
+  std::size_t expected_index_{0};
+};
+}  // namespace
+
+TEST(SimulationLifecycle, ParticipantConsumesAuthoritativeExternalStep) {
+  FakeSimulationParticipant participant;
+  EXPECT_EQ(participant.state(), 0);
+  EXPECT_TRUE(participant.reset());
+
+  EXPECT_TRUE(participant.step({0.0, 0.01, 0}));
+  EXPECT_TRUE(participant.step({0.01, 0.01, 1}));
+  EXPECT_EQ(participant.state(), 2);
+}
+
+TEST(SimulationLifecycle, InvalidStepDoesNotAdvanceParticipant) {
+  FakeSimulationParticipant participant;
+  ASSERT_TRUE(participant.reset());
+  ASSERT_TRUE(participant.step({0.0, 0.01, 0}));
+  const int before = participant.state();
+
+  EXPECT_FALSE(participant.step({0.02, 0.01, 2}));
+  EXPECT_EQ(participant.state(), before);
+  EXPECT_FALSE(participant.step({-0.01, 0.01, 1}));
+  EXPECT_EQ(participant.state(), before);
+}
+
+TEST(SimulationLifecycle, ResetRestoresParticipantBaseline) {
+  FakeSimulationParticipant participant;
+  ASSERT_TRUE(participant.reset());
+  ASSERT_TRUE(participant.step({0.0, 0.01, 0}));
+  ASSERT_EQ(participant.state(), 1);
+
+  ASSERT_TRUE(participant.reset());
+  EXPECT_EQ(participant.state(), 0);
+  EXPECT_TRUE(participant.step({0.0, 0.01, 0}));
+  EXPECT_EQ(participant.state(), 1);
 }

@@ -246,3 +246,47 @@ TEST(PidFeedforwardComparison, UnconfiguredPlantReconfigurationPreservesRunner) 
   EXPECT_DOUBLE_EQ(after_invalid.pid_only.tracking.rmse,
                    baseline.pid_only.tracking.rmse);
 }
+
+TEST(PidFeedforwardComparison, ResetAndRepeatedRunsRestoreDeterministicBaseline) {
+  mca::experiment::PidFeedforwardComparison runner;
+  auto config = make_config();
+  config.steps = 113;
+  ASSERT_TRUE(runner.configure(config).ok());
+
+  mca::experiment::PidFeedforwardComparisonResult first;
+  ASSERT_TRUE(runner.run(first).ok());
+
+  mca::experiment::PidFeedforwardComparisonResult second;
+  ASSERT_TRUE(runner.run(second).ok());
+  EXPECT_DOUBLE_EQ(second.pid_only.final_position, first.pid_only.final_position);
+  EXPECT_DOUBLE_EQ(second.pid_only.final_velocity, first.pid_only.final_velocity);
+  EXPECT_DOUBLE_EQ(second.pid_plus_feedforward.final_position,
+                   first.pid_plus_feedforward.final_position);
+  EXPECT_DOUBLE_EQ(second.pid_plus_feedforward.final_velocity,
+                   first.pid_plus_feedforward.final_velocity);
+  EXPECT_DOUBLE_EQ(second.pid_only.tracking.rmse, first.pid_only.tracking.rmse);
+  EXPECT_DOUBLE_EQ(second.pid_plus_feedforward.tracking.rmse,
+                   first.pid_plus_feedforward.tracking.rmse);
+  EXPECT_EQ(second.pid_only.tracking.samples, first.pid_only.tracking.samples);
+  EXPECT_EQ(second.pid_plus_feedforward.tracking.samples,
+            first.pid_plus_feedforward.tracking.samples);
+
+  ASSERT_TRUE(runner.reset().ok());
+  mca::experiment::PidFeedforwardComparisonResult after_reset;
+  ASSERT_TRUE(runner.run(after_reset).ok());
+  EXPECT_DOUBLE_EQ(after_reset.pid_only.final_position,
+                   first.pid_only.final_position);
+  EXPECT_DOUBLE_EQ(after_reset.pid_only.final_velocity,
+                   first.pid_only.final_velocity);
+  EXPECT_DOUBLE_EQ(after_reset.pid_plus_feedforward.final_position,
+                   first.pid_plus_feedforward.final_position);
+  EXPECT_DOUBLE_EQ(after_reset.pid_plus_feedforward.final_velocity,
+                   first.pid_plus_feedforward.final_velocity);
+  EXPECT_DOUBLE_EQ(after_reset.pid_only.tracking.rmse,
+                   first.pid_only.tracking.rmse);
+  EXPECT_DOUBLE_EQ(after_reset.pid_plus_feedforward.tracking.rmse,
+                   first.pid_plus_feedforward.tracking.rmse);
+  EXPECT_EQ(after_reset.pid_only.tracking.samples, first.pid_only.tracking.samples);
+  EXPECT_EQ(after_reset.pid_plus_feedforward.tracking.samples,
+            first.pid_plus_feedforward.tracking.samples);
+}

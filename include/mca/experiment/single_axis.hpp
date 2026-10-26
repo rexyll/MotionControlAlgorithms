@@ -75,7 +75,12 @@ class SingleAxisExperiment {
 
   core::Status reset() noexcept {
     if (!configured_) return {core::StatusCode::NotConfigured};
-    return reset_impl();
+    // Reset all runtime state on a candidate so a partial component reset
+    // cannot leave the active experiment internally inconsistent.
+    auto trial = *this;
+    if (auto status = trial.reset_impl(); !status.ok()) return status;
+    *this = trial;
+    return {};
   }
 
   core::Status run(SingleAxisResult& result) noexcept {

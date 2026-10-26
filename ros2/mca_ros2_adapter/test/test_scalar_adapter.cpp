@@ -31,6 +31,32 @@ TEST_F(ScalarAdapterTest, MissingCommandPreservesCallerOutput) {
   EXPECT_DOUBLE_EQ(output.effort[0], 12.5);
 }
 
+TEST_F(ScalarAdapterTest, StaleCommandPreservesCallerOutput) {
+  auto node = std::make_shared<rclcpp::Node>("mca_scalar_adapter_stale_command_test");
+  mca_ros2_adapter::ScalarAdapter adapter(
+      node, "state_stale", "command_stale", std::chrono::milliseconds(1));
+  auto publisher = node->create_publisher<std_msgs::msg::Float64>("command_stale", rclcpp::QoS(10));
+  std_msgs::msg::Float64 message;
+  message.data = 7.5;
+  publisher->publish(message);
+
+  mca::simulation::ScalarActuatorCommand output{};
+  output.effort[0] = 4.5;
+  bool received = false;
+  for (int attempt = 0; attempt < 30 && !received; ++attempt) {
+    rclcpp::spin_some(node);
+    received = adapter.read_command(output);
+    if (!received) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  ASSERT_TRUE(received);
+  EXPECT_DOUBLE_EQ(output.effort[0], 7.5);
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(3));
+  output.effort[0] = 4.5;
+  EXPECT_FALSE(adapter.read_command(output));
+  EXPECT_DOUBLE_EQ(output.effort[0], 4.5);
+}
+
 TEST_F(ScalarAdapterTest, ReadsFiniteCommandFromRosTopic) {
   auto node = std::make_shared<rclcpp::Node>("mca_scalar_adapter_command_test");
   mca_ros2_adapter::ScalarAdapter adapter(node, "state", "command");

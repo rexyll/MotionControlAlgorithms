@@ -12,7 +12,10 @@ target_include_directories(mca_ros2_adapter INTERFACE
   $<INSTALL_INTERFACE:include>)
 ament_target_dependencies(mca_ros2_adapter INTERFACE rclcpp std_msgs)
 add_library(mca_ros2_adapter_compile_check OBJECT src/compile_check.cpp)
-target_link_libraries(mca_ros2_adapter_compile_check PRIVATE mca_ros2_adapter)
+target_compile_features(mca_ros2_adapter_compile_check PRIVATE cxx_std_17)
+target_include_directories(mca_ros2_adapter_compile_check PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../include)
 ament_target_dependencies(mca_ros2_adapter_compile_check rclcpp std_msgs)
 install(DIRECTORY include/ DESTINATION include)
 install(TARGETS mca_ros2_adapter EXPORT export_mca_ros2_adapter)
@@ -21,7 +24,7 @@ ament_export_dependencies(rclcpp std_msgs)
 
 if(BUILD_TESTING)
   ament_add_gtest(test_scalar_adapter test/test_scalar_adapter.cpp)
-  target_link_libraries(test_scalar_adapter PRIVATE mca_ros2_adapter)
+  target_link_libraries(test_scalar_adapter mca_ros2_adapter)
   ament_target_dependencies(test_scalar_adapter rclcpp std_msgs)
 endif()
 ament_package()

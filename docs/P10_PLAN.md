@@ -9,8 +9,8 @@ P10 builds the simulator-independent execution contract before adding ROS 2 or G
 - [x] P10-03 unified timestep contract: make the single-axis plant/controller/experiment boundary consume one explicit `SimulationStep`; the experiment owns no competing clock and forwards the same `dt` to PID and plant.
 - [x] P10-04 simulation state/command boundary: introduce explicit value types for simulator state and actuator command exchange without coupling to ROS 2/Gazebo.
 - [x] P10-05 replay/log boundary: define deterministic record/replay value types and a core-neutral logging port.
-- [x] P10-06 ROS 2 adapter minimum contract: add optional adapter interfaces without making ROS 2 a core dependency.
-- [x] P10-07 Gazebo adapter minimum contract: add optional simulator adapter interfaces without making Gazebo a core dependency.
+- [ ] P10-06 ROS 2 adapter minimum contract: add optional adapter interfaces without making ROS 2 a core dependency.
+- [ ] P10-07 Gazebo adapter minimum contract: add optional simulator adapter interfaces without making Gazebo a core dependency.
 - [ ] P10-08 single-axis end-to-end simulation acceptance: connect controller → plant → experiment through the new contract; use Gazebo only if the deterministic adapter acceptance cannot cover the required integration boundary.
 
 ## P10-01 acceptance
@@ -67,3 +67,8 @@ Runs #1027–#1030 completed successfully on both Linux and Windows. Each platfo
 
 Runs #1031–#1035 completed successfully on both Linux and Windows. Each platform passed Configure, Build, and Test. The accepted scope is the dependency-free Gazebo adapter contract and fake-adapter tests; this does not claim a concrete Gazebo plugin or a live Gazebo runtime test.
 
+
+
+## Acceptance correction — test target registration
+
+A follow-up audit on 2026-10-26 found that `tests/simulation/step_test.cpp` had not been registered in the `mca_core_tests` executable. Earlier runs for P10-06/P10-07 passed the pre-existing target but did not compile or execute these adapter-contract tests. The source file is now registered in CMake (commit `918de3c7`). P10-06, P10-07, and P10-08 remain pending until corrected Linux and Windows Configure/Build/Test runs pass. The P10-08 acceptance is deterministic and does not currently require a local Ubuntu/Gazebo run.

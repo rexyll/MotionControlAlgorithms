@@ -35,6 +35,7 @@
 #include "mca/plant/first_order.hpp"
 #include "mca/plant/second_order.hpp"
 #include "mca/simulation/lifecycle.hpp"
+#include "mca/simulation/replay.hpp"
 #include "mca/simulation/state_command.hpp"
 #include "mca/simulation/step.hpp"
 #include "mca/trajectory/scalar.hpp"

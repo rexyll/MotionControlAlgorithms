@@ -10,6 +10,9 @@ target_include_directories(mca_ros2_adapter INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../include>
   $<INSTALL_INTERFACE:include>)
 ament_target_dependencies(mca_ros2_adapter INTERFACE rclcpp std_msgs)
+add_library(mca_ros2_adapter_compile_check OBJECT src/compile_check.cpp)
+target_link_libraries(mca_ros2_adapter_compile_check PRIVATE mca_ros2_adapter)
+ament_target_dependencies(mca_ros2_adapter_compile_check rclcpp std_msgs)
 install(DIRECTORY include/ DESTINATION include)
 install(TARGETS mca_ros2_adapter EXPORT export_mca_ros2_adapter)
 ament_export_targets(export_mca_ros2_adapter HAS_LIBRARY_TARGET)

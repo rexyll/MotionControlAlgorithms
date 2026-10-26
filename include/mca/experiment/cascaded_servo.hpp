@@ -161,7 +161,7 @@ class CascadedServoExperiment {
       return {core::StatusCode::NumericalError};
     }
 
-    if (!reset().ok()) return {core::StatusCode::InvalidArgument};
+    if (auto status = reset(); !status.ok()) return status;
 
     const trajectory::StepTrajectory reference(config_.position_reference);
     for (int i = 0; i < config_.steps; ++i) {

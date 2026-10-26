@@ -44,3 +44,13 @@ Evidence:
 - Evidence class: ROS 2 package build/install + focused ROS 2 tests, and independent core cross-platform CI. This is not Gazebo integration or production deployment evidence.
 
 Known limitation: the array wire format is prototype-only; step index is encoded as a double. Before external deployment, replace it with a versioned custom message containing an integer step index, explicit units, and a schema compatibility policy. The topic test verifies ROS 2 topic command flow in CI, not end-to-end Gazebo behavior.
+
+
+## P11-03 implementation status (2026-10-26)
+
+The first concrete Gazebo Harmonic package scaffold is now present under `gazebo/mca_gazebo_adapter`:
+- CMake/package metadata targets Gazebo Sim 8 (Harmonic), plugin registration, and the simulator-independent scalar Gazebo adapter contract.
+- `ScalarJointSystem` resolves a model joint by SDF `joint_name`, captures position/velocity in `PostUpdate`, and applies finite, step-matched scalar effort in `PreUpdate`; absent commands default the joint force command to zero.
+- A dedicated `.github/workflows/gazebo-adapter.yml` installs the Harmonic development packages and attempts an isolated plugin build.
+- The first workflow run is still in progress at dependency installation; no successful plugin compilation or live simulation is claimed yet.
+- Known limitations before acceptance: acceleration is currently reported as zero; plugin lifecycle/reset behavior and thread-safe external command ingress need further validation; a headless SDF smoke test is still required.

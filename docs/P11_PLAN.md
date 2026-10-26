@@ -13,7 +13,7 @@ P10 establishes simulator-independent ports and deterministic fake-adapter accep
 
 ## Staged tasks
 
-- [ ] P11-01 integration workspace and dependency boundary audit: document the optional package layout, supported ROS 2/Gazebo versions, root-build isolation, and test strategy before adding middleware-specific code.
+- [x] P11-01 integration workspace and dependency boundary audit: document the optional package layout, supported ROS 2/Gazebo versions, root-build isolation, and test strategy before adding middleware-specific code.
 - [ ] P11-02 concrete ROS 2 adapter: implement a ROS 2 Jazzy package that maps typed core state/command values to messages, validates incoming commands, preserves core output on unavailable/stale input, and has ROS-enabled compile/unit tests.
 - [ ] P11-03 concrete Gazebo adapter: implement the smallest supported Gazebo Harmonic system/plugin that reads a coherent state snapshot and applies validated actuator commands, with explicit simulation-step mapping and reset behavior.
 - [ ] P11-04 launch-level single-axis integration: wire a minimal single-axis model/controller path through ROS 2 and Gazebo, expose deterministic startup/reset/shutdown, and verify command/state flow in a headless smoke test.
@@ -31,3 +31,5 @@ P10 establishes simulator-independent ports and deterministic fake-adapter accep
 ## P11-01 acceptance
 
 Before implementation, inspect root CMake and CI to verify optional packages are excluded from default builds. Document package names, dependency gates, and which test runner owns each layer. No local Gazebo run is required for this planning/audit task.
+
+Audit result (2026-10-26): the root `CMakeLists.txt` requires Eigen3 and conditionally finds GoogleTest when `MCA_BUILD_TESTS` is enabled; benchmarks are opt-in. It does not discover ROS 2 or Gazebo and therefore keeps the default core build isolated from middleware/simulator dependencies. `tests/simulation/step_test.cpp` is registered in `mca_core_tests`. The next implementation step should create separately built optional packages and add explicitly enabled ROS 2/Gazebo CI rather than adding those dependencies to root CMake. This audit is documentation/build-boundary evidence only; it does not claim ROS 2 or Gazebo runtime behavior.

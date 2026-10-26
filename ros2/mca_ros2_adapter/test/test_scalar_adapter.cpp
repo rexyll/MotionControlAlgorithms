@@ -1,5 +1,7 @@
 #include <limits>
 #include <memory>
+#include <thread>
+#include <chrono>
 
 #include "gtest/gtest.h"
 #include "mca_ros2_adapter/scalar_adapter.hpp"
@@ -36,8 +38,13 @@ TEST_F(ScalarAdapterTest, ReadsFiniteCommandFromRosTopic) {
   std_msgs::msg::Float64 message;
   message.data = 3.25;
   publisher->publish(message);
-  rclcpp::spin_some(node);
   mca::simulation::ScalarActuatorCommand output{};
-  ASSERT_TRUE(adapter.read_command(output));
+  bool received = false;
+  for (int attempt = 0; attempt < 30 && !received; ++attempt) {
+    rclcpp::spin_some(node);
+    received = adapter.read_command(output);
+    if (!received) std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  }
+  ASSERT_TRUE(received);
   EXPECT_DOUBLE_EQ(output.effort[0], 3.25);
 }

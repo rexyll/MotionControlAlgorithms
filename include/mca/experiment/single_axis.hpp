@@ -7,6 +7,7 @@
 #include "mca/control/feedforward.hpp"
 #include "mca/control/pid.hpp"
 #include "mca/plant/second_order.hpp"
+#include "mca/simulation/step.hpp"
 #include "mca/trajectory/scalar.hpp"
 
 namespace mca::experiment {
@@ -83,6 +84,19 @@ class SingleAxisExperiment {
     return {};
   }
 
+  // Consume exactly one externally supplied simulation step. The experiment
+  // does not own a clock: the same dt is forwarded to the controller and
+  // plant, while the supplied time is used for trajectory sampling.
+  core::Status step(const simulation::SimulationStep& simulation_step,
+                    double& effort) noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    auto trial = *this;
+    const auto status = trial.step_impl(simulation_step, effort);
+    if (!status.ok()) return status;
+    *this = trial;
+    return {};
+  }
+
   core::Status run(SingleAxisResult& result) noexcept {
     if (!configured_) return {core::StatusCode::NotConfigured};
 
@@ -114,8 +128,48 @@ class SingleAxisExperiment {
     if (!configured_) return {core::StatusCode::NotConfigured};
     accumulator_.reset();
     step_metrics_.reset();
+    executed_steps_ = 0;
     if (auto status = plant_.reset(); !status.ok()) return status;
     if (auto status = pid_.reset(0.0, 0.0); !status.ok()) return status;
+    return {};
+  }
+
+  core::Status step_impl(const simulation::SimulationStep& simulation_step,
+                         double& effort) noexcept {
+    if (!configured_) return {core::StatusCode::NotConfigured};
+    if (!simulation_step.valid() ||
+        simulation_step.step_index != executed_steps_ ||
+        simulation_step.dt_s != config_.dt ||
+        executed_steps_ >= static_cast<std::size_t>(config_.steps)) {
+      return {core::StatusCode::InvalidArgument};
+    }
+
+    const trajectory::StepTrajectory reference_trajectory(config_.reference);
+    const auto reference = reference_trajectory.sample(simulation_step.time_s);
+    double feedback = 0.0;
+    const auto status = pid_.update(reference.position, plant_.position(),
+                                    simulation_step.dt_s, feedback);
+    if (!status.ok()) return status;
+
+    const double candidate_effort =
+        feedback + ff_.compute(reference.velocity, reference.acceleration);
+    if (!core::is_finite(candidate_effort)) {
+      return {core::StatusCode::NumericalError};
+    }
+
+    const auto plant_status = plant_.step(candidate_effort, simulation_step.dt_s);
+    if (!plant_status.ok()) return plant_status;
+
+    const double sample_time_s = simulation_step.time_s + simulation_step.dt_s;
+    if (!core::is_finite(sample_time_s)) {
+      return {core::StatusCode::NumericalError};
+    }
+    accumulator_.add(reference.position, plant_.position(), candidate_effort);
+    if (step_metrics_enabled_) {
+      step_metrics_.add(sample_time_s, plant_.position());
+    }
+    effort = candidate_effort;
+    ++executed_steps_;
     return {};
   }
 
@@ -123,33 +177,16 @@ class SingleAxisExperiment {
     if (!configured_) return {core::StatusCode::NotConfigured};
     if (auto status = reset_impl(); !status.ok()) return status;
 
-    const trajectory::StepTrajectory reference_trajectory(config_.reference);
     for (int i = 0; i < config_.steps; ++i) {
       const double time_s = static_cast<double>(i) * config_.dt;
       if (!core::is_finite(time_s)) {
         return {core::StatusCode::NumericalError};
       }
-      const auto reference = reference_trajectory.sample(time_s);
-      double feedback = 0.0;
-      const auto status = pid_.update(reference.position, plant_.position(),
-                                      config_.dt, feedback);
-      if (!status.ok()) return status;
-
-      const double effort = feedback +
-                            ff_.compute(reference.velocity,
-                                        reference.acceleration);
-      if (!core::is_finite(effort)) {
-        return {core::StatusCode::NumericalError};
-      }
-      const auto plant_status = plant_.step(effort, config_.dt);
-      if (!plant_status.ok()) return plant_status;
-      const double sample_time_s = time_s + config_.dt;
-      if (!core::is_finite(sample_time_s)) {
-        return {core::StatusCode::NumericalError};
-      }
-      accumulator_.add(reference.position, plant_.position(), effort);
-      if (step_metrics_enabled_) {
-        step_metrics_.add(sample_time_s, plant_.position());
+      double effort = 0.0;
+      const simulation::SimulationStep simulation_step{
+          time_s, config_.dt, static_cast<std::size_t>(i)};
+      if (auto status = step_impl(simulation_step, effort); !status.ok()) {
+        return status;
       }
     }
 
@@ -175,6 +212,7 @@ class SingleAxisExperiment {
   control::PidFeedforward ff_{};
   benchmark::TrackingAccumulator accumulator_{};
   benchmark::StepResponseAccumulator step_metrics_{};
+  std::size_t executed_steps_{0};
   bool step_metrics_enabled_{false};
   bool configured_{false};
 };

@@ -37,6 +37,7 @@
 #include "mca/simulation/lifecycle.hpp"
 #include "mca/simulation/replay.hpp"
 #include "mca/simulation/ros2_adapter.hpp"
+#include "mca/simulation/gazebo_adapter.hpp"
 #include "mca/simulation/state_command.hpp"
 #include "mca/simulation/step.hpp"
 #include "mca/trajectory/scalar.hpp"

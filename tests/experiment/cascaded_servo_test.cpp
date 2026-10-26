@@ -236,3 +236,40 @@ TEST(CascadedServoExperimentTest, ReportsActuatorConstraintViolation) {
   EXPECT_GT(result.constraints.max_violation, 0.0);
   EXPECT_LE(std::abs(result.final_voltage), config.max_voltage_v);
 }
+
+TEST(CascadedServoExperimentTest, ResetRestoresDeterministicBaseline) {
+  mca::experiment::CascadedServoConfig config;
+  config.dt = 1.0e-4;
+  config.steps = 1000;
+  config.position_reference = 0.4;
+  config.max_current_a = 12.0;
+
+  mca::experiment::CascadedServoExperiment experiment;
+  ASSERT_TRUE(experiment.configure(config, make_servo_config(),
+                                   make_motor_config()).ok());
+
+  mca::experiment::CascadedServoResult baseline;
+  ASSERT_TRUE(experiment.run(baseline).ok());
+
+  mca::experiment::CascadedServoResult second_run;
+  ASSERT_TRUE(experiment.run(second_run).ok());
+  ASSERT_TRUE(experiment.reset().ok());
+
+  mca::experiment::CascadedServoResult after_reset;
+  ASSERT_TRUE(experiment.run(after_reset).ok());
+
+  EXPECT_DOUBLE_EQ(after_reset.final_position, baseline.final_position);
+  EXPECT_DOUBLE_EQ(after_reset.final_velocity, baseline.final_velocity);
+  EXPECT_DOUBLE_EQ(after_reset.final_current, baseline.final_current);
+  EXPECT_DOUBLE_EQ(after_reset.final_torque, baseline.final_torque);
+  EXPECT_DOUBLE_EQ(after_reset.final_voltage, baseline.final_voltage);
+  EXPECT_DOUBLE_EQ(after_reset.position.rmse, baseline.position.rmse);
+  EXPECT_DOUBLE_EQ(after_reset.velocity.rmse, baseline.velocity.rmse);
+  EXPECT_DOUBLE_EQ(after_reset.torque.rmse, baseline.torque.rmse);
+  EXPECT_EQ(after_reset.position.samples, config.steps);
+  EXPECT_EQ(after_reset.velocity.samples, config.steps);
+  EXPECT_EQ(after_reset.torque.samples, config.steps);
+  EXPECT_EQ(after_reset.constraints.violations, baseline.constraints.violations);
+  EXPECT_DOUBLE_EQ(second_run.final_position, baseline.final_position);
+}
+

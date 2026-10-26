@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <world name="mca_gazebo_smoke">
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>0</real_time_factor>
+    </physics>
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <model name="single_axis_smoke">
+      <static>false</static>
+      <link name="base">
+        <inertial>
+          <mass>1.0</mass>
+          <inertia>
+            <ixx>0.01</ixx><iyy>0.01</iyy><izz>0.01</izz>
+            <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+          </inertia>
+        </inertial>
+      </link>
+      <link name="rotor">
+        <pose>0 0 0.1 0 0 0</pose>
+        <inertial>
+          <mass>0.1</mass>
+          <inertia>
+            <ixx>0.001</ixx><iyy>0.001</iyy><izz>0.001</izz>
+            <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+          </inertia>
+        </inertial>
+        <collision name="rotor_collision">
+          <geometry><cylinder><radius>0.02</radius><length>0.1</length></cylinder></geometry>
+        </collision>
+      </link>
+      <joint name="axis_joint" type="revolute">
+        <parent>base</parent>
+        <child>rotor</child>
+        <axis><xyz>0 0 1</xyz><limit><lower>-3.14</lower><upper>3.14</upper><effort>5</effort><velocity>10</velocity></limit></axis>
+      </joint>
+      <plugin filename="libmca_gazebo_adapter.so" name="mca_gazebo_adapter::ScalarJointSystem">
+        <joint_name>axis_joint</joint_name>
+      </plugin>
+    </model>
+  </world>
+</sdf>

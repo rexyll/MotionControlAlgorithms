@@ -65,15 +65,14 @@ jobs:
         shell: bash
         run: |
           set -eo pipefail
-          source /opt/ros/jazzy/setup.bash
           set -u
           export GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
           export ROS_DOMAIN_ID=37
           topic_prefix="/mca/single_axis_smoke/joint/axis_joint"
 
-          # ROS Jazzy prepends its minimal gz-tools-vendor CLI, which lacks the Gazebo Sim command.
-          # Use the system Gazebo CLI installed from the Harmonic repository explicitly.
-          /usr/bin/gz sim -s -r gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
+          # Start Gazebo before sourcing ROS 2: ROS Jazzy prepends a minimal
+          # gz-tools-vendor CLI to PATH that does not provide the "sim" command.
+          gz sim -s -r gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
           gz_pid=$!
           bridge_pid=""
           cleanup() {
@@ -86,6 +85,8 @@ jobs:
           }
           trap cleanup EXIT
           sleep 3
+
+          source /opt/ros/jazzy/setup.bash
 
           # Bridge effort from ROS 2 into Gazebo and velocity back into ROS 2.
           ros2 run ros_gz_bridge parameter_bridge \

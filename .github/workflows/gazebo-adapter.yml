@@ -71,7 +71,9 @@ jobs:
           export ROS_DOMAIN_ID=37
           topic_prefix="/mca/single_axis_smoke/joint/axis_joint"
 
-          gz sim -s -r gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
+          # ROS Jazzy prepends its minimal gz-tools-vendor CLI, which lacks the Gazebo Sim command.
+          # Use the system Gazebo CLI installed from the Harmonic repository explicitly.
+          /usr/bin/gz sim -s -r gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
           gz_pid=$!
           bridge_pid=""
           cleanup() {

@@ -70,7 +70,9 @@ class ScalarJointSystem final : public gz::sim::System,
     time_topic_ = topic_prefix_ + "/state/time";
     step_topic_ = topic_prefix_ + "/state/step_index";
 
-    command_subscribed_ = node_.Subscribe(command_topic_, &ScalarJointSystem::OnCommand, this);
+    command_subscribed_ = node_.Subscribe(
+        command_topic_,
+        [this](const gz::msgs::Double& message) { this->OnCommand(message); });
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_.Advertise<gz::msgs::Double>(acceleration_topic_);

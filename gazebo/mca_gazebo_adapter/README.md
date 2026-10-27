@@ -58,7 +58,13 @@ configure it with an SDF `<plugin>` element containing `<joint_name>...</joint_n
 
 ## Evidence boundary
 
-The Gazebo workflow now verifies dependency installation, plugin compilation and
-headless plugin loading. P11-04 extends this into command/state transport and ROS 2
-bridge validation. Reset, shutdown, missing-joint and repeated-launch behavior remain
-explicit acceptance items after the transport path is stable.
+The Gazebo workflow verifies dependency installation, plugin compilation, headless
+plugin loading, and a live ROS 2 ↔ Gazebo bridge smoke test. Run #22 on commit
+`42e62a35cc8e881b9f4509a3887749956d05c880` publishes a ROS 2 effort command, bridges it
+to Gazebo Transport, and observes a velocity response through the reverse bridge.
+See [workflow Run #22](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/40456187215).
+
+This is integration-smoke evidence, not full acceptance. Reset/time rollback, stale
+command timing, malformed/non-finite transport input, missing-joint diagnostics,
+safe shutdown, repeated launch, and measured acceleration remain open robustness or
+modeling limitations.

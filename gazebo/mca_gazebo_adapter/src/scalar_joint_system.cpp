@@ -78,6 +78,9 @@ class ScalarJointSystem final : public gz::sim::System,
     step_pub_ = node_.Advertise<gz::msgs::Double>(step_topic_);
     configured_ = command_subscribed_ && position_pub_ && velocity_pub_ &&
                   acceleration_pub_ && time_pub_ && step_pub_;
+    gzmsg << "MCA Gazebo adapter configured command topic=" << command_topic_
+          << " subscribe_ok=" << (command_subscribed_ ? "true" : "false")
+          << " configured=" << (configured_ ? "true" : "false") << std::endl;
   }
 
   void PreUpdate(const gz::sim::UpdateInfo& info,

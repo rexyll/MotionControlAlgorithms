@@ -64,8 +64,9 @@ jobs:
       - name: Run ROS 2 ↔ Gazebo bridge command/state smoke test
         shell: bash
         run: |
-          set -euo pipefail
+          set -eo pipefail
           source /opt/ros/jazzy/setup.bash
+          set -u
           export GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
           export ROS_DOMAIN_ID=37
           topic_prefix="/mca/single_axis_smoke/joint/axis_joint"

@@ -81,6 +81,10 @@ jobs:
               kill "$velocity_pid" 2>/dev/null || true
               wait "$velocity_pid" 2>/dev/null || true
             fi
+            if [ -n "${command_echo_pid:-}" ]; then
+              kill "$command_echo_pid" 2>/dev/null || true
+              wait "$command_echo_pid" 2>/dev/null || true
+            fi
             if [ -n "$publisher_pid" ]; then
               kill "$publisher_pid" 2>/dev/null || true
               wait "$publisher_pid" 2>/dev/null || true
@@ -114,6 +118,10 @@ jobs:
 
           # Start effort first, then observe state while the command is still active.
           # This avoids accepting only startup/idle samples as proof of actuation.
+          # Observe the Gazebo command topic independently of the plugin callback.
+          # If this sees the effort, ROS->GZ conversion and transport publication work.
+          timeout 4s gz topic -e -t "${topic_prefix}/cmd_effort" > gz-command-echo.log 2>&1 &
+          command_echo_pid=$!
           timeout 4s ros2 topic pub --rate 20 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > command-publisher.log 2>&1 &
           publisher_pid=$!
           sleep 1
@@ -124,6 +132,8 @@ jobs:
 
           echo "=== Command topic transport info after ROS publisher ==="
           gz topic -i -t "${topic_prefix}/cmd_effort" || true
+          echo "=== Gazebo command topic echo ==="
+          cat gz-command-echo.log
           echo "=== ROS publisher log ==="
           cat command-publisher.log
           echo "=== Bridge log before assertions ==="

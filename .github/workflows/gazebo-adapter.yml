@@ -122,6 +122,14 @@ jobs:
           wait "$publisher_pid" || true
           wait "$velocity_pid" || true
 
+          echo "=== Command topic transport info after ROS publisher ==="
+          gz topic -i -t "${topic_prefix}/cmd_effort" || true
+          echo "=== ROS publisher log ==="
+          cat command-publisher.log
+          echo "=== Bridge log before assertions ==="
+          cat ros-gz-bridge.log
+          echo "=== Gazebo log before assertions ==="
+          cat gazebo-transport.log
           cat velocity.log
           if ! grep -Eq 'data: [-+]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][-+]?[0-9]+)?' velocity.log; then
             echo "No ROS 2 velocity state was observed through ros_gz_bridge"

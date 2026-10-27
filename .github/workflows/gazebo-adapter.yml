@@ -94,6 +94,10 @@ jobs:
           }
           trap cleanup EXIT
           sleep 3
+          echo "=== Gazebo topics after plugin startup ==="
+          gz topic -l || true
+          echo "=== Command topic transport info ==="
+          gz topic -i -t "${topic_prefix}/cmd_effort" || true
 
           # ROS setup scripts expect unset variables to be tolerated.
           set +u
@@ -121,8 +125,15 @@ jobs:
           cat velocity.log
           if ! grep -Eq 'data: [-+]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][-+]?[0-9]+)?' velocity.log; then
             echo "No ROS 2 velocity state was observed through ros_gz_bridge"
+            echo "=== Gazebo topic list at failure ==="
+            gz topic -l || true
+            echo "=== Command topic transport info at failure ==="
+            gz topic -i -t "${topic_prefix}/cmd_effort" || true
+            echo "=== Gazebo transport log ==="
             cat gazebo-transport.log
+            echo "=== ROS/Gazebo bridge log ==="
             cat ros-gz-bridge.log
+            echo "=== ROS command publisher log ==="
             cat command-publisher.log
             exit 1
           fi

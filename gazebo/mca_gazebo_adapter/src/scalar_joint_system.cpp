@@ -54,6 +54,12 @@ class ScalarJointSystem final : public gz::sim::System,
     if (prefix.empty()) {
       prefix = "/mca/" + model.Name(ecm) + "/joint/" + joint_name;
     }
+    if (sdf->HasElement("command_timeout_s")) {
+      command_timeout_s_ = sdf->Get<double>("command_timeout_s");
+      if (!std::isfinite(command_timeout_s_) || command_timeout_s_ <= 0.0) {
+        return;
+      }
+    }
     while (prefix.size() > 1 && prefix.back() == '/') prefix.pop_back();
     topic_prefix_ = prefix;
     command_topic_ = topic_prefix_ + "/cmd_effort";
@@ -85,6 +91,7 @@ class ScalarJointSystem final : public gz::sim::System,
       std::lock_guard<std::mutex> lock(mutex_);
       if (has_sim_time_ && time_s < last_sim_time_) {
         pending_command_ = false;
+        transport_command_active_ = false;
         state_valid_ = false;
         step_index_.store(0, std::memory_order_relaxed);
         if (force && !force->Data().empty()) force->Data()[0] = 0.0;
@@ -94,10 +101,22 @@ class ScalarJointSystem final : public gz::sim::System,
       has_sim_time_ = true;
 
       const auto current_step = step_index_.load(std::memory_order_relaxed);
-      if (pending_command_ && pending_step_index_ == current_step && pending_command_value_.finite()) {
-        if (force && !force->Data().empty()) force->Data()[0] = pending_command_value_.effort[0];
-      } else if (force && !force->Data().empty()) {
-        force->Data()[0] = 0.0;
+      const bool step_command_valid =
+          pending_command_ && pending_step_index_ == current_step && pending_command_value_.finite();
+      const bool transport_command_fresh =
+          transport_command_active_ && time_s >= last_transport_command_time_ &&
+          (time_s - last_transport_command_time_) <= command_timeout_s_;
+      if (force && !force->Data().empty()) {
+        if (step_command_valid) {
+          force->Data()[0] = pending_command_value_.effort[0];
+        } else if (transport_command_fresh && transport_command_value_.finite()) {
+          force->Data()[0] = transport_command_value_.effort[0];
+        } else {
+          force->Data()[0] = 0.0;
+        }
+      }
+      if (transport_command_active_ && !transport_command_fresh) {
+        transport_command_active_ = false;
       }
       pending_command_ = false;
       if (current_step != std::numeric_limits<std::size_t>::max()) {
@@ -180,10 +199,9 @@ class ScalarJointSystem final : public gz::sim::System,
     if (!std::isfinite(effort)) return;
     std::lock_guard<std::mutex> lock(mutex_);
     if (!has_sim_time_) return;
-    const auto current_step = step_index_.load(std::memory_order_relaxed);
-    pending_step_index_ = current_step;
-    pending_command_value_.effort[0] = effort;
-    pending_command_ = true;
+    transport_command_value_.effort[0] = effort;
+    last_transport_command_time_ = last_sim_time_;
+    transport_command_active_ = true;
   }
 
   static void PublishScalar(gz::transport::Node::Publisher& publisher, double value) {
@@ -205,10 +223,14 @@ class ScalarJointSystem final : public gz::sim::System,
   std::size_t pending_step_index_{0};
   double last_sim_time_{0.0};
   double last_dt_{0.0};
+  double command_timeout_s_{0.1};
+  double last_transport_command_time_{0.0};
+  bool transport_command_active_{false};
   bool has_sim_time_{false};
   mca::simulation::SimulationStep cached_step_{};
   mca::simulation::ScalarSimulationState cached_state_{};
   mca::simulation::ScalarActuatorCommand pending_command_value_{};
+  mca::simulation::ScalarActuatorCommand transport_command_value_{};
 
   gz::transport::Node node_;
   std::string topic_prefix_;

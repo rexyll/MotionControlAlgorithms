@@ -33,7 +33,7 @@ jobs:
           curl -fsSL https://packages.osrfoundation.org/gazebo.gpg -o /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
           echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] https://packages.osrfoundation.org/gazebo/ubuntu-stable $(. /etc/os-release && echo ${UBUNTU_CODENAME}) main" > /etc/apt/sources.list.d/gazebo-stable.list
           apt-get update
-          apt-get install -y --no-install-recommends gz-harmonic libgz-sim8-dev libgz-plugin2-dev libgz-common5-dev libgz-math7-dev
+          apt-get install -y --no-install-recommends gz-harmonic libgz-sim8-dev libgz-plugin2-dev libgz-common5-dev libgz-math7-dev libgz-transport13-dev libgz-msgs10-dev
       - name: Configure Gazebo adapter
         shell: bash
         run: cmake -S gazebo/mca_gazebo_adapter -B build/gazebo-adapter -DCMAKE_BUILD_TYPE=Release

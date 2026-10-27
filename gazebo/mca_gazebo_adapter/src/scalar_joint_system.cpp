@@ -86,7 +86,7 @@ class ScalarJointSystem final : public gz::sim::System,
     const double dt_s = std::chrono::duration<double>(info.dt).count();
     if (!std::isfinite(time_s) || !std::isfinite(dt_s) || time_s < 0.0 || dt_s <= 0.0) return;
 
-    auto* force = ecm.Component<gz::sim::components::JointForceCmd>(joint_);
+    double effort_to_apply = 0.0;
     {
       std::lock_guard<std::mutex> lock(mutex_);
       if (has_sim_time_ && time_s < last_sim_time_) {
@@ -94,7 +94,6 @@ class ScalarJointSystem final : public gz::sim::System,
         transport_command_active_ = false;
         state_valid_ = false;
         step_index_.store(0, std::memory_order_relaxed);
-        if (force && !force->Data().empty()) force->Data()[0] = 0.0;
       }
       last_sim_time_ = time_s;
       last_dt_ = dt_s;
@@ -108,14 +107,10 @@ class ScalarJointSystem final : public gz::sim::System,
           std::chrono::duration<double>(std::chrono::steady_clock::now() -
                                          last_transport_command_wall_time_).count() <=
               command_timeout_s_;
-      if (force && !force->Data().empty()) {
-        if (step_command_valid) {
-          force->Data()[0] = pending_command_value_.effort[0];
-        } else if (transport_command_fresh && transport_command_value_.finite()) {
-          force->Data()[0] = transport_command_value_.effort[0];
-        } else {
-          force->Data()[0] = 0.0;
-        }
+      if (step_command_valid) {
+        effort_to_apply = pending_command_value_.effort[0];
+      } else if (transport_command_fresh && transport_command_value_.finite()) {
+        effort_to_apply = transport_command_value_.effort[0];
       }
       if (transport_command_active_ && !transport_command_fresh) {
         transport_command_active_ = false;
@@ -125,6 +120,11 @@ class ScalarJointSystem final : public gz::sim::System,
         step_index_.store(current_step + 1, std::memory_order_relaxed);
       }
     }
+
+    // Mutating Component::Data() in place does not reliably notify the ECS
+    // that JointForceCmd changed. SetComponentData marks the component dirty
+    // so the Gazebo physics system observes each new effort value.
+    ecm.SetComponentData<gz::sim::components::JointForceCmd>(joint_, {effort_to_apply});
   }
 
   void PostUpdate(const gz::sim::UpdateInfo& info,

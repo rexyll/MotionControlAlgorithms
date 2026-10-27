@@ -8,7 +8,7 @@ Optional Gazebo Harmonic system plugin implementing the simulator-independent
 - Resolves one model joint by the SDF `joint_name` parameter.
 - Caches a coherent scalar position/velocity snapshot in `PostUpdate`.
 - Applies a finite scalar effort command through `JointForceCmd` in `PreUpdate`.
-- Holds transport effort between messages with a simulation-time watchdog (default 0.1 s); timeout or time rollback clears the effort to zero.
+- Holds transport effort between messages with a steady wall-clock watchdog (default 0.1 s); timeout or simulation-time rollback clears the effort to zero.
 - Rejects invalid steps/commands and preserves caller output when state is unavailable.
 - Resets command output to zero when no command for the expected step is pending.
 - Exposes a Gazebo Transport command channel and scalar state channels so a
@@ -34,10 +34,13 @@ created:
 | adapter -> ROS/Gazebo | `state/step_index` | MCA simulation step index encoded as a double |
 
 Transport commands are finite-checked and held until replaced. The default watchdog
-is `0.1` simulation seconds; override it with the optional SDF element
+is `0.1` wall-clock seconds; override it with the optional SDF element
 `<command_timeout_s>0.1</command_timeout_s>`. The timeout must be finite and greater
-than zero. If no new transport command arrives before the watchdog expires, zero
-effort is applied. Simulation-time rollback clears the active transport command.
+than zero. A steady wall clock is used intentionally: headless simulation may advance
+simulation time much faster than real time, so a simulation-time watchdog can expire
+between ordinary ROS 2 publisher messages. If no new transport command arrives before
+the watchdog expires, zero effort is applied. Simulation-time rollback also clears the
+active transport command.
 This transport watchdog is separate from the core adapter's step-matched
 `write_command` mailbox.
 
@@ -73,8 +76,10 @@ This is integration-smoke evidence, not full acceptance. The strengthened Run #2
 assertion (commit `96aa3c759217c0c5ac034608ea6b9672869876e0`) failed: the velocity
 samples collected while the ROS 2 publisher was active remained near zero, exposing
 that the previous one-step transport mailbox did not reliably actuate the joint.
-The transport watchdog/hold behavior was added in commit
-`b8676f91deee932cc8a40d958689bf36f425b5c3`; its Gazebo runtime behavior still needs
-CI confirmation. Missing-joint diagnostics, malformed/non-finite transport input,
+The transport hold/watchdog was added in commit
+`b8676f91deee932cc8a40d958689bf36f425b5c3`. Run #26 then showed that a simulation-time
+watchdog expires too quickly under unthrottled headless simulation; the watchdog was
+changed to steady wall-clock time in commit `0811896b2894fc58d55fbe14f0998594cd1d41c7`.
+The follow-up Gazebo runtime result is still pending. Missing-joint diagnostics, malformed/non-finite transport input,
 safe shutdown, repeated launch, and measured acceleration remain open robustness or
 modeling limitations.

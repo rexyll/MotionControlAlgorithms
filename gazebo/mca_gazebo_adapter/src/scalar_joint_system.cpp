@@ -140,7 +140,7 @@ class ScalarJointSystem final : public gz::sim::System,
     PublishScalar(position_pub_, next_state.position[0]);
     PublishScalar(velocity_pub_, next_state.velocity[0]);
     PublishScalar(acceleration_pub_, next_state.acceleration[0]);
-    PublishScalar(time_pub_, next_step.time);
+    PublishScalar(time_pub_, next_step.time_s);
     PublishScalar(step_pub_, static_cast<double>(next_step.step_index));
   }
 

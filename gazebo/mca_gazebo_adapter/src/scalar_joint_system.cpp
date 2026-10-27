@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include <gz/msgs/double.pb.h>
 #include <gz/plugin/Register.hh>
 #include <gz/sim/EntityComponentManager.hh>
 #include <gz/sim/Model.hh>
@@ -19,6 +20,7 @@
 #include <gz/sim/components/JointForceCmd.hh>
 #include <gz/sim/components/JointPosition.hh>
 #include <gz/sim/components/JointVelocity.hh>
+#include <gz/transport/Node.hh>
 #include <sdf/Element.hh>
 
 namespace mca_gazebo_adapter {
@@ -46,7 +48,29 @@ class ScalarJointSystem final : public gz::sim::System,
     if (!ecm.Component<gz::sim::components::JointForceCmd>(joint_)) {
       ecm.CreateComponent(joint_, gz::sim::components::JointForceCmd({0.0}));
     }
-    configured_ = true;
+
+    std::string prefix;
+    if (sdf->HasElement("topic_prefix")) prefix = sdf->Get<std::string>("topic_prefix");
+    if (prefix.empty()) {
+      prefix = "/mca/" + model.Name(ecm) + "/joint/" + joint_name;
+    }
+    while (prefix.size() > 1 && prefix.back() == '/') prefix.pop_back();
+    topic_prefix_ = prefix;
+    command_topic_ = topic_prefix_ + "/cmd_effort";
+    position_topic_ = topic_prefix_ + "/state/position";
+    velocity_topic_ = topic_prefix_ + "/state/velocity";
+    acceleration_topic_ = topic_prefix_ + "/state/acceleration";
+    time_topic_ = topic_prefix_ + "/state/time";
+    step_topic_ = topic_prefix_ + "/state/step_index";
+
+    command_subscribed_ = node_.Subscribe(command_topic_, &ScalarJointSystem::OnCommand, this);
+    position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
+    velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);
+    acceleration_pub_ = node_.Advertise<gz::msgs::Double>(acceleration_topic_);
+    time_pub_ = node_.Advertise<gz::msgs::Double>(time_topic_);
+    step_pub_ = node_.Advertise<gz::msgs::Double>(step_topic_);
+    configured_ = command_subscribed_ && position_pub_ && velocity_pub_ &&
+                  acceleration_pub_ && time_pub_ && step_pub_;
   }
 
   void PreUpdate(const gz::sim::UpdateInfo& info,
@@ -56,11 +80,9 @@ class ScalarJointSystem final : public gz::sim::System,
     const double dt_s = std::chrono::duration<double>(info.dt).count();
     if (!std::isfinite(time_s) || !std::isfinite(dt_s) || time_s < 0.0 || dt_s <= 0.0) return;
 
-    auto *force = ecm.Component<gz::sim::components::JointForceCmd>(joint_);
+    auto* force = ecm.Component<gz::sim::components::JointForceCmd>(joint_);
     {
       std::lock_guard<std::mutex> lock(mutex_);
-      // A backwards simulation clock indicates a reset. Drop cached state and
-      // commands from the previous timeline before accepting new step indices.
       if (has_sim_time_ && time_s < last_sim_time_) {
         pending_command_ = false;
         state_valid_ = false;
@@ -68,14 +90,14 @@ class ScalarJointSystem final : public gz::sim::System,
         if (force && !force->Data().empty()) force->Data()[0] = 0.0;
       }
       last_sim_time_ = time_s;
+      last_dt_ = dt_s;
       has_sim_time_ = true;
 
-      // A command is consumed once. Invalid or mismatched commands never reach the simulator.
       const auto current_step = step_index_.load(std::memory_order_relaxed);
       if (pending_command_ && pending_step_index_ == current_step && pending_command_value_.finite()) {
         if (force && !force->Data().empty()) force->Data()[0] = pending_command_value_.effort[0];
-      } else {
-        if (force && !force->Data().empty()) force->Data()[0] = 0.0;
+      } else if (force && !force->Data().empty()) {
+        force->Data()[0] = 0.0;
       }
       pending_command_ = false;
       if (current_step != std::numeric_limits<std::size_t>::max()) {
@@ -89,8 +111,8 @@ class ScalarJointSystem final : public gz::sim::System,
     if (!configured_) return;
     const double time_s = std::chrono::duration<double>(info.simTime).count();
     const double dt_s = std::chrono::duration<double>(info.dt).count();
-    const auto *position = ecm.Component<gz::sim::components::JointPosition>(joint_);
-    const auto *velocity = ecm.Component<gz::sim::components::JointVelocity>(joint_);
+    const auto* position = ecm.Component<gz::sim::components::JointPosition>(joint_);
+    const auto* velocity = ecm.Component<gz::sim::components::JointVelocity>(joint_);
     if (!std::isfinite(time_s) || !std::isfinite(dt_s) || time_s < 0.0 || dt_s <= 0.0 ||
         !position || !velocity || position->Data().empty() || velocity->Data().empty()) {
       std::lock_guard<std::mutex> lock(mutex_);
@@ -102,18 +124,24 @@ class ScalarJointSystem final : public gz::sim::System,
     mca::simulation::ScalarSimulationState next_state{};
     next_state.position[0] = position->Data()[0];
     next_state.velocity[0] = velocity->Data()[0];
-    // Gazebo's generic joint components expose position and velocity; acceleration
-    // is left at zero until a version-specific acceleration source is available.
     next_state.acceleration[0] = 0.0;
     if (!next_step.valid() || !next_state.finite()) {
       std::lock_guard<std::mutex> lock(mutex_);
       state_valid_ = false;
       return;
     }
-    std::lock_guard<std::mutex> lock(mutex_);
-    cached_step_ = next_step;
-    cached_state_ = next_state;
-    state_valid_ = true;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      cached_step_ = next_step;
+      cached_state_ = next_state;
+      state_valid_ = true;
+    }
+
+    PublishScalar(position_pub_, next_state.position[0]);
+    PublishScalar(velocity_pub_, next_state.velocity[0]);
+    PublishScalar(acceleration_pub_, next_state.acceleration[0]);
+    PublishScalar(time_pub_, next_step.sim_time);
+    PublishScalar(step_pub_, static_cast<double>(next_step.step_index));
   }
 
   bool read_state(mca::simulation::SimulationStep& step,
@@ -131,12 +159,11 @@ class ScalarJointSystem final : public gz::sim::System,
   }
 
   bool write_command(const mca::simulation::SimulationStep& step,
-                    const mca::simulation::ScalarActuatorCommand& command) noexcept override {
+                     const mca::simulation::ScalarActuatorCommand& command) noexcept override {
     if (!configured_ || !step.valid() || !command.finite() ||
         step.step_index != step_index_.load(std::memory_order_relaxed)) return false;
     try {
       std::lock_guard<std::mutex> lock(mutex_);
-      // Recheck after acquiring the mailbox lock in case PreUpdate advanced the clock.
       if (step.step_index != step_index_.load(std::memory_order_relaxed)) return false;
       pending_step_index_ = step.step_index;
       pending_command_value_ = command;
@@ -148,20 +175,54 @@ class ScalarJointSystem final : public gz::sim::System,
   }
 
  private:
+  void OnCommand(const gz::msgs::Double& message) {
+    const double effort = message.data();
+    if (!std::isfinite(effort)) return;
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!has_sim_time_) return;
+    const auto current_step = step_index_.load(std::memory_order_relaxed);
+    pending_step_index_ = current_step;
+    pending_command_value_.effort[0] = effort;
+    pending_command_ = true;
+  }
+
+  static void PublishScalar(const gz::transport::Node::Publisher& publisher, double value) {
+    if (!publisher || !std::isfinite(value)) return;
+    gz::msgs::Double message;
+    message.set_data(value);
+    publisher.Publish(message);
+  }
+
   gz::sim::Entity joint_{gz::sim::kNullEntity};
   bool configured_{false};
-  // The simulator update callbacks and any future external command ingress may
-  // execute on different threads. Keep the small mailbox/snapshot coherent.
+  bool command_subscribed_{false};
+  // The simulator update callbacks and transport command ingress may execute on
+  // different threads. Keep the mailbox/snapshot coherent.
   mutable std::mutex mutex_;
   bool state_valid_{false};
   bool pending_command_{false};
   std::atomic<std::size_t> step_index_{0};
   std::size_t pending_step_index_{0};
   double last_sim_time_{0.0};
+  double last_dt_{0.0};
   bool has_sim_time_{false};
   mca::simulation::SimulationStep cached_step_{};
   mca::simulation::ScalarSimulationState cached_state_{};
   mca::simulation::ScalarActuatorCommand pending_command_value_{};
+
+  gz::transport::Node node_;
+  std::string topic_prefix_;
+  std::string command_topic_;
+  std::string position_topic_;
+  std::string velocity_topic_;
+  std::string acceleration_topic_;
+  std::string time_topic_;
+  std::string step_topic_;
+  gz::transport::Node::Publisher position_pub_;
+  gz::transport::Node::Publisher velocity_pub_;
+  gz::transport::Node::Publisher acceleration_pub_;
+  gz::transport::Node::Publisher time_pub_;
+  gz::transport::Node::Publisher step_pub_;
 };
 }  // namespace mca_gazebo_adapter
 

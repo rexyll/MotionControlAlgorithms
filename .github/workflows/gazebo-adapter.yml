@@ -131,6 +131,25 @@ jobs:
           echo "=== Gazebo log before assertions ==="
           cat gazebo-transport.log
           cat velocity.log
+
+          # Diagnostic only: bypass ROS-GZ bridge to distinguish transport ingress
+          # from the physics / JointForceCmd path. This never affects the ROS-path
+          # acceptance result above, which remains based only on velocity.log.
+          set +e
+          timeout 2s gz topic -t "${topic_prefix}/cmd_effort" -m gz.msgs.Double -p "data: 1.0" > native-publisher.log 2>&1 &
+          native_publisher_pid=$!
+          timeout 2s ros2 topic echo "${topic_prefix}/state/velocity" std_msgs/msg/Float64 > native-velocity.log 2>&1 &
+          native_velocity_pid=$!
+          wait "$native_publisher_pid"
+          wait "$native_velocity_pid"
+          set -e
+          echo "=== Native Gazebo transport diagnostic publisher ==="
+          cat native-publisher.log
+          echo "=== Velocity during native Gazebo command diagnostic (not acceptance) ==="
+          cat native-velocity.log
+          echo "=== Gazebo log after native command diagnostic ==="
+          cat gazebo-transport.log
+
           if ! grep -Eq 'data: [-+]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][-+]?[0-9]+)?' velocity.log; then
             echo "No ROS 2 velocity state was observed through ros_gz_bridge"
             echo "=== Gazebo topic list at failure ==="

@@ -104,8 +104,10 @@ class ScalarJointSystem final : public gz::sim::System,
       const bool step_command_valid =
           pending_command_ && pending_step_index_ == current_step && pending_command_value_.finite();
       const bool transport_command_fresh =
-          transport_command_active_ && time_s >= last_transport_command_time_ &&
-          (time_s - last_transport_command_time_) <= command_timeout_s_;
+          transport_command_active_ &&
+          std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                         last_transport_command_wall_time_).count() <=
+              command_timeout_s_;
       if (force && !force->Data().empty()) {
         if (step_command_valid) {
           force->Data()[0] = pending_command_value_.effort[0];
@@ -200,7 +202,7 @@ class ScalarJointSystem final : public gz::sim::System,
     std::lock_guard<std::mutex> lock(mutex_);
     if (!has_sim_time_) return;
     transport_command_value_.effort[0] = effort;
-    last_transport_command_time_ = last_sim_time_;
+    last_transport_command_wall_time_ = std::chrono::steady_clock::now();
     transport_command_active_ = true;
   }
 
@@ -224,7 +226,7 @@ class ScalarJointSystem final : public gz::sim::System,
   double last_sim_time_{0.0};
   double last_dt_{0.0};
   double command_timeout_s_{0.1};
-  double last_transport_command_time_{0.0};
+  std::chrono::steady_clock::time_point last_transport_command_wall_time_{};
   bool transport_command_active_{false};
   bool has_sim_time_{false};
   mca::simulation::SimulationStep cached_step_{};

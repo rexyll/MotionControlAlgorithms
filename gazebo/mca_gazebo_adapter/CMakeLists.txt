@@ -5,6 +5,8 @@ find_package(gz-sim8 REQUIRED)
 find_package(gz-plugin2 REQUIRED COMPONENTS register)
 find_package(gz-common5 REQUIRED)
 find_package(gz-math7 REQUIRED)
+find_package(gz-transport13 REQUIRED)
+find_package(gz-msgs10 REQUIRED)
 
 add_library(mca_gazebo_adapter SHARED src/scalar_joint_system.cpp)
 target_compile_features(mca_gazebo_adapter PRIVATE cxx_std_17)
@@ -14,7 +16,9 @@ target_link_libraries(mca_gazebo_adapter PRIVATE
   gz-sim8::gz-sim8
   gz-plugin2::register
   gz-common5::gz-common5
-  gz-math7::gz-math7)
+  gz-math7::gz-math7
+  gz-transport13::gz-transport13
+  gz-msgs10::gz-msgs10)
 set_target_properties(mca_gazebo_adapter PROPERTIES
   CXX_VISIBILITY_PRESET hidden
   VISIBILITY_INLINES_HIDDEN ON)

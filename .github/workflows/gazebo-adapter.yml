@@ -74,7 +74,17 @@ jobs:
           gz sim -s -r gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
           gz_pid=$!
           bridge_pid=""
+          publisher_pid=""
+          velocity_pid=""
           cleanup() {
+            if [ -n "$velocity_pid" ]; then
+              kill "$velocity_pid" 2>/dev/null || true
+              wait "$velocity_pid" 2>/dev/null || true
+            fi
+            if [ -n "$publisher_pid" ]; then
+              kill "$publisher_pid" 2>/dev/null || true
+              wait "$publisher_pid" 2>/dev/null || true
+            fi
             if [ -n "$bridge_pid" ]; then
               kill "$bridge_pid" 2>/dev/null || true
               wait "$bridge_pid" 2>/dev/null || true
@@ -98,10 +108,14 @@ jobs:
           bridge_pid=$!
           sleep 3
 
-          timeout 6s ros2 topic echo "${topic_prefix}/state/velocity" std_msgs/msg/Float64 > velocity.log 2>&1 &
-          velocity_pid=$!
+          # Start effort first, then observe state while the command is still active.
+          # This avoids accepting only startup/idle samples as proof of actuation.
+          timeout 4s ros2 topic pub --rate 20 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > command-publisher.log 2>&1 &
+          publisher_pid=$!
           sleep 1
-          timeout 3s ros2 topic pub --rate 20 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > command-publisher.log 2>&1 || true
+          timeout 3s ros2 topic echo "${topic_prefix}/state/velocity" std_msgs/msg/Float64 > velocity.log 2>&1 &
+          velocity_pid=$!
+          wait "$publisher_pid" || true
           wait "$velocity_pid" || true
 
           cat velocity.log

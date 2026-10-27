@@ -85,7 +85,14 @@ jobs:
           # Keep the command stream active while the state listener is already
           # attached. A single CLI publish can be consumed between simulation
           # updates and is not a reliable physical-motion stimulus.
-          timeout 3s gz topic -t "${topic_prefix}/cmd_effort" -m gz.msgs.Double -p 'data: 1.0' -r 100 > command-publisher.log 2>&1 || true
+          # This Gazebo CLI version does not support the publisher rate flag (-r).
+          # Publish repeatedly while the simulation and state subscribers are active.
+          timeout 3s bash -c '
+            while true; do
+              gz topic -t "$1/cmd_effort" -m gz.msgs.Double -p "data: 1.0" || true
+              sleep 0.05
+            done
+          ' _ "$topic_prefix" > command-publisher.log 2>&1 || true
           wait "$step_pid" || true
           wait "$velocity_pid" || true
 

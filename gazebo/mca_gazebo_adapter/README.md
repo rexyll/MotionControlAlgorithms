@@ -8,6 +8,7 @@ Optional Gazebo Harmonic system plugin implementing the simulator-independent
 - Resolves one model joint by the SDF `joint_name` parameter.
 - Caches a coherent scalar position/velocity snapshot in `PostUpdate`.
 - Applies a finite scalar effort command through `JointForceCmd` in `PreUpdate`.
+- Holds transport effort between messages with a simulation-time watchdog (default 0.1 s); timeout or time rollback clears the effort to zero.
 - Rejects invalid steps/commands and preserves caller output when state is unavailable.
 - Resets command output to zero when no command for the expected step is pending.
 - Exposes a Gazebo Transport command channel and scalar state channels so a
@@ -25,16 +26,20 @@ created:
 
 | Direction | Topic suffix | Meaning |
 | --- | --- | --- |
-| ROS/Gazebo -> adapter | `cmd_effort` | scalar effort command, consumed for the current simulation step |
+| ROS/Gazebo -> adapter | `cmd_effort` | scalar effort command, held until a newer command or watchdog expiry |
 | adapter -> ROS/Gazebo | `state/position` | joint position |
 | adapter -> ROS/Gazebo | `state/velocity` | joint velocity |
 | adapter -> ROS/Gazebo | `state/acceleration` | currently always `0.0` |
 | adapter -> ROS/Gazebo | `state/time` | simulation time in seconds |
 | adapter -> ROS/Gazebo | `state/step_index` | MCA simulation step index encoded as a double |
 
-A transport command is finite-checked and placed into the same step-matched mailbox
-used by the adapter contract. Commands are therefore not latched indefinitely: if
-no fresh command is received for the expected step, zero effort is applied.
+Transport commands are finite-checked and held until replaced. The default watchdog
+is `0.1` simulation seconds; override it with the optional SDF element
+`<command_timeout_s>0.1</command_timeout_s>`. The timeout must be finite and greater
+than zero. If no new transport command arrives before the watchdog expires, zero
+effort is applied. Simulation-time rollback clears the active transport command.
+This transport watchdog is separate from the core adapter's step-matched
+`write_command` mailbox.
 
 The topics intentionally use standard Gazebo `Double` messages so `ros_gz_bridge`
 can map them to `std_msgs/msg/Float64` without a custom message dependency. The
@@ -64,7 +69,12 @@ plugin loading, and a live ROS 2 ↔ Gazebo bridge smoke test. Run #22 on commit
 to Gazebo Transport, and observes a velocity response through the reverse bridge.
 See [workflow Run #22](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/40456187215).
 
-This is integration-smoke evidence, not full acceptance. Reset/time rollback, stale
-command timing, malformed/non-finite transport input, missing-joint diagnostics,
+This is integration-smoke evidence, not full acceptance. The strengthened Run #24
+assertion (commit `96aa3c759217c0c5ac034608ea6b9672869876e0`) failed: the velocity
+samples collected while the ROS 2 publisher was active remained near zero, exposing
+that the previous one-step transport mailbox did not reliably actuate the joint.
+The transport watchdog/hold behavior was added in commit
+`b8676f91deee932cc8a40d958689bf36f425b5c3`; its Gazebo runtime behavior still needs
+CI confirmation. Missing-joint diagnostics, malformed/non-finite transport input,
 safe shutdown, repeated launch, and measured acceleration remain open robustness or
 modeling limitations.

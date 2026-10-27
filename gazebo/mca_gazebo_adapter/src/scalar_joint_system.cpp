@@ -140,7 +140,7 @@ class ScalarJointSystem final : public gz::sim::System,
     PublishScalar(position_pub_, next_state.position[0]);
     PublishScalar(velocity_pub_, next_state.velocity[0]);
     PublishScalar(acceleration_pub_, next_state.acceleration[0]);
-    PublishScalar(time_pub_, next_step.sim_time);
+    PublishScalar(time_pub_, next_step.time);
     PublishScalar(step_pub_, static_cast<double>(next_step.step_index));
   }
 
@@ -186,7 +186,7 @@ class ScalarJointSystem final : public gz::sim::System,
     pending_command_ = true;
   }
 
-  static void PublishScalar(const gz::transport::Node::Publisher& publisher, double value) {
+  static void PublishScalar(gz::transport::Node::Publisher& publisher, double value) {
     if (!publisher || !std::isfinite(value)) return;
     gz::msgs::Double message;
     message.set_data(value);

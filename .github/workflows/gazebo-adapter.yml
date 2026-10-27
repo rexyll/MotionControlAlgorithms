@@ -65,7 +65,6 @@ jobs:
         shell: bash
         run: |
           set -eo pipefail
-          set -u
           export GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
           export ROS_DOMAIN_ID=37
           topic_prefix="/mca/single_axis_smoke/joint/axis_joint"
@@ -86,7 +85,10 @@ jobs:
           trap cleanup EXIT
           sleep 3
 
+          # ROS setup scripts expect unset variables to be tolerated.
+          set +u
           source /opt/ros/jazzy/setup.bash
+          set -u
 
           # Bridge effort from ROS 2 into Gazebo and velocity back into ROS 2.
           ros2 run ros_gz_bridge parameter_bridge \

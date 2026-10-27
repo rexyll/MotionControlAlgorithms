@@ -10,6 +10,8 @@
   <build_depend>libgz-plugin2-dev</build_depend>
   <build_depend>libgz-common5-dev</build_depend>
   <build_depend>libgz-math7-dev</build_depend>
+  <build_depend>libgz-transport13-dev</build_depend>
+  <build_depend>libgz-msgs10-dev</build_depend>
   <export>
     <build_type>cmake</build_type>
   </export>

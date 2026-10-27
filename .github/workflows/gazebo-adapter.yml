@@ -78,24 +78,29 @@ jobs:
 
           timeout 5s gz topic -e -t "${topic_prefix}/state/step_index" > step.log 2>&1 &
           step_pid=$!
+          timeout 5s gz topic -e -t "${topic_prefix}/state/velocity" > velocity.log 2>&1 &
+          velocity_pid=$!
           sleep 1
-          for _ in $(seq 1 10); do
-            gz topic -t "${topic_prefix}/cmd_effort" -m gz.msgs.Double -p 'data: 1.0' >/dev/null
-            sleep 0.05
-          done
-          wait "$step_pid" || true
 
-          timeout 5s gz topic -e -t "${topic_prefix}/state/velocity" > velocity.log 2>&1 || true
+          # Keep the command stream active while the state listener is already
+          # attached. A single CLI publish can be consumed between simulation
+          # updates and is not a reliable physical-motion stimulus.
+          timeout 3s gz topic -t "${topic_prefix}/cmd_effort" -m gz.msgs.Double -p 'data: 1.0' -r 100 > command-publisher.log 2>&1 || true
+          wait "$step_pid" || true
+          wait "$velocity_pid" || true
+
           cat step.log
           cat velocity.log
           if ! grep -Eq 'data: [-+]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][-+]?[0-9]+)?' velocity.log; then
             echo "No Gazebo Transport velocity state was observed"
             cat gazebo-transport.log
+            cat command-publisher.log
             exit 1
           fi
-          if ! awk '/data:/{v=$2; if (v+0 > 1e-9 || v+0 < -1e-9) {found=1}} END{exit(found ? 0 : 1)}' velocity.log; then
-            echo "Gazebo Transport command did not produce observable non-zero joint velocity"
+          if ! awk '/data:/{v=$2; if (v+0 > 1e-5 || v+0 < -1e-5) {found=1}} END{exit(found ? 0 : 1)}' velocity.log; then
+            echo "Gazebo Transport command did not produce velocity above the 1e-5 threshold"
             cat gazebo-transport.log
+            cat command-publisher.log
             exit 1
           fi
-          echo "Gazebo Transport command/state path produced observable joint motion"
+          echo "Gazebo Transport command/state path produced velocity above 1e-5"

@@ -206,13 +206,16 @@ class ScalarJointSystem final : public gz::sim::System,
     const double effort = message.data();
     if (!std::isfinite(effort)) return;
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!has_sim_time_) return;
+    // Transport commands may arrive before the first simulation update. Keep
+    // the latest finite command instead of dropping it; the wall-clock
+    // watchdog still prevents an old command from being applied later.
     transport_command_value_.effort[0] = effort;
     last_transport_command_wall_time_ = std::chrono::steady_clock::now();
     transport_command_active_ = true;
     if (!transport_command_logged_) {
       gzmsg << "MCA Gazebo adapter received transport effort command=" << effort
-            << " on " << command_topic_ << std::endl;
+            << " on " << command_topic_ << " (has_sim_time="
+            << (has_sim_time_ ? "true" : "false") << ")" << std::endl;
       transport_command_logged_ = true;
     }
   }

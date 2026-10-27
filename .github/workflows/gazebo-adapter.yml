@@ -33,7 +33,7 @@ jobs:
           curl -fsSL https://packages.osrfoundation.org/gazebo.gpg -o /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
           echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] https://packages.osrfoundation.org/gazebo/ubuntu-stable $(. /etc/os-release && echo ${UBUNTU_CODENAME}) main" > /etc/apt/sources.list.d/gazebo-stable.list
           apt-get update
-          apt-get install -y --no-install-recommends gz-harmonic libgz-sim8-dev libgz-plugin2-dev libgz-common5-dev libgz-math7-dev libgz-transport13-dev libgz-msgs10-dev
+          apt-get install -y --no-install-recommends gz-harmonic libgz-sim8-dev libgz-plugin2-dev libgz-common5-dev libgz-math7-dev libgz-transport13-dev libgz-msgs10-dev ros-jazzy-ros-gz-bridge
       - name: Configure Gazebo adapter
         shell: bash
         run: cmake -S gazebo/mca_gazebo_adapter -B build/gazebo-adapter -DCMAKE_BUILD_TYPE=Release
@@ -61,53 +61,56 @@ jobs:
             echo "Expected MCA scalar joint plugin name was not found in Gazebo logs"
             exit 1
           fi
-      - name: Run Gazebo Transport command/state smoke test
+      - name: Run ROS 2 ↔ Gazebo bridge command/state smoke test
         shell: bash
         run: |
           set -euo pipefail
+          source /opt/ros/jazzy/setup.bash
           export GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
+          export ROS_DOMAIN_ID=37
           topic_prefix="/mca/single_axis_smoke/joint/axis_joint"
+
           gz sim -s -r gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
           gz_pid=$!
+          bridge_pid=""
           cleanup() {
+            if [ -n "$bridge_pid" ]; then
+              kill "$bridge_pid" 2>/dev/null || true
+              wait "$bridge_pid" 2>/dev/null || true
+            fi
             kill "$gz_pid" 2>/dev/null || true
             wait "$gz_pid" 2>/dev/null || true
           }
           trap cleanup EXIT
           sleep 3
 
-          timeout 5s gz topic -e -t "${topic_prefix}/state/step_index" > step.log 2>&1 &
-          step_pid=$!
-          timeout 5s gz topic -e -t "${topic_prefix}/state/velocity" > velocity.log 2>&1 &
+          # Bridge effort from ROS 2 into Gazebo and velocity back into ROS 2.
+          ros2 run ros_gz_bridge parameter_bridge \
+            "${topic_prefix}/cmd_effort@std_msgs/msg/Float64]gz.msgs.Double" \
+            "${topic_prefix}/state/velocity@std_msgs/msg/Float64[gz.msgs.Double" \
+            > ros-gz-bridge.log 2>&1 &
+          bridge_pid=$!
+          sleep 3
+
+          timeout 6s ros2 topic echo "${topic_prefix}/state/velocity" std_msgs/msg/Float64 > velocity.log 2>&1 &
           velocity_pid=$!
           sleep 1
-
-          # Keep the command stream active while the state listener is already
-          # attached. A single CLI publish can be consumed between simulation
-          # updates and is not a reliable physical-motion stimulus.
-          # This Gazebo CLI version does not support the publisher rate flag (-r).
-          # Publish repeatedly while the simulation and state subscribers are active.
-          timeout 3s bash -c '
-            while true; do
-              gz topic -t "$1/cmd_effort" -m gz.msgs.Double -p "data: 1.0" || true
-              sleep 0.05
-            done
-          ' _ "$topic_prefix" > command-publisher.log 2>&1 || true
-          wait "$step_pid" || true
+          timeout 3s ros2 topic pub --rate 20 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > command-publisher.log 2>&1 || true
           wait "$velocity_pid" || true
 
-          cat step.log
           cat velocity.log
           if ! grep -Eq 'data: [-+]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][-+]?[0-9]+)?' velocity.log; then
-            echo "No Gazebo Transport velocity state was observed"
+            echo "No ROS 2 velocity state was observed through ros_gz_bridge"
             cat gazebo-transport.log
+            cat ros-gz-bridge.log
             cat command-publisher.log
             exit 1
           fi
           if ! awk '/data:/{v=$2; if (v+0 > 1e-5 || v+0 < -1e-5) {found=1}} END{exit(found ? 0 : 1)}' velocity.log; then
-            echo "Gazebo Transport command did not produce velocity above the 1e-5 threshold"
+            echo "ROS 2 effort command did not produce velocity above the 1e-5 threshold"
             cat gazebo-transport.log
+            cat ros-gz-bridge.log
             cat command-publisher.log
             exit 1
           fi
-          echo "Gazebo Transport command/state path produced velocity above 1e-5"
+          echo "ROS 2 ↔ Gazebo bridge command/state path produced velocity above 1e-5"

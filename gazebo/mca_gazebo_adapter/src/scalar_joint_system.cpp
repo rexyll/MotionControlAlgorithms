@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include <gz/common/Console.hh>
 #include <gz/msgs/double.pb.h>
 #include <gz/plugin/Register.hh>
 #include <gz/sim/EntityComponentManager.hh>
@@ -125,6 +126,11 @@ class ScalarJointSystem final : public gz::sim::System,
     // that JointForceCmd changed. SetComponentData marks the component dirty
     // so the Gazebo physics system observes each new effort value.
     ecm.SetComponentData<gz::sim::components::JointForceCmd>(joint_, {effort_to_apply});
+    if (std::abs(effort_to_apply) > 1e-12 &&
+        !nonzero_effort_logged_.exchange(true, std::memory_order_relaxed)) {
+      gzmsg << "MCA Gazebo adapter applied non-zero JointForceCmd="
+            << effort_to_apply << " to joint entity " << joint_ << std::endl;
+    }
   }
 
   void PostUpdate(const gz::sim::UpdateInfo& info,
@@ -204,6 +210,11 @@ class ScalarJointSystem final : public gz::sim::System,
     transport_command_value_.effort[0] = effort;
     last_transport_command_wall_time_ = std::chrono::steady_clock::now();
     transport_command_active_ = true;
+    if (!transport_command_logged_) {
+      gzmsg << "MCA Gazebo adapter received transport effort command=" << effort
+            << " on " << command_topic_ << std::endl;
+      transport_command_logged_ = true;
+    }
   }
 
   static void PublishScalar(gz::transport::Node::Publisher& publisher, double value) {
@@ -228,6 +239,8 @@ class ScalarJointSystem final : public gz::sim::System,
   double command_timeout_s_{0.1};
   std::chrono::steady_clock::time_point last_transport_command_wall_time_{};
   bool transport_command_active_{false};
+  bool transport_command_logged_{false};
+  std::atomic<bool> nonzero_effort_logged_{false};
   bool has_sim_time_{false};
   mca::simulation::SimulationStep cached_step_{};
   mca::simulation::ScalarSimulationState cached_state_{};

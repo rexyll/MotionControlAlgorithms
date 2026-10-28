@@ -73,9 +73,28 @@ jobs:
           # partition even when GZ_PARTITION is exported by this shell.
           topic_prefix="/mca/single_axis_smoke/joint/axis_joint"
 
-          # Start Gazebo before sourcing ROS 2: ROS Jazzy prepends a minimal
-          # gz-tools-vendor CLI to PATH that does not provide the "sim" command.
-          gz sim -s -r gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
+          # Capture the system Gazebo CLI/runtime before ROS setup prepends a
+          # gz-tools-vendor CLI that does not provide the "sim" command.
+          gazebo_executable="$(command -v gz)"
+          gazebo_path="$PATH"
+          gazebo_ld_library_path="${LD_LIBRARY_PATH:-}"
+          gazebo_cli() {
+            env PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
+              "$gazebo_executable" "$@"
+          }
+          echo "System Gazebo CLI: $gazebo_executable"
+          echo "System Gazebo CLI libraries: ${gazebo_ld_library_path}"
+
+          # Source ROS before launching either side of the bridge so Gazebo,
+          # ros_gz_bridge, and ROS publishers inherit one consistent environment.
+          # Invoke the captured system CLI explicitly to avoid ROS's vendor CLI.
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          echo "gz command after ROS setup: $(command -v gz)"
+          echo "GZ_PARTITION after ROS setup: ${GZ_PARTITION:-<unset>}"
+
+          gazebo_cli sim -s -r gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
           gz_pid=$!
           bridge_pid=""
           publisher_pid=""
@@ -103,29 +122,9 @@ jobs:
           trap cleanup EXIT
           sleep 3
           echo "=== Gazebo topics after plugin startup ==="
-          gz topic -l || true
+          gazebo_cli topic -l || true
           echo "=== Command topic transport info ==="
-          gz topic -i -t "${topic_prefix}/cmd_effort" || true
-
-          # Preserve the Gazebo CLI/runtime environment before ROS setup prepends
-          # gz-tools-vendor paths. Mixing the ROS vendor CLI/libraries with the
-          # system Gazebo Harmonic process can make topic discovery misleading.
-          gazebo_executable="$(command -v gz)"
-          gazebo_path="$PATH"
-          gazebo_ld_library_path="${LD_LIBRARY_PATH:-}"
-          gazebo_cli() {
-            env PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
-              "$gazebo_executable" "$@"
-          }
-          echo "Gazebo CLI before ROS setup: $gazebo_executable"
-          echo "Gazebo CLI libraries before ROS setup: ${gazebo_ld_library_path}"
-
-          # ROS setup scripts expect unset variables to be tolerated.
-          set +u
-          source /opt/ros/jazzy/setup.bash
-          set -u
-          echo "gz command after ROS setup: $(command -v gz)"
-          echo "GZ_PARTITION after ROS setup: ${GZ_PARTITION:-<unset>}"
+          gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" || true
 
           # Bridge effort from ROS 2 into Gazebo and velocity back into ROS 2.
           ros2 run ros_gz_bridge parameter_bridge \

@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <functional>
 #include <limits>
 #include <mutex>
@@ -26,6 +27,17 @@
 #include <sdf/Element.hh>
 
 namespace mca_gazebo_adapter {
+namespace {
+gz::transport::NodeOptions TransportNodeOptions() {
+  gz::transport::NodeOptions options;
+  const char* partition = std::getenv("GZ_PARTITION");
+  if (partition != nullptr && partition[0] != '\\0') {
+    options.SetPartition(partition);
+  }
+  return options;
+}
+}  // namespace
+
 class ScalarJointSystem final : public gz::sim::System,
                                 public gz::sim::ISystemConfigure,
                                 public gz::sim::ISystemPreUpdate,
@@ -116,7 +128,7 @@ class ScalarJointSystem final : public gz::sim::System,
       std::vector<gz::transport::MessagePublisher> publishers;
       std::vector<gz::transport::MessagePublisher> subscribers;
       const bool topic_info_ok =
-          node_.TopicInfo(command_topic_, publishers, subscribers);
+          command_node_.TopicInfo(command_topic_, publishers, subscribers);
       if (!publishers.empty() ||
           std::chrono::duration<double>(topic_info_now - plugin_start_wall_time_).count() >= 8.0) {
         gzmsg << "MCA Gazebo adapter command topic discovery topic="
@@ -299,8 +311,8 @@ class ScalarJointSystem final : public gz::sim::System,
   mca::simulation::ScalarActuatorCommand pending_command_value_{};
   mca::simulation::ScalarActuatorCommand transport_command_value_{};
 
-  gz::transport::Node node_;
-  gz::transport::Node command_node_;
+  gz::transport::Node node_{TransportNodeOptions()};
+  gz::transport::Node command_node_{TransportNodeOptions()};
   std::string topic_prefix_;
   std::string command_topic_;
   std::string position_topic_;

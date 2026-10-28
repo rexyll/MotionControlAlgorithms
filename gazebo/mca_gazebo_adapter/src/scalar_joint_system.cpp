@@ -105,19 +105,31 @@ class ScalarJointSystem final : public gz::sim::System,
     const double dt_s = std::chrono::duration<double>(info.dt).count();
     if (!std::isfinite(time_s) || !std::isfinite(dt_s) || time_s < 0.0 || dt_s <= 0.0) return;
 
-    // Capture network-level discovery after the bridge has had time to start.
-    // This distinguishes a registered local subscription from an actually
-    // discoverable remote publisher/subscriber on the command topic.
-    if (step_index_.load(std::memory_order_relaxed) >= 100 &&
-        !topic_info_logged_.exchange(true, std::memory_order_relaxed)) {
+    // Poll discovery over wall time: the ROS-Gazebo bridge starts after this
+    // plugin, so a one-shot query during early simulation steps can only see
+    // the local subscriber and falsely suggest that no publisher ever appears.
+    const auto topic_info_now = std::chrono::steady_clock::now();
+    if (!topic_info_logged_.load(std::memory_order_relaxed) &&
+        (last_topic_info_log_wall_time_ == std::chrono::steady_clock::time_point{} ||
+         std::chrono::duration<double>(topic_info_now - last_topic_info_log_wall_time_).count() >= 1.0)) {
+      last_topic_info_log_wall_time_ = topic_info_now;
       std::vector<gz::transport::MessagePublisher> publishers;
       std::vector<gz::transport::MessagePublisher> subscribers;
       const bool topic_info_ok =
           node_.TopicInfo(command_topic_, publishers, subscribers);
-      gzmsg << "MCA Gazebo adapter command topic discovery topic="
-            << command_topic_ << " info_ok=" << (topic_info_ok ? "true" : "false")
-            << " publishers=" << publishers.size()
-            << " subscribers=" << subscribers.size() << std::endl;
+      if (!publishers.empty() ||
+          std::chrono::duration<double>(topic_info_now - plugin_start_wall_time_).count() >= 8.0) {
+        gzmsg << "MCA Gazebo adapter command topic discovery topic="
+              << command_topic_ << " info_ok=" << (topic_info_ok ? "true" : "false")
+              << " publishers=" << publishers.size()
+              << " subscribers=" << subscribers.size()
+              << " callback_received="
+              << (transport_command_logged_.load(std::memory_order_relaxed) ? "true" : "false")
+              << std::endl;
+        if (!publishers.empty()) {
+          topic_info_logged_.store(true, std::memory_order_relaxed);
+        }
+      }
     }
 
     double effort_to_apply = 0.0;
@@ -278,6 +290,9 @@ class ScalarJointSystem final : public gz::sim::System,
   std::atomic<bool> transport_command_logged_{false};
   std::atomic<bool> topic_info_logged_{false};
   std::atomic<bool> nonzero_effort_logged_{false};
+  const std::chrono::steady_clock::time_point plugin_start_wall_time_{
+      std::chrono::steady_clock::now()};
+  std::chrono::steady_clock::time_point last_topic_info_log_wall_time_{};
   bool has_sim_time_{false};
   mca::simulation::SimulationStep cached_step_{};
   mca::simulation::ScalarSimulationState cached_state_{};

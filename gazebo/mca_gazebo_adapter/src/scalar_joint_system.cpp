@@ -215,7 +215,9 @@ class ScalarJointSystem final : public gz::sim::System,
   }
 
  private:
-  void OnCommand(const gz::msgs::Double& message) {
+  void OnCommand(const gz::msgs::Double& message,
+                  const gz::transport::MessageInfo& message_info) {
+    (void)message_info;
     const double effort = message.data();
     if (!std::isfinite(effort)) return;
     std::lock_guard<std::mutex> lock(mutex_);

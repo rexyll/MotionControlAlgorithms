@@ -81,9 +81,6 @@ class ScalarJointSystem final : public gz::sim::System,
     time_topic_ = topic_prefix_ + "/state/time";
     step_topic_ = topic_prefix_ + "/state/step_index";
 
-    // Gazebo Transport 13 exposes the callable callback overload as
-    // std::function<void(const MessageT&)>. Passing the std::function object
-    // without an explicit MessageT lets the API deduce the message type.
     const std::function<void(const gz::msgs::Double&)> command_callback =
         [this](const gz::msgs::Double& message) { OnCommand(message.data()); };
     command_subscribed_ = command_node_.Subscribe(command_topic_, command_callback);
@@ -113,9 +110,6 @@ class ScalarJointSystem final : public gz::sim::System,
     const double dt_s = std::chrono::duration<double>(info.dt).count();
     if (!std::isfinite(time_s) || !std::isfinite(dt_s) || time_s < 0.0 || dt_s <= 0.0) return;
 
-    // Poll discovery over wall time: the ROS-Gazebo bridge starts after this
-    // plugin, so a one-shot query during early simulation steps can only see
-    // the local subscriber and falsely suggest that no publisher ever appears.
     const auto topic_info_now = std::chrono::steady_clock::now();
     if (!topic_info_logged_.load(std::memory_order_relaxed) &&
         (last_topic_info_log_wall_time_ == std::chrono::steady_clock::time_point{} ||
@@ -287,7 +281,7 @@ class ScalarJointSystem final : public gz::sim::System,
   std::atomic<bool> transport_command_logged_{false};
   std::atomic<bool> topic_info_logged_{false};
   std::atomic<bool> nonzero_effort_logged_{false};
-  const std::chrono::steady_clock::time_point plugin_start_wall_time{
+  const std::chrono::steady_clock::time_point plugin_start_wall_time_ {
       std::chrono::steady_clock::now()};
   std::chrono::steady_clock::time_point last_topic_info_log_wall_time_{};
   bool has_sim_time_{false};

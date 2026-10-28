@@ -288,7 +288,7 @@ class ScalarJointSystem final : public gz::sim::System,
   std::atomic<bool> transport_command_logged_{false};
   std::atomic<bool> topic_info_logged_{false};
   std::atomic<bool> nonzero_effort_logged_{false};
-  const std::chrono::steady_clock::time_point plugin_start_wall_time{
+  const std::chrono::steady_clock::time_point plugin_start_wall_time_{
       std::chrono::steady_clock::now()};
   std::chrono::steady_clock::time_point last_topic_info_log_wall_time_{};
   bool has_sim_time_{false};

@@ -82,12 +82,11 @@ class ScalarJointSystem final : public gz::sim::System,
     step_topic_ = topic_prefix_ + "/state/step_index";
 
     // Register the command subscription on the same transport node used for
-    // state publishers. Use an explicit std::function to select Gazebo
-    // Transport's typed lambda callback overload unambiguously.
-    std::function<void(const gz::msgs::Double&)> command_callback =
-        [this](const gz::msgs::Double& message) { OnTransportCommand(message); };
-    command_subscribed_ = node_.Subscribe<gz::msgs::Double>(
-        command_topic_, std::move(command_callback));
+    // state publishers. Use Gazebo Transport's explicit member-function
+    // overload so callback dispatch does not depend on lambda/std::function
+    // overload resolution.
+    command_subscribed_ = node_.Subscribe<ScalarJointSystem, gz::msgs::Double>(
+        command_topic_, &ScalarJointSystem::OnTransportCommand, this);
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_.Advertise<gz::msgs::Double>(acceleration_topic_);

@@ -71,12 +71,11 @@ class ScalarJointSystem final : public gz::sim::System,
     time_topic_ = topic_prefix_ + "/state/time";
     step_topic_ = topic_prefix_ + "/state/step_index";
 
-    // Node::Subscribe registers the callback directly with the long-lived
-    // transport node. Unlike a temporary CreateSubscriber handle, the node
-    // owns this subscription until the node is destroyed.
-    const std::function<void(const gz::msgs::Double&)> command_callback =
-        [this](const gz::msgs::Double& message) { OnCommand(message); };
-    command_subscribed_ = node_.Subscribe(command_topic_, command_callback);
+    // Register the system member callback directly. This avoids the
+    // std::function/lambda overload and lets Gazebo Transport bind the receiver
+    // object using its dedicated member-function subscription path.
+    command_subscribed_ =
+        node_.Subscribe(command_topic_, &ScalarJointSystem::OnCommand, this);
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_.Advertise<gz::msgs::Double>(acceleration_topic_);

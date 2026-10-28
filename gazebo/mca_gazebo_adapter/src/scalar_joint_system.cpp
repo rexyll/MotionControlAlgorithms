@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <functional>
 #include <limits>
 #include <mutex>
 #include <string>
@@ -74,8 +75,9 @@ class ScalarJointSystem final : public gz::sim::System,
     // CreateSubscriber explicitly ties the subscription lifetime to this
     // stored handle, avoiding reliance on implicit node-owned subscription
     // lifetime across Gazebo system callbacks.
-    command_subscriber_ = node_.CreateSubscriber(
-        command_topic_, [this](const gz::msgs::Double& message) { OnCommand(message); });
+    const std::function<void(const gz::msgs::Double&)> command_callback =
+        [this](const gz::msgs::Double& message) { OnCommand(message); };
+    command_subscriber_ = node_.CreateSubscriber(command_topic_, command_callback);
     command_subscribed_ = static_cast<bool>(command_subscriber_);
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);

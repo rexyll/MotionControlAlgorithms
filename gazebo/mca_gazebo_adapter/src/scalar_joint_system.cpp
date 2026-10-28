@@ -81,12 +81,12 @@ class ScalarJointSystem final : public gz::sim::System,
     time_topic_ = topic_prefix_ + "/state/time";
     step_topic_ = topic_prefix_ + "/state/step_index";
 
-    // Register the command subscription on the same transport node used for
-    // state publishers. Use Gazebo Transport's explicit member-function
-    // overload so callback dispatch does not depend on lambda/std::function
-    // overload resolution.
-    command_subscribed_ = node_.Subscribe<ScalarJointSystem, gz::msgs::Double>(
+    // Keep an explicit Subscriber handle alive for the full system lifetime.
+    // CreateSubscriber owns the callback registration through that handle,
+    // avoiding reliance on implicit node-level subscription ownership.
+    command_subscriber_ = node_.CreateSubscriber(
         command_topic_, &ScalarJointSystem::OnTransportCommand, this);
+    command_subscribed_ = static_cast<bool>(command_subscriber_);
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_.Advertise<gz::msgs::Double>(acceleration_topic_);
@@ -301,6 +301,7 @@ class ScalarJointSystem final : public gz::sim::System,
   mca::simulation::ScalarActuatorCommand transport_command_value_{};
 
   gz::transport::Node node_{TransportNodeOptions()};
+  gz::transport::Node::Subscriber command_subscriber_;
   std::string topic_prefix_;
   std::string command_topic_;
   std::string position_topic_;

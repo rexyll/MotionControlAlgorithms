@@ -101,12 +101,27 @@ jobs:
           echo "=== Gazebo topics after plugin startup ==="
           gz topic -l || true
           echo "=== Command topic transport info ==="
-          gz topic -i -t "${topic_prefix}/cmd_effort" || true
+          gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" || true
+
+          # Preserve the Gazebo CLI/runtime environment before ROS setup prepends
+          # gz-tools-vendor paths. Mixing the ROS vendor CLI/libraries with the
+          # system Gazebo Harmonic process can make topic discovery misleading.
+          gazebo_executable="$(command -v gz)"
+          gazebo_path="$PATH"
+          gazebo_ld_library_path="${LD_LIBRARY_PATH:-}"
+          gazebo_cli() {
+            env PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
+              "$gazebo_executable" "$@"
+          }
+          echo "Gazebo CLI before ROS setup: $gazebo_executable"
+          echo "Gazebo CLI libraries before ROS setup: ${gazebo_ld_library_path}"
 
           # ROS setup scripts expect unset variables to be tolerated.
           set +u
           source /opt/ros/jazzy/setup.bash
           set -u
+          echo "gz command after ROS setup: $(command -v gz)"
+          echo "GZ_PARTITION after ROS setup: ${GZ_PARTITION:-<unset>}"
 
           # Bridge effort from ROS 2 into Gazebo and velocity back into ROS 2.
           ros2 run ros_gz_bridge parameter_bridge \
@@ -120,7 +135,7 @@ jobs:
           # This avoids accepting only startup/idle samples as proof of actuation.
           # Observe the Gazebo command topic independently of the plugin callback.
           # If this sees the effort, ROS->GZ conversion and transport publication work.
-          timeout 4s gz topic -e -t "${topic_prefix}/cmd_effort" > gz-command-echo.log 2>&1 &
+          timeout 4s gazebo_cli topic -e -t "${topic_prefix}/cmd_effort" > gz-command-echo.log 2>&1 &
           command_echo_pid=$!
           timeout 4s ros2 topic pub --rate 20 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > command-publisher.log 2>&1 &
           publisher_pid=$!
@@ -131,7 +146,7 @@ jobs:
           wait "$velocity_pid" || true
 
           echo "=== Command topic transport info after ROS publisher ==="
-          gz topic -i -t "${topic_prefix}/cmd_effort" || true
+          gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" || true
           echo "=== Gazebo command topic echo ==="
           cat gz-command-echo.log
           echo "=== ROS publisher log ==="
@@ -146,7 +161,7 @@ jobs:
           # from the physics / JointForceCmd path. This never affects the ROS-path
           # acceptance result above, which remains based only on velocity.log.
           set +e
-          timeout 2s gz topic -t "${topic_prefix}/cmd_effort" -m gz.msgs.Double -p "data: 1.0" > native-publisher.log 2>&1 &
+          timeout 2s gazebo_cli topic -t "${topic_prefix}/cmd_effort" -m gz.msgs.Double -p "data: 1.0" > native-publisher.log 2>&1 &
           native_publisher_pid=$!
           timeout 2s ros2 topic echo "${topic_prefix}/state/velocity" std_msgs/msg/Float64 > native-velocity.log 2>&1 &
           native_velocity_pid=$!
@@ -163,9 +178,9 @@ jobs:
           if ! grep -Eq 'data: [-+]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][-+]?[0-9]+)?' velocity.log; then
             echo "No ROS 2 velocity state was observed through ros_gz_bridge"
             echo "=== Gazebo topic list at failure ==="
-            gz topic -l || true
+            gazebo_cli topic -l || true
             echo "=== Command topic transport info at failure ==="
-            gz topic -i -t "${topic_prefix}/cmd_effort" || true
+            gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" || true
             echo "=== Gazebo transport log ==="
             cat gazebo-transport.log
             echo "=== ROS/Gazebo bridge log ==="

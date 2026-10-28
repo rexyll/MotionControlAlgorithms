@@ -31,7 +31,7 @@ namespace {
 gz::transport::NodeOptions TransportNodeOptions() {
   gz::transport::NodeOptions options;
   const char* partition = std::getenv("GZ_PARTITION");
-  if (partition != nullptr && partition[0] != '\\0') {
+  if (partition != nullptr && partition[0] != '\0') {
     options.SetPartition(partition);
   }
   return options;

@@ -71,9 +71,9 @@ class ScalarJointSystem final : public gz::sim::System,
     time_topic_ = topic_prefix_ + "/state/time";
     step_topic_ = topic_prefix_ + "/state/step_index";
 
-    // Register the system member callback directly. This avoids the
-    // std::function/lambda overload and lets Gazebo Transport bind the receiver
-    // object using its dedicated member-function subscription path.
+    // Use the member callback overload that also receives transport metadata.
+    // This gives us the actual topic/type context in the callback and avoids
+    // relying on the lambda/std::function overload during diagnosis.
     command_subscribed_ =
         node_.Subscribe(command_topic_, &ScalarJointSystem::OnCommand, this);
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
@@ -216,14 +216,16 @@ class ScalarJointSystem final : public gz::sim::System,
   }
 
  private:
-  void OnCommand(const gz::msgs::Double& message) {
+  void OnCommand(const gz::msgs::Double& message,
+                 const gz::transport::MessageInfo& info) {
     const double effort = message.data();
     if (!std::isfinite(effort)) return;
     // Log before taking the mailbox mutex so diagnostics can distinguish a
     // transport callback that never runs from one delayed by mailbox access.
     if (!transport_command_logged_.exchange(true, std::memory_order_relaxed)) {
       gzmsg << "MCA Gazebo adapter received transport effort command=" << effort
-            << " on " << command_topic_ << std::endl;
+            << " on " << command_topic_ << " info_topic=" << info.Topic()
+            << " info_type=" << info.Type() << std::endl;
     }
     std::lock_guard<std::mutex> lock(mutex_);
     // Transport commands may arrive before the first simulation update. Keep

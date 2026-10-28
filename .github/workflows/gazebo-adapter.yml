@@ -67,10 +67,10 @@ jobs:
           set -eo pipefail
           export GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
           export ROS_DOMAIN_ID=37
-          # Pin all Gazebo Transport participants to one run-specific partition.
-          # This avoids accidental discovery splits between gz sim, CLI tools,
-          # and ros_gz_bridge when the runner has inherited environment state.
-          export GZ_PARTITION="mcap11ci${GITHUB_RUN_ID}"
+          # GitHub-hosted jobs run in isolated containers. Keep Gazebo Sim,
+          # the Gazebo CLI, and ros_gz_bridge on Gazebo Transport's default
+          # partition; the plugin reports that its node remains on the default
+          # partition even when GZ_PARTITION is exported by this shell.
           topic_prefix="/mca/single_axis_smoke/joint/axis_joint"
 
           # Start Gazebo before sourcing ROS 2: ROS Jazzy prepends a minimal

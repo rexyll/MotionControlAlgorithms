@@ -222,6 +222,12 @@ class ScalarJointSystem final : public gz::sim::System,
   void OnCommand(const gz::msgs::Double& message) {
     const double effort = message.data();
     if (!std::isfinite(effort)) return;
+    // Log before taking the mailbox mutex so diagnostics can distinguish a
+    // transport callback that never runs from one delayed by mailbox access.
+    if (!transport_command_logged_.exchange(true, std::memory_order_relaxed)) {
+      gzmsg << "MCA Gazebo adapter received transport effort command=" << effort
+            << " on " << command_topic_ << std::endl;
+    }
     std::lock_guard<std::mutex> lock(mutex_);
     // Transport commands may arrive before the first simulation update. Keep
     // the latest finite command instead of dropping it; the wall-clock
@@ -229,12 +235,6 @@ class ScalarJointSystem final : public gz::sim::System,
     transport_command_value_.effort[0] = effort;
     last_transport_command_wall_time_ = std::chrono::steady_clock::now();
     transport_command_active_ = true;
-    if (!transport_command_logged_) {
-      gzmsg << "MCA Gazebo adapter received transport effort command=" << effort
-            << " on " << command_topic_ << " (has_sim_time="
-            << (has_sim_time_ ? "true" : "false") << ")" << std::endl;
-      transport_command_logged_ = true;
-    }
   }
 
   static void PublishScalar(gz::transport::Node::Publisher& publisher, double value) {
@@ -259,7 +259,7 @@ class ScalarJointSystem final : public gz::sim::System,
   double command_timeout_s_{0.1};
   std::chrono::steady_clock::time_point last_transport_command_wall_time_{};
   bool transport_command_active_{false};
-  bool transport_command_logged_{false};
+  std::atomic<bool> transport_command_logged_{false};
   std::atomic<bool> nonzero_effort_logged_{false};
   bool has_sim_time_{false};
   mca::simulation::SimulationStep cached_step_{};

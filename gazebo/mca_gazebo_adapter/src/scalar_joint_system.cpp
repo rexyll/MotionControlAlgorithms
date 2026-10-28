@@ -75,8 +75,9 @@ class ScalarJointSystem final : public gz::sim::System,
     // delivered by the ROS-Gazebo bridge.
     command_subscribed_ = node_.SubscribeRaw(
         command_topic_,
-        [this](const std::string& data, const gz::transport::MessageInfo& info) {
-          OnCommandRaw(data, info);
+        [this](const char* data, std::size_t size,
+               const gz::transport::MessageInfo& info) {
+          OnCommandRaw(data, size, info);
         },
         "gz.msgs.Double");
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
@@ -216,10 +217,11 @@ class ScalarJointSystem final : public gz::sim::System,
   }
 
  private:
-  void OnCommandRaw(const std::string& data,
+  void OnCommandRaw(const char* data, std::size_t size,
                     const gz::transport::MessageInfo& info) {
+    if (!data || size == 0) return;
     gz::msgs::Double message;
-    if (!message.ParseFromString(data)) {
+    if (!message.ParseFromArray(data, static_cast<int>(size))) {
       gzerr << "MCA Gazebo adapter failed to parse transport effort command on "
             << command_topic_ << " info_topic=" << info.Topic()
             << " info_type=" << info.Type() << std::endl;

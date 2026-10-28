@@ -81,13 +81,12 @@ class ScalarJointSystem final : public gz::sim::System,
     time_topic_ = topic_prefix_ + "/state/time";
     step_topic_ = topic_prefix_ + "/state/step_index";
 
-    // Gazebo Transport 13 requires the callable to be presented as the
-    // std::function callback overload when the message type is a member type.
-    // Keep the explicit message type so callback registration remains typed.
+    // Gazebo Transport 13 exposes the callable callback overload as
+    // std::function<void(const MessageT&)>. Passing the std::function object
+    // without an explicit MessageT lets the API deduce the message type.
     const std::function<void(const gz::msgs::Double&)> command_callback =
         [this](const gz::msgs::Double& message) { OnCommand(message.data()); };
-    command_subscribed_ = command_node_.Subscribe<gz::msgs::Double>(
-        command_topic_, command_callback);
+    command_subscribed_ = command_node_.Subscribe(command_topic_, command_callback);
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_.Advertise<gz::msgs::Double>(acceleration_topic_);
@@ -288,7 +287,7 @@ class ScalarJointSystem final : public gz::sim::System,
   std::atomic<bool> transport_command_logged_{false};
   std::atomic<bool> topic_info_logged_{false};
   std::atomic<bool> nonzero_effort_logged_{false};
-  const std::chrono::steady_clock::time_point plugin_start_wall_time_{
+  const std::chrono::steady_clock::time_point plugin_start_wall_time{
       std::chrono::steady_clock::now()};
   std::chrono::steady_clock::time_point last_topic_info_log_wall_time_{};
   bool has_sim_time_{false};

@@ -139,9 +139,6 @@ class ScalarJointSystem final : public gz::sim::System,
       }
     }
 
-    // Mutating Component::Data() in place does not reliably notify the ECS
-    // that JointForceCmd changed. SetComponentData marks the component dirty
-    // so the Gazebo physics system observes each new effort value.
     ecm.SetComponentData<gz::sim::components::JointForceCmd>(joint_, {effort_to_apply});
     if (std::abs(effort_to_apply) > 1e-12 &&
         !nonzero_effort_logged_.exchange(true, std::memory_order_relaxed)) {
@@ -269,7 +266,6 @@ class ScalarJointSystem final : public gz::sim::System,
   mca::simulation::ScalarActuatorCommand pending_command_value_{};
   mca::simulation::ScalarActuatorCommand transport_command_value_{};
 
-  gz::sim::Entity joint_{gz::sim::kNullEntity};
   gz::transport::Node node_;
   std::string topic_prefix_;
   std::string command_topic_;

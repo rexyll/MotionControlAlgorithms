@@ -81,12 +81,10 @@ class ScalarJointSystem final : public gz::sim::System,
     time_topic_ = topic_prefix_ + "/state/time";
     step_topic_ = topic_prefix_ + "/state/step_index";
 
-    // Gazebo Transport 13 exposes the callable callback overload as
-    // std::function<void(const MessageT&)>. Passing the std::function object
-    // without an explicit MessageT lets the API deduce the message type.
-    const std::function<void(const gz::msgs::Double&)> command_callback =
-        [this](const gz::msgs::Double& message) { OnCommand(message.data()); };
-    command_subscribed_ = command_node_.Subscribe(command_topic_, command_callback);
+    // Use Gazebo Transport's member-function callback overload explicitly.
+    // This avoids ambiguity between callable and typed subscription overloads.
+    command_subscribed_ = command_node_.Subscribe(
+        command_topic_, &ScalarJointSystem::OnTransportCommand, this);
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_.Advertise<gz::msgs::Double>(acceleration_topic_);
@@ -252,6 +250,10 @@ class ScalarJointSystem final : public gz::sim::System,
   }
 
  private:
+  void OnTransportCommand(const gz::msgs::Double& message) {
+    OnCommand(message.data());
+  }
+
   void OnCommand(double effort) {
     if (!std::isfinite(effort)) return;
     if (!transport_command_logged_.exchange(true, std::memory_order_relaxed)) {

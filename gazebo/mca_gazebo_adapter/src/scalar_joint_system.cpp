@@ -4,7 +4,6 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
-#include <functional>
 #include <cstddef>
 #include <limits>
 #include <mutex>
@@ -71,10 +70,11 @@ class ScalarJointSystem final : public gz::sim::System,
     time_topic_ = topic_prefix_ + "/state/time";
     step_topic_ = topic_prefix_ + "/state/step_index";
 
-    const std::function<void(const gz::msgs::Double&)> command_callback =
-        [this](const gz::msgs::Double& message) { this->OnCommand(message); };
+    // Use Gazebo Transport's native member-function overload so the
+    // subscriber owns an explicit target object instead of a type-erased
+    // callback wrapper.
     command_subscribed_ = node_.Subscribe<gz::msgs::Double>(
-        command_topic_, command_callback);
+        command_topic_, &ScalarJointSystem::OnCommand, this);
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_.Advertise<gz::msgs::Double>(acceleration_topic_);
@@ -82,9 +82,15 @@ class ScalarJointSystem final : public gz::sim::System,
     step_pub_ = node_.Advertise<gz::msgs::Double>(step_topic_);
     configured_ = command_subscribed_ && position_pub_ && velocity_pub_ &&
                   acceleration_pub_ && time_pub_ && step_pub_;
+    const auto subscribed_topics = node_.SubscribedTopics();
     gzmsg << "MCA Gazebo adapter configured command topic=" << command_topic_
           << " subscribe_ok=" << (command_subscribed_ ? "true" : "false")
-          << " configured=" << (configured_ ? "true" : "false") << std::endl;
+          << " configured=" << (configured_ ? "true" : "false")
+          << " node_subscribed_topics=" << subscribed_topics.size() << std::endl;
+    for (const auto& subscribed_topic : subscribed_topics) {
+      gzmsg << "MCA Gazebo adapter transport subscription=" << subscribed_topic
+            << std::endl;
+    }
   }
 
   void PreUpdate(const gz::sim::UpdateInfo& info,

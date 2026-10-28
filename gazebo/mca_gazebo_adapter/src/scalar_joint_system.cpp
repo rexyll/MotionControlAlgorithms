@@ -75,7 +75,7 @@ class ScalarJointSystem final : public gz::sim::System,
     // stored handle, avoiding reliance on implicit node-owned subscription
     // lifetime across Gazebo system callbacks.
     command_subscriber_ = node_.CreateSubscriber(
-        command_topic_, &ScalarJointSystem::OnCommand, this);
+        command_topic_, [this](const gz::msgs::Double& message) { OnCommand(message); });
     command_subscribed_ = static_cast<bool>(command_subscriber_);
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);
@@ -217,9 +217,7 @@ class ScalarJointSystem final : public gz::sim::System,
   }
 
  private:
-  void OnCommand(const gz::msgs::Double& message,
-                  const gz::transport::MessageInfo& message_info) {
-    (void)message_info;
+  void OnCommand(const gz::msgs::Double& message) {
     const double effort = message.data();
     if (!std::isfinite(effort)) return;
     std::lock_guard<std::mutex> lock(mutex_);

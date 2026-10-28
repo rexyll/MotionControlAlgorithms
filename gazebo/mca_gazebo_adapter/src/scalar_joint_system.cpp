@@ -69,11 +69,10 @@ class ScalarJointSystem final : public gz::sim::System,
     time_topic_ = topic_prefix_ + "/state/time";
     step_topic_ = topic_prefix_ + "/state/step_index";
 
-    // Subscribe through Gazebo Transport's raw callback path. The raw handler
-    // receives the serialized protobuf payload and transport metadata, avoiding
-    // typed callback overload selection while retaining the exact topic/type
-    // delivered by the ROS-Gazebo bridge.
-    command_subscribed_ = node_.SubscribeRaw(
+    // Use an explicit Gazebo Transport node dedicated to command ingress.
+    // Keeping command reception separate from state publishers makes it easier
+    // to distinguish a transport discovery/callback issue from state publishing.
+    command_subscribed_ = command_node_.SubscribeRaw(
         command_topic_,
         [this](const char* data, std::size_t size,
                const gz::transport::MessageInfo& info) {
@@ -87,11 +86,12 @@ class ScalarJointSystem final : public gz::sim::System,
     step_pub_ = node_.Advertise<gz::msgs::Double>(step_topic_);
     configured_ = command_subscribed_ && position_pub_ && velocity_pub_ &&
                   acceleration_pub_ && time_pub_ && step_pub_;
-    const auto subscribed_topics = node_.SubscribedTopics();
+    const auto subscribed_topics = command_node_.SubscribedTopics();
     gzmsg << "MCA Gazebo adapter configured command topic=" << command_topic_
           << " subscribe_ok=" << (command_subscribed_ ? "true" : "false")
           << " configured=" << (configured_ ? "true" : "false")
-          << " node_subscribed_topics=" << subscribed_topics.size() << std::endl;
+          << " node_subscribed_topics=" << subscribed_topics.size()
+          << " partition=" << command_node_.Options().Partition() << std::endl;
     for (const auto& subscribed_topic : subscribed_topics) {
       gzmsg << "MCA Gazebo adapter transport subscription=" << subscribed_topic
             << std::endl;

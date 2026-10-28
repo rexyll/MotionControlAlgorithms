@@ -84,7 +84,7 @@ jobs:
           }
           echo "System Gazebo CLI: $gazebo_executable"
           echo "System Gazebo CLI libraries: ${gazebo_ld_library_path}"
-          gazebo_cli sim -s -r gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
+          gz sim -s -r gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
           gz_pid=$!
           bridge_pid=""
           publisher_pid=""

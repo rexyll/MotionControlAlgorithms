@@ -74,7 +74,7 @@ class ScalarJointSystem final : public gz::sim::System,
     // CreateSubscriber explicitly ties the subscription lifetime to this
     // stored handle, avoiding reliance on implicit node-owned subscription
     // lifetime across Gazebo system callbacks.
-    command_subscriber_ = node_.CreateSubscriber<gz::msgs::Double>(
+    command_subscriber_ = node_.CreateSubscriber(
         command_topic_, &ScalarJointSystem::OnCommand, this);
     command_subscribed_ = static_cast<bool>(command_subscriber_);
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);

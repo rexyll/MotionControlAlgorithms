@@ -73,7 +73,7 @@ class ScalarJointSystem final : public gz::sim::System,
     // Use Gazebo Transport's native member-function overload so the
     // subscriber owns an explicit target object instead of a type-erased
     // callback wrapper.
-    command_subscribed_ = node_.Subscribe<gz::msgs::Double>(
+    command_subscribed_ = node_.Subscribe<ScalarJointSystem, gz::msgs::Double>(
         command_topic_, &ScalarJointSystem::OnCommand, this);
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);

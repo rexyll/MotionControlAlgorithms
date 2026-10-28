@@ -253,8 +253,7 @@ class ScalarJointSystem final : public gz::sim::System,
   }
 
  private:
-  void OnCommandRaw(const char* data, std::size_t size,
-                    const gz::transport::Mes  void OnCommand(double effort) {
+  void OnCommand(double effort) {
     if (!std::isfinite(effort)) return;
     if (!transport_command_logged_.exchange(true, std::memory_order_relaxed)) {
       gzmsg << "MCA Gazebo adapter received typed transport effort command=" << effort
@@ -264,7 +263,10 @@ class ScalarJointSystem final : public gz::sim::System,
     transport_command_value_.effort[0] = effort;
     last_transport_command_wall_time_ = std::chrono::steady_clock::now();
     transport_command_active_ = true;
-  }blisher || !std::isfinite(value)) return;
+  }
+
+  static void PublishScalar(gz::transport::Node::Publisher& publisher, double value) {
+    if (!publisher || !std::isfinite(value)) return;
     gz::msgs::Double message;
     message.set_data(value);
     publisher.Publish(message);

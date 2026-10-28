@@ -58,9 +58,7 @@ class ScalarJointSystem final : public gz::sim::System,
     }
     if (sdf->HasElement("command_timeout_s")) {
       command_timeout_s_ = sdf->Get<double>("command_timeout_s");
-      if (!std::isfinite(command_timeout_s_) || command_timeout_s_ <= 0.0) {
-        return;
-      }
+      if (!std::isfinite(command_timeout_s_) || command_timeout_s_ <= 0.0) return;
     }
     while (prefix.size() > 1 && prefix.back() == '/') prefix.pop_back();
     topic_prefix_ = prefix;
@@ -71,11 +69,16 @@ class ScalarJointSystem final : public gz::sim::System,
     time_topic_ = topic_prefix_ + "/state/time";
     step_topic_ = topic_prefix_ + "/state/step_index";
 
-    // Use the member callback overload that also receives transport metadata.
-    // This gives us the actual topic/type context in the callback and avoids
-    // relying on the lambda/std::function overload during diagnosis.
-    command_subscribed_ = node_.Subscribe(
-        command_topic_, &ScalarJointSystem::OnCommand, this);
+    // Subscribe through Gazebo Transport's raw callback path. The raw handler
+    // receives the serialized protobuf payload and transport metadata, avoiding
+    // typed callback overload selection while retaining the exact topic/type
+    // delivered by the ROS-Gazebo bridge.
+    command_subscribed_ = node_.SubscribeRaw(
+        command_topic_,
+        [this](const std::string& data, const gz::transport::MessageInfo& info) {
+          OnCommandRaw(data, info);
+        },
+        "gz.msgs.Double");
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_.Advertise<gz::msgs::Double>(acceleration_topic_);
@@ -216,21 +219,23 @@ class ScalarJointSystem final : public gz::sim::System,
   }
 
  private:
-  void OnCommand(const gz::msgs::Double& message,
-                 const gz::transport::MessageInfo& info) {
+  void OnCommandRaw(const std::string& data,
+                    const gz::transport::MessageInfo& info) {
+    gz::msgs::Double message;
+    if (!message.ParseFromString(data)) {
+      gzerr << "MCA Gazebo adapter failed to parse transport effort command on "
+            << command_topic_ << " info_topic=" << info.Topic()
+            << " info_type=" << info.Type() << std::endl;
+      return;
+    }
     const double effort = message.data();
     if (!std::isfinite(effort)) return;
-    // Log before taking the mailbox mutex so diagnostics can distinguish a
-    // transport callback that never runs from one delayed by mailbox access.
     if (!transport_command_logged_.exchange(true, std::memory_order_relaxed)) {
-      gzmsg << "MCA Gazebo adapter received transport effort command=" << effort
+      gzmsg << "MCA Gazebo adapter received raw transport effort command=" << effort
             << " on " << command_topic_ << " info_topic=" << info.Topic()
             << " info_type=" << info.Type() << std::endl;
     }
     std::lock_guard<std::mutex> lock(mutex_);
-    // Transport commands may arrive before the first simulation update. Keep
-    // the latest finite command instead of dropping it; the wall-clock
-    // watchdog still prevents an old command from being applied later.
     transport_command_value_.effort[0] = effort;
     last_transport_command_wall_time_ = std::chrono::steady_clock::now();
     transport_command_active_ = true;
@@ -246,8 +251,6 @@ class ScalarJointSystem final : public gz::sim::System,
   gz::sim::Entity joint_{gz::sim::kNullEntity};
   bool configured_{false};
   bool command_subscribed_{false};
-  // The simulator update callbacks and transport command ingress may execute on
-  // different threads. Keep the mailbox/snapshot coherent.
   mutable std::mutex mutex_;
   bool state_valid_{false};
   bool pending_command_{false};
@@ -266,6 +269,7 @@ class ScalarJointSystem final : public gz::sim::System,
   mca::simulation::ScalarActuatorCommand pending_command_value_{};
   mca::simulation::ScalarActuatorCommand transport_command_value_{};
 
+  gz::sim::Entity joint_{gz::sim::kNullEntity};
   gz::transport::Node node_;
   std::string topic_prefix_;
   std::string command_topic_;

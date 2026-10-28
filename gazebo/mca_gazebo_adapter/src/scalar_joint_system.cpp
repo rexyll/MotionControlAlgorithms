@@ -300,6 +300,7 @@ class ScalarJointSystem final : public gz::sim::System,
   mca::simulation::ScalarActuatorCommand transport_command_value_{};
 
   gz::transport::Node node_;
+  gz::transport::Node command_node_;
   std::string topic_prefix_;
   std::string command_topic_;
   std::string position_topic_;

@@ -139,7 +139,7 @@ jobs:
           # This avoids accepting only startup/idle samples as proof of actuation.
           # Observe the Gazebo command topic independently of the plugin callback.
           # If this sees the effort, ROS->GZ conversion and transport publication work.
-          timeout 4s gazebo_cli topic -e -t "${topic_prefix}/cmd_effort" > gz-command-echo.log 2>&1 &
+          timeout 4s env PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" "$gazebo_executable" topic -e -t "${topic_prefix}/cmd_effort" > gz-command-echo.log 2>&1 &
           command_echo_pid=$!
           timeout 4s ros2 topic pub --rate 20 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > command-publisher.log 2>&1 &
           publisher_pid=$!
@@ -165,7 +165,7 @@ jobs:
           # from the physics / JointForceCmd path. This never affects the ROS-path
           # acceptance result above, which remains based only on velocity.log.
           set +e
-          timeout 2s gazebo_cli topic -t "${topic_prefix}/cmd_effort" -m gz.msgs.Double -p "data: 1.0" > native-publisher.log 2>&1 &
+          timeout 2s env PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" "$gazebo_executable" topic -t "${topic_prefix}/cmd_effort" -m gz.msgs.Double -p "data: 1.0" > native-publisher.log 2>&1 &
           native_publisher_pid=$!
           timeout 2s ros2 topic echo "${topic_prefix}/state/velocity" std_msgs/msg/Float64 > native-velocity.log 2>&1 &
           native_velocity_pid=$!

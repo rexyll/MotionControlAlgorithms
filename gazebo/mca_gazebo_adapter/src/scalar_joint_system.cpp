@@ -125,7 +125,7 @@ class ScalarJointSystem final : public gz::sim::System,
       std::vector<gz::transport::MessagePublisher> publishers;
       std::vector<gz::transport::MessagePublisher> subscribers;
       const bool topic_info_ok =
-          command_node_.TopicInfo(command_topic_, publishers, subscribers);
+          node_.TopicInfo(command_topic_, publishers, subscribers);
       if (!publishers.empty() ||
           std::chrono::duration<double>(topic_info_now - plugin_start_wall_time_).count() >= 8.0) {
         gzmsg << "MCA Gazebo adapter command topic discovery topic="

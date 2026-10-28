@@ -84,13 +84,10 @@ class ScalarJointSystem final : public gz::sim::System,
     // Use an explicit Gazebo Transport node dedicated to command ingress.
     // Keeping command reception separate from state publishers makes it easier
     // to distinguish a transport discovery/callback issue from state publishing.
-    command_subscribed_ = command_node_.SubscribeRaw(
-        command_topic_,
-        [this](const char* data, std::size_t size,
-               const gz::transport::MessageInfo& info) {
-          OnCommandRaw(data, size, info);
-        },
-        "gz.msgs.Double");
+    command_subscribed_ = command_node_.Subscribe(
+        command_topic_, [this](const gz::msgs::Double& message) {
+          OnCommand(message.data());
+        });
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_.Advertise<gz::msgs::Double>(acceleration_topic_);
@@ -257,30 +254,17 @@ class ScalarJointSystem final : public gz::sim::System,
 
  private:
   void OnCommandRaw(const char* data, std::size_t size,
-                    const gz::transport::MessageInfo& info) {
-    if (!data || size == 0) return;
-    gz::msgs::Double message;
-    if (!message.ParseFromArray(data, static_cast<int>(size))) {
-      gzerr << "MCA Gazebo adapter failed to parse transport effort command on "
-            << command_topic_ << " info_topic=" << info.Topic()
-            << " info_type=" << info.Type() << std::endl;
-      return;
-    }
-    const double effort = message.data();
+                    const gz::transport::Mes  void OnCommand(double effort) {
     if (!std::isfinite(effort)) return;
     if (!transport_command_logged_.exchange(true, std::memory_order_relaxed)) {
-      gzmsg << "MCA Gazebo adapter received raw transport effort command=" << effort
-            << " on " << command_topic_ << " info_topic=" << info.Topic()
-            << " info_type=" << info.Type() << std::endl;
+      gzmsg << "MCA Gazebo adapter received typed transport effort command=" << effort
+            << " on " << command_topic_ << std::endl;
     }
     std::lock_guard<std::mutex> lock(mutex_);
     transport_command_value_.effort[0] = effort;
     last_transport_command_wall_time_ = std::chrono::steady_clock::now();
     transport_command_active_ = true;
-  }
-
-  static void PublishScalar(gz::transport::Node::Publisher& publisher, double value) {
-    if (!publisher || !std::isfinite(value)) return;
+  }blisher || !std::isfinite(value)) return;
     gz::msgs::Double message;
     message.set_data(value);
     publisher.Publish(message);

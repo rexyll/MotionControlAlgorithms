@@ -71,16 +71,12 @@ class ScalarJointSystem final : public gz::sim::System,
     time_topic_ = topic_prefix_ + "/state/time";
     step_topic_ = topic_prefix_ + "/state/step_index";
 
-    // Keep the subscriber handle alive for the entire system lifetime.
-    // CreateSubscriber explicitly ties the subscription lifetime to this
-    // stored handle, avoiding reliance on implicit node-owned subscription
-    // lifetime across Gazebo system callbacks.
-    const std::function<void(const gz::msgs::Double&,
-                                   const gz::transport::MessageInfo&)> command_callback =
-        [this](const gz::msgs::Double& message,
-               const gz::transport::MessageInfo&) { OnCommand(message); };
-    command_subscriber_ = node_.CreateSubscriber(command_topic_, command_callback);
-    command_subscribed_ = static_cast<bool>(command_subscriber_);
+    // Node::Subscribe registers the callback directly with the long-lived
+    // transport node. Unlike a temporary CreateSubscriber handle, the node
+    // owns this subscription until the node is destroyed.
+    const std::function<void(const gz::msgs::Double&)> command_callback =
+        [this](const gz::msgs::Double& message) { OnCommand(message); };
+    command_subscribed_ = node_.Subscribe(command_topic_, command_callback);
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_.Advertise<gz::msgs::Double>(acceleration_topic_);
@@ -270,7 +266,6 @@ class ScalarJointSystem final : public gz::sim::System,
   mca::simulation::ScalarActuatorCommand transport_command_value_{};
 
   gz::transport::Node node_;
-  gz::transport::Node::Subscriber command_subscriber_;
   std::string topic_prefix_;
   std::string command_topic_;
   std::string position_topic_;

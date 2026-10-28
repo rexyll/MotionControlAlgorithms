@@ -101,7 +101,7 @@ jobs:
           echo "=== Gazebo topics after plugin startup ==="
           gz topic -l || true
           echo "=== Command topic transport info ==="
-          gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" || true
+          gz topic -i -t "${topic_prefix}/cmd_effort" || true
 
           # Preserve the Gazebo CLI/runtime environment before ROS setup prepends
           # gz-tools-vendor paths. Mixing the ROS vendor CLI/libraries with the

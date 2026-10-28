@@ -85,10 +85,11 @@ class ScalarJointSystem final : public gz::sim::System,
     // explicitly. This isolates transport delivery from typed callback dispatch.
     command_subscribed_ = node_.SubscribeRaw(
         command_topic_,
-        [this](const std::string& serialized,
+        [this](const char* serialized, std::size_t serialized_size,
                const gz::transport::MessageInfo&) {
           gz::msgs::Double message;
-          if (message.ParseFromString(serialized)) {
+          if (message.ParseFromArray(serialized,
+                                     static_cast<int>(serialized_size))) {
             OnTransportCommand(message);
           } else {
             gzerr << "MCA Gazebo adapter failed to parse command protobuf on "

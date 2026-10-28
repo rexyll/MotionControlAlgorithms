@@ -74,8 +74,8 @@ class ScalarJointSystem final : public gz::sim::System,
     // Use the member callback overload that also receives transport metadata.
     // This gives us the actual topic/type context in the callback and avoids
     // relying on the lambda/std::function overload during diagnosis.
-    command_subscribed_ =
-        node_.Subscribe(command_topic_, &ScalarJointSystem::OnCommand, this);
+    command_subscribed_ = node_.Subscribe(
+        command_topic_, &ScalarJointSystem::OnCommand, this);
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_.Advertise<gz::msgs::Double>(acceleration_topic_);

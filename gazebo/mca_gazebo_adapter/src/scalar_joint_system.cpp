@@ -81,10 +81,12 @@ class ScalarJointSystem final : public gz::sim::System,
     time_topic_ = topic_prefix_ + "/state/time";
     step_topic_ = topic_prefix_ + "/state/step_index";
 
-    // Use Gazebo Transport's member-function callback overload explicitly.
-    // This avoids ambiguity between callable and typed subscription overloads.
-    command_subscribed_ = command_node_.Subscribe(
-        command_topic_, &ScalarJointSystem::OnTransportCommand, this);
+    // Bind the typed message callback explicitly. This keeps subscription
+    // dispatch on the same gz::msgs::Double type used by ros_gz_bridge.
+    command_subscribed_ = command_node_.Subscribe<gz::msgs::Double>(
+        command_topic_, [this](const gz::msgs::Double& message) {
+          OnTransportCommand(message);
+        });
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_.Advertise<gz::msgs::Double>(acceleration_topic_);

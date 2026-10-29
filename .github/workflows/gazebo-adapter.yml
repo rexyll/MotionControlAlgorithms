@@ -147,6 +147,15 @@ jobs:
           gz_to_ros_bridge_pid=$!
           bridge_pid="$ros_to_gz_bridge_pid $gz_to_ros_bridge_pid"
           sleep 3
+          echo "=== ROS nodes after bridge startup, before command publisher ==="
+          ros2 node list || true
+          echo "=== ROS topics after bridge startup, before command publisher ==="
+          ros2 topic list -t || true
+          echo "=== Bridge process tree after startup ==="
+          ps -efww | grep -E '[p]arameter_bridge|[r]os_gz_bridge' || true
+          echo "=== Bridge logs immediately after startup ==="
+          cat ros-to-gz-bridge.log
+          cat gz-to-ros-bridge.log
 
           # Start effort first, then observe state while the command is still active.
           # This avoids accepting only startup/idle samples as proof of actuation.
@@ -157,6 +166,8 @@ jobs:
           timeout 4s ros2 topic pub --rate 20 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > command-publisher.log 2>&1 &
           publisher_pid=$!
           sleep 1
+          echo "=== ROS command topic graph while publisher is active ==="
+          ros2 topic info -v "${topic_prefix}/cmd_effort" || true
           timeout 3s ros2 topic echo "${topic_prefix}/state/velocity" std_msgs/msg/Float64 > velocity.log 2>&1 &
           velocity_pid=$!
           wait "$publisher_pid" || true

@@ -255,12 +255,7 @@ class ScalarJointSystem final : public gz::sim::System,
   }
 
  private:
-  void OnTransportCommand(const gz::msgs::Double& message,
-                          const gz::transport::MessageInfo& info) {
-    if (!transport_command_logged_.load(std::memory_order_relaxed)) {
-      gzmsg << "MCA Gazebo adapter transport callback metadata topic="
-            << info.Topic() << " message_type=" << info.Type() << std::endl;
-    }
+  void OnTransportCommand(const gz::msgs::Double& message) {
     OnCommand(message.data());
   }
 

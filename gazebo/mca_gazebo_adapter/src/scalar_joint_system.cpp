@@ -86,10 +86,7 @@ class ScalarJointSystem final : public gz::sim::System,
     // owns the registered callback; this avoids relying on the convenience
     // Subscribe API while the simulation system is being configured.
     command_subscriber_ = node_.CreateSubscriber(
-        command_topic_,
-        [this](const gz::msgs::Double& message) {
-          OnTransportCommand(message);
-        });
+        command_topic_, &ScalarJointSystem::OnTransportCommand, this);
     command_subscribed_ = static_cast<bool>(command_subscriber_);
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);

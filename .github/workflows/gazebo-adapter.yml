@@ -135,11 +135,17 @@ jobs:
           echo "GZ_PARTITION after ROS setup: ${GZ_PARTITION:-<unset>}"
 
           # Bridge effort from ROS 2 into Gazebo and velocity back into ROS 2.
+          # Keep each direction in its own bridge process so a failure to
+          # create one mapping cannot silently leave the other direction alive.
           env GZ_PARTITION="$GZ_PARTITION" ros2 run ros_gz_bridge parameter_bridge \
             "${topic_prefix}/cmd_effort@std_msgs/msg/Float64]gz.msgs.Double" \
+            > ros-to-gz-bridge.log 2>&1 &
+          ros_to_gz_bridge_pid=$!
+          env GZ_PARTITION="$GZ_PARTITION" ros2 run ros_gz_bridge parameter_bridge \
             "${topic_prefix}/state/velocity@std_msgs/msg/Float64[gz.msgs.Double" \
-            > ros-gz-bridge.log 2>&1 &
-          bridge_pid=$!
+            > gz-to-ros-bridge.log 2>&1 &
+          gz_to_ros_bridge_pid=$!
+          bridge_pid="$ros_to_gz_bridge_pid $gz_to_ros_bridge_pid"
           sleep 3
 
           # Start effort first, then observe state while the command is still active.
@@ -195,7 +201,7 @@ jobs:
             echo "=== Gazebo transport log ==="
             cat gazebo-transport.log
             echo "=== ROS/Gazebo bridge log ==="
-            cat ros-gz-bridge.log
+            cat ros-to-gz-bridge.log\n            cat gz-to-ros-bridge.log
             echo "=== ROS command publisher log ==="
             cat command-publisher.log
             exit 1

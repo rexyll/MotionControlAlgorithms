@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -84,7 +85,11 @@ class ScalarJointSystem final : public gz::sim::System,
     // Subscribe to raw transport payloads without a type filter, then decode
     // the expected protobuf ourselves. This separates transport delivery from
     // typed dispatch and reveals unexpected wire types in the callback log.
-    command_subscribed_ = node_.SubscribeRaw(
+    // Create the transport node only after Gazebo has loaded the system and
+    // entered Configure. This tests whether construction-time discovery state
+    // was preventing the plugin from seeing external publishers.
+    node_ = std::make_unique<gz::transport::Node>(TransportNodeOptions());
+    command_subscribed_ = node_->SubscribeRaw(
         command_topic_,
         [this](const char* data, const std::size_t size,
                const gz::transport::MessageInfo& info) {
@@ -96,14 +101,14 @@ class ScalarJointSystem final : public gz::sim::System,
           }
           OnTransportCommand(message);
         });
-    position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
-    velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);
-    acceleration_pub_ = node_.Advertise<gz::msgs::Double>(acceleration_topic_);
-    time_pub_ = node_.Advertise<gz::msgs::Double>(time_topic_);
-    step_pub_ = node_.Advertise<gz::msgs::Double>(step_topic_);
+    position_pub_ = node_->Advertise<gz::msgs::Double>(position_topic_);
+    velocity_pub_ = node_->Advertise<gz::msgs::Double>(velocity_topic_);
+    acceleration_pub_ = node_->Advertise<gz::msgs::Double>(acceleration_topic_);
+    time_pub_ = node_->Advertise<gz::msgs::Double>(time_topic_);
+    step_pub_ = node_->Advertise<gz::msgs::Double>(step_topic_);
     configured_ = command_subscribed_ && position_pub_ && velocity_pub_ &&
                   acceleration_pub_ && time_pub_ && step_pub_;
-    const auto subscribed_topics = node_.SubscribedTopics();
+    const auto subscribed_topics = node_->SubscribedTopics();
     const char* environment_partition = std::getenv("GZ_PARTITION");
     gzmsg << "MCA Gazebo adapter configured command topic=" << command_topic_
           << " subscribe_ok=" << (command_subscribed_ ? "true" : "false")
@@ -112,7 +117,7 @@ class ScalarJointSystem final : public gz::sim::System,
           << " node_subscribed_topics=" << subscribed_topics.size()
           << " environment_partition="
           << (environment_partition != nullptr ? environment_partition : "<unset>")
-          << " node_partition=" << node_.Options().Partition() << std::endl;
+          << " node_partition=" << node_->Options().Partition() << std::endl;
     for (const auto& subscribed_topic : subscribed_topics) {
       gzmsg << "MCA Gazebo adapter transport subscription=" << subscribed_topic
             << std::endl;
@@ -134,7 +139,7 @@ class ScalarJointSystem final : public gz::sim::System,
       std::vector<gz::transport::MessagePublisher> publishers;
       std::vector<gz::transport::MessagePublisher> subscribers;
       const bool topic_info_ok =
-          node_.TopicInfo(command_topic_, publishers, subscribers);
+          node_->TopicInfo(command_topic_, publishers, subscribers);
       if (!publishers.empty() ||
           std::chrono::duration<double>(topic_info_now - plugin_start_wall_time_).count() >= 8.0) {
         gzmsg << "MCA Gazebo adapter command topic discovery topic="
@@ -310,7 +315,7 @@ class ScalarJointSystem final : public gz::sim::System,
   mca::simulation::ScalarActuatorCommand pending_command_value_{};
   mca::simulation::ScalarActuatorCommand transport_command_value_{};
 
-  gz::transport::Node node_{TransportNodeOptions()};
+  std::unique_ptr<gz::transport::Node> node_;
   std::string topic_prefix_;
   std::string command_topic_;
   std::string position_topic_;

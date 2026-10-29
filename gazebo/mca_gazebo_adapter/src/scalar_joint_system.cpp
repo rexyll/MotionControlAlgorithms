@@ -82,22 +82,12 @@ class ScalarJointSystem final : public gz::sim::System,
     time_topic_ = topic_prefix_ + "/state/time";
     step_topic_ = topic_prefix_ + "/state/step_index";
 
-    // Subscribe to raw transport payloads without a type filter, then decode
-    // the expected protobuf ourselves. This separates transport delivery from
-    // typed dispatch and reveals unexpected wire types in the callback log.
-    // Create the transport node only after Gazebo has loaded the system and
-    // entered Configure. This tests whether construction-time discovery state
-    // was preventing the plugin from seeing external publishers.
+    // Register exactly one subscription handler for this node/topic. Gazebo
+    // Transport indexes subscription handlers by node and topic; registering
+    // both typed and raw handlers for the same topic can cause them to
+    // replace/conflict with each other. The standalone probe proves that the
+    // typed Node::Subscribe API receives the bridged gz.msgs.Double payload.
     node_ = std::make_unique<gz::transport::Node>(TransportNodeOptions());
-    // Keep a typed subscription as the production command path. The raw
-    // subscription remains temporarily as an independent transport diagnostic:
-    // the CI evidence shows the bridge publisher and generic subscriber are
-    // visible to each other, but the generic callback has not been observed.
-    // Keep explicit subscriber handles alive for the full system lifetime.
-    // The standalone probe receives the same bridge messages, while callbacks
-    // registered through the plugin's previous Subscribe/SubscribeRaw path did
-    // not fire. Use CreateSubscriber handles to make subscription ownership
-    // and lifetime explicit.
     std::function<void(const gz::msgs::Double&)> typed_command_callback =
         [this](const gz::msgs::Double& message) {
           if (!typed_command_logged_.exchange(true, std::memory_order_relaxed)) {
@@ -105,28 +95,8 @@ class ScalarJointSystem final : public gz::sim::System,
           }
           OnTransportCommand(message);
         };
-    command_subscriber_ =
-        node_->CreateSubscriber(command_topic_, typed_command_callback);
-    const gz::transport::RawCallback raw_command_callback =
-        [this](const char* data, std::size_t size,
-               const gz::transport::MessageInfo& info) {
-          if (!raw_callback_logged_.exchange(true, std::memory_order_relaxed)) {
-            gzmsg << "MCA Gazebo adapter raw command callback invoked type="
-                  << info.Type() << " payload_size=" << size << std::endl;
-          }
-          gz::msgs::Double message;
-          if (size > static_cast<std::size_t>(std::numeric_limits<int>::max()) ||
-              !message.ParseFromArray(data, static_cast<int>(size))) {
-            gzerr << "MCA Gazebo adapter failed to decode raw command payload on "
-                  << command_topic_ << " type=" << info.Type() << std::endl;
-            return;
-          }
-          OnTransportCommand(message);
-        };
-    const bool raw_command_subscribed =
-        node_->SubscribeRaw(command_topic_, raw_command_callback);
-    command_subscribed_ = static_cast<bool>(command_subscriber_) ||
-                          raw_command_subscribed;
+    command_subscribed_ =
+        node_->Subscribe<gz::msgs::Double>(command_topic_, typed_command_callback);
     position_pub_ = node_->Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_->Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_->Advertise<gz::msgs::Double>(acceleration_topic_);

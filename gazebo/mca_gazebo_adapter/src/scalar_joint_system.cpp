@@ -86,10 +86,10 @@ class ScalarJointSystem final : public gz::sim::System,
     // distinguish transport delivery from typed protobuf callback dispatch.
     command_subscribed_ = node_.SubscribeRaw(
         command_topic_,
-        [this](const std::string& serialized,
+        [this](const char* data, const std::size_t size,
                const gz::transport::MessageInfo& info) {
           gz::msgs::Double message;
-          if (!message.ParseFromString(serialized)) {
+          if (!message.ParseFromArray(data, static_cast<int>(size))) {
             gzerr << "MCA Gazebo adapter failed to decode raw command payload on "
                   << command_topic_ << " type=" << info.Type() << std::endl;
             return;

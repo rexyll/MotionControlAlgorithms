@@ -162,6 +162,14 @@ jobs:
           wait "$publisher_pid" || true
           wait "$velocity_pid" || true
 
+          echo "=== ROS command topic graph after publisher ==="
+          ros2 topic info -v "${topic_prefix}/cmd_effort" || true
+          timeout 2s ros2 topic echo "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 > ros-command-echo.log 2>&1 || true
+          echo "=== ROS command topic echo ==="
+          cat ros-command-echo.log
+          echo "=== Bridge process status ==="
+          ps -o pid,ppid,stat,args -p "$ros_to_gz_bridge_pid","$gz_to_ros_bridge_pid" || true
+
           echo "=== Command topic transport info after ROS publisher ==="
           gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" || true
           echo "=== Gazebo command topic echo ==="

@@ -80,12 +80,15 @@ jobs:
           gazebo_path="$PATH"
           gazebo_ld_library_path="${LD_LIBRARY_PATH:-}"
           gazebo_cli() {
-            env PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
+            env GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
               "$gazebo_executable" "$@"
           }
           echo "System Gazebo CLI: $gazebo_executable"
           echo "System Gazebo CLI libraries: ${gazebo_ld_library_path}"
-          gz sim -s -r gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
+          echo "Gazebo partition before server launch: $GZ_PARTITION"
+          env | grep -E '^(GZ_PARTITION|GZ_RELAY)=' || true
+          env GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
+            "$gazebo_executable" sim -s -r gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
           gz_pid=$!
           bridge_pid=""
           publisher_pid=""
@@ -125,7 +128,7 @@ jobs:
           echo "GZ_PARTITION after ROS setup: ${GZ_PARTITION:-<unset>}"
 
           # Bridge effort from ROS 2 into Gazebo and velocity back into ROS 2.
-          ros2 run ros_gz_bridge parameter_bridge \
+          env GZ_PARTITION="$GZ_PARTITION" ros2 run ros_gz_bridge parameter_bridge \
             "${topic_prefix}/cmd_effort@std_msgs/msg/Float64]gz.msgs.Double" \
             "${topic_prefix}/state/velocity@std_msgs/msg/Float64[gz.msgs.Double" \
             > ros-gz-bridge.log 2>&1 &
@@ -136,7 +139,7 @@ jobs:
           # This avoids accepting only startup/idle samples as proof of actuation.
           # Observe the Gazebo command topic independently of the plugin callback.
           # If this sees the effort, ROS->GZ conversion and transport publication work.
-          timeout 4s env PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" "$gazebo_executable" topic -e -t "${topic_prefix}/cmd_effort" > gz-command-echo.log 2>&1 &
+          timeout 4s env GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" "$gazebo_executable" topic -e -t "${topic_prefix}/cmd_effort" > gz-command-echo.log 2>&1 &
           command_echo_pid=$!
           timeout 4s ros2 topic pub --rate 20 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > command-publisher.log 2>&1 &
           publisher_pid=$!
@@ -162,7 +165,7 @@ jobs:
           # from the physics / JointForceCmd path. This never affects the ROS-path
           # acceptance result above, which remains based only on velocity.log.
           set +e
-          timeout 2s env PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" "$gazebo_executable" topic -t "${topic_prefix}/cmd_effort" -m gz.msgs.Double -p "data: 1.0" > native-publisher.log 2>&1 &
+          timeout 2s env GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" "$gazebo_executable" topic -t "${topic_prefix}/cmd_effort" -m gz.msgs.Double -p "data: 1.0" > native-publisher.log 2>&1 &
           native_publisher_pid=$!
           timeout 2s ros2 topic echo "${topic_prefix}/state/velocity" std_msgs/msg/Float64 > native-velocity.log 2>&1 &
           native_velocity_pid=$!

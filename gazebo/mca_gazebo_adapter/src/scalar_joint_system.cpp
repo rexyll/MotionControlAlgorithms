@@ -85,7 +85,7 @@ class ScalarJointSystem final : public gz::sim::System,
     // lifetime. CreateSubscriber returns a subscription handle whose lifetime
     // owns the registered callback; this avoids relying on the convenience
     // Subscribe API while the simulation system is being configured.
-    command_subscriber_ = node_.CreateSubscriber<gz::msgs::Double>(
+    command_subscriber_ = node_.CreateSubscriber(
         command_topic_,
         [this](const gz::msgs::Double& message) {
           OnTransportCommand(message);

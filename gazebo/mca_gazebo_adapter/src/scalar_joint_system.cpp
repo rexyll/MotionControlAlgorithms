@@ -93,14 +93,19 @@ class ScalarJointSystem final : public gz::sim::System,
     // subscription remains temporarily as an independent transport diagnostic:
     // the CI evidence shows the bridge publisher and generic subscriber are
     // visible to each other, but the generic callback has not been observed.
-    const bool typed_subscribed = node_->Subscribe<gz::msgs::Double>(
+    // Keep explicit subscriber handles alive for the full system lifetime.
+    // The standalone probe receives the same bridge messages, while callbacks
+    // registered through the plugin's previous Subscribe/SubscribeRaw path did
+    // not fire. Use CreateSubscriber handles to make subscription ownership
+    // and lifetime explicit.
+    command_subscriber_ = node_->CreateSubscriber<gz::msgs::Double>(
         command_topic_, [this](const gz::msgs::Double& message) {
           if (!typed_command_logged_.exchange(true, std::memory_order_relaxed)) {
             gzmsg << "MCA Gazebo adapter typed command callback invoked" << std::endl;
           }
           OnTransportCommand(message);
         });
-    const bool raw_subscribed = node_->SubscribeRaw(
+    raw_command_subscriber_ = node_->CreateSubscriber(
         command_topic_,
         [this](const char* data, const std::size_t size,
                const gz::transport::MessageInfo& info) {
@@ -116,7 +121,8 @@ class ScalarJointSystem final : public gz::sim::System,
           }
           OnTransportCommand(message);
         });
-    command_subscribed_ = typed_subscribed || raw_subscribed;
+    command_subscribed_ = static_cast<bool>(command_subscriber_) ||
+                          static_cast<bool>(raw_command_subscriber_);
     position_pub_ = node_->Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_->Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_->Advertise<gz::msgs::Double>(acceleration_topic_);
@@ -334,6 +340,8 @@ class ScalarJointSystem final : public gz::sim::System,
   mca::simulation::ScalarActuatorCommand transport_command_value_{};
 
   std::unique_ptr<gz::transport::Node> node_;
+  gz::transport::Node::Subscriber command_subscriber_;
+  gz::transport::Node::Subscriber raw_command_subscriber_;
   std::string topic_prefix_;
   std::string command_topic_;
   std::string position_topic_;

@@ -81,22 +81,16 @@ class ScalarJointSystem final : public gz::sim::System,
     time_topic_ = topic_prefix_ + "/state/time";
     step_topic_ = topic_prefix_ + "/state/step_index";
 
-    // Subscribe through the raw transport API and parse the protobuf payload
-    // explicitly. This isolates transport delivery from typed callback dispatch.
-    command_subscribed_ = node_.SubscribeRaw(
+    // Keep the typed Gazebo Transport subscriber alive for the entire plugin
+    // lifetime. CreateSubscriber returns a subscription handle whose lifetime
+    // owns the registered callback; this avoids relying on the convenience
+    // Subscribe API while the simulation system is being configured.
+    command_subscriber_ = node_.CreateSubscriber<gz::msgs::Double>(
         command_topic_,
-        [this](const char* serialized, std::size_t serialized_size,
-               const gz::transport::MessageInfo&) {
-          gz::msgs::Double message;
-          if (message.ParseFromArray(serialized,
-                                     static_cast<int>(serialized_size))) {
-            OnTransportCommand(message);
-          } else {
-            gzerr << "MCA Gazebo adapter failed to parse command protobuf on "
-                  << command_topic_ << std::endl;
-          }
-        },
-        "gz.msgs.Double");
+        [this](const gz::msgs::Double& message) {
+          OnTransportCommand(message);
+        });
+    command_subscribed_ = static_cast<bool>(command_subscriber_);
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_.Advertise<gz::msgs::Double>(acceleration_topic_);
@@ -310,7 +304,9 @@ class ScalarJointSystem final : public gz::sim::System,
   mca::simulation::ScalarActuatorCommand pending_command_value_{};
   mca::simulation::ScalarActuatorCommand transport_command_value_{};
 
+  gz::sim::Entity joint_{gz::sim::kNullEntity};
   gz::transport::Node node_{TransportNodeOptions()};
+  gz::transport::Node::Subscriber command_subscriber_;
   std::string topic_prefix_;
   std::string command_topic_;
   std::string position_topic_;

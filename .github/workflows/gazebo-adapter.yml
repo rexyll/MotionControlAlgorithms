@@ -87,10 +87,10 @@ jobs:
               kill "$publisher_pid" 2>/dev/null || true
               wait "$publisher_pid" 2>/dev/null || true
             fi
-            if [ -n "$bridge_pid" ]; then
-              kill "$bridge_pid" 2>/dev/null || true
-              wait "$bridge_pid" 2>/dev/null || true
-            fi
+            for pid in ${bridge_pid:-}; do
+              kill "$pid" 2>/dev/null || true
+              wait "$pid" 2>/dev/null || true
+            done
             # The gz CLI may manage a server subprocess; tear down the entire
             # session so no simulator survives this step or contaminates CI.
             kill -INT -- "-$gz_pid" 2>/dev/null || true
@@ -168,8 +168,10 @@ jobs:
           cat gz-command-echo.log
           echo "=== ROS publisher log ==="
           cat command-publisher.log
-          echo "=== Bridge log before assertions ==="
-          cat ros-gz-bridge.log
+          echo "=== ROS -> Gazebo bridge log ==="
+          cat ros-to-gz-bridge.log
+          echo "=== Gazebo -> ROS bridge log ==="
+          cat gz-to-ros-bridge.log
           echo "=== Gazebo log before assertions ==="
           cat gazebo-transport.log
           cat velocity.log
@@ -200,8 +202,10 @@ jobs:
             gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" || true
             echo "=== Gazebo transport log ==="
             cat gazebo-transport.log
-            echo "=== ROS/Gazebo bridge log ==="
-            cat ros-to-gz-bridge.log\n            cat gz-to-ros-bridge.log
+            echo "=== ROS -> Gazebo bridge log ==="
+            cat ros-to-gz-bridge.log || true
+            echo "=== Gazebo -> ROS bridge log ==="
+            cat gz-to-ros-bridge.log || true
             echo "=== ROS command publisher log ==="
             cat command-publisher.log
             exit 1
@@ -209,7 +213,10 @@ jobs:
           if ! awk '/data:/{v=$2; if (v+0 > 1e-5 || v+0 < -1e-5) {found=1}} END{exit(found ? 0 : 1)}' velocity.log; then
             echo "ROS 2 effort command did not produce velocity above the 1e-5 threshold"
             cat gazebo-transport.log
-            cat ros-gz-bridge.log
+            echo "=== ROS -> Gazebo bridge log ==="
+            cat ros-to-gz-bridge.log || true
+            echo "=== Gazebo -> ROS bridge log ==="
+            cat gz-to-ros-bridge.log || true
             cat command-publisher.log
             exit 1
           fi

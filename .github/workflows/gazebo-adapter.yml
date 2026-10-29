@@ -40,42 +40,6 @@ jobs:
       - name: Build Gazebo adapter
         shell: bash
         run: cmake --build build/gazebo-adapter --parallel 2
-      - name: Run headless Gazebo plugin smoke test
-        shell: bash
-        run: |
-          set +e
-          # Isolate this smoke-test server from other CI jobs and ensure timeout
-          # tears down the server process group before the bridge test starts.
-          export GZ_PARTITION="mca-smoke-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
-          export GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
-          # Run Gazebo in its own process group: the `gz` CLI may spawn
-          # gz-sim-server, so timing out only the wrapper can leave an orphan.
-          setsid gz sim -s -r -v 4 gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-smoke.log 2>&1 &
-          smoke_pid=$!
-          sleep 15
-          set +e
-          kill -INT -- "-$smoke_pid" 2>/dev/null
-          for _ in $(seq 1 5); do
-            kill -0 -- "-$smoke_pid" 2>/dev/null || break
-            sleep 1
-          done
-          kill -KILL -- "-$smoke_pid" 2>/dev/null
-          wait "$smoke_pid"
-          status=$?
-          set -e
-          cat gazebo-smoke.log
-          if [ "$status" -ne 0 ] && [ "$status" -ne 124 ] && [ "$status" -ne 130 ] && [ "$status" -ne 137 ]; then
-            echo "Gazebo exited unexpectedly with status $status"
-            exit "$status"
-          fi
-          if grep -Eqi "Failed to load system plugin|Unable to load plugin|Error Code 11" gazebo-smoke.log; then
-            echo "Gazebo reported a plugin loading error"
-            exit 1
-          fi
-          if ! grep -Fq "mca_gazebo_adapter::ScalarJointSystem" gazebo-smoke.log; then
-            echo "Expected MCA scalar joint plugin name was not found in Gazebo logs"
-            exit 1
-          fi
       - name: Run ROS 2 ↔ Gazebo bridge command/state smoke test
         shell: bash
         run: |

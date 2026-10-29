@@ -66,7 +66,7 @@ jobs:
           echo "System Gazebo CLI libraries: ${gazebo_ld_library_path}"
           echo "Gazebo partition before server launch: $GZ_PARTITION"
           env | grep -E '^(GZ_PARTITION|GZ_RELAY)=' || true
-          env GZ_PARTITION="$GZ_PARTITION" \
+          setsid env GZ_PARTITION="$GZ_PARTITION" \
             GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}" \
             PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
             "$gazebo_executable" sim -s -r -v 4 gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
@@ -91,7 +91,14 @@ jobs:
               kill "$bridge_pid" 2>/dev/null || true
               wait "$bridge_pid" 2>/dev/null || true
             fi
-            kill "$gz_pid" 2>/dev/null || true
+            # The gz CLI may manage a server subprocess; tear down the entire
+            # session so no simulator survives this step or contaminates CI.
+            kill -INT -- "-$gz_pid" 2>/dev/null || true
+            for _ in $(seq 1 5); do
+              kill -0 -- "-$gz_pid" 2>/dev/null || break
+              sleep 1
+            done
+            kill -KILL -- "-$gz_pid" 2>/dev/null || true
             wait "$gz_pid" 2>/dev/null || true
           }
           trap cleanup EXIT

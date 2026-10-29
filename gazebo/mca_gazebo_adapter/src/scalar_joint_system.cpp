@@ -81,13 +81,22 @@ class ScalarJointSystem final : public gz::sim::System,
     time_topic_ = topic_prefix_ + "/state/time";
     step_topic_ = topic_prefix_ + "/state/step_index";
 
-    // Bind through the std::function callback overload. This avoids relying
-    // on the member-function adapter overload while retaining the system-owned
-    // node and an explicit callback lifetime tied to this system instance.
-    command_subscribed_ = node_.Subscribe<gz::msgs::Double>(
-        command_topic_, [this](const gz::msgs::Double& message) {
+    // Use the raw transport callback at the boundary, then decode the
+    // canonical gz.msgs.Double payload ourselves. This lets the smoke test
+    // distinguish transport delivery from typed protobuf callback dispatch.
+    command_subscribed_ = node_.SubscribeRaw(
+        command_topic_,
+        [this](const std::string& serialized,
+               const gz::transport::MessageInfo& info) {
+          gz::msgs::Double message;
+          if (!message.ParseFromString(serialized)) {
+            gzerr << "MCA Gazebo adapter failed to decode raw command payload on "
+                  << command_topic_ << " type=" << info.Type() << std::endl;
+            return;
+          }
           OnTransportCommand(message);
-        });
+        },
+        gz::msgs::Double().GetTypeName());
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_.Advertise<gz::msgs::Double>(acceleration_topic_);
@@ -100,6 +109,7 @@ class ScalarJointSystem final : public gz::sim::System,
     gzmsg << "MCA Gazebo adapter configured command topic=" << command_topic_
           << " subscribe_ok=" << (command_subscribed_ ? "true" : "false")
           << " configured=" << (configured_ ? "true" : "false")
+          << " command_subscription_mode=raw-protobuf"
           << " node_subscribed_topics=" << subscribed_topics.size()
           << " environment_partition="
           << (environment_partition != nullptr ? environment_partition : "<unset>")

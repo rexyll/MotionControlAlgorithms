@@ -98,31 +98,34 @@ class ScalarJointSystem final : public gz::sim::System,
     // registered through the plugin's previous Subscribe/SubscribeRaw path did
     // not fire. Use CreateSubscriber handles to make subscription ownership
     // and lifetime explicit.
-    command_subscriber_ = node_->CreateSubscriber<gz::msgs::Double>(
-        command_topic_, [this](const gz::msgs::Double& message) {
+    std::function<void(const gz::msgs::Double&)> typed_command_callback =
+        [this](const gz::msgs::Double& message) {
           if (!typed_command_logged_.exchange(true, std::memory_order_relaxed)) {
             gzmsg << "MCA Gazebo adapter typed command callback invoked" << std::endl;
           }
           OnTransportCommand(message);
-        });
-    raw_command_subscriber_ = node_->CreateSubscriber(
+        };
+    command_subscriber_ =
+        node_->CreateSubscriber(command_topic_, typed_command_callback);
+    const bool raw_command_subscribed = node_->SubscribeRaw(
         command_topic_,
-        [this](const char* data, const std::size_t size,
-               const gz::transport::MessageInfo& info) {
-          if (!raw_callback_logged_.exchange(true, std::memory_order_relaxed)) {
-            gzmsg << "MCA Gazebo adapter raw command callback invoked type="
-                  << info.Type() << " payload_size=" << size << std::endl;
-          }
-          gz::msgs::Double message;
-          if (!message.ParseFromArray(data, static_cast<int>(size))) {
-            gzerr << "MCA Gazebo adapter failed to decode raw command payload on "
-                  << command_topic_ << " type=" << info.Type() << std::endl;
-            return;
-          }
-          OnTransportCommand(message);
-        });
+        gz::transport::Node::RawCallback{
+            [this](const char* data, const std::size_t size,
+                   const gz::transport::MessageInfo& info) {
+              if (!raw_callback_logged_.exchange(true, std::memory_order_relaxed)) {
+                gzmsg << "MCA Gazebo adapter raw command callback invoked type="
+                      << info.Type() << " payload_size=" << size << std::endl;
+              }
+              gz::msgs::Double message;
+              if (!message.ParseFromArray(data, static_cast<int>(size))) {
+                gzerr << "MCA Gazebo adapter failed to decode raw command payload on "
+                      << command_topic_ << " type=" << info.Type() << std::endl;
+                return;
+              }
+              OnTransportCommand(message);
+            }});
     command_subscribed_ = static_cast<bool>(command_subscriber_) ||
-                          static_cast<bool>(raw_command_subscriber_);
+                          raw_command_subscribed;
     position_pub_ = node_->Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_->Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_->Advertise<gz::msgs::Double>(acceleration_topic_);
@@ -341,7 +344,6 @@ class ScalarJointSystem final : public gz::sim::System,
 
   std::unique_ptr<gz::transport::Node> node_;
   gz::transport::Node::Subscriber command_subscriber_;
-  gz::transport::Node::Subscriber raw_command_subscriber_;
   std::string topic_prefix_;
   std::string command_topic_;
   std::string position_topic_;

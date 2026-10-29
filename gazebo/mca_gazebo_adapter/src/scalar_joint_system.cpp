@@ -81,9 +81,9 @@ class ScalarJointSystem final : public gz::sim::System,
     time_topic_ = topic_prefix_ + "/state/time";
     step_topic_ = topic_prefix_ + "/state/step_index";
 
-    // Use the raw transport callback at the boundary, then decode the
-    // canonical gz.msgs.Double payload ourselves. This lets the smoke test
-    // distinguish transport delivery from typed protobuf callback dispatch.
+    // Subscribe to raw transport payloads without a type filter, then decode
+    // the expected protobuf ourselves. This separates transport delivery from
+    // typed dispatch and reveals unexpected wire types in the callback log.
     command_subscribed_ = node_.SubscribeRaw(
         command_topic_,
         [this](const char* data, const std::size_t size,
@@ -95,8 +95,7 @@ class ScalarJointSystem final : public gz::sim::System,
             return;
           }
           OnTransportCommand(message);
-        },
-        gz::msgs::Double().GetTypeName());
+        });
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_.Advertise<gz::msgs::Double>(acceleration_topic_);

@@ -117,24 +117,28 @@ jobs:
           gz_to_ros_bridge_pid=$!
           bridge_pid="$ros_to_gz_bridge_pid $gz_to_ros_bridge_pid"
 
-          # Wait for both DDS and Gazebo Transport discovery before publishing.
-          # The bridge creates its mapping immediately, but CI containers can
-          # need several seconds before the remote endpoints are discoverable.
+          # Wait for the ROS-side subscription and bridge mapping before sending
+          # commands. Gazebo Transport may not advertise the bridge publisher
+          # until its first ROS message arrives, so requiring a Gazebo publisher
+          # here would create a circular readiness check.
           bridge_ready=false
           for _ in $(seq 1 20); do
             ros_subscribers="$(ros2 topic info -v "${topic_prefix}/cmd_effort" 2>/dev/null | awk '/Subscription count:/{print $3; exit}')"
-            gz_publishers="$(gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" 2>/dev/null | awk '/Publishers/{p=1; next} p && /tcp:/{n++} END{print n+0}')"
-            if [ "${ros_subscribers:-0}" -ge 1 ] && [ "${gz_publishers:-0}" -ge 1 ]; then
+            bridge_mapping_ready=false
+            if grep -Fq "Creating ROS->GZ Bridge:" ros-to-gz-bridge.log; then
+              bridge_mapping_ready=true
+            fi
+            if [ "${ros_subscribers:-0}" -ge 1 ] && [ "$bridge_mapping_ready" = true ]; then
               bridge_ready=true
               break
             fi
             sleep 1
           done
-          echo "=== Bridge readiness ==="
+          echo "=== Bridge readiness before command publication ==="
           echo "ROS command subscribers: ${ros_subscribers:-0}"
-          echo "Gazebo command publishers: ${gz_publishers:-0}"
+          echo "ROS-to-Gazebo bridge mapping ready: $bridge_mapping_ready"
           if [ "$bridge_ready" != true ]; then
-            echo "ROS-to-Gazebo bridge did not become discoverable before command publication"
+            echo "ROS-to-Gazebo bridge did not initialize before command publication"
             ros2 topic info -v "${topic_prefix}/cmd_effort" || true
             gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" || true
             cat ros-to-gz-bridge.log

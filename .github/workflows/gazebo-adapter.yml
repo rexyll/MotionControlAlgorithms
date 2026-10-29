@@ -155,6 +155,10 @@ jobs:
           cat ros-to-gz-bridge.log
           cat gz-to-ros-bridge.log
 
+          # Independent C++ subscriber distinguishes a plugin-lifecycle problem
+          # from a Gazebo Transport delivery problem. It is diagnostic only.
+          timeout 8s env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_subscriber_probe "${topic_prefix}/cmd_effort" > transport-probe.log 2>&1 &
+          transport_probe_pid=$!
           # Reproduce the known Jazzy/Gazebo behavior where ROS->GZ bridge
           # logs "Passing message" but the command path only wakes up after
           # a Gazebo Transport subscriber attaches while ROS commands are live.
@@ -190,6 +194,9 @@ jobs:
           gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" || true
           echo "=== Gazebo command topic echo ==="
           cat gz-command-echo.log
+          wait "$transport_probe_pid" || true
+          echo "=== Independent C++ Gazebo Transport subscriber probe (diagnostic only) ==="
+          cat transport-probe.log
           echo "=== ROS publisher log ==="
           cat command-publisher.log
           echo "=== ROS -> Gazebo bridge log ==="

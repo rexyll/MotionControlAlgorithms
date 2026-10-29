@@ -304,7 +304,6 @@ class ScalarJointSystem final : public gz::sim::System,
   mca::simulation::ScalarActuatorCommand pending_command_value_{};
   mca::simulation::ScalarActuatorCommand transport_command_value_{};
 
-  gz::sim::Entity joint_{gz::sim::kNullEntity};
   gz::transport::Node node_{TransportNodeOptions()};
   gz::transport::Node::Subscriber command_subscriber_;
   std::string topic_prefix_;

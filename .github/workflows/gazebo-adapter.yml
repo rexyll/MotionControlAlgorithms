@@ -90,8 +90,10 @@ jobs:
           echo "System Gazebo CLI libraries: ${gazebo_ld_library_path}"
           echo "Gazebo partition before server launch: $GZ_PARTITION"
           env | grep -E '^(GZ_PARTITION|GZ_RELAY)=' || true
-          env GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
-            "$gazebo_executable" sim -s -r gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
+          env GZ_PARTITION="$GZ_PARTITION" \
+            GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}" \
+            PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
+            "$gazebo_executable" sim -s -r -v 4 gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
           gz_pid=$!
           bridge_pid=""
           publisher_pid=""
@@ -118,6 +120,12 @@ jobs:
           }
           trap cleanup EXIT
           sleep 3
+          echo "=== Gazebo startup log ==="
+          cat gazebo-transport.log
+          if ! grep -Fq "MCA Gazebo adapter configured" gazebo-transport.log; then
+            echo "Gazebo bridge-test server did not configure the MCA adapter plugin"
+            exit 1
+          fi
           echo "=== Gazebo topics after plugin startup ==="
           gazebo_cli topic -l || true
           echo "=== Command topic transport info ==="

@@ -8,6 +8,10 @@ find_package(gz-math7 REQUIRED)
 find_package(gz-transport13 REQUIRED)
 find_package(gz-msgs10 REQUIRED)
 
+add_executable(mca_transport_subscriber_probe test/transport_subscriber_probe.cpp)
+target_compile_features(mca_transport_subscriber_probe PRIVATE cxx_std_17)
+target_link_libraries(mca_transport_subscriber_probe PRIVATE gz-transport13::gz-transport13 gz-msgs10::gz-msgs10)
+
 add_library(mca_gazebo_adapter SHARED src/scalar_joint_system.cpp)
 target_compile_features(mca_gazebo_adapter PRIVATE cxx_std_17)
 target_include_directories(mca_gazebo_adapter PRIVATE

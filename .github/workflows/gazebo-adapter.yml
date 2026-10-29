@@ -48,7 +48,19 @@ jobs:
           # tears down the server process group before the bridge test starts.
           export GZ_PARTITION="mca-smoke-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           export GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
-          timeout --signal=INT --kill-after=5s 15s gz sim -s -r -v 4 gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-smoke.log 2>&1
+          # Run Gazebo in its own process group: the `gz` CLI may spawn
+          # gz-sim-server, so timing out only the wrapper can leave an orphan.
+          setsid gz sim -s -r -v 4 gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-smoke.log 2>&1 &
+          smoke_pid=$!
+          sleep 15
+          set +e
+          kill -INT -- "-$smoke_pid" 2>/dev/null
+          for _ in $(seq 1 5); do
+            kill -0 -- "-$smoke_pid" 2>/dev/null || break
+            sleep 1
+          done
+          kill -KILL -- "-$smoke_pid" 2>/dev/null
+          wait "$smoke_pid"
           status=$?
           set -e
           cat gazebo-smoke.log
@@ -119,11 +131,21 @@ jobs:
             wait "$gz_pid" 2>/dev/null || true
           }
           trap cleanup EXIT
-          sleep 3
+          # Wait for actual server/plugin startup instead of assuming the CLI
+          # wrapper has completed initialization after a fixed short delay.
+          for _ in $(seq 1 10); do
+            grep -Fq "MCA Gazebo adapter configured" gazebo-transport.log && break
+            kill -0 "$gz_pid" 2>/dev/null || break
+            sleep 1
+          done
+          echo "=== Gazebo startup process ==="
+          ps -o pid,ppid,pgid,stat,args -p "$gz_pid" || true
           echo "=== Gazebo startup log ==="
           cat gazebo-transport.log
           if ! grep -Fq "MCA Gazebo adapter configured" gazebo-transport.log; then
             echo "Gazebo bridge-test server did not configure the MCA adapter plugin"
+            echo "=== Gazebo process tree ==="
+            ps -efww | grep -E '[g]z sim|[g]z-sim|[g]zserver' || true
             exit 1
           fi
           echo "=== Gazebo topics after plugin startup ==="

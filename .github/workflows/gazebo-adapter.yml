@@ -44,8 +44,11 @@ jobs:
         shell: bash
         run: |
           set +e
-          GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}" \
-            timeout 15s gz sim -s -r -v 4 gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-smoke.log 2>&1
+          # Isolate this smoke-test server from other CI jobs and ensure timeout
+          # tears down the server process group before the bridge test starts.
+          export GZ_PARTITION="mca-smoke-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          export GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
+          timeout --signal=INT --kill-after=5s 15s gz sim -s -r -v 4 gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-smoke.log 2>&1
           status=$?
           set -e
           cat gazebo-smoke.log

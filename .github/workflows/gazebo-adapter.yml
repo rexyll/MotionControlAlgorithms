@@ -239,4 +239,22 @@ jobs:
             cat command-publisher.log
             exit 1
           fi
-          echo "ROS 2 ↔ Gazebo bridge command/state path produced velocity above 1e-5"
+          # Require direct evidence that the plugin callback consumed the bridged
+          # command and applied a non-zero force. A state velocity alone can be
+          # produced by an unrelated publisher or stale simulation state.
+          if ! grep -Fq "MCA Gazebo adapter received typed transport effort command=1" gazebo-transport.log; then
+            echo "Gazebo adapter did not log receipt of the ROS-bridged effort command"
+            cat gazebo-transport.log
+            exit 1
+          fi
+          if ! grep -Fq "MCA Gazebo adapter applied non-zero JointForceCmd=" gazebo-transport.log; then
+            echo "Gazebo adapter did not log application of a non-zero JointForceCmd"
+            cat gazebo-transport.log
+            exit 1
+          fi
+          if ! grep -Fq "Passing message from ROS std_msgs/msg/Float64 to Gazebo gz.msgs.Double" ros-to-gz-bridge.log; then
+            echo "ROS-to-Gazebo bridge did not confirm forwarding a command message"
+            cat ros-to-gz-bridge.log
+            exit 1
+          fi
+          echo "ROS 2 ↔ Gazebo bridge command/state path passed: callback, non-zero JointForceCmd, and velocity > 1e-5"

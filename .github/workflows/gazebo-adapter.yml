@@ -104,7 +104,10 @@ jobs:
           trap cleanup EXIT
           # Wait for actual server/plugin startup instead of assuming the CLI
           # wrapper has completed initialization after a fixed short delay.
-          for _ in $(seq 1 10); do
+          # Gazebo Harmonic can spend more than 10 seconds in first-time
+          # server initialization inside the ROS container before emitting logs.
+          # Poll for the plugin's actual configured marker for up to 30 seconds.
+          for _ in $(seq 1 30); do
             grep -Fq "MCA Gazebo adapter configured" gazebo-transport.log && break
             kill -0 "$gz_pid" 2>/dev/null || break
             sleep 1

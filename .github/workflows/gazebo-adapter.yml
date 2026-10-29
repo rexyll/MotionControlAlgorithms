@@ -155,10 +155,22 @@ jobs:
           cat ros-to-gz-bridge.log
           cat gz-to-ros-bridge.log
 
-          timeout 4s env GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" "$gazebo_executable" topic -e -t "${topic_prefix}/cmd_effort" > gz-command-echo.log 2>&1 &
-          command_echo_pid=$!
-          timeout 4s ros2 topic pub --rate 20 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > command-publisher.log 2>&1 &
+          # Reproduce the known Jazzy/Gazebo behavior where ROS->GZ bridge
+          # logs "Passing message" but the command path only wakes up after
+          # a Gazebo Transport subscriber attaches while ROS commands are live.
+          timeout 10s ros2 topic pub --rate 20 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > command-publisher.log 2>&1 &
           publisher_pid=$!
+          for _ in $(seq 1 10); do
+            grep -Fq "Passing message from ROS std_msgs/msg/Float64 to Gazebo gz.msgs.Double" ros-to-gz-bridge.log && break
+            sleep 1
+          done
+          echo "=== ROS-to-Gazebo first-message status ==="
+          grep -F "Passing message from ROS std_msgs/msg/Float64 to Gazebo gz.msgs.Double" ros-to-gz-bridge.log || true
+          # Start the Gazebo echo only after ROS publication is active. This
+          # mirrors the externally reported workaround and keeps the real
+          # ROS->GZ path as the only acceptance path.
+          timeout 8s env GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" "$gazebo_executable" topic -e -t "${topic_prefix}/cmd_effort" > gz-command-echo.log 2>&1 &
+          command_echo_pid=$!
           sleep 1
           echo "=== ROS command topic graph while publisher is active ==="
           ros2 topic info -v "${topic_prefix}/cmd_effort" || true

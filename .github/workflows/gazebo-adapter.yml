@@ -67,10 +67,11 @@ jobs:
           set -eo pipefail
           export GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
           export ROS_DOMAIN_ID=37
-          # GitHub-hosted jobs run in isolated containers. Keep Gazebo Sim,
-          # the Gazebo CLI, and ros_gz_bridge on Gazebo Transport's default
-          # partition; the plugin reports that its node remains on the default
-          # partition even when GZ_PARTITION is exported by this shell.
+          # Pin every Gazebo Transport participant (server/plugin, CLI, and
+          # ros_gz_bridge) to one explicit partition. Relying on the generated
+          # hostname:username default made discovery inconsistent in CI.
+          export GZ_PARTITION="mca-ci-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          echo "Gazebo Transport partition: $GZ_PARTITION"
           topic_prefix="/mca/single_axis_smoke/joint/axis_joint"
 
           # Start Gazebo before sourcing ROS 2: ROS Jazzy prepends a minimal

@@ -96,11 +96,14 @@ class ScalarJointSystem final : public gz::sim::System,
     configured_ = command_subscribed_ && position_pub_ && velocity_pub_ &&
                   acceleration_pub_ && time_pub_ && step_pub_;
     const auto subscribed_topics = node_.SubscribedTopics();
+    const char* environment_partition = std::getenv("GZ_PARTITION");
     gzmsg << "MCA Gazebo adapter configured command topic=" << command_topic_
           << " subscribe_ok=" << (command_subscribed_ ? "true" : "false")
           << " configured=" << (configured_ ? "true" : "false")
           << " node_subscribed_topics=" << subscribed_topics.size()
-          << " partition=" << node_.Options().Partition() << std::endl;
+          << " environment_partition="
+          << (environment_partition != nullptr ? environment_partition : "<unset>")
+          << " node_partition=" << node_.Options().Partition() << std::endl;
     for (const auto& subscribed_topic : subscribed_topics) {
       gzmsg << "MCA Gazebo adapter transport subscription=" << subscribed_topic
             << std::endl;

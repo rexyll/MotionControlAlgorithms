@@ -89,10 +89,25 @@ class ScalarJointSystem final : public gz::sim::System,
     // entered Configure. This tests whether construction-time discovery state
     // was preventing the plugin from seeing external publishers.
     node_ = std::make_unique<gz::transport::Node>(TransportNodeOptions());
-    command_subscribed_ = node_->SubscribeRaw(
+    // Keep a typed subscription as the production command path. The raw
+    // subscription remains temporarily as an independent transport diagnostic:
+    // the CI evidence shows the bridge publisher and generic subscriber are
+    // visible to each other, but the generic callback has not been observed.
+    const bool typed_subscribed = node_->Subscribe<gz::msgs::Double>(
+        command_topic_, [this](const gz::msgs::Double& message) {
+          if (!typed_command_logged_.exchange(true, std::memory_order_relaxed)) {
+            gzmsg << "MCA Gazebo adapter typed command callback invoked" << std::endl;
+          }
+          OnTransportCommand(message);
+        });
+    const bool raw_subscribed = node_->SubscribeRaw(
         command_topic_,
         [this](const char* data, const std::size_t size,
                const gz::transport::MessageInfo& info) {
+          if (!raw_callback_logged_.exchange(true, std::memory_order_relaxed)) {
+            gzmsg << "MCA Gazebo adapter raw command callback invoked type="
+                  << info.Type() << " payload_size=" << size << std::endl;
+          }
           gz::msgs::Double message;
           if (!message.ParseFromArray(data, static_cast<int>(size))) {
             gzerr << "MCA Gazebo adapter failed to decode raw command payload on "
@@ -101,6 +116,7 @@ class ScalarJointSystem final : public gz::sim::System,
           }
           OnTransportCommand(message);
         });
+    command_subscribed_ = typed_subscribed || raw_subscribed;
     position_pub_ = node_->Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_->Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_->Advertise<gz::msgs::Double>(acceleration_topic_);
@@ -304,6 +320,8 @@ class ScalarJointSystem final : public gz::sim::System,
   std::chrono::steady_clock::time_point last_transport_command_wall_time_{};
   bool transport_command_active_{false};
   std::atomic<bool> transport_command_logged_{false};
+  std::atomic<bool> typed_command_logged_{false};
+  std::atomic<bool> raw_callback_logged_{false};
   std::atomic<bool> topic_info_logged_{false};
   std::atomic<bool> nonzero_effort_logged_{false};
   const std::chrono::steady_clock::time_point plugin_start_wall_time_{

@@ -95,8 +95,13 @@ class ScalarJointSystem final : public gz::sim::System,
           }
           OnTransportCommand(message);
         };
-    command_subscribed_ =
-        node_->Subscribe<gz::msgs::Double>(command_topic_, typed_command_callback);
+    // Keep the typed subscriber handle alive for the full system lifetime.
+    // The standalone probe succeeds with Subscribe(), but the plugin callback
+    // has not fired in the smoke test. Test the explicit subscriber-handle API
+    // with only one typed registration (no parallel raw subscription).
+    command_subscriber_ =
+        node_->CreateSubscriber(command_topic_, typed_command_callback);
+    command_subscribed_ = static_cast<bool>(command_subscriber_);
     position_pub_ = node_->Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_->Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_->Advertise<gz::msgs::Double>(acceleration_topic_);
@@ -109,7 +114,7 @@ class ScalarJointSystem final : public gz::sim::System,
     gzmsg << "MCA Gazebo adapter configured command topic=" << command_topic_
           << " subscribe_ok=" << (command_subscribed_ ? "true" : "false")
           << " configured=" << (configured_ ? "true" : "false")
-          << " command_subscription_mode=raw-protobuf"
+          << " command_subscription_mode=typed-create-subscriber"
           << " node_subscribed_topics=" << subscribed_topics.size()
           << " environment_partition="
           << (environment_partition != nullptr ? environment_partition : "<unset>")
@@ -301,7 +306,6 @@ class ScalarJointSystem final : public gz::sim::System,
   bool transport_command_active_{false};
   std::atomic<bool> transport_command_logged_{false};
   std::atomic<bool> typed_command_logged_{false};
-  std::atomic<bool> raw_callback_logged_{false};
   std::atomic<bool> topic_info_logged_{false};
   std::atomic<bool> nonzero_effort_logged_{false};
   const std::chrono::steady_clock::time_point plugin_start_wall_time_{

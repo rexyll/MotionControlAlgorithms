@@ -107,23 +107,22 @@ class ScalarJointSystem final : public gz::sim::System,
         };
     command_subscriber_ =
         node_->CreateSubscriber(command_topic_, typed_command_callback);
-    const bool raw_command_subscribed = node_->SubscribeRaw(
-        command_topic_,
-        gz::transport::Node::RawCallback{
-            [this](const char* data, const std::size_t size,
-                   const gz::transport::MessageInfo& info) {
-              if (!raw_callback_logged_.exchange(true, std::memory_order_relaxed)) {
-                gzmsg << "MCA Gazebo adapter raw command callback invoked type="
-                      << info.Type() << " payload_size=" << size << std::endl;
-              }
-              gz::msgs::Double message;
-              if (!message.ParseFromArray(data, static_cast<int>(size))) {
-                gzerr << "MCA Gazebo adapter failed to decode raw command payload on "
-                      << command_topic_ << " type=" << info.Type() << std::endl;
-                return;
-              }
-              OnTransportCommand(message);
-            }});
+    const gz::transport::RawCallback raw_command_callback =
+        [this](const std::string& data, const gz::transport::MessageInfo& info) {
+          if (!raw_callback_logged_.exchange(true, std::memory_order_relaxed)) {
+            gzmsg << "MCA Gazebo adapter raw command callback invoked type="
+                  << info.Type() << " payload_size=" << data.size() << std::endl;
+          }
+          gz::msgs::Double message;
+          if (!message.ParseFromString(data)) {
+            gzerr << "MCA Gazebo adapter failed to decode raw command payload on "
+                  << command_topic_ << " type=" << info.Type() << std::endl;
+            return;
+          }
+          OnTransportCommand(message);
+        };
+    const bool raw_command_subscribed =
+        node_->SubscribeRaw(command_topic_, raw_command_callback);
     command_subscribed_ = static_cast<bool>(command_subscriber_) ||
                           raw_command_subscribed;
     position_pub_ = node_->Advertise<gz::msgs::Double>(position_topic_);

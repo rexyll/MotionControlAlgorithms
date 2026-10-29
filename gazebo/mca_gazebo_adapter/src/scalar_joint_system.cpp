@@ -81,12 +81,13 @@ class ScalarJointSystem final : public gz::sim::System,
     time_topic_ = topic_prefix_ + "/state/time";
     step_topic_ = topic_prefix_ + "/state/step_index";
 
-    // Register the callback on the persistent system-owned transport node.
-    // Subscribe is the documented Node API for binding member callbacks and
-    // avoids depending on the lifetime/dispatch behavior of a separate
-    // Subscriber handle during Gazebo system configuration.
-    command_subscribed_ = node_.Subscribe(
-        command_topic_, &ScalarJointSystem::OnTransportCommand, this);
+    // Bind through the std::function callback overload. This avoids relying
+    // on the member-function adapter overload while retaining the system-owned
+    // node and an explicit callback lifetime tied to this system instance.
+    command_subscribed_ = node_.Subscribe<gz::msgs::Double>(
+        command_topic_, [this](const gz::msgs::Double& message) {
+          OnTransportCommand(message);
+        });
     position_pub_ = node_.Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_.Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_.Advertise<gz::msgs::Double>(acceleration_topic_);
@@ -116,9 +117,6 @@ class ScalarJointSystem final : public gz::sim::System,
     const double dt_s = std::chrono::duration<double>(info.dt).count();
     if (!std::isfinite(time_s) || !std::isfinite(dt_s) || time_s < 0.0 || dt_s <= 0.0) return;
 
-    // Poll discovery over wall time: the ROS-Gazebo bridge starts after this
-    // plugin, so a one-shot query during early simulation steps can only see
-    // the local subscriber and falsely suggest that no publisher ever appears.
     const auto topic_info_now = std::chrono::steady_clock::now();
     if (!topic_info_logged_.load(std::memory_order_relaxed) &&
         (last_topic_info_log_wall_time_ == std::chrono::steady_clock::time_point{} ||
@@ -294,7 +292,7 @@ class ScalarJointSystem final : public gz::sim::System,
   std::atomic<bool> transport_command_logged_{false};
   std::atomic<bool> topic_info_logged_{false};
   std::atomic<bool> nonzero_effort_logged_{false};
-  const std::chrono::steady_clock::time_point plugin_start_wall_time_{
+  const std::chrono::steady_clock::time_point plugin_start_wall_time{
       std::chrono::steady_clock::now()};
   std::chrono::steady_clock::time_point last_topic_info_log_wall_time_{};
   bool has_sim_time_{false};

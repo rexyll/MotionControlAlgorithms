@@ -37,6 +37,10 @@
       </joint>
       <plugin filename="libmca_gazebo_adapter.so" name="mca_gazebo_adapter::ScalarJointSystem">
         <joint_name>axis_joint</joint_name>
+        <!-- CI runs the headless server under variable container scheduling; keep
+             the watchdog tolerant of scheduler jitter while the 100 Hz command
+             stream is active. This does not change the adapter's runtime default. -->
+        <command_timeout_s>0.5</command_timeout_s>
       </plugin>
     </model>
   </world>

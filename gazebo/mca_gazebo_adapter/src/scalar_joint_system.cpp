@@ -256,7 +256,7 @@ class ScalarJointSystem final : public gz::sim::System,
       pending_command_ = true;
       return true;
     } catch (...) {
-    ption_retry_interval_s_);
+      return false;
     }
   }
 

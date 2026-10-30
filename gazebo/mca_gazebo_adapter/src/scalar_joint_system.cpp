@@ -130,6 +130,15 @@ class ScalarJointSystem final : public gz::sim::System,
 
   void PreUpdate(const gz::sim::UpdateInfo& info,
                  gz::sim::EntityComponentManager& ecm) override {
+    const auto pre_update_call =
+        pre_update_call_count_.fetch_add(1, std::memory_order_relaxed);
+    if (pre_update_call < 12) {
+      gzmsg << "MCA Gazebo adapter PreUpdate heartbeat call=" << pre_update_call + 1
+            << " paused=" << (info.paused ? "true" : "false")
+            << " dt_s=" << std::chrono::duration<double>(info.dt).count()
+            << " sim_time_s=" << std::chrono::duration<double>(info.simTime).count()
+            << std::endl;
+    }
     if (!pre_update_logged_.exchange(true, std::memory_order_relaxed)) {
       gzmsg << "MCA Gazebo adapter PreUpdate invoked paused="
             << (info.paused ? "true" : "false")
@@ -334,6 +343,7 @@ class ScalarJointSystem final : public gz::sim::System,
   std::atomic<bool> typed_command_logged_{false};
   std::atomic<bool> nonzero_effort_logged_{false};
   std::atomic<bool> transport_preupdate_diagnostic_logged_{false};
+  std::atomic<std::size_t> pre_update_call_count_{0};
   std::atomic<bool> pre_update_logged_{false};
   std::atomic<bool> post_update_logged_{false};
   bool has_sim_time_{false};

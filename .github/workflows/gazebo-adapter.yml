@@ -29,7 +29,7 @@ jobs:
         shell: bash
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends ca-certificates curl gnupg cmake g++ pkg-config cppzmq-dev
+          apt-get install -y --no-install-recommends ca-certificates curl gnupg cmake g++ pkg-config cppzmq-dev strace
           curl -fsSL https://packages.osrfoundation.org/gazebo.gpg -o /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
           echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] https://packages.osrfoundation.org/gazebo/ubuntu-stable $(. /etc/os-release && echo ${UBUNTU_CODENAME}) main" > /etc/apt/sources.list.d/gazebo-stable.list
           apt-get update
@@ -64,6 +64,7 @@ jobs:
           setsid env GZ_PARTITION="$GZ_PARTITION" \
             GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}" \
             PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
+          strace -ff -tt -T -s 160 -o gazebo-startup.strace \
             "$gazebo_executable" sim -s -r -v 4 gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
           gz_pid=$!
           bridge_pid=""
@@ -91,7 +92,13 @@ jobs:
           cat gazebo-transport.log
           if ! grep -Fq "MCA Gazebo adapter configured" gazebo-transport.log; then
             echo "Gazebo bridge-test server did not configure the MCA adapter plugin"
-            ps -efww | grep -E '[g]z sim|[g]z-sim|[g]zserver' || true
+            ps -eLfww | grep -E '[g]z sim|[g]z-sim|[g]zserver|[s]trace' || true
+            echo "=== Gazebo startup syscall trace (last 80 lines per process) ==="
+            for trace_file in gazebo-startup.strace*; do
+              [ -f "$trace_file" ] || continue
+              echo "--- $trace_file ---"
+              tail -n 80 "$trace_file"
+            done
             exit 1
           fi
           echo "=== Gazebo topics after plugin startup ==="

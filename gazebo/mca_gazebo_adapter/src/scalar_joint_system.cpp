@@ -91,8 +91,7 @@ class ScalarJointSystem final : public gz::sim::System,
     // Keep exactly one typed command subscriber alive for the system lifetime.
     // A delayed one-shot refresh is performed from PreUpdate if the bridge
     // publisher starts after this plugin and the initial discovery is missed.
-    command_subscriber_ = CreateCommandSubscriber();
-    command_subscribed_ = static_cast<bool>(command_subscriber_);
+    command_subscribed_ = CreateCommandSubscriber();
     position_pub_ = node_->Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_->Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_->Advertise<gz::msgs::Double>(acceleration_topic_);
@@ -156,9 +155,7 @@ class ScalarJointSystem final : public gz::sim::System,
     if (subscription_age >= command_subscription_refresh_delay_s_ &&
         !transport_command_logged_.load(std::memory_order_relaxed) &&
         !command_subscription_refreshed_) {
-      command_subscriber_ = gz::transport::Node::Subscriber{};
-      command_subscriber_ = CreateCommandSubscriber();
-      command_subscribed_ = static_cast<bool>(command_subscriber_);
+      command_subscribed_ = CreateCommandSubscriber();
       command_subscription_refreshed_ = true;
       gzmsg << "MCA Gazebo adapter refreshed typed command subscription after "
             << subscription_age << "s without receiving a command"
@@ -278,17 +275,18 @@ class ScalarJointSystem final : public gz::sim::System,
   }
 
  private:
-  gz::transport::Node::Subscriber CreateCommandSubscriber() {
-    // Gazebo Transport 13's CreateSubscriber template requires a concrete
-    // std::function callback type; a raw lambda cannot be deduced here.
-    std::function<void(const gz::msgs::Double&)> callback =
-        [this](const gz::msgs::Double& message) {
+  bool CreateCommandSubscriber() {
+    // Use the same typed Node::Subscribe API exercised by the standalone
+    // transport probe. That probe receives the ROS-bridged gz.msgs.Double
+    // payload in this process/partition, while CreateSubscriber did not invoke
+    // the plugin callback under the same smoke-test conditions.
+    return node_->Subscribe<gz::msgs::Double>(
+        command_topic_, [this](const gz::msgs::Double& message) {
           if (!typed_command_logged_.exchange(true, std::memory_order_relaxed)) {
             gzmsg << "MCA Gazebo adapter typed command callback invoked" << std::endl;
           }
           OnTransportCommand(message);
-        };
-    return node_->CreateSubscriber(command_topic_, callback);
+        });
   }
 
   void OnTransportCommand(const gz::msgs::Double& message) {
@@ -343,7 +341,6 @@ class ScalarJointSystem final : public gz::sim::System,
   mca::simulation::ScalarActuatorCommand transport_command_value_{};
 
   std::unique_ptr<gz::transport::Node> node_;
-  gz::transport::Node::Subscriber command_subscriber_;
   std::string topic_prefix_;
   std::string command_topic_;
   std::string position_topic_;

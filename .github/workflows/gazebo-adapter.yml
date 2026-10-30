@@ -81,15 +81,17 @@ jobs:
             wait "$gz_pid" 2>/dev/null || true
           }
           trap cleanup EXIT
-          plugin_topics_ready=false
+
+          # Gazebo Transport topic discovery is eventually consistent. The
+          # previous readiness gate required one snapshot to contain all five
+          # state publishers and could fail even though the plugin was already
+          # configured and the later real bridge path was usable. Do not use
+          # topic-list discovery as an acceptance criterion. The actual E2E
+          # assertions below remain authoritative.
+          plugin_configured=false
           for _ in $(seq 1 30); do
-            topic_list="$(gazebo_cli topic -l 2>/dev/null || true)"
-            if printf '%s\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/position" &&
-               printf '%s\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/velocity" &&
-               printf '%s\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/acceleration" &&
-               printf '%s\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/time" &&
-               printf '%s\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/step_index"; then
-              plugin_topics_ready=true
+            if grep -Fq "MCA Gazebo adapter configured command topic=${topic_prefix}/cmd_effort subscribe_ok=true configured=true" gazebo-transport.log; then
+              plugin_configured=true
               break
             fi
             kill -0 "$gz_pid" 2>/dev/null || break
@@ -100,9 +102,10 @@ jobs:
           echo "=== Gazebo startup log ==="
           cat gazebo-transport.log
           echo "=== Gazebo adapter state topics ==="
+          topic_list="$(gazebo_cli topic -l 2>/dev/null || true)"
           printf '%s\n' "${topic_list:-<unavailable>}"
-          if [ "$plugin_topics_ready" != true ]; then
-            echo "Gazebo bridge-test server did not advertise all MCA adapter state topics"
+          if [ "$plugin_configured" != true ]; then
+            echo "Gazebo bridge-test server did not report a configured MCA adapter"
             ps -eLfww | grep -E '[g]z sim|[g]z-sim|[g]zserver|[s]trace' || true
             echo "=== Gazebo startup syscall trace (loader/network/error syscalls) ==="
             for trace_file in gazebo-startup.strace*; do
@@ -114,7 +117,25 @@ jobs:
             done
             exit 1
           fi
-          echo "MCA adapter state publishers discovered through Gazebo Transport"
+          expected_state_topics=(
+            "${topic_prefix}/state/position"
+            "${topic_prefix}/state/velocity"
+            "${topic_prefix}/state/acceleration"
+            "${topic_prefix}/state/time"
+            "${topic_prefix}/state/step_index"
+          )
+          missing_state_topics=()
+          for expected_topic in "${expected_state_topics[@]}"; do
+            if ! printf '%s\n' "$topic_list" | grep -Fxq "$expected_topic"; then
+              missing_state_topics+=("$expected_topic")
+            fi
+          done
+          if [ "${#missing_state_topics[@]}" -eq 0 ]; then
+            echo "MCA adapter state publishers discovered through Gazebo Transport"
+          else
+            echo "MCA adapter topic discovery is still incomplete; continuing to the real bridge/E2E test"
+            printf 'Missing from this discovery snapshot: %s\n' "${missing_state_topics[*]}"
+          fi
           echo "=== Gazebo topics after plugin startup ==="
           gazebo_cli topic -l || true
           echo "=== Command topic transport info ==="

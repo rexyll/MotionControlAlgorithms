@@ -81,8 +81,17 @@ jobs:
             wait "$gz_pid" 2>/dev/null || true
           }
           trap cleanup EXIT
+          plugin_topics_ready=false
           for _ in $(seq 1 30); do
-            grep -Fq "MCA Gazebo adapter configured" gazebo-transport.log && break
+            topic_list="$(gazebo_cli topic -l 2>/dev/null || true)"
+            if printf '%s\\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/position" &&
+               printf '%s\\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/velocity" &&
+               printf '%s\\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/acceleration" &&
+               printf '%s\\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/time" &&
+               printf '%s\\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/step_index"; then
+              plugin_topics_ready=true
+              break
+            fi
             kill -0 "$gz_pid" 2>/dev/null || break
             sleep 1
           done
@@ -90,21 +99,22 @@ jobs:
           ps -o pid,ppid,pgid,stat,args -p "$gz_pid" || true
           echo "=== Gazebo startup log ==="
           cat gazebo-transport.log
-          if ! grep -Fq "MCA Gazebo adapter configured" gazebo-transport.log; then
-            echo "Gazebo bridge-test server did not configure the MCA adapter plugin"
+          echo "=== Gazebo adapter state topics ==="
+          printf '%s\\n' "${topic_list:-<unavailable>}"
+          if [ "$plugin_topics_ready" != true ]; then
+            echo "Gazebo bridge-test server did not advertise all MCA adapter state topics"
             ps -eLfww | grep -E '[g]z sim|[g]z-sim|[g]zserver|[s]trace' || true
-            echo "=== Gazebo startup syscall trace (last 80 lines per process) ==="
+            echo "=== Gazebo startup syscall trace (loader/network/error syscalls) ==="
             for trace_file in gazebo-startup.strace*; do
               [ -f "$trace_file" ] || continue
-              echo "--- $trace_file (initial syscalls) ---"
-              head -n 100 "$trace_file"
-              echo "--- $trace_file (loader/network/error syscalls) ---"
-              grep -E 'execve\\(|openat\\(|connect\\(|recvfrom\\(|sendto\\(|ENOENT|EACCES|ECONN|ETIMEDOUT|SIG' "$trace_file" | tail -n 100 || true
+              echo "--- $trace_file ---"
+              grep -E 'execve\\(|openat\\(|connect\\(|recvfrom\\(|sendto\\(|ENOENT|EACCES|ECONN|ETIMEDOUT|SIG' "$trace_file" | tail -n 160 || true
               echo "--- $trace_file (last syscalls) ---"
               tail -n 40 "$trace_file"
             done
             exit 1
           fi
+          echo "MCA adapter state publishers discovered through Gazebo Transport"
           echo "=== Gazebo topics after plugin startup ==="
           gazebo_cli topic -l || true
           echo "=== Command topic transport info ==="

@@ -279,13 +279,16 @@ class ScalarJointSystem final : public gz::sim::System,
 
  private:
   gz::transport::Node::Subscriber CreateCommandSubscriber() {
-    return node_->CreateSubscriber(
-        command_topic_, [this](const gz::msgs::Double& message) {
+    // Gazebo Transport 13's CreateSubscriber template requires a concrete
+    // std::function callback type; a raw lambda cannot be deduced here.
+    std::function<void(const gz::msgs::Double&)> callback =
+        [this](const gz::msgs::Double& message) {
           if (!typed_command_logged_.exchange(true, std::memory_order_relaxed)) {
             gzmsg << "MCA Gazebo adapter typed command callback invoked" << std::endl;
           }
           OnTransportCommand(message);
-        });
+        };
+    return node_->CreateSubscriber(command_topic_, callback);
   }
 
   void OnTransportCommand(const gz::msgs::Double& message) {

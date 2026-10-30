@@ -11,6 +11,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -45,6 +46,14 @@ class ScalarJointSystem final : public gz::sim::System,
                                 public gz::sim::ISystemPostUpdate,
                                 public mca::simulation::IScalarGazeboSimulationAdapter {
  public:
+  ~ScalarJointSystem() override {
+    stop_command_subscription_retry_.store(true, std::memory_order_relaxed);
+    if (command_subscription_retry_thread_.joinable()) {
+      command_subscription_retry_thread_.join();
+    }
+    command_node_.reset();
+  }
+
   void Configure(const gz::sim::Entity& entity, const std::shared_ptr<const sdf::Element>& sdf,
                  gz::sim::EntityComponentManager& ecm, gz::sim::EventManager&) override {
     if (!sdf || !sdf->HasElement("joint_name")) return;
@@ -93,7 +102,6 @@ class ScalarJointSystem final : public gz::sim::System,
     // recreated without disturbing the state publishers below.
     command_node_ = std::make_unique<gz::transport::Node>(TransportNodeOptions());
     command_subscribed_ = CreateCommandSubscriber();
-    last_command_subscription_retry_wall_time_ = std::chrono::steady_clock::now();
     position_pub_ = node_->Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_->Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_->Advertise<gz::msgs::Double>(acceleration_topic_);
@@ -115,6 +123,10 @@ class ScalarJointSystem final : public gz::sim::System,
       gzmsg << "MCA Gazebo adapter transport subscription=" << subscribed_topic
             << std::endl;
     }
+    if (configured_) {
+      command_subscription_retry_thread_ =
+          std::thread(&ScalarJointSystem::CommandSubscriptionRetryLoop, this);
+    }
   }
 
   void PreUpdate(const gz::sim::UpdateInfo& info,
@@ -123,50 +135,6 @@ class ScalarJointSystem final : public gz::sim::System,
     const double time_s = std::chrono::duration<double>(info.simTime).count();
     const double dt_s = std::chrono::duration<double>(info.dt).count();
     if (!std::isfinite(time_s) || !std::isfinite(dt_s) || time_s < 0.0 || dt_s <= 0.0) return;
-
-    const auto topic_info_now = std::chrono::steady_clock::now();
-    if (!topic_info_logged_.load(std::memory_order_relaxed) &&
-        (last_topic_info_log_wall_time_ == std::chrono::steady_clock::time_point{} ||
-         std::chrono::duration<double>(topic_info_now - last_topic_info_log_wall_time_).count() >= 1.0)) {
-      last_topic_info_log_wall_time_ = topic_info_now;
-      std::vector<gz::transport::MessagePublisher> publishers;
-      std::vector<gz::transport::MessagePublisher> subscribers;
-      const bool topic_info_ok =
-          command_node_->TopicInfo(command_topic_, publishers, subscribers);
-      if (!publishers.empty() ||
-          std::chrono::duration<double>(topic_info_now - plugin_start_wall_time_).count() >= 8.0) {
-        gzmsg << "MCA Gazebo adapter command topic discovery topic="
-              << command_topic_ << " info_ok=" << (topic_info_ok ? "true" : "false")
-              << " publishers=" << publishers.size()
-              << " subscribers=" << subscribers.size()
-              << " callback_received="
-              << (transport_command_logged_.load(std::memory_order_relaxed) ? "true" : "false")
-              << std::endl;
-        if (!publishers.empty()) {
-          topic_info_logged_.store(true, std::memory_order_relaxed);
-        }
-      }
-    }
-
-    // Gazebo Transport discovery is asynchronous. The bridge publisher may
-    // appear after this plugin has subscribed. Re-subscribing on the same Node
-    // does not reliably rebuild its transport endpoint, so periodically replace
-    // the dedicated command node until a real bridged command is received.
-    if (!transport_command_logged_.load(std::memory_order_relaxed) &&
-        std::chrono::duration<double>(topic_info_now -
-                                      last_command_subscription_retry_wall_time_).count() >=
-            command_subscription_retry_interval_s_) {
-      command_node_.reset();
-      command_node_ = std::make_unique<gz::transport::Node>(TransportNodeOptions());
-      command_subscribed_ = CreateCommandSubscriber();
-      last_command_subscription_retry_wall_time_ = topic_info_now;
-      gzmsg << "MCA Gazebo adapter recreated typed command subscription node after "
-            << std::chrono::duration<double>(topic_info_now - plugin_start_wall_time_).count()
-            << "s without receiving a command"
-            << " subscribe_ok=" << (command_subscribed_ ? "true" : "false")
-            << " node_partition=" << command_node_->Options().Partition()
-            << std::endl;
-    }
 
     double effort_to_apply = 0.0;
     {
@@ -280,6 +248,41 @@ class ScalarJointSystem final : public gz::sim::System,
   }
 
  private:
+  void CommandSubscriptionRetryLoop() {
+    auto next_retry = std::chrono::steady_clock::now() +
+                      std::chrono::duration<double>(command_subscription_retry_interval_s_);
+    while (!stop_command_subscription_retry_.load(std::memory_order_relaxed)) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      if (stop_command_subscription_retry_.load(std::memory_order_relaxed) ||
+          transport_command_logged_.load(std::memory_order_relaxed)) {
+        break;
+      }
+      const auto now = std::chrono::steady_clock::now();
+      if (now < next_retry) continue;
+
+      std::vector<gz::transport::MessagePublisher> publishers;
+      std::vector<gz::transport::MessagePublisher> subscribers;
+      const bool topic_info_ok =
+          command_node_->TopicInfo(command_topic_, publishers, subscribers);
+      if (!publishers.empty()) {
+        // Recreate the transport node only after the ROS-Gazebo bridge has
+        // actually advertised its publisher. This worker runs independently
+        // of simulation updates, including while the world is paused.
+        command_node_.reset();
+        command_node_ = std::make_unique<gz::transport::Node>(TransportNodeOptions());
+        command_subscribed_ = CreateCommandSubscriber();
+        gzmsg << "MCA Gazebo adapter recreated typed command subscription node after bridge "
+              << "publisher discovery"
+              << " topic_info_ok=" << (topic_info_ok ? "true" : "false")
+              << " publisher_count=" << publishers.size()
+              << " subscribe_ok=" << (command_subscribed_ ? "true" : "false")
+              << " node_partition=" << command_node_->Options().Partition()
+              << std::endl;
+      }
+      next_retry = now + std::chrono::duration<double>(command_subscription_retry_interval_s_);
+    }
+  }
+
   bool CreateCommandSubscriber() {
     // Use the same typed Node::Subscribe API exercised by the standalone
     // transport probe. That probe receives the ROS-bridged gz.msgs.Double
@@ -320,8 +323,9 @@ class ScalarJointSystem final : public gz::sim::System,
   gz::sim::Entity joint_{gz::sim::kNullEntity};
   bool configured_{false};
   bool command_subscribed_{false};
-  static constexpr double command_subscription_retry_interval_s_{2.0};
-  std::chrono::steady_clock::time_point last_command_subscription_retry_wall_time_{};
+  static constexpr double command_subscription_retry_interval_s_{1.0};
+  std::atomic<bool> stop_command_subscription_retry_{false};
+  std::thread command_subscription_retry_thread_;
   mutable std::mutex mutex_;
   bool state_valid_{false};
   bool pending_command_{false};
@@ -334,11 +338,7 @@ class ScalarJointSystem final : public gz::sim::System,
   bool transport_command_active_{false};
   std::atomic<bool> transport_command_logged_{false};
   std::atomic<bool> typed_command_logged_{false};
-  std::atomic<bool> topic_info_logged_{false};
   std::atomic<bool> nonzero_effort_logged_{false};
-  const std::chrono::steady_clock::time_point plugin_start_wall_time_{
-      std::chrono::steady_clock::now()};
-  std::chrono::steady_clock::time_point last_topic_info_log_wall_time_{};
   bool has_sim_time_{false};
   mca::simulation::SimulationStep cached_step_{};
   mca::simulation::ScalarSimulationState cached_state_{};

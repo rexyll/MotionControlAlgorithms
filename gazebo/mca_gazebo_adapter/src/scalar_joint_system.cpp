@@ -46,13 +46,7 @@ class ScalarJointSystem final : public gz::sim::System,
                                 public gz::sim::ISystemPostUpdate,
                                 public mca::simulation::IScalarGazeboSimulationAdapter {
  public:
-  ~ScalarJointSystem() override {
-    stop_command_subscription_retry_.store(true, std::memory_order_relaxed);
-    if (command_subscription_retry_thread_.joinable()) {
-      command_subscription_retry_thread_.join();
-    }
-    command_node_.reset();
-  }
+  ~ScalarJointSystem() override = default;
 
   void Configure(const gz::sim::Entity& entity, const std::shared_ptr<const sdf::Element>& sdf,
                  gz::sim::EntityComponentManager& ecm, gz::sim::EventManager&) override {
@@ -126,10 +120,12 @@ class ScalarJointSystem final : public gz::sim::System,
       gzmsg << "MCA Gazebo adapter transport subscription=" << subscribed_topic
             << std::endl;
     }
-    if (configured_) {
-      command_subscription_retry_thread_ =
-          std::thread(&ScalarJointSystem::CommandSubscriptionRetryLoop, this);
-    }
+    // Keep this subscriber node and its callback alive for the complete
+    // plugin lifetime. Transport subscriptions are discovery-driven: they
+    // must remain registered while publishers appear later. Recreating the
+    // node from a background thread races the transport callback dispatcher
+    // and can leave a visible subscriber endpoint that never invokes the
+    // plugin callback.
   }
 
   void PreUpdate(const gz::sim::UpdateInfo& info,
@@ -260,45 +256,7 @@ class ScalarJointSystem final : public gz::sim::System,
       pending_command_ = true;
       return true;
     } catch (...) {
-      return false;
-    }
-  }
-
- private:
-  void CommandSubscriptionRetryLoop() {
-    auto next_retry = std::chrono::steady_clock::now() +
-                      std::chrono::duration<double>(command_subscription_retry_interval_s_);
-    while (!stop_command_subscription_retry_.load(std::memory_order_relaxed)) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-      if (stop_command_subscription_retry_.load(std::memory_order_relaxed) ||
-          transport_command_logged_.load(std::memory_order_relaxed)) {
-        break;
-      }
-      const auto now = std::chrono::steady_clock::now();
-      if (now < next_retry) continue;
-
-      std::vector<gz::transport::MessagePublisher> publishers;
-      std::vector<gz::transport::MessagePublisher> subscribers;
-      const bool topic_info_ok =
-          command_node_->TopicInfo(command_topic_, publishers, subscribers);
-      if (!publishers.empty() &&
-          !command_subscription_recreated_.exchange(true, std::memory_order_relaxed)) {
-        // Recreate the transport node once, after the ROS-Gazebo bridge has
-        // advertised its publisher. Repeating this operation would destroy an
-        // already-working subscription every retry interval and can starve
-        // delivery indefinitely. This worker remains independent of sim ticks.
-        command_node_.reset();
-        command_node_ = std::make_unique<gz::transport::Node>();
-        command_subscribed_ = CreateCommandSubscriber();
-        gzmsg << "MCA Gazebo adapter recreated typed command subscription node once after "
-              << "bridge publisher discovery"
-              << " topic_info_ok=" << (topic_info_ok ? "true" : "false")
-              << " publisher_count=" << publishers.size()
-              << " subscribe_ok=" << (command_subscribed_ ? "true" : "false")
-              << " node_partition=" << command_node_->Options().Partition()
-              << std::endl;
-      }
-      next_retry = now + std::chrono::duration<double>(command_subscription_retry_interval_s_);
+    ption_retry_interval_s_);
     }
   }
 
@@ -342,10 +300,6 @@ class ScalarJointSystem final : public gz::sim::System,
   gz::sim::Entity joint_{gz::sim::kNullEntity};
   bool configured_{false};
   bool command_subscribed_{false};
-  static constexpr double command_subscription_retry_interval_s_{1.0};
-  std::atomic<bool> stop_command_subscription_retry_{false};
-  std::atomic<bool> command_subscription_recreated_{false};
-  std::thread command_subscription_retry_thread_;
   mutable std::mutex mutex_;
   bool state_valid_{false};
   bool pending_command_{false};

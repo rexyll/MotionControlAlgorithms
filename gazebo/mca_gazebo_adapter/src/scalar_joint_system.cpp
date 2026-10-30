@@ -88,19 +88,10 @@ class ScalarJointSystem final : public gz::sim::System,
     // replace/conflict with each other. The standalone probe proves that the
     // typed Node::Subscribe API receives the bridged gz.msgs.Double payload.
     node_ = std::make_unique<gz::transport::Node>(TransportNodeOptions());
-    std::function<void(const gz::msgs::Double&)> typed_command_callback =
-        [this](const gz::msgs::Double& message) {
-          if (!typed_command_logged_.exchange(true, std::memory_order_relaxed)) {
-            gzmsg << "MCA Gazebo adapter typed command callback invoked" << std::endl;
-          }
-          OnTransportCommand(message);
-        };
-    // Keep the typed subscriber handle alive for the full system lifetime.
-    // The standalone probe succeeds with Subscribe(), but the plugin callback
-    // has not fired in the smoke test. Test the explicit subscriber-handle API
-    // with only one typed registration (no parallel raw subscription).
-    command_subscriber_ =
-        node_->CreateSubscriber(command_topic_, typed_command_callback);
+    // Keep exactly one typed command subscriber alive for the system lifetime.
+    // A delayed one-shot refresh is performed from PreUpdate if the bridge
+    // publisher starts after this plugin and the initial discovery is missed.
+    command_subscriber_ = CreateCommandSubscriber();
     command_subscribed_ = static_cast<bool>(command_subscriber_);
     position_pub_ = node_->Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_->Advertise<gz::msgs::Double>(velocity_topic_);
@@ -154,6 +145,25 @@ class ScalarJointSystem final : public gz::sim::System,
           topic_info_logged_.store(true, std::memory_order_relaxed);
         }
       }
+    }
+
+    // Gazebo Transport discovery is asynchronous. In CI the plugin is loaded
+    // before ros_gz_bridge creates its publisher. Refresh the subscription once
+    // after a grace period if no typed command has arrived; this re-announces
+    // the real subscriber without introducing an alternate command path.
+    const auto subscription_age =
+        std::chrono::duration<double>(topic_info_now - plugin_start_wall_time_).count();
+    if (subscription_age >= command_subscription_refresh_delay_s_ &&
+        !transport_command_logged_.load(std::memory_order_relaxed) &&
+        !command_subscription_refreshed_) {
+      command_subscriber_ = gz::transport::Node::Subscriber{};
+      command_subscriber_ = CreateCommandSubscriber();
+      command_subscribed_ = static_cast<bool>(command_subscriber_);
+      command_subscription_refreshed_ = true;
+      gzmsg << "MCA Gazebo adapter refreshed typed command subscription after "
+            << subscription_age << "s without receiving a command"
+            << " subscribe_ok=" << (command_subscribed_ ? "true" : "false")
+            << std::endl;
     }
 
     double effort_to_apply = 0.0;
@@ -268,6 +278,16 @@ class ScalarJointSystem final : public gz::sim::System,
   }
 
  private:
+  gz::transport::Node::Subscriber CreateCommandSubscriber() {
+    return node_->CreateSubscriber(
+        command_topic_, [this](const gz::msgs::Double& message) {
+          if (!typed_command_logged_.exchange(true, std::memory_order_relaxed)) {
+            gzmsg << "MCA Gazebo adapter typed command callback invoked" << std::endl;
+          }
+          OnTransportCommand(message);
+        });
+  }
+
   void OnTransportCommand(const gz::msgs::Double& message) {
     OnCommand(message.data());
   }
@@ -294,6 +314,8 @@ class ScalarJointSystem final : public gz::sim::System,
   gz::sim::Entity joint_{gz::sim::kNullEntity};
   bool configured_{false};
   bool command_subscribed_{false};
+  bool command_subscription_refreshed_{false};
+  static constexpr double command_subscription_refresh_delay_s_{5.0};
   mutable std::mutex mutex_;
   bool state_valid_{false};
   bool pending_command_{false};

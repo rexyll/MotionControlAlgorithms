@@ -264,15 +264,17 @@ class ScalarJointSystem final : public gz::sim::System,
       std::vector<gz::transport::MessagePublisher> subscribers;
       const bool topic_info_ok =
           command_node_->TopicInfo(command_topic_, publishers, subscribers);
-      if (!publishers.empty()) {
-        // Recreate the transport node only after the ROS-Gazebo bridge has
-        // actually advertised its publisher. This worker runs independently
-        // of simulation updates, including while the world is paused.
+      if (!publishers.empty() &&
+          !command_subscription_recreated_.exchange(true, std::memory_order_relaxed)) {
+        // Recreate the transport node once, after the ROS-Gazebo bridge has
+        // advertised its publisher. Repeating this operation would destroy an
+        // already-working subscription every retry interval and can starve
+        // delivery indefinitely. This worker remains independent of sim ticks.
         command_node_.reset();
         command_node_ = std::make_unique<gz::transport::Node>(TransportNodeOptions());
         command_subscribed_ = CreateCommandSubscriber();
-        gzmsg << "MCA Gazebo adapter recreated typed command subscription node after bridge "
-              << "publisher discovery"
+        gzmsg << "MCA Gazebo adapter recreated typed command subscription node once after "
+              << "bridge publisher discovery"
               << " topic_info_ok=" << (topic_info_ok ? "true" : "false")
               << " publisher_count=" << publishers.size()
               << " subscribe_ok=" << (command_subscribed_ ? "true" : "false")
@@ -325,6 +327,7 @@ class ScalarJointSystem final : public gz::sim::System,
   bool command_subscribed_{false};
   static constexpr double command_subscription_retry_interval_s_{1.0};
   std::atomic<bool> stop_command_subscription_retry_{false};
+  std::atomic<bool> command_subscription_recreated_{false};
   std::thread command_subscription_retry_thread_;
   mutable std::mutex mutex_;
   bool state_valid_{false};

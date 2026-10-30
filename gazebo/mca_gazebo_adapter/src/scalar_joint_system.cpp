@@ -100,7 +100,10 @@ class ScalarJointSystem final : public gz::sim::System,
     // Keep command reception on a dedicated node. If Gazebo Transport misses
     // discovery because the bridge publisher appears later, this node can be
     // recreated without disturbing the state publishers below.
-    command_node_ = std::make_unique<gz::transport::Node>(TransportNodeOptions());
+    // Match the standalone transport probe's default Node construction.
+    // GZ_PARTITION is inherited from the process environment; using Node's
+    // default options avoids a plugin-only partition configuration path.
+    command_node_ = std::make_unique<gz::transport::Node>();
     command_subscribed_ = CreateCommandSubscriber();
     position_pub_ = node_->Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_->Advertise<gz::msgs::Double>(velocity_topic_);
@@ -285,7 +288,7 @@ class ScalarJointSystem final : public gz::sim::System,
         // already-working subscription every retry interval and can starve
         // delivery indefinitely. This worker remains independent of sim ticks.
         command_node_.reset();
-        command_node_ = std::make_unique<gz::transport::Node>(TransportNodeOptions());
+        command_node_ = std::make_unique<gz::transport::Node>();
         command_subscribed_ = CreateCommandSubscriber();
         gzmsg << "MCA Gazebo adapter recreated typed command subscription node once after "
               << "bridge publisher discovery"

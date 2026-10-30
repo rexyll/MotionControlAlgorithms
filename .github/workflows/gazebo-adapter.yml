@@ -271,6 +271,23 @@ jobs:
           fi
           if ! awk '/data:/{v=$2; if (v+0 > 1e-5 || v+0 < -1e-5) {found=1}} END{exit(found ? 0 : 1)}' velocity.log; then
             echo "ROS 2 effort command did not produce velocity above the 1e-5 threshold"
+            echo "=== Gazebo process and thread state at E2E failure ==="
+            ps -eLo pid,ppid,tid,stat,pcpu,wchan:32,comm,args | grep -E '[g]z sim|[g]z-sim|[g]zserver|[s]trace' || true
+            echo "=== Gazebo server thread wait channels ==="
+            for task_file in /proc/"$gz_pid"/task/*/wchan; do
+              [ -r "$task_file" ] || continue
+              printf '%s: ' "$task_file"
+              cat "$task_file" || true
+            done
+            echo "=== Gazebo startup strace tails at E2E failure ==="
+            for trace_file in gazebo-startup.strace*; do
+              [ -f "$trace_file" ] || continue
+              echo "--- $trace_file ---"
+              tail -n 100 "$trace_file"
+            done
+            echo "=== ROS velocity samples ==="
+            cat velocity.log
+            echo "=== Gazebo runtime log ==="
             cat gazebo-transport.log
             cat ros-to-gz-bridge.log || true
             cat gz-to-ros-bridge.log || true

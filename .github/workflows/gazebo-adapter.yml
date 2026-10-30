@@ -47,45 +47,45 @@ jobs:
           export GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
           export ROS_DOMAIN_ID=37
           export GZ_PARTITION="mca-ci-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
-          echo "Gazebo Transport partition: $GZ_PARTITION"
           topic_prefix="/mca/single_axis_smoke/joint/axis_joint"
-
           gazebo_executable="$(command -v gz)"
           gazebo_path="$PATH"
           gazebo_ld_library_path="${LD_LIBRARY_PATH:-}"
           gazebo_cli() {
-            env GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
-              "$gazebo_executable" "$@"
+            env GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" "$gazebo_executable" "$@"
           }
+          echo "Gazebo Transport partition: $GZ_PARTITION"
           echo "System Gazebo CLI: $gazebo_executable"
-          echo "System Gazebo CLI libraries: ${gazebo_ld_library_path}"
-          echo "Gazebo partition before server launch: $GZ_PARTITION"
-          env | grep -E '^(GZ_PARTITION|GZ_RELAY)=' || true
-          setsid env GZ_PARTITION="$GZ_PARTITION" \
-            GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}" \
-            PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
-          strace -ff -tt -T -s 160 -o gazebo-startup.strace \
-            "$gazebo_executable" sim -s -r -v 4 gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
+          echo "System Gazebo CLI libraries: $gazebo_ld_library_path"
+
+          setsid env GZ_PARTITION="$GZ_PARTITION" GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
+            strace -ff -tt -T -s 160 -o gazebo-startup.strace "$gazebo_executable" sim -s -r -v 4 gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
           gz_pid=$!
           bridge_pid=""
           publisher_pid=""
           velocity_pid=""
+          command_echo_pid=""
+          transport_probe_pid=""
           cleanup() {
-            if [ -n "$velocity_pid" ]; then kill "$velocity_pid" 2>/dev/null || true; wait "$velocity_pid" 2>/dev/null || true; fi
-            if [ -n "${command_echo_pid:-}" ]; then kill "$command_echo_pid" 2>/dev/null || true; wait "$command_echo_pid" 2>/dev/null || true; fi
-            if [ -n "$publisher_pid" ]; then kill "$publisher_pid" 2>/dev/null || true; wait "$publisher_pid" 2>/dev/null || true; fi
-            for pid in ${bridge_pid:-}; do kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; done
+            for pid in "$velocity_pid" "$command_echo_pid" "$publisher_pid" "$transport_probe_pid"; do
+              [ -n "$pid" ] || continue
+              kill "$pid" 2>/dev/null || true
+              wait "$pid" 2>/dev/null || true
+            done
+            for pid in ${bridge_pid:-}; do
+              kill "$pid" 2>/dev/null || true
+              wait "$pid" 2>/dev/null || true
+            done
             kill -INT -- "-$gz_pid" 2>/dev/null || true
-            for _ in $(seq 1 5); do kill -0 -- "-$gz_pid" 2>/dev/null || break; sleep 1; done
+            for _ in $(seq 1 5); do
+              kill -0 -- "-$gz_pid" 2>/dev/null || break
+              sleep 1
+            done
             kill -KILL -- "-$gz_pid" 2>/dev/null || true
             wait "$gz_pid" 2>/dev/null || true
           }
           trap cleanup EXIT
 
-          # Gazebo Transport topic discovery is eventually consistent, and
-          # gzmsg output is not reliably captured by the headless server process.
-          # Use the five live state publishers as the startup/readiness signal;
-          # the real bridge assertions below remain the only E2E acceptance.
           expected_state_topics=(
             "${topic_prefix}/state/position"
             "${topic_prefix}/state/velocity"
@@ -99,9 +99,7 @@ jobs:
             topic_list="$(gazebo_cli topic -l 2>/dev/null || true)"
             missing_state_topics=()
             for expected_topic in "${expected_state_topics[@]}"; do
-              if ! printf '%s\\n' "$topic_list" | grep -Fxq "$expected_topic"; then
-                missing_state_topics+=("$expected_topic")
-              fi
+              printf '%s\n' "$topic_list" | grep -Fxq "$expected_topic" || missing_state_topics+=("$expected_topic")
             done
             if [ "${#missing_state_topics[@]}" -eq 0 ]; then
               plugin_topics_ready=true
@@ -112,29 +110,16 @@ jobs:
           done
           echo "=== Gazebo startup process ==="
           ps -o pid,ppid,pgid,stat,args -p "$gz_pid" || true
-          echo "=== Gazebo startup log ==="
-          cat gazebo-transport.log
           echo "=== Gazebo adapter state topics ==="
-          printf '%s\\n' "${topic_list:-<unavailable>}"
+          printf '%s\n' "${topic_list:-<unavailable>}"
           if [ "$plugin_topics_ready" != true ]; then
             echo "Gazebo bridge-test server did not advertise all five MCA adapter state topics"
-            printf 'Still missing: %s\\n' "${missing_state_topics[*]}"
-            ps -eLfww | grep -E '[g]z sim|[g]z-sim|[g]zserver|[s]trace' || true
-            echo "=== Gazebo startup syscall trace (loader/network/error syscalls) ==="
-            for trace_file in gazebo-startup.strace*; do
-              [ -f "$trace_file" ] || continue
-              echo "--- $trace_file ---"
-              grep -E 'execve\\(|openat\\(|connect\\(|recvfrom\\(|sendto\\(|ENOENT|EACCES|ECONN|ETIMEDOUT|SIG' "$trace_file" | tail -n 160 || true
-              echo "--- $trace_file (last syscalls) ---"
-              tail -n 40 "$trace_file"
-            done
+            printf 'Still missing: %s\n' "${missing_state_topics[*]}"
+            cat gazebo-transport.log || true
             exit 1
           fi
           echo "MCA adapter state publishers discovered through Gazebo Transport"
-          echo "=== Gazebo topics after plugin startup ==="
           gazebo_cli topic -l || true
-          echo "=== Command topic transport info ==="
-          gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" || true
 
           set +u
           source /opt/ros/jazzy/setup.bash
@@ -143,28 +128,18 @@ jobs:
           echo "GZ_PARTITION after ROS setup: ${GZ_PARTITION:-<unset>}"
 
           env GZ_PARTITION="$GZ_PARTITION" ros2 run ros_gz_bridge parameter_bridge \
-            "${topic_prefix}/cmd_effort@std_msgs/msg/Float64]gz.msgs.Double" \
-            --ros-args -r __node:=mca_ros_to_gz_bridge \
-            > ros-to-gz-bridge.log 2>&1 &
+            "${topic_prefix}/cmd_effort@std_msgs/msg/Float64]gz.msgs.Double" --ros-args -r __node:=mca_ros_to_gz_bridge > ros-to-gz-bridge.log 2>&1 &
           ros_to_gz_bridge_pid=$!
           env GZ_PARTITION="$GZ_PARTITION" ros2 run ros_gz_bridge parameter_bridge \
-            "${topic_prefix}/state/velocity@std_msgs/msg/Float64[gz.msgs.Double" \
-            --ros-args -r __node:=mca_gz_to_ros_bridge \
-            > gz-to-ros-bridge.log 2>&1 &
+            "${topic_prefix}/state/velocity@std_msgs/msg/Float64[gz.msgs.Double" --ros-args -r __node:=mca_gz_to_ros_bridge > gz-to-ros-bridge.log 2>&1 &
           gz_to_ros_bridge_pid=$!
           bridge_pid="$ros_to_gz_bridge_pid $gz_to_ros_bridge_pid"
 
-          # Wait for the ROS-side subscription and bridge mapping before sending
-          # commands. Gazebo Transport may not advertise the bridge publisher
-          # until its first ROS message arrives, so requiring a Gazebo publisher
-          # here would create a circular readiness check.
           bridge_ready=false
           for _ in $(seq 1 20); do
             ros_subscribers="$(ros2 topic info -v "${topic_prefix}/cmd_effort" 2>/dev/null | awk '/Subscription count:/{print $3; exit}')"
             bridge_mapping_ready=false
-            if grep -Fq "Creating ROS->GZ Bridge:" ros-to-gz-bridge.log; then
-              bridge_mapping_ready=true
-            fi
+            grep -Fq "Creating ROS->GZ Bridge:" ros-to-gz-bridge.log && bridge_mapping_ready=true
             if [ "${ros_subscribers:-0}" -ge 1 ] && [ "$bridge_mapping_ready" = true ]; then
               bridge_ready=true
               break
@@ -177,96 +152,78 @@ jobs:
           if [ "$bridge_ready" != true ]; then
             echo "ROS-to-Gazebo bridge did not initialize before command publication"
             ros2 topic info -v "${topic_prefix}/cmd_effort" || true
-            gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" || true
-            cat ros-to-gz-bridge.log
+            cat ros-to-gz-bridge.log || true
             exit 1
           fi
 
-          echo "=== ROS nodes after bridge startup ==="
-          ros2 node list || true
-          echo "=== ROS topics after bridge startup ==="
-          ros2 topic list -t || true
-          echo "=== Bridge process tree after startup ==="
-          ps -efww | grep -E '[p]arameter_bridge|[r]os_gz_bridge' || true
           echo "=== Bridge logs after startup ==="
-          cat ros-to-gz-bridge.log
-          cat gz-to-ros-bridge.log
+          cat ros-to-gz-bridge.log || true
+          cat gz-to-ros-bridge.log || true
 
-          # Independent C++ subscriber distinguishes a plugin-lifecycle problem
-          # from a Gazebo Transport delivery problem. It is diagnostic only.
-          timeout 8s env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_subscriber_probe "${topic_prefix}/cmd_effort" > transport-probe.log 2>&1 &
+          # Start the state subscriber before any command is published. This
+          # removes the previous one-second race in which the command publisher
+          # could already be active while the ROS-side state subscriber was not.
+          timeout 10s ros2 topic echo "${topic_prefix}/state/velocity" std_msgs/msg/Float64 > velocity.log 2>&1 &
+          velocity_pid=$!
+          sleep 1
+
+          # Diagnostic probe must be alive before command publication so it can
+          # independently prove Gazebo Transport delivery on the same partition.
+          timeout 12s env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_subscriber_probe "${topic_prefix}/cmd_effort" > transport-probe.log 2>&1 &
           transport_probe_pid=$!
-          # Reproduce the known Jazzy/Gazebo behavior where ROS->GZ bridge
-          # logs "Passing message" but the command path only wakes up after
-          # a Gazebo Transport subscriber attaches while ROS commands are live.
-          timeout 10s ros2 topic pub --rate 100 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > command-publisher.log 2>&1 &
+          sleep 1
+
+          timeout 12s ros2 topic pub --rate 100 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > command-publisher.log 2>&1 &
           publisher_pid=$!
+
           for _ in $(seq 1 10); do
             grep -Fq "Passing message from ROS std_msgs/msg/Float64 to Gazebo gz.msgs.Double" ros-to-gz-bridge.log && break
             sleep 1
           done
           echo "=== ROS-to-Gazebo first-message status ==="
           grep -F "Passing message from ROS std_msgs/msg/Float64 to Gazebo gz.msgs.Double" ros-to-gz-bridge.log || true
-          # Start the Gazebo echo only after ROS publication is active. This
-          # mirrors the externally reported workaround and keeps the real
-          # ROS->GZ path as the only acceptance path.
-          timeout 8s env GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" "$gazebo_executable" topic -e -t "${topic_prefix}/cmd_effort" > gz-command-echo.log 2>&1 &
+
+          timeout 10s env GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" "$gazebo_executable" topic -e -t "${topic_prefix}/cmd_effort" > gz-command-echo.log 2>&1 &
           command_echo_pid=$!
-          sleep 1
-          echo "=== ROS command topic graph while publisher is active ==="
-          ros2 topic info -v "${topic_prefix}/cmd_effort" || true
-          timeout 3s ros2 topic echo "${topic_prefix}/state/velocity" std_msgs/msg/Float64 > velocity.log 2>&1 &
-          velocity_pid=$!
+
           wait "$publisher_pid" || true
           wait "$velocity_pid" || true
+          wait "$transport_probe_pid" || true
 
           echo "=== ROS command topic graph after publisher ==="
           ros2 topic info -v "${topic_prefix}/cmd_effort" || true
-          timeout 2s ros2 topic echo "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 > ros-command-echo.log 2>&1 || true
-          echo "=== ROS command topic echo ==="
-          cat ros-command-echo.log
-          echo "=== Bridge process status ==="
-          ps -o pid,ppid,stat,args -p "$ros_to_gz_bridge_pid","$gz_to_ros_bridge_pid" || true
-          echo "=== Command topic transport info after ROS publisher ==="
-          gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" || true
           echo "=== Gazebo command topic echo ==="
-          cat gz-command-echo.log
-          wait "$transport_probe_pid" || true
+          cat gz-command-echo.log || true
           echo "=== Independent C++ Gazebo Transport subscriber probe (diagnostic only) ==="
-          cat transport-probe.log
+          cat transport-probe.log || true
           echo "=== ROS publisher log ==="
-          cat command-publisher.log
+          cat command-publisher.log || true
           echo "=== ROS -> Gazebo bridge log ==="
-          cat ros-to-gz-bridge.log
+          cat ros-to-gz-bridge.log || true
           echo "=== Gazebo -> ROS bridge log ==="
-          cat gz-to-ros-bridge.log
-          echo "=== Gazebo log before assertions ==="
-          cat gazebo-transport.log
-          cat velocity.log
+          cat gz-to-ros-bridge.log || true
+          echo "=== Gazebo runtime log ==="
+          cat gazebo-transport.log || true
+          echo "=== ROS velocity samples ==="
+          cat velocity.log || true
 
-          set +e
-          timeout 2s env GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" "$gazebo_executable" topic -t "${topic_prefix}/cmd_effort" -m gz.msgs.Double -p "data: 1.0" > native-publisher.log 2>&1 &
-          native_publisher_pid=$!
-          timeout 2s ros2 topic echo "${topic_prefix}/state/velocity" std_msgs/msg/Float64 > native-velocity.log 2>&1 &
-          native_velocity_pid=$!
-          wait "$native_publisher_pid"
-          wait "$native_velocity_pid"
-          set -e
-          echo "=== Native Gazebo transport diagnostic publisher ==="
-          cat native-publisher.log
-          echo "=== Velocity during native Gazebo command diagnostic (not acceptance) ==="
-          cat native-velocity.log
-          echo "=== Gazebo log after native command diagnostic ==="
-          cat gazebo-transport.log
-
+          # Keep the four real E2E assertions unchanged. Diagnostic ordering is
+          # bridge -> plugin callback -> non-zero force -> ROS velocity, so a
+          # failure identifies the broken layer without weakening acceptance.
+          if ! grep -Fq "Passing message from ROS std_msgs/msg/Float64 to Gazebo gz.msgs.Double" ros-to-gz-bridge.log; then
+            echo "ROS-to-Gazebo bridge did not confirm forwarding a command message"
+            exit 1
+          fi
+          if ! grep -Fq "MCA Gazebo adapter received typed transport effort command=1" gazebo-transport.log; then
+            echo "Gazebo adapter did not log receipt of the ROS-bridged effort command"
+            exit 1
+          fi
+          if ! grep -Fq "MCA Gazebo adapter applied non-zero JointForceCmd=" gazebo-transport.log; then
+            echo "Gazebo adapter did not log application of a non-zero JointForceCmd"
+            exit 1
+          fi
           if ! grep -Eq 'data: [-+]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][-+]?[0-9]+)?' velocity.log; then
             echo "No ROS 2 velocity state was observed through ros_gz_bridge"
-            gazebo_cli topic -l || true
-            gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" || true
-            cat gazebo-transport.log
-            cat ros-to-gz-bridge.log || true
-            cat gz-to-ros-bridge.log || true
-            cat command-publisher.log
             exit 1
           fi
           if ! awk '/data:/{v=$2; if (v+0 > 1e-5 || v+0 < -1e-5) {found=1}} END{exit(found ? 0 : 1)}' velocity.log; then
@@ -285,28 +242,6 @@ jobs:
               echo "--- $trace_file ---"
               tail -n 100 "$trace_file"
             done
-            echo "=== ROS velocity samples ==="
-            cat velocity.log
-            echo "=== Gazebo runtime log ==="
-            cat gazebo-transport.log
-            cat ros-to-gz-bridge.log || true
-            cat gz-to-ros-bridge.log || true
-            cat command-publisher.log
             exit 1
           fi
-          if ! grep -Fq "MCA Gazebo adapter received typed transport effort command=1" gazebo-transport.log; then
-            echo "Gazebo adapter did not log receipt of the ROS-bridged effort command"
-            cat gazebo-transport.log
-            exit 1
-          fi
-          if ! grep -Fq "MCA Gazebo adapter applied non-zero JointForceCmd=" gazebo-transport.log; then
-            echo "Gazebo adapter did not log application of a non-zero JointForceCmd"
-            cat gazebo-transport.log
-            exit 1
-          fi
-          if ! grep -Fq "Passing message from ROS std_msgs/msg/Float64 to Gazebo gz.msgs.Double" ros-to-gz-bridge.log; then
-            echo "ROS-to-Gazebo bridge did not confirm forwarding a command message"
-            cat ros-to-gz-bridge.log
-            exit 1
-          fi
-          echo "ROS 2 ↔ Gazebo bridge command/state path passed: callback, non-zero JointForceCmd, and velocity > 1e-5"
+          echo "ROS 2 ↔ Gazebo bridge command/state path passed: bridge forwarding, plugin callback, non-zero JointForceCmd, and velocity > 1e-5"

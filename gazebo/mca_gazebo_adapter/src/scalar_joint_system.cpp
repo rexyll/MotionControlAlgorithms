@@ -131,6 +131,13 @@ class ScalarJointSystem final : public gz::sim::System,
 
   void PreUpdate(const gz::sim::UpdateInfo& info,
                  gz::sim::EntityComponentManager& ecm) override {
+    if (!pre_update_logged_.exchange(true, std::memory_order_relaxed)) {
+      gzmsg << "MCA Gazebo adapter PreUpdate invoked paused="
+            << (info.paused ? "true" : "false")
+            << " dt_s=" << std::chrono::duration<double>(info.dt).count()
+            << " sim_time_s=" << std::chrono::duration<double>(info.simTime).count()
+            << std::endl;
+    }
     if (!configured_ || info.paused) return;
     const double time_s = std::chrono::duration<double>(info.simTime).count();
     const double dt_s = std::chrono::duration<double>(info.dt).count();
@@ -181,6 +188,13 @@ class ScalarJointSystem final : public gz::sim::System,
 
   void PostUpdate(const gz::sim::UpdateInfo& info,
                   const gz::sim::EntityComponentManager& ecm) override {
+    if (!post_update_logged_.exchange(true, std::memory_order_relaxed)) {
+      gzmsg << "MCA Gazebo adapter PostUpdate invoked paused="
+            << (info.paused ? "true" : "false")
+            << " dt_s=" << std::chrono::duration<double>(info.dt).count()
+            << " sim_time_s=" << std::chrono::duration<double>(info.simTime).count()
+            << std::endl;
+    }
     if (!configured_) return;
     const double time_s = std::chrono::duration<double>(info.simTime).count();
     const double dt_s = std::chrono::duration<double>(info.dt).count();
@@ -342,6 +356,8 @@ class ScalarJointSystem final : public gz::sim::System,
   std::atomic<bool> transport_command_logged_{false};
   std::atomic<bool> typed_command_logged_{false};
   std::atomic<bool> nonzero_effort_logged_{false};
+  std::atomic<bool> pre_update_logged_{false};
+  std::atomic<bool> post_update_logged_{false};
   bool has_sim_time_{false};
   mca::simulation::SimulationStep cached_step_{};
   mca::simulation::ScalarSimulationState cached_state_{};

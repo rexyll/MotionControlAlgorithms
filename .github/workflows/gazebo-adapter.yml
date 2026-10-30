@@ -199,7 +199,7 @@ jobs:
           # Reproduce the known Jazzy/Gazebo behavior where ROS->GZ bridge
           # logs "Passing message" but the command path only wakes up after
           # a Gazebo Transport subscriber attaches while ROS commands are live.
-          timeout 10s ros2 topic pub --rate 20 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > command-publisher.log 2>&1 &
+          timeout 10s ros2 topic pub --rate 100 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > command-publisher.log 2>&1 &
           publisher_pid=$!
           for _ in $(seq 1 10); do
             grep -Fq "Passing message from ROS std_msgs/msg/Float64 to Gazebo gz.msgs.Double" ros-to-gz-bridge.log && break

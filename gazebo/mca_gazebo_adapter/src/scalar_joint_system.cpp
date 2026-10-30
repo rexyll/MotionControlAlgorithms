@@ -143,6 +143,10 @@ class ScalarJointSystem final : public gz::sim::System,
     if (!std::isfinite(time_s) || !std::isfinite(dt_s) || time_s < 0.0 || dt_s <= 0.0) return;
 
     double effort_to_apply = 0.0;
+    bool transport_command_observed = false;
+    bool transport_command_was_fresh = false;
+    double transport_command_age_s = -1.0;
+    double observed_transport_effort = 0.0;
     {
       std::lock_guard<std::mutex> lock(mutex_);
       if (has_sim_time_ && time_s < last_sim_time_) {
@@ -158,11 +162,16 @@ class ScalarJointSystem final : public gz::sim::System,
       const auto current_step = step_index_.load(std::memory_order_relaxed);
       const bool step_command_valid =
           pending_command_ && pending_step_index_ == current_step && pending_command_value_.finite();
+      transport_command_age_s =
+          transport_command_active_
+              ? std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                              last_transport_command_wall_time_).count()
+              : -1.0;
       const bool transport_command_fresh =
-          transport_command_active_ &&
-          std::chrono::duration<double>(std::chrono::steady_clock::now() -
-                                         last_transport_command_wall_time_).count() <=
-              command_timeout_s_;
+          transport_command_active_ && transport_command_age_s <= command_timeout_s_;
+      transport_command_observed = transport_command_active_;
+      transport_command_was_fresh = transport_command_fresh;
+      observed_transport_effort = transport_command_value_.effort[0];
       if (step_command_valid) {
         effort_to_apply = pending_command_value_.effort[0];
       } else if (transport_command_fresh && transport_command_value_.finite()) {
@@ -177,6 +186,17 @@ class ScalarJointSystem final : public gz::sim::System,
       }
     }
 
+    if (transport_command_observed &&
+        !transport_preupdate_diagnostic_logged_.exchange(true, std::memory_order_relaxed)) {
+      gzmsg << "MCA Gazebo adapter PreUpdate observed transport command="
+            << observed_transport_effort
+            << " fresh=" << (transport_command_was_fresh ? "true" : "false")
+            << " age_s=" << transport_command_age_s
+            << " timeout_s=" << command_timeout_s_
+            << " applied_effort=" << effort_to_apply
+            << " step_index=" << step_index_.load(std::memory_order_relaxed)
+            << std::endl;
+    }
     ecm.SetComponentData<gz::sim::components::JointForceCmd>(joint_, {effort_to_apply});
     if (std::abs(effort_to_apply) > 1e-12 &&
         !nonzero_effort_logged_.exchange(true, std::memory_order_relaxed)) {
@@ -313,6 +333,7 @@ class ScalarJointSystem final : public gz::sim::System,
   std::atomic<bool> transport_command_logged_{false};
   std::atomic<bool> typed_command_logged_{false};
   std::atomic<bool> nonzero_effort_logged_{false};
+  std::atomic<bool> transport_preupdate_diagnostic_logged_{false};
   std::atomic<bool> pre_update_logged_{false};
   std::atomic<bool> post_update_logged_{false};
   bool has_sim_time_{false};

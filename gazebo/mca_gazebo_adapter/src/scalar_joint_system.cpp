@@ -91,13 +91,9 @@ class ScalarJointSystem final : public gz::sim::System,
     // replace/conflict with each other. The standalone probe proves that the
     // typed Node::Subscribe API receives the bridged gz.msgs.Double payload.
     node_ = std::make_unique<gz::transport::Node>(TransportNodeOptions());
-    // Keep command reception on a dedicated node. If Gazebo Transport misses
-    // discovery because the bridge publisher appears later, this node can be
-    // recreated without disturbing the state publishers below.
-    // Match the standalone transport probe's default Node construction.
-    // GZ_PARTITION is inherited from the process environment; using Node's
-    // default options avoids a plugin-only partition configuration path.
-    command_node_ = std::make_unique<gz::transport::Node>();
+    // Use the same explicitly partitioned node for command subscription and
+    // state publication. This avoids a second plugin-owned Transport node and
+    // keeps both directions on one node callback dispatcher.
     command_subscribed_ = CreateCommandSubscriber();
     position_pub_ = node_->Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_->Advertise<gz::msgs::Double>(velocity_topic_);
@@ -106,16 +102,16 @@ class ScalarJointSystem final : public gz::sim::System,
     step_pub_ = node_->Advertise<gz::msgs::Double>(step_topic_);
     configured_ = command_subscribed_ && position_pub_ && velocity_pub_ &&
                   acceleration_pub_ && time_pub_ && step_pub_;
-    const auto subscribed_topics = command_node_->SubscribedTopics();
+    const auto subscribed_topics = node_->SubscribedTopics();
     const char* environment_partition = std::getenv("GZ_PARTITION");
     gzmsg << "MCA Gazebo adapter configured command topic=" << command_topic_
           << " subscribe_ok=" << (command_subscribed_ ? "true" : "false")
           << " configured=" << (configured_ ? "true" : "false")
-          << " command_subscription_mode=typed-subscribe-recreated-node"
+          << " command_subscription_mode=typed-subscribe-shared-node"
           << " node_subscribed_topics=" << subscribed_topics.size()
           << " environment_partition="
           << (environment_partition != nullptr ? environment_partition : "<unset>")
-          << " node_partition=" << command_node_->Options().Partition() << std::endl;
+          << " node_partition=" << node_->Options().Partition() << std::endl;
     for (const auto& subscribed_topic : subscribed_topics) {
       gzmsg << "MCA Gazebo adapter transport subscription=" << subscribed_topic
             << std::endl;
@@ -290,11 +286,9 @@ class ScalarJointSystem final : public gz::sim::System,
   }
 
   bool CreateCommandSubscriber() {
-    // Use the same typed Node::Subscribe API exercised by the standalone
-    // transport probe. That probe receives the ROS-bridged gz.msgs.Double
-    // payload in this process/partition, while CreateSubscriber did not invoke
-    // the plugin callback under the same smoke-test conditions.
-    return command_node_->Subscribe<gz::msgs::Double>(
+    // Use the typed API proven by the standalone probe, sharing the node used
+    // by the state publishers so command and state endpoints have one owner.
+    return node_->Subscribe<gz::msgs::Double>(
         command_topic_, [this](const gz::msgs::Double& message) {
           if (!typed_command_logged_.exchange(true, std::memory_order_relaxed)) {
             gzmsg << "MCA Gazebo adapter typed command callback invoked" << std::endl;
@@ -353,7 +347,6 @@ class ScalarJointSystem final : public gz::sim::System,
   mca::simulation::ScalarActuatorCommand transport_command_value_{};
 
   std::unique_ptr<gz::transport::Node> node_;
-  std::unique_ptr<gz::transport::Node> command_node_;
   std::string topic_prefix_;
   std::string command_topic_;
   std::string position_topic_;

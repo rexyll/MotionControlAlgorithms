@@ -84,11 +84,11 @@ jobs:
           plugin_topics_ready=false
           for _ in $(seq 1 30); do
             topic_list="$(gazebo_cli topic -l 2>/dev/null || true)"
-            if printf '%s\\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/position" &&
-               printf '%s\\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/velocity" &&
-               printf '%s\\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/acceleration" &&
-               printf '%s\\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/time" &&
-               printf '%s\\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/step_index"; then
+            if printf '%s\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/position" &&
+               printf '%s\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/velocity" &&
+               printf '%s\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/acceleration" &&
+               printf '%s\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/time" &&
+               printf '%s\n' "$topic_list" | grep -Fxq "${topic_prefix}/state/step_index"; then
               plugin_topics_ready=true
               break
             fi
@@ -100,7 +100,7 @@ jobs:
           echo "=== Gazebo startup log ==="
           cat gazebo-transport.log
           echo "=== Gazebo adapter state topics ==="
-          printf '%s\\n' "${topic_list:-<unavailable>}"
+          printf '%s\n' "${topic_list:-<unavailable>}"
           if [ "$plugin_topics_ready" != true ]; then
             echo "Gazebo bridge-test server did not advertise all MCA adapter state topics"
             ps -eLfww | grep -E '[g]z sim|[g]z-sim|[g]zserver|[s]trace' || true
@@ -108,7 +108,7 @@ jobs:
             for trace_file in gazebo-startup.strace*; do
               [ -f "$trace_file" ] || continue
               echo "--- $trace_file ---"
-              grep -E 'execve\\(|openat\\(|connect\\(|recvfrom\\(|sendto\\(|ENOENT|EACCES|ECONN|ETIMEDOUT|SIG' "$trace_file" | tail -n 160 || true
+              grep -E 'execve\(|openat\(|connect\(|recvfrom\(|sendto\(|ENOENT|EACCES|ECONN|ETIMEDOUT|SIG' "$trace_file" | tail -n 160 || true
               echo "--- $trace_file (last syscalls) ---"
               tail -n 40 "$trace_file"
             done

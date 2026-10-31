@@ -271,6 +271,18 @@ jobs:
           echo "=== ROS velocity samples ==="
           cat velocity.log || true
 
+          # Gazebo Console inserts ANSI color sequences into GZ_VERBOSE=1 log
+          # tokens (for example between "command=" and "1"). Preserve the raw
+          # log above, but normalize CSI sequences before fixed-string asserts.
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          raw_log = Path("gazebo-transport.log").read_text(errors="replace")
+          plain_log = re.sub(r"\\x1b\\[[0-?]*[ -/]*[@-~]", "", raw_log)
+          Path("gazebo-transport.plain.log").write_text(plain_log)
+          PY
+
           # Keep the four real E2E assertions unchanged. Diagnostic ordering is
           # bridge -> plugin callback -> non-zero force -> ROS velocity, so a
           # failure identifies the broken layer without weakening acceptance.
@@ -278,11 +290,11 @@ jobs:
             echo "ROS-to-Gazebo bridge did not confirm forwarding a command message"
             exit 1
           fi
-          if ! grep -Fq "MCA Gazebo adapter received typed transport effort command=1" gazebo-transport.log; then
+          if ! grep -Fq "MCA Gazebo adapter received typed transport effort command=1" gazebo-transport.plain.log; then
             echo "Gazebo adapter did not log receipt of the ROS-bridged effort command"
             exit 1
           fi
-          if ! grep -Fq "MCA Gazebo adapter applied non-zero JointForceCmd=" gazebo-transport.log; then
+          if ! grep -Fq "MCA Gazebo adapter applied non-zero JointForceCmd=" gazebo-transport.plain.log; then
             echo "Gazebo adapter did not log application of a non-zero JointForceCmd"
             exit 1
           fi

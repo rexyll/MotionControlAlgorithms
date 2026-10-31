@@ -11,7 +11,7 @@
 
 int main(int argc, char** argv) {
   if (argc != 3 && argc != 4) {
-    std::cerr << "usage: mca_transport_command_publisher TOPIC VALUE\n";
+    std::cerr << "usage: mca_transport_command_publisher TOPIC VALUE [COUNT]\n";
     return 2;
   }
 
@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
     errno = 0;
     char* count_end = nullptr;
     const long parsed_count = std::strtol(argv[3], &count_end, 10);
-    if (count_end == argv[3] || *count_end != '\\0' || errno == ERANGE ||
+    if (count_end == argv[3] || *count_end != '\0' || errno == ERANGE ||
         parsed_count <= 0 || parsed_count > 100000) {
       std::cerr << "invalid positive COUNT: " << argv[3] << std::endl;
       return 2;

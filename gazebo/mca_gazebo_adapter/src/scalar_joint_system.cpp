@@ -126,6 +126,14 @@ class ScalarJointSystem final : public gz::sim::System,
 
   void PreUpdate(const gz::sim::UpdateInfo& info,
                  gz::sim::EntityComponentManager& ecm) override {
+    const auto callback_count =
+        typed_command_callback_count_.load(std::memory_order_relaxed);
+    if (callback_count > 0 &&
+        !typed_command_callback_count_diagnostic_logged_.exchange(
+            true, std::memory_order_relaxed)) {
+      gzmsg << "MCA Gazebo adapter PreUpdate observed typed callback count="
+            << callback_count << std::endl;
+    }
     const auto pre_update_call =
         pre_update_call_count_.fetch_add(1, std::memory_order_relaxed);
     if (pre_update_call < 12) {
@@ -290,6 +298,7 @@ class ScalarJointSystem final : public gz::sim::System,
     // by the state publishers so command and state endpoints have one owner.
     return node_->Subscribe<gz::msgs::Double>(
         command_topic_, [this](const gz::msgs::Double& message) {
+          typed_command_callback_count_.fetch_add(1, std::memory_order_relaxed);
           if (!typed_command_logged_.exchange(true, std::memory_order_relaxed)) {
             gzmsg << "MCA Gazebo adapter typed command callback invoked" << std::endl;
           }
@@ -335,6 +344,8 @@ class ScalarJointSystem final : public gz::sim::System,
   bool transport_command_active_{false};
   std::atomic<bool> transport_command_logged_{false};
   std::atomic<bool> typed_command_logged_{false};
+  std::atomic<std::size_t> typed_command_callback_count_{0};
+  std::atomic<bool> typed_command_callback_count_diagnostic_logged_{false};
   std::atomic<bool> nonzero_effort_logged_{false};
   std::atomic<bool> transport_preupdate_diagnostic_logged_{false};
   std::atomic<std::size_t> pre_update_call_count_{0};

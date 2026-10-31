@@ -776,7 +776,7 @@ jobs:
           from pathlib import Path
 
           raw = Path("gazebo-transport.log").read_text(errors="replace")
-          plain = re.sub(r"\\x1b\\[[0-?]*[ -/]*[@-~]", "", raw)
+          plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", raw)
           print(plain.count(sys.argv[1]))
           PY
           }
@@ -787,7 +787,7 @@ jobs:
           from pathlib import Path
 
           raw = Path("gazebo-transport.log").read_text(errors="replace")
-          plain = re.sub(r"\\x1b\\[[0-?]*[ -/]*[@-~]", "", raw)
+          plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", raw)
           matches = [line for line in plain.splitlines() if sys.argv[1] in line]
           if matches:
               print(matches[-1])

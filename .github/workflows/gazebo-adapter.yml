@@ -200,17 +200,6 @@ jobs:
           cat ros-to-gz-bridge.log || true
           cat gz-to-ros-bridge.log || true
 
-          # Exercise malformed Gazebo Transport values directly, bypassing ROS
-          # message conversion so NaN/Inf reach the plugin callback unchanged.
-          # The adapter must reject them without refreshing or replacing the
-          # last valid command/watchdog state, and rate-limit diagnostics.
-          env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
-            "${topic_prefix}/cmd_effort" nan > malformed-nan-publisher.log 2>&1
-          env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
-            "${topic_prefix}/cmd_effort" inf > malformed-inf-publisher.log 2>&1
-          cat malformed-nan-publisher.log
-          cat malformed-inf-publisher.log
-
           # Start the state subscriber before any command is published. This
           # removes the previous one-second race in which the command publisher
           # could already be active while the ROS-side state subscriber was not.
@@ -247,8 +236,65 @@ jobs:
           wait "$publisher_pid" || true
           publisher_pid=""
 
-          # The first command stream has ended and the watchdog has already
-          # cleared it. Re-arm the same command stream and wait for an explicit
+          # Send malformed values only after a valid command stream has stopped.
+          # The NaN stream lasts approximately 0.5 s, matching the watchdog
+          # timeout. The watchdog must expire during that stream, proving that
+          # rejected traffic does not refresh the last-valid-command timestamp.
+          env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
+            "${topic_prefix}/cmd_effort" nan > malformed-nan-publisher.log 2>&1
+          cat malformed-nan-publisher.log
+          nan_watchdog_expired=false
+          for _ in $(seq 1 10); do
+            watchdog_count="$(grep -Fc "MCA Gazebo adapter transport watchdog expired" gazebo-transport.log || true)"
+            if [ "${watchdog_count:-0}" -ge 1 ]; then
+              nan_watchdog_expired=true
+              break
+            fi
+            sleep 0.05
+          done
+          if [ "$nan_watchdog_expired" != true ]; then
+            echo "NaN transport traffic refreshed the watchdog or was not rejected"
+            exit 1
+          fi
+
+          # Re-arm with a valid command, then repeat the same deadline test for
+          # infinity. This independently verifies both non-finite encodings.
+          timeout 2s ros2 topic pub --rate 100 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > inf-watchdog-probe-publisher.log 2>&1 &
+          publisher_pid=$!
+          inf_probe_received=false
+          for _ in $(seq 1 60); do
+            reset_probe_count="$(grep -Fc "MCA Gazebo adapter received typed transport effort command=" gazebo-transport.log || true)"
+            if [ "${reset_probe_count:-0}" -ge 2 ]; then
+              inf_probe_received=true
+              break
+            fi
+            sleep 0.1
+          done
+          if [ "$inf_probe_received" != true ]; then
+            echo "Plugin did not acknowledge the valid command before the infinity watchdog test"
+            exit 1
+          fi
+          kill -INT "$publisher_pid" 2>/dev/null || true
+          wait "$publisher_pid" 2>/dev/null || true
+          publisher_pid=""
+          env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
+            "${topic_prefix}/cmd_effort" inf > malformed-inf-publisher.log 2>&1
+          cat malformed-inf-publisher.log
+          inf_watchdog_expired=false
+          for _ in $(seq 1 10); do
+            watchdog_count="$(grep -Fc "MCA Gazebo adapter transport watchdog expired" gazebo-transport.log || true)"
+            if [ "${watchdog_count:-0}" -ge 2 ]; then
+              inf_watchdog_expired=true
+              break
+            fi
+            sleep 0.05
+          done
+          if [ "$inf_watchdog_expired" != true ]; then
+            echo "Infinity transport traffic refreshed the watchdog or was not rejected"
+            exit 1
+          fi
+
+          # Re-arm the same command stream and wait for an explicit
           # plugin-side acknowledgement before requesting Reset. Do not infer
           # delivery from ros2 topic pub output: the bridge may still be flushing.
           sleep 0.7

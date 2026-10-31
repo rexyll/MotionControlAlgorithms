@@ -51,8 +51,35 @@ jobs:
           gazebo_executable="$(command -v gz)"
           gazebo_path="$PATH"
           gazebo_ld_library_path="${LD_LIBRARY_PATH:-}"
+          gazebo_system_plugin_path="${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
+          gazebo_config_path_was_set="${GZ_CONFIG_PATH+x}"
+          gazebo_config_path="${GZ_CONFIG_PATH-}"
           gazebo_cli() {
-            env GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" "$gazebo_executable" "$@"
+            if [ "$gazebo_config_path_was_set" = "x" ]; then
+              env GZ_CONFIG_PATH="$gazebo_config_path" GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" "$gazebo_executable" "$@"
+            else
+              env -u GZ_CONFIG_PATH GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" "$gazebo_executable" "$@"
+            fi
+          }
+          print_log_excerpt() {
+            local file="$1"
+            [ -f "$file" ] || { echo "Log file not found: $file"; return 0; }
+            python3 - "$file" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          raw = Path(sys.argv[1]).read_text(errors="replace")
+          ansi = re.compile(r"\x1B(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1B\\)|[@-_])")
+          clean = ansi.sub("", raw).replace("\r\n", "\n").replace("\r", "\n")
+          lines = [line.rstrip() for line in clean.splitlines() if line.strip()]
+          if len(lines) <= 40:
+              print("\n".join(lines))
+          else:
+              print("\n".join(lines[:10]))
+              print(f"... omitted {len(lines) - 30} non-empty log lines ...")
+              print("\n".join(lines[-20:]))
+          PY
           }
           echo "Gazebo Transport partition: $GZ_PARTITION"
           echo "System Gazebo CLI: $gazebo_executable"
@@ -125,7 +152,7 @@ jobs:
           if [ "$plugin_topics_ready" != true ]; then
             echo "Gazebo bridge-test server did not advertise all five MCA adapter state topics"
             printf 'Still missing: %s\n' "${missing_state_topics[*]}"
-            cat gazebo-transport.log || true
+            print_log_excerpt "gazebo-transport.log"
             exit 1
           fi
           echo "MCA adapter state publishers discovered through Gazebo Transport"
@@ -136,6 +163,14 @@ jobs:
           set -u
           echo "gz command after ROS setup: $(command -v gz)"
           echo "GZ_PARTITION after ROS setup: ${GZ_PARTITION:-<unset>}"
+          echo "GZ_CONFIG_PATH before ROS setup: ${gazebo_config_path:-<unset>}"
+          echo "GZ_CONFIG_PATH after ROS setup: ${GZ_CONFIG_PATH:-<unset>}"
+          gazebo_commands="$(gazebo_cli --commands 2>&1 || true)"
+          if ! printf '%s\n' "$gazebo_commands" | grep -Eq '(^|[[:space:]])sim([[:space:]]|$)'; then
+            echo "Gazebo sim command is unavailable after ROS setup even with the saved Gazebo CLI environment"
+            printf '%s\n' "$gazebo_commands"
+            exit 1
+          fi
 
           env GZ_PARTITION="$GZ_PARTITION" ros2 run ros_gz_bridge parameter_bridge \
             "${topic_prefix}/cmd_effort@std_msgs/msg/Float64]gz.msgs.Double" --ros-args -r __node:=mca_ros_to_gz_bridge > ros-to-gz-bridge.log 2>&1 &
@@ -162,7 +197,7 @@ jobs:
           if [ "$bridge_ready" != true ]; then
             echo "ROS-to-Gazebo bridge did not initialize before command publication"
             ros2 topic info -v "${topic_prefix}/cmd_effort" || true
-            cat ros-to-gz-bridge.log || true
+            print_log_excerpt "ros-to-gz-bridge.log"
             exit 1
           fi
 
@@ -197,8 +232,8 @@ jobs:
           fi
 
           echo "=== Bridge logs after startup ==="
-          cat ros-to-gz-bridge.log || true
-          cat gz-to-ros-bridge.log || true
+          print_log_excerpt "ros-to-gz-bridge.log"
+          print_log_excerpt "gz-to-ros-bridge.log"
 
           # Start the state subscriber before any command is published. This
           # removes the previous one-second race in which the command publisher
@@ -242,7 +277,7 @@ jobs:
           # rejected traffic does not refresh the last-valid-command timestamp.
           env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
             "${topic_prefix}/cmd_effort" nan > malformed-nan-publisher.log 2>&1
-          cat malformed-nan-publisher.log
+          print_log_excerpt "malformed-nan-publisher.log"
           nan_watchdog_expired=false
           for _ in $(seq 1 10); do
             watchdog_count="$(grep -Fc "MCA Gazebo adapter transport watchdog expired" gazebo-transport.log || true)"
@@ -285,13 +320,13 @@ jobs:
           if [ "$inf_probe_received" != true ]; then
             echo "Plugin did not acknowledge the valid command before the infinity watchdog test"
             echo "=== Gazebo adapter log at failed valid-command acknowledgement ==="
-            cat gazebo-transport.log || true
+            print_log_excerpt "gazebo-transport.log"
             echo "=== Transport subscriber probe ==="
-            cat transport-probe.log || true
+            print_log_excerpt "transport-probe.log"
             echo "=== ROS-to-Gazebo bridge log ==="
-            cat ros-to-gz-bridge.log || true
+            print_log_excerpt "ros-to-gz-bridge.log"
             echo "=== Valid-command publisher log ==="
-            cat inf-watchdog-probe-publisher.log || true
+            print_log_excerpt "inf-watchdog-probe-publisher.log"
             exit 1
           fi
           kill -INT "$publisher_pid" 2>/dev/null || true
@@ -299,7 +334,7 @@ jobs:
           publisher_pid=""
           env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
             "${topic_prefix}/cmd_effort" inf > malformed-inf-publisher.log 2>&1
-          cat malformed-inf-publisher.log
+          print_log_excerpt "malformed-inf-publisher.log"
           inf_watchdog_expired=false
           for _ in $(seq 1 10); do
             watchdog_count="$(grep -Fc "MCA Gazebo adapter transport watchdog expired" gazebo-transport.log || true)"
@@ -339,13 +374,13 @@ jobs:
           if [ "$reset_probe_received" != true ]; then
             echo "Plugin did not acknowledge a new command after watchdog expiry; refusing to run Reset precondition"
             echo "=== Gazebo adapter log at failed reset-probe acknowledgement ==="
-            cat gazebo-transport.log || true
+            print_log_excerpt "gazebo-transport.log"
             echo "=== Transport subscriber probe ==="
-            cat transport-probe.log || true
+            print_log_excerpt "transport-probe.log"
             echo "=== ROS-to-Gazebo bridge log ==="
-            cat ros-to-gz-bridge.log || true
+            print_log_excerpt "ros-to-gz-bridge.log"
             echo "=== Reset-probe publisher log ==="
-            cat reset-probe-publisher.log || true
+            print_log_excerpt "reset-probe-publisher.log"
             exit 1
           fi
 
@@ -360,11 +395,11 @@ jobs:
           if ! gazebo_cli service -s /world/mca_gazebo_smoke/control \
               --reqtype gz.msgs.WorldControl --reptype gz.msgs.Boolean \
               --timeout 3000 --req 'reset: {all: true}' > reset-response.log 2>&1; then
-            cat reset-response.log || true
+            print_log_excerpt "reset-response.log"
             echo "Gazebo world reset service call failed"
             exit 1
           fi
-          cat reset-response.log
+          print_log_excerpt "reset-response.log"
           if ! grep -Eq 'data:[[:space:]]*true' reset-response.log; then
             echo "Gazebo world reset service did not return data: true"
             exit 1
@@ -507,27 +542,27 @@ jobs:
           echo "=== ROS command topic graph after publisher ==="
           ros2 topic info -v "${topic_prefix}/cmd_effort" || true
           echo "=== Gazebo command topic echo ==="
-          cat gz-command-echo.log || true
+          print_log_excerpt "gz-command-echo.log"
           echo "=== Independent C++ Gazebo Transport subscriber probe (diagnostic only) ==="
-          cat transport-probe.log || true
+          print_log_excerpt "transport-probe.log"
           echo "=== ROS publisher log ==="
-          cat command-publisher.log || true
+          print_log_excerpt "command-publisher.log"
           echo "=== Reset probe publisher log ==="
-          cat reset-probe-publisher.log || true
+          print_log_excerpt "reset-probe-publisher.log"
           echo "=== Post-reset ROS velocity samples ==="
-          cat post-reset-velocity.log || true
+          print_log_excerpt "post-reset-velocity.log"
           echo "=== Post-reset Gazebo Transport velocity samples ==="
-          cat post-reset-gz-velocity.log || true
+          print_log_excerpt "post-reset-gz-velocity.log"
           echo "=== Post-reset zero-effort publisher log ==="
-          cat post-reset-zero-command-publisher.log || true
+          print_log_excerpt "post-reset-zero-command-publisher.log"
           echo "=== Post-reset command publisher log ==="
-          cat post-reset-command-publisher.log || true
+          print_log_excerpt "post-reset-command-publisher.log"
           echo "=== Gazebo reset service response ==="
-          cat reset-response.log || true
+          print_log_excerpt "reset-response.log"
           echo "=== ROS -> Gazebo bridge log ==="
-          cat ros-to-gz-bridge.log || true
+          print_log_excerpt "ros-to-gz-bridge.log"
           echo "=== Gazebo -> ROS bridge log ==="
-          cat gz-to-ros-bridge.log || true
+          print_log_excerpt "gz-to-ros-bridge.log"
 
           # Snapshot the actual Gazebo process (not a strace wrapper) before
           # shutdown. This captures all threads and their wait channels.
@@ -577,11 +612,11 @@ jobs:
           gz_pid=""
 
           echo "=== Gazebo runtime log after shutdown ==="
-          cat gazebo-transport.log || true
+          print_log_excerpt "gazebo-transport.log"
           echo "=== ROS velocity samples ==="
-          cat velocity.log || true
+          print_log_excerpt "velocity.log"
           echo "=== Gazebo joint acceleration samples ==="
-          cat acceleration.log || true
+          print_log_excerpt "acceleration.log"
 
           # Gazebo Console inserts ANSI color sequences into GZ_VERBOSE=1 log
           # tokens (for example between "command=" and "1"). Preserve the raw
@@ -716,8 +751,13 @@ jobs:
           # the first server has exited. This catches stale endpoints, plugin
           # teardown leaks, and one-shot initialization assumptions.
           echo "=== Relaunch Gazebo world after graceful shutdown ==="
-          env GZ_VERBOSE=1 GZ_PARTITION="$GZ_PARTITION" GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
-            "$gazebo_executable" sim -s -r -v 4 gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-relaunch.log 2>&1 &
+          if [ "$gazebo_config_path_was_set" = "x" ]; then
+            env GZ_CONFIG_PATH="$gazebo_config_path" GZ_VERBOSE=1 GZ_PARTITION="$GZ_PARTITION" GZ_SIM_SYSTEM_PLUGIN_PATH="$gazebo_system_plugin_path" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
+              "$gazebo_executable" sim -s -r -v 4 gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-relaunch.log 2>&1 &
+          else
+            env -u GZ_CONFIG_PATH GZ_VERBOSE=1 GZ_PARTITION="$GZ_PARTITION" GZ_SIM_SYSTEM_PLUGIN_PATH="$gazebo_system_plugin_path" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
+              "$gazebo_executable" sim -s -r -v 4 gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-relaunch.log 2>&1 &
+          fi
           gz_pid=$!
           relaunch_ready=false
           relaunch_topics=""
@@ -725,10 +765,10 @@ jobs:
             # GZ_VERBOSE logs contain ANSI CSI sequences. Normalize before
             # matching plugin diagnostics; otherwise grep misses a successful
             # Configure line even though the plugin is loaded and running.
-            sed -E 's/\\x1B\\[[0-?]*[ -/]*[@-~]//g' gazebo-relaunch.log > gazebo-relaunch.plain.log
+            sed -E 's/\x1B\[[0-?]*[ -/]*[@-~]//g' gazebo-relaunch.log > gazebo-relaunch.plain.log
             if grep -F "MCA Gazebo adapter configured command topic=${topic_prefix}/cmd_effort" gazebo-relaunch.plain.log | grep -Fq "configured=true"; then
               relaunch_topics="$(gazebo_cli topic -l 2>/dev/null || true)"
-              if printf '%s\\n' "$relaunch_topics" | grep -Fxq "${topic_prefix}/state/velocity"; then
+              if printf '%s\n' "$relaunch_topics" | grep -Fxq "${topic_prefix}/state/velocity"; then
                 relaunch_ready=true
                 break
               fi
@@ -738,7 +778,7 @@ jobs:
           if [ "$relaunch_ready" != true ]; then
             echo "Gazebo adapter did not configure and republish state topics after a second world launch"
             echo "--- normalized relaunch log ---"
-            cat gazebo-relaunch.plain.log || true
+            print_log_excerpt "gazebo-relaunch.plain.log"
             echo "--- Gazebo topic list ---"
             gazebo_cli topic -l 2>&1 || true
             exit 1

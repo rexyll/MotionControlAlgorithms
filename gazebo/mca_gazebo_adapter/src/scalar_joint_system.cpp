@@ -44,6 +44,7 @@ class ScalarJointSystem final : public gz::sim::System,
                                 public gz::sim::ISystemConfigure,
                                 public gz::sim::ISystemPreUpdate,
                                 public gz::sim::ISystemPostUpdate,
+                                public gz::sim::ISystemReset,
                                 public mca::simulation::IScalarGazeboSimulationAdapter {
  public:
   ~ScalarJointSystem() override = default;
@@ -122,6 +123,64 @@ class ScalarJointSystem final : public gz::sim::System,
     // node from a background thread races the transport callback dispatcher
     // and can leave a visible subscriber endpoint that never invokes the
     // plugin callback.
+  }
+
+  void Reset(const gz::sim::UpdateInfo& info,
+             gz::sim::EntityComponentManager& ecm) override {
+    bool had_transport_command = false;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      had_transport_command = transport_command_active_;
+      state_valid_ = false;
+      pending_command_ = false;
+      pending_step_index_ = 0;
+      pending_command_value_ = {};
+      transport_command_active_ = false;
+      transport_command_value_ = {};
+      last_transport_command_wall_time_ = std::chrono::steady_clock::time_point{};
+      last_sim_time_ = 0.0;
+      last_dt_ = 0.0;
+      has_sim_time_ = false;
+      has_previous_velocity_ = false;
+      previous_velocity_ = 0.0;
+      cached_step_ = {};
+      cached_state_ = {};
+      step_index_.store(0, std::memory_order_relaxed);
+    }
+
+    bool force_component_available = false;
+    if (joint_ != gz::sim::kNullEntity) {
+      if (!ecm.Component<gz::sim::components::JointForceCmd>(joint_)) {
+        ecm.CreateComponent(joint_, gz::sim::components::JointForceCmd({0.0}));
+      }
+      force_component_available =
+          ecm.Component<gz::sim::components::JointForceCmd>(joint_) != nullptr;
+      if (force_component_available) {
+        ecm.SetComponentData<gz::sim::components::JointForceCmd>(joint_, {0.0});
+      }
+    }
+
+    // Reset one-shot diagnostics so the post-reset command path is observable
+    // independently from the pre-reset run. Keep the transport node and its
+    // endpoints alive: Reset must not break publisher/subscriber discovery.
+    transport_command_logged_.store(false, std::memory_order_relaxed);
+    typed_command_logged_.store(false, std::memory_order_relaxed);
+    typed_command_callback_count_.store(0, std::memory_order_relaxed);
+    typed_command_callback_count_diagnostic_logged_.store(false,
+                                                           std::memory_order_relaxed);
+    nonzero_effort_logged_.store(false, std::memory_order_relaxed);
+    transport_preupdate_diagnostic_logged_.store(false, std::memory_order_relaxed);
+    transport_watchdog_expiry_logged_.store(false, std::memory_order_relaxed);
+    pre_update_call_count_.store(0, std::memory_order_relaxed);
+    pre_update_logged_.store(false, std::memory_order_relaxed);
+    post_update_logged_.store(false, std::memory_order_relaxed);
+
+    gzmsg << "MCA Gazebo adapter Reset completed sim_time_s="
+          << std::chrono::duration<double>(info.simTime).count()
+          << " had_transport_command=" << (had_transport_command ? "true" : "false")
+          << " applied_effort=0 step_index=0 state_valid=false"
+          << " force_component_available=" << (force_component_available ? "true" : "false")
+          << std::endl;
   }
 
   void PreUpdate(const gz::sim::UpdateInfo& info,
@@ -407,6 +466,7 @@ GZ_ADD_PLUGIN(mca_gazebo_adapter::ScalarJointSystem,
               gz::sim::System,
               gz::sim::ISystemConfigure,
               gz::sim::ISystemPreUpdate,
-              gz::sim::ISystemPostUpdate)
+              gz::sim::ISystemPostUpdate,
+              gz::sim::ISystemReset)
 GZ_ADD_PLUGIN_ALIAS(mca_gazebo_adapter::ScalarJointSystem,
                     "mca_gazebo_adapter::ScalarJointSystem")

@@ -11,12 +11,15 @@ Optional Gazebo Harmonic system plugin implementing the simulator-independent
 - Holds transport effort between messages with a steady wall-clock watchdog (default 0.1 s); timeout or simulation-time rollback clears the effort to zero.
 - Rejects invalid steps/commands and preserves caller output when state is unavailable.
 - Resets command output to zero when no command for the expected step is pending.
+- Implements Gazebo Sim's `ISystemReset` contract: clears cached state, step index,
+  pending and transport commands, acceleration history, and writes zero
+  `JointForceCmd` while keeping the plugin's Transport endpoints alive.
 - Exposes a Gazebo Transport command channel and scalar state channels so a
   ROS 2 bridge can connect without coupling the core simulation interfaces to ROS.
 
 Joint acceleration is estimated from consecutive post-physics velocity samples
 using (velocity[k] - velocity[k-1]) / simulation_dt. The first sample after startup
-or a simulation-time rollback is a zero baseline because no prior sample exists.
+or a simulation reset/time rollback is a zero baseline because no prior sample exists.
 This is a finite-difference estimate, not a direct physics-engine acceleration
 measurement; consumers should account for the sample interval and reset boundary.
 
@@ -31,7 +34,7 @@ created:
 | ROS/Gazebo -> adapter | `cmd_effort` | scalar effort command, held until a newer command or watchdog expiry |
 | adapter -> ROS/Gazebo | `state/position` | joint position |
 | adapter -> ROS/Gazebo | `state/velocity` | joint velocity |
-| adapter -> ROS/Gazebo | `state/acceleration` | currently always `0.0` |
+| adapter -> ROS/Gazebo | `state/acceleration` | finite-difference joint acceleration estimate |
 | adapter -> ROS/Gazebo | `state/time` | simulation time in seconds |
 | adapter -> ROS/Gazebo | `state/step_index` | MCA simulation step index encoded as a double |
 
@@ -45,6 +48,14 @@ the watchdog expires, zero effort is applied. Simulation-time rollback also clea
 active transport command.
 This transport watchdog is separate from the core adapter's step-matched
 `write_command` mailbox.
+
+World reset is provided by Gazebo's `/world/<world_name>/control` service
+(`gz.msgs.WorldControl`, reset all). The adapter's `ISystemReset::Reset`
+implementation invalidates the previous state snapshot, returns the step index
+to zero, clears command freshness and the prior-velocity sample, and writes
+zero effort to the joint. It intentionally retains the existing Transport node,
+subscription and state publishers so the same plugin instance can resume
+command/state exchange after the reset.
 
 The topics intentionally use standard Gazebo `Double` messages so `ros_gz_bridge`
 can map them to `std_msgs/msg/Float64` without a custom message dependency. The

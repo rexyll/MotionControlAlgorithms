@@ -259,7 +259,12 @@ jobs:
 
           # Re-arm with a valid command, then repeat the same deadline test for
           # infinity. This independently verifies both non-finite encodings.
-          timeout 2s ros2 topic pub --rate 100 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > inf-watchdog-probe-publisher.log 2>&1 &
+          # Re-arm the watchdog with a direct Gazebo Transport command burst.
+          # The ROS bridge path is exercised independently above; using the
+          # transport publisher here isolates the watchdog transition from ROS
+          # publisher scheduling and bridge delivery cadence.
+          env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
+            "${topic_prefix}/cmd_effort" 1.0 > inf-watchdog-probe-publisher.log 2>&1 &
           publisher_pid=$!
           inf_probe_received=false
           for _ in $(seq 1 60); do

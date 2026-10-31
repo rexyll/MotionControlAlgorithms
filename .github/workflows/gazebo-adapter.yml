@@ -29,7 +29,7 @@ jobs:
         shell: bash
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends ca-certificates curl gnupg cmake g++ pkg-config cppzmq-dev strace
+          apt-get install -y --no-install-recommends ca-certificates curl gnupg cmake g++ pkg-config cppzmq-dev
           curl -fsSL https://packages.osrfoundation.org/gazebo.gpg -o /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
           echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] https://packages.osrfoundation.org/gazebo/ubuntu-stable $(. /etc/os-release && echo ${UBUNTU_CODENAME}) main" > /etc/apt/sources.list.d/gazebo-stable.list
           apt-get update
@@ -58,8 +58,11 @@ jobs:
           echo "System Gazebo CLI: $gazebo_executable"
           echo "System Gazebo CLI libraries: $gazebo_ld_library_path"
 
-          setsid env GZ_PARTITION="$GZ_PARTITION" GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
-            strace -ff -tt -T -s 160 -o gazebo-startup.strace "$gazebo_executable" sim -s -r -v 4 gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
+          # Run Gazebo without ptrace instrumentation. strace can stop every
+          # traced thread at syscall boundaries and perturb the transport
+          # receiver we are trying to diagnose.
+          env GZ_VERBOSE=1 GZ_PARTITION="$GZ_PARTITION" GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
+            "$gazebo_executable" sim -s -r -v 4 gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-transport.log 2>&1 &
           gz_pid=$!
           bridge_pid=""
           publisher_pid=""
@@ -76,13 +79,15 @@ jobs:
               kill "$pid" 2>/dev/null || true
               wait "$pid" 2>/dev/null || true
             done
-            kill -INT -- "-$gz_pid" 2>/dev/null || true
-            for _ in $(seq 1 5); do
-              kill -0 -- "-$gz_pid" 2>/dev/null || break
-              sleep 1
-            done
-            kill -KILL -- "-$gz_pid" 2>/dev/null || true
-            wait "$gz_pid" 2>/dev/null || true
+            if [ -n "${gz_pid:-}" ]; then
+              kill -INT "$gz_pid" 2>/dev/null || true
+              for _ in $(seq 1 5); do
+                kill -0 "$gz_pid" 2>/dev/null || break
+                sleep 1
+              done
+              kill -KILL "$gz_pid" 2>/dev/null || true
+              wait "$gz_pid" 2>/dev/null || true
+            fi
           }
           trap cleanup EXIT
 
@@ -232,34 +237,39 @@ jobs:
           cat ros-to-gz-bridge.log || true
           echo "=== Gazebo -> ROS bridge log ==="
           cat gz-to-ros-bridge.log || true
-          echo "=== Gazebo runtime log ==="
-          cat gazebo-transport.log || true
-          echo "=== ROS velocity samples ==="
-          cat velocity.log || true
 
-          # Capture the live Gazebo process state before any assertion can exit.
-          # The callback-receipt assertion may fail before the velocity assertion,
-          # so diagnostics must not be hidden behind the last assertion branch.
-          echo "=== Gazebo process and thread state before E2E assertions ==="
-          ps -eLo pid,ppid,tid,stat,pcpu,wchan:32,comm,args | grep -E '[g]z sim|[g]z-sim|[g]zserver|[s]trace' || true
+          # Snapshot the actual Gazebo process (not a strace wrapper) before
+          # shutdown. This captures all threads and their wait channels.
+          echo "=== Gazebo process and thread state before shutdown ==="
+          ps -eLo pid,ppid,tid,stat,pcpu,wchan:32,comm,args -p "$gz_pid" || true
           echo "=== Gazebo server thread wait channels ==="
           for task_file in /proc/"$gz_pid"/task/*/wchan; do
             [ -r "$task_file" ] || continue
             printf '%s: ' "$task_file"
             cat "$task_file" || true
+            printf '\n'
           done
-          echo "=== Gazebo startup strace tails before E2E assertions ==="
-          trace_count=0
-          for trace_file in gazebo-startup.strace*; do
-            [ -f "$trace_file" ] || continue
-            trace_count=$((trace_count + 1))
-            if [ "$trace_count" -gt 20 ]; then
-              echo "Additional strace files omitted after first 20"
-              break
-            fi
-            echo "--- $trace_file ---"
-            tail -n 40 "$trace_file"
+
+          # Stop Gazebo after traffic collection and then read its final log.
+          # This avoids testing against a partial log snapshot while the server
+          # and its transport receiver are still running.
+          echo "=== Gracefully stop Gazebo before reading final runtime log ==="
+          kill -INT "$gz_pid" 2>/dev/null || true
+          for _ in $(seq 1 10); do
+            kill -0 "$gz_pid" 2>/dev/null || break
+            sleep 1
           done
+          if kill -0 "$gz_pid" 2>/dev/null; then
+            echo "Gazebo did not stop after SIGINT; forcing shutdown"
+            kill -KILL "$gz_pid" 2>/dev/null || true
+          fi
+          wait "$gz_pid" 2>/dev/null || true
+          gz_pid=""
+
+          echo "=== Gazebo runtime log after shutdown ==="
+          cat gazebo-transport.log || true
+          echo "=== ROS velocity samples ==="
+          cat velocity.log || true
 
           # Keep the four real E2E assertions unchanged. Diagnostic ordering is
           # bridge -> plugin callback -> non-zero force -> ROS velocity, so a
@@ -282,20 +292,6 @@ jobs:
           fi
           if ! awk '/data:/{v=$2; if (v+0 > 1e-5 || v+0 < -1e-5) {found=1}} END{exit(found ? 0 : 1)}' velocity.log; then
             echo "ROS 2 effort command did not produce velocity above the 1e-5 threshold"
-            echo "=== Gazebo process and thread state at E2E failure ==="
-            ps -eLo pid,ppid,tid,stat,pcpu,wchan:32,comm,args | grep -E '[g]z sim|[g]z-sim|[g]zserver|[s]trace' || true
-            echo "=== Gazebo server thread wait channels ==="
-            for task_file in /proc/"$gz_pid"/task/*/wchan; do
-              [ -r "$task_file" ] || continue
-              printf '%s: ' "$task_file"
-              cat "$task_file" || true
-            done
-            echo "=== Gazebo startup strace tails at E2E failure ==="
-            for trace_file in gazebo-startup.strace*; do
-              [ -f "$trace_file" ] || continue
-              echo "--- $trace_file ---"
-              tail -n 100 "$trace_file"
-            done
             exit 1
           fi
           echo "ROS 2 ↔ Gazebo bridge command/state path passed: bridge forwarding, plugin callback, non-zero JointForceCmd, and velocity > 1e-5"

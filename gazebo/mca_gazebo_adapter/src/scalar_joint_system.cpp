@@ -158,6 +158,7 @@ class ScalarJointSystem final : public gz::sim::System,
     double effort_to_apply = 0.0;
     bool transport_command_observed = false;
     bool transport_command_was_fresh = false;
+    bool transport_command_expired = false;
     double transport_command_age_s = -1.0;
     double observed_transport_effort = 0.0;
     {
@@ -195,6 +196,7 @@ class ScalarJointSystem final : public gz::sim::System,
       }
       if (transport_command_active_ && !transport_command_fresh) {
         transport_command_active_ = false;
+        transport_command_expired = true;
       }
       pending_command_ = false;
       if (current_step != std::numeric_limits<std::size_t>::max()) {
@@ -214,6 +216,12 @@ class ScalarJointSystem final : public gz::sim::System,
             << std::endl;
     }
     ecm.SetComponentData<gz::sim::components::JointForceCmd>(joint_, {effort_to_apply});
+    if (transport_command_expired &&
+        !transport_watchdog_expiry_logged_.exchange(true, std::memory_order_relaxed)) {
+      gzmsg << "MCA Gazebo adapter transport watchdog expired age_s="
+            << transport_command_age_s << " timeout_s=" << command_timeout_s_
+            << " applied_effort=" << effort_to_apply << std::endl;
+    }
     if (std::abs(effort_to_apply) > 1e-12 &&
         !nonzero_effort_logged_.exchange(true, std::memory_order_relaxed)) {
       gzmsg << "MCA Gazebo adapter applied non-zero JointForceCmd="
@@ -367,6 +375,7 @@ class ScalarJointSystem final : public gz::sim::System,
   std::atomic<bool> typed_command_callback_count_diagnostic_logged_{false};
   std::atomic<bool> nonzero_effort_logged_{false};
   std::atomic<bool> transport_preupdate_diagnostic_logged_{false};
+  std::atomic<bool> transport_watchdog_expiry_logged_{false};
   std::atomic<std::size_t> pre_update_call_count_{0};
   std::atomic<bool> pre_update_logged_{false};
   std::atomic<bool> post_update_logged_{false};

@@ -199,22 +199,24 @@ jobs:
           # Start the state subscriber before any command is published. This
           # removes the previous one-second race in which the command publisher
           # could already be active while the ROS-side state subscriber was not.
-          timeout 10s ros2 topic echo "${topic_prefix}/state/velocity" std_msgs/msg/Float64 > velocity.log 2>&1 &
+          timeout 8s ros2 topic echo "${topic_prefix}/state/velocity" std_msgs/msg/Float64 > velocity.log 2>&1 &
           velocity_pid=$!
           # Observe measured acceleration directly on Gazebo Transport before
           # applying effort, so the test cannot miss its initial transient.
-          timeout 10s env GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
+          timeout 8s env GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
             "$gazebo_executable" topic -e -t "${topic_prefix}/state/acceleration" > acceleration.log 2>&1 &
           acceleration_pid=$!
           sleep 1
 
           # Diagnostic probe must be alive before command publication so it can
           # independently prove Gazebo Transport delivery on the same partition.
-          timeout 12s env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_subscriber_probe "${topic_prefix}/cmd_effort" > transport-probe.log 2>&1 &
+          timeout 8s env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_subscriber_probe "${topic_prefix}/cmd_effort" > transport-probe.log 2>&1 &
           transport_probe_pid=$!
           sleep 1
 
-          timeout 12s ros2 topic pub --rate 100 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > command-publisher.log 2>&1 &
+          # Stop command publication after four seconds. Keep the state observers alive
+          # long enough to cross the configured 0.5 s watchdog deadline.
+          timeout 4s ros2 topic pub --rate 100 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > command-publisher.log 2>&1 &
           publisher_pid=$!
 
           for _ in $(seq 1 10); do
@@ -293,6 +295,35 @@ jobs:
           Path("gazebo-transport.plain.log").write_text(plain_log)
           PY
 
+          # Require the plugin to report the watchdog transition only after its
+          # configured wall-clock deadline, with zero effort written to the joint.
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          plain_log = Path("gazebo-transport.plain.log").read_text(errors="replace")
+          pattern = re.compile(
+              r"MCA Gazebo adapter transport watchdog expired age_s=([-+0-9.eE]+) "
+              r"timeout_s=([-+0-9.eE]+) applied_effort=([-+0-9.eE]+)"
+          )
+          matches = pattern.findall(plain_log)
+          if not matches:
+              raise SystemExit("Gazebo adapter did not report transport watchdog expiry")
+          age_s, timeout_s, applied_effort = map(float, matches[-1])
+          if age_s < timeout_s:
+              raise SystemExit(
+                  f"Watchdog expired before its deadline: age={age_s}, timeout={timeout_s}"
+              )
+          if abs(applied_effort) > 1e-12:
+              raise SystemExit(
+                  f"Watchdog expiry did not result in zero effort: {applied_effort}"
+              )
+          print(
+              f"Gazebo transport watchdog passed: age={age_s:.6f}s, "
+              f"timeout={timeout_s:.6f}s, applied_effort={applied_effort}"
+          )
+          PY
+
           # Keep the four real E2E assertions unchanged. Diagnostic ordering is
           # bridge -> plugin callback -> non-zero force -> ROS velocity, so a
           # failure identifies the broken layer without weakening acceptance.
@@ -324,4 +355,4 @@ jobs:
             echo "Gazebo joint acceleration remained at or below the 1e-5 threshold"
             exit 1
           fi
-          echo "ROS 2 ↔ Gazebo bridge command/state path passed: bridge forwarding, plugin callback, non-zero JointForceCmd, velocity > 1e-5, and measured acceleration > 1e-5"
+          echo "ROS 2 ↔ Gazebo bridge command/state path passed: bridge forwarding, plugin callback, non-zero JointForceCmd, velocity > 1e-5, measured acceleration > 1e-5, and watchdog zero-effort expiry"

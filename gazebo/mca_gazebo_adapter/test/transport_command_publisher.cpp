@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
   errno = 0;
   char* end = nullptr;
   const double value = std::strtod(argv[2], &end);
-  if (end == argv[2] || *end != '\\0' || errno == ERANGE) {
+  if (end == argv[2] || *end != '\0' || errno == ERANGE) {
     std::cerr << "invalid numeric VALUE: " << argv[2] << std::endl;
     return 2;
   }

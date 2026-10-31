@@ -197,6 +197,7 @@ class ScalarJointSystem final : public gz::sim::System,
     typed_command_callback_count_diagnostic_logged_.store(false,
                                                            std::memory_order_relaxed);
     nonzero_effort_logged_.store(false, std::memory_order_relaxed);
+    zero_effort_command_logged_.store(false, std::memory_order_relaxed);
     transport_preupdate_diagnostic_logged_.store(false, std::memory_order_relaxed);
     transport_watchdog_expiry_logged_.store(false, std::memory_order_relaxed);
     pre_update_call_count_.store(0, std::memory_order_relaxed);
@@ -454,6 +455,13 @@ class ScalarJointSystem final : public gz::sim::System,
       gzmsg << "MCA Gazebo adapter received typed transport effort command=" << effort
             << " on " << command_topic_ << std::endl;
     }
+    // Keep zero-effort delivery observable even when an earlier in-flight
+    // bridge message consumes the first-command diagnostic after Reset.
+    if (effort == 0.0 &&
+        !zero_effort_command_logged_.exchange(true, std::memory_order_relaxed)) {
+      gzmsg << "MCA Gazebo adapter received zero-effort transport command on "
+            << command_topic_ << std::endl;
+    }
     bool watchdog_was_expired = false;
     {
       std::lock_guard<std::mutex> lock(mutex_);
@@ -494,6 +502,7 @@ class ScalarJointSystem final : public gz::sim::System,
   std::chrono::steady_clock::time_point last_transport_command_wall_time_{};
   bool transport_command_active_{false};
   std::atomic<bool> transport_command_logged_{false};
+  std::atomic<bool> zero_effort_command_logged_{false};
   std::atomic<std::size_t> invalid_transport_command_count_{0};
   std::atomic<bool> typed_command_logged_{false};
   std::atomic<std::size_t> typed_command_callback_count_{0};

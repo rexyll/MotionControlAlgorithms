@@ -726,8 +726,10 @@ jobs:
             echo "Gazebo adapter did not receive the initial, pre-reset, post-reset zero-effort, and fresh motion commands"
             exit 1
           fi
-          if ! grep -Fq "MCA Gazebo adapter received typed transport effort command=0" gazebo-transport.plain.log; then
+          if ! grep -Fq "MCA Gazebo adapter received zero-effort transport command on ${topic_prefix}/cmd_effort" gazebo-transport.plain.log; then
             echo "Gazebo adapter did not receive the required post-reset zero-effort command"
+            echo "=== Reset command event summary ==="
+            grep -E "MCA Gazebo adapter (Reset completed|received typed transport effort command=|received zero-effort transport command|PreUpdate observed transport command=|transport watchdog expired)" gazebo-transport.plain.log | tail -80 || true
             exit 1
           fi
           if ! grep -Eq 'MCA Gazebo adapter PreUpdate observed transport command=0 fresh=true .*applied_effort=0([.]0*)?([[:space:]]|$)' gazebo-transport.plain.log; then

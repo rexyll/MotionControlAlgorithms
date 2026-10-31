@@ -717,8 +717,21 @@ jobs:
             exit 1
           fi
           reset_count="$(grep -Fc "MCA Gazebo adapter Reset completed" gazebo-transport.plain.log || true)"
-          if [ "$reset_count" -lt 1 ] || ! grep -Eq 'MCA Gazebo adapter Reset completed .*had_transport_command=true applied_effort=0 step_index=0 state_valid=false force_component_available=true' gazebo-transport.plain.log; then
+          reset_state_confirmed=false
+          if [ "$reset_count" -ge 1 ] && grep -Eq 'MCA Gazebo adapter Reset completed .*had_transport_command=true applied_effort=0 step_index=0 state_valid=false force_component_available=true' gazebo-transport.plain.log; then
+            reset_state_confirmed=true
+          fi
+          if [ "$reset_state_confirmed" != true ]; then
             echo "Gazebo adapter Reset did not confirm clearing a fresh command and zeroing JointForceCmd"
+            echo "Reset callback count: $reset_count"
+            echo "=== Exact Reset callback diagnostics ==="
+            grep -F "MCA Gazebo adapter Reset completed" gazebo-transport.plain.log || true
+            echo "=== Command/watchdog/PreUpdate event diagnostics ==="
+            grep -E "MCA Gazebo adapter (received typed transport effort command=|transport watchdog (re-armed|expired)|PreUpdate observed transport command=|applied non-zero JointForceCmd=)" gazebo-transport.plain.log | tail -100 || true
+            echo "=== Reset probe publisher diagnostics ==="
+            print_log_excerpt "reset-probe-publisher.log"
+            echo "=== Gazebo reset service response ==="
+            print_log_excerpt "reset-response.log"
             exit 1
           fi
           callback_count="$(grep -Fc "MCA Gazebo adapter received typed transport effort command=" gazebo-transport.plain.log || true)"

@@ -550,9 +550,17 @@ jobs:
             echo "Gazebo adapter Reset did not confirm clearing a fresh command and zeroing JointForceCmd"
             exit 1
           fi
-          callback_count="$(grep -Fc "MCA Gazebo adapter received typed transport effort command=1" gazebo-transport.plain.log || true)"
+          callback_count="$(grep -Fc "MCA Gazebo adapter received typed transport effort command=" gazebo-transport.plain.log || true)"
           if [ "$callback_count" -lt 4 ]; then
-            echo "Gazebo adapter did not receive the initial, pre-reset, reset-epoch, and fresh post-reset commands"
+            echo "Gazebo adapter did not receive the initial, pre-reset, post-reset zero-effort, and fresh motion commands"
+            exit 1
+          fi
+          if ! grep -Fq "MCA Gazebo adapter received typed transport effort command=0" gazebo-transport.plain.log; then
+            echo "Gazebo adapter did not receive the required post-reset zero-effort command"
+            exit 1
+          fi
+          if ! grep -Eq 'MCA Gazebo adapter PreUpdate observed transport command=0 fresh=true .*applied_effort=0([.]0*)?([[:space:]]|$)' gazebo-transport.plain.log; then
+            echo "Gazebo adapter did not apply zero effort after Reset"
             exit 1
           fi
           nonzero_force_count="$(grep -Fc "MCA Gazebo adapter applied non-zero JointForceCmd=" gazebo-transport.plain.log || true)"

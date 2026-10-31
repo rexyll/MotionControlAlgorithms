@@ -766,15 +766,42 @@ jobs:
           # Each reset is requested only after a fresh non-zero Transport command
           # has reached the plugin, so this checks the active-command clearing
           # path repeatedly rather than merely counting reset service responses.
+          # Gazebo Console may inject ANSI CSI sequences inside plugin
+          # diagnostics while the server is live. Normalize the live log for
+          # every repeated-reset poll, not only after graceful shutdown.
+          count_gazebo_log_matches() {
+            python3 - "$1" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          raw = Path("gazebo-transport.log").read_text(errors="replace")
+          plain = re.sub(r"\\x1b\\[[0-?]*[ -/]*[@-~]", "", raw)
+          print(plain.count(sys.argv[1]))
+          PY
+          }
+          latest_gazebo_log_match() {
+            python3 - "$1" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          raw = Path("gazebo-transport.log").read_text(errors="replace")
+          plain = re.sub(r"\\x1b\\[[0-?]*[ -/]*[@-~]", "", raw)
+          matches = [line for line in plain.splitlines() if sys.argv[1] in line]
+          if matches:
+              print(matches[-1])
+          PY
+          }
           for reset_cycle in 1 2; do
-            command_count_before="$(grep -Fc "MCA Gazebo adapter received typed transport effort command=" gazebo-transport.log || true)"
+            command_count_before="$(count_gazebo_log_matches "MCA Gazebo adapter received typed transport effort command=")"
             echo "=== Repeated reset stress cycle ${reset_cycle}: arm active command ==="
             env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
               "${topic_prefix}/cmd_effort" 1.0 > "reset-stress-${reset_cycle}-publisher.log" 2>&1 &
             stress_publisher_pid=$!
             command_seen=false
             for _ in $(seq 1 40); do
-              command_count_now="$(grep -Fc "MCA Gazebo adapter received typed transport effort command=" gazebo-transport.log || true)"
+              command_count_now="$(count_gazebo_log_matches "MCA Gazebo adapter received typed transport effort command=")"
               if [ "${command_count_now:-0}" -gt "${command_count_before:-0}" ]; then
                 command_seen=true
                 break
@@ -791,7 +818,7 @@ jobs:
             kill "$stress_publisher_pid" 2>/dev/null || true
             wait "$stress_publisher_pid" 2>/dev/null || true
 
-            reset_count_before="$(grep -Fc "MCA Gazebo adapter Reset completed" gazebo-transport.log || true)"
+            reset_count_before="$(count_gazebo_log_matches "MCA Gazebo adapter Reset completed")"
             if ! gazebo_cli service -s /world/mca_gazebo_smoke/control \
                 --reqtype gz.msgs.WorldControl --reptype gz.msgs.Boolean \
                 --timeout 3000 --req 'reset: {all: true}' > "reset-stress-${reset_cycle}-response.log" 2>&1; then
@@ -801,7 +828,7 @@ jobs:
             fi
             reset_seen=false
             for _ in $(seq 1 40); do
-              reset_count_now="$(grep -Fc "MCA Gazebo adapter Reset completed" gazebo-transport.log || true)"
+              reset_count_now="$(count_gazebo_log_matches "MCA Gazebo adapter Reset completed")"
               if [ "${reset_count_now:-0}" -gt "${reset_count_before:-0}" ]; then
                 reset_seen=true
                 break
@@ -813,7 +840,7 @@ jobs:
               print_log_excerpt "gazebo-transport.log"
               exit 1
             fi
-            latest_reset="$(grep "MCA Gazebo adapter Reset completed" gazebo-transport.log | tail -1)"
+            latest_reset="$(latest_gazebo_log_match "MCA Gazebo adapter Reset completed")"
             echo "Reset stress cycle ${reset_cycle}: ${latest_reset}"
             if [[ "$latest_reset" != *"had_transport_command=true"* || \
                   "$latest_reset" != *"applied_effort=0"* || \

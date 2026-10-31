@@ -720,10 +720,15 @@ jobs:
             "$gazebo_executable" sim -s -r -v 4 gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-relaunch.log 2>&1 &
           gz_pid=$!
           relaunch_ready=false
+          relaunch_topics=""
           for _ in $(seq 1 60); do
-            if grep -F "MCA Gazebo adapter configured command topic=${topic_prefix}/cmd_effort" gazebo-relaunch.log | grep -Fq "configured=true"; then
+            # GZ_VERBOSE logs contain ANSI CSI sequences. Normalize before
+            # matching plugin diagnostics; otherwise grep misses a successful
+            # Configure line even though the plugin is loaded and running.
+            sed -E 's/\\x1B\\[[0-?]*[ -/]*[@-~]//g' gazebo-relaunch.log > gazebo-relaunch.plain.log
+            if grep -F "MCA Gazebo adapter configured command topic=${topic_prefix}/cmd_effort" gazebo-relaunch.plain.log | grep -Fq "configured=true"; then
               relaunch_topics="$(gazebo_cli topic -l 2>/dev/null || true)"
-              if printf '%s\n' "$relaunch_topics" | grep -Fxq "${topic_prefix}/state/velocity"; then
+              if printf '%s\\n' "$relaunch_topics" | grep -Fxq "${topic_prefix}/state/velocity"; then
                 relaunch_ready=true
                 break
               fi
@@ -732,7 +737,10 @@ jobs:
           done
           if [ "$relaunch_ready" != true ]; then
             echo "Gazebo adapter did not configure and republish state topics after a second world launch"
-            cat gazebo-relaunch.log || true
+            echo "--- normalized relaunch log ---"
+            cat gazebo-relaunch.plain.log || true
+            echo "--- Gazebo topic list ---"
+            gazebo_cli topic -l 2>&1 || true
             exit 1
           fi
           relaunch_subscriber_ready=false

@@ -246,6 +246,7 @@ class ScalarJointSystem final : public gz::sim::System,
     bool transport_command_observed = false;
     bool transport_command_was_fresh = false;
     bool transport_command_expired = false;
+    bool transport_watchdog_expiry_diagnostic = false;
     double transport_command_age_s = -1.0;
     double observed_transport_effort = 0.0;
     {
@@ -288,6 +289,11 @@ class ScalarJointSystem final : public gz::sim::System,
         // ingress diagnostic. The workflow uses this acknowledgement to
         // ensure a transport command is active before invoking World Reset.
         transport_command_logged_.store(false, std::memory_order_relaxed);
+        // Publish the watchdog state transition while holding mutex_. A valid
+        // command callback uses the same lock, so it cannot race between the
+        // expiry decision and its diagnostic state update.
+        transport_watchdog_expiry_diagnostic =
+            !transport_watchdog_expiry_logged_.exchange(true, std::memory_order_relaxed);
       }
       pending_command_ = false;
       if (current_step != std::numeric_limits<std::size_t>::max()) {
@@ -307,8 +313,7 @@ class ScalarJointSystem final : public gz::sim::System,
             << std::endl;
     }
     ecm.SetComponentData<gz::sim::components::JointForceCmd>(joint_, {effort_to_apply});
-    if (transport_command_expired &&
-        !transport_watchdog_expiry_logged_.exchange(true, std::memory_order_relaxed)) {
+    if (transport_command_expired && transport_watchdog_expiry_diagnostic) {
       gzmsg << "MCA Gazebo adapter transport watchdog expired age_s="
             << transport_command_age_s << " timeout_s=" << command_timeout_s_
             << " applied_effort=" << effort_to_apply << std::endl;
@@ -449,16 +454,18 @@ class ScalarJointSystem final : public gz::sim::System,
       gzmsg << "MCA Gazebo adapter received typed transport effort command=" << effort
             << " on " << command_topic_ << std::endl;
     }
-    std::lock_guard<std::mutex> lock(mutex_);
-    transport_command_value_.effort[0] = effort;
-    last_transport_command_wall_time_ = std::chrono::steady_clock::now();
-    transport_command_active_ = true;
-    // A newly accepted command begins a new watchdog observation interval.
-    // If the previous interval expired, report the transition explicitly so
-    // integration tests can distinguish a newly accepted command from the
-    // one-shot "first command received" diagnostic above.
-    const bool watchdog_was_expired =
-        transport_watchdog_expiry_logged_.exchange(false, std::memory_order_relaxed);
+    bool watchdog_was_expired = false;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      transport_command_value_.effort[0] = effort;
+      last_transport_command_wall_time_ = std::chrono::steady_clock::now();
+      transport_command_active_ = true;
+      // Serialize the re-arm transition with PreUpdate's expiry transition.
+      // Otherwise a command can clear this flag just before PreUpdate marks
+      // the previous interval expired, losing the re-arm acknowledgement.
+      watchdog_was_expired =
+          transport_watchdog_expiry_logged_.exchange(false, std::memory_order_relaxed);
+    }
     if (watchdog_was_expired) {
       gzmsg << "MCA Gazebo adapter transport watchdog re-armed by valid command"
             << " effort=" << effort

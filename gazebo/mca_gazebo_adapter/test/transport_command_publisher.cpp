@@ -10,7 +10,7 @@
 #include <gz/transport/Node.hh>
 
 int main(int argc, char** argv) {
-  if (argc != 3) {
+  if (argc != 3 && argc != 4) {
     std::cerr << "usage: mca_transport_command_publisher TOPIC VALUE\n";
     return 2;
   }

@@ -270,7 +270,7 @@ jobs:
           log = re.sub(re.escape(chr(27)) + r"\[[0-?]*[ -/]*[@-~]", "", log)
           print(log.count("MCA Gazebo adapter transport watchdog re-armed by valid command"))
           PY
-)"
+          )"
             if [ "${watchdog_rearm_count:-0}" -ge 1 ]; then
               inf_probe_received=true
               break
@@ -324,7 +324,7 @@ jobs:
           log = re.sub(re.escape(chr(27)) + r"\[[0-?]*[ -/]*[@-~]", "", log)
           print(log.count("MCA Gazebo adapter transport watchdog re-armed by valid command"))
           PY
-)"
+          )"
             if [ "${watchdog_rearm_count:-0}" -ge 2 ]; then
               reset_probe_received=true
               break

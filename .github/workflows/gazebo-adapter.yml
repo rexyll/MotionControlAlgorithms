@@ -69,10 +69,12 @@ jobs:
           velocity_pid=""
           acceleration_pid=""
           post_reset_velocity_pid=""
+          post_reset_gz_velocity_pid=""
+          post_reset_publisher_pid=""
           command_echo_pid=""
           transport_probe_pid=""
           cleanup() {
-            for pid in "$velocity_pid" "$acceleration_pid" "$post_reset_velocity_pid" "$command_echo_pid" "$publisher_pid" "$transport_probe_pid"; do
+            for pid in "$velocity_pid" "$acceleration_pid" "$post_reset_velocity_pid" "$post_reset_gz_velocity_pid" "$post_reset_publisher_pid" "$command_echo_pid" "$publisher_pid" "$transport_probe_pid"; do
               [ -n "$pid" ] || continue
               kill "$pid" 2>/dev/null || true
               wait "$pid" 2>/dev/null || true
@@ -281,32 +283,97 @@ jobs:
             exit 1
           fi
 
-          # Start a new observer only after the Reset callback. Keep the original
-          # 100 Hz command stream running across the reset and wait for the plugin
-          # to acknowledge a post-reset command before stopping its publisher.
+          # The reset-probe stream remained active across Reset. Stop it now and
+          # wait for the post-reset watchdog to clear that command before opening
+          # fresh state observers; this guarantees they are ready before the next
+          # command can create the short physical velocity transient.
+          reset_epoch_command_count="$(grep -Fc "MCA Gazebo adapter received typed transport effort command=" gazebo-transport.log || true)"
+          if [ "${reset_epoch_command_count:-0}" -lt 3 ]; then
+            echo "The Gazebo plugin did not acknowledge a command after Reset"
+            exit 1
+          fi
+          kill -INT "$publisher_pid" 2>/dev/null || true
+          wait "$publisher_pid" 2>/dev/null || true
+          publisher_pid=""
+
+          post_reset_watchdog_expired=false
+          for _ in $(seq 1 30); do
+            watchdog_count="$(grep -Fc "MCA Gazebo adapter transport watchdog expired" gazebo-transport.log || true)"
+            if [ "${watchdog_count:-0}" -ge 2 ]; then
+              post_reset_watchdog_expired=true
+              break
+            fi
+            sleep 0.1
+          done
+          if [ "$post_reset_watchdog_expired" != true ]; then
+            echo "The post-reset command did not expire before the fresh motion probe"
+            exit 1
+          fi
+
+          # Open both Gazebo Transport and ROS state observers before publishing
+          # the next post-reset command. This avoids missing a fast acceleration
+          # transient while the rotor moves away from its reset position.
+          timeout 8s env GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
+            "$gazebo_executable" topic -e -t "${topic_prefix}/state/velocity" > post-reset-gz-velocity.log 2>&1 &
+          post_reset_gz_velocity_pid=$!
           timeout 8s ros2 topic echo "${topic_prefix}/state/velocity" std_msgs/msg/Float64 > post-reset-velocity.log 2>&1 &
           post_reset_velocity_pid=$!
+
+          post_reset_gz_velocity_ready=false
+          for _ in $(seq 1 30); do
+            post_reset_velocity_topic_info="$(gazebo_cli topic -i -t "${topic_prefix}/state/velocity" 2>/dev/null || true)"
+            if printf '%s\n' "$post_reset_velocity_topic_info" | awk '
+              /^Subscribers \[/ { in_subscribers=1; next }
+              /^[^[:space:]]/ { if (in_subscribers) in_subscribers=0 }
+              in_subscribers && /tcp:\/\// { found=1 }
+              END { exit(found ? 0 : 1) }
+            '; then
+              post_reset_gz_velocity_ready=true
+              break
+            fi
+            sleep 0.1
+          done
+          if [ "$post_reset_gz_velocity_ready" != true ]; then
+            echo "Post-reset Gazebo velocity observer did not discover the adapter publisher"
+            exit 1
+          fi
+
+          post_reset_ros_velocity_ready=false
+          for _ in $(seq 1 30); do
+            post_reset_ros_subscribers="$(ros2 topic info -v "${topic_prefix}/state/velocity" 2>/dev/null | awk '/Subscription count:/{print $3; exit}')"
+            if [ "${post_reset_ros_subscribers:-0}" -ge 1 ]; then
+              post_reset_ros_velocity_ready=true
+              break
+            fi
+            sleep 0.1
+          done
+          if [ "$post_reset_ros_velocity_ready" != true ]; then
+            echo "Post-reset ROS velocity observer did not join the state topic"
+            exit 1
+          fi
+
+          # Now issue a distinct command only after both state observers are live.
+          timeout 4s ros2 topic pub --rate 100 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > post-reset-command-publisher.log 2>&1 &
+          post_reset_publisher_pid=$!
           post_reset_command_received=false
           for _ in $(seq 1 60); do
             reset_epoch_command_count="$(grep -Fc "MCA Gazebo adapter received typed transport effort command=" gazebo-transport.log || true)"
-            if [ "${reset_epoch_command_count:-0}" -ge 3 ]; then
+            if [ "${reset_epoch_command_count:-0}" -ge 4 ]; then
               post_reset_command_received=true
               break
             fi
             sleep 0.1
           done
           if [ "$post_reset_command_received" != true ]; then
-            echo "The Gazebo plugin did not acknowledge a command after Reset"
+            echo "The Gazebo plugin did not acknowledge the fresh post-reset motion command"
             exit 1
           fi
-          # Keep effort active long enough to verify that post-reset physics
-          # advances and the ROS state bridge publishes a non-zero velocity.
-          sleep 2
-          kill -INT "$publisher_pid" 2>/dev/null || true
-          wait "$publisher_pid" 2>/dev/null || true
-          publisher_pid=""
+          wait "$post_reset_publisher_pid" || true
+          post_reset_publisher_pid=""
           wait "$post_reset_velocity_pid" || true
           post_reset_velocity_pid=""
+          wait "$post_reset_gz_velocity_pid" || true
+          post_reset_gz_velocity_pid=""
 
           wait "$velocity_pid" || true
           wait "$acceleration_pid" || true
@@ -322,8 +389,12 @@ jobs:
           cat command-publisher.log || true
           echo "=== Reset probe publisher log ==="
           cat reset-probe-publisher.log || true
-          echo "=== Post-reset velocity samples ==="
+          echo "=== Post-reset ROS velocity samples ==="
           cat post-reset-velocity.log || true
+          echo "=== Post-reset Gazebo Transport velocity samples ==="
+          cat post-reset-gz-velocity.log || true
+          echo "=== Post-reset command publisher log ==="
+          cat post-reset-command-publisher.log || true
           echo "=== Gazebo reset service response ==="
           cat reset-response.log || true
           echo "=== ROS -> Gazebo bridge log ==="
@@ -445,8 +516,8 @@ jobs:
             exit 1
           fi
           callback_count="$(grep -Fc "MCA Gazebo adapter received typed transport effort command=1" gazebo-transport.plain.log || true)"
-          if [ "$callback_count" -lt 3 ]; then
-            echo "Gazebo adapter did not receive acknowledged effort commands before and after Reset"
+          if [ "$callback_count" -lt 4 ]; then
+            echo "Gazebo adapter did not receive the initial, pre-reset, reset-epoch, and fresh post-reset commands"
             exit 1
           fi
           nonzero_force_count="$(grep -Fc "MCA Gazebo adapter applied non-zero JointForceCmd=" gazebo-transport.plain.log || true)"
@@ -454,8 +525,12 @@ jobs:
             echo "Gazebo adapter did not apply non-zero effort both before and after Reset"
             exit 1
           fi
+          if ! awk '/data:/{v=$2; if (v+0 > 1e-5 || v+0 < -1e-5) {found=1}} END{exit(found ? 0 : 1)}' post-reset-gz-velocity.log; then
+            echo "Gazebo Transport joint velocity did not become non-zero after Reset"
+            exit 1
+          fi
           if ! awk '/data:/{v=$2; if (v+0 > 1e-5 || v+0 < -1e-5) {found=1}} END{exit(found ? 0 : 1)}' post-reset-velocity.log; then
             echo "ROS 2 velocity state did not resume after Gazebo Reset"
             exit 1
           fi
-          echo "ROS 2 ↔ Gazebo bridge command/state path passed: bridge forwarding, plugin callback, non-zero JointForceCmd, velocity > 1e-5, measured acceleration > 1e-5, watchdog zero-effort expiry, Reset clears an active command, and state/command flow resumes after Reset"
+          echo "ROS 2 ↔ Gazebo bridge command/state path passed: bridge forwarding, plugin callback, non-zero JointForceCmd, velocity > 1e-5, measured acceleration > 1e-5, watchdog zero-effort expiry, Reset clears an active command, and post-reset command produces measured velocity on Gazebo Transport and ROS 2"

@@ -454,9 +454,16 @@ class ScalarJointSystem final : public gz::sim::System,
     last_transport_command_wall_time_ = std::chrono::steady_clock::now();
     transport_command_active_ = true;
     // A newly accepted command begins a new watchdog observation interval.
-    // Re-arm the expiry diagnostic so repeated command/expiry cycles remain
-    // independently observable (including malformed-input regression tests).
-    transport_watchdog_expiry_logged_.store(false, std::memory_order_relaxed);
+    // If the previous interval expired, report the transition explicitly so
+    // integration tests can distinguish a newly accepted command from the
+    // one-shot "first command received" diagnostic above.
+    const bool watchdog_was_expired =
+        transport_watchdog_expiry_logged_.exchange(false, std::memory_order_relaxed);
+    if (watchdog_was_expired) {
+      gzmsg << "MCA Gazebo adapter transport watchdog re-armed by valid command"
+            << " effort=" << effort
+            << " topic=" << command_topic_ << std::endl;
+    }
   }
 
   static void PublishScalar(gz::transport::Node::Publisher& publisher, double value) {

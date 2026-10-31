@@ -165,7 +165,15 @@ jobs:
           gazebo_command_topic_info=""
           for _ in $(seq 1 20); do
             gazebo_command_topic_info="$(gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" 2>/dev/null || true)"
-            if printf '%s\n' "$gazebo_command_topic_info" | grep -Eq 'Subscriber count:[[:space:]]*[1-9][0-9]*'; then
+            # Gazebo Harmonic topic -i lists endpoint sections instead of
+            # a numeric "Subscriber count" field. Count TCP endpoints only
+            # inside Subscribers, excluding the bridge publisher endpoint.
+            if printf '%s\n' "$gazebo_command_topic_info" | awk '
+              /^Subscribers \[/ { in_subscribers=1; next }
+              /^[^[:space:]]/ { if (in_subscribers) in_subscribers=0 }
+              in_subscribers && /tcp:\/\// { found=1 }
+              END { exit(found ? 0 : 1) }
+            '; then
               gazebo_command_subscriber_ready=true
               break
             fi

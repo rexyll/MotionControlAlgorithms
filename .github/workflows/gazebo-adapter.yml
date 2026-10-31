@@ -749,6 +749,68 @@ jobs:
             echo "ROS 2 velocity state did not resume after Gazebo Reset"
             exit 1
           fi
+          # Exercise repeated Reset transitions in one live simulator process.
+          # Each reset is requested only after a fresh non-zero Transport command
+          # has reached the plugin, so this checks the active-command clearing
+          # path repeatedly rather than merely counting reset service responses.
+          for reset_cycle in 1 2; do
+            command_count_before="$(grep -Fc "MCA Gazebo adapter received typed transport effort command=" gazebo-transport.log || true)"
+            echo "=== Repeated reset stress cycle ${reset_cycle}: arm active command ==="
+            env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \\
+              "${topic_prefix}/cmd_effort" 1.0 > "reset-stress-${reset_cycle}-publisher.log" 2>&1 &
+            stress_publisher_pid=$!
+            command_seen=false
+            for _ in $(seq 1 40); do
+              command_count_now="$(grep -Fc "MCA Gazebo adapter received typed transport effort command=" gazebo-transport.log || true)"
+              if [ "${command_count_now:-0}" -gt "${command_count_before:-0}" ]; then
+                command_seen=true
+                break
+              fi
+              sleep 0.05
+            done
+            if [ "$command_seen" != true ]; then
+              kill "$stress_publisher_pid" 2>/dev/null || true
+              wait "$stress_publisher_pid" 2>/dev/null || true
+              echo "Gazebo adapter did not acknowledge the active command for reset stress cycle ${reset_cycle}"
+              print_log_excerpt "reset-stress-${reset_cycle}-publisher.log"
+              exit 1
+            fi
+            kill "$stress_publisher_pid" 2>/dev/null || true
+            wait "$stress_publisher_pid" 2>/dev/null || true
+
+            reset_count_before="$(grep -Fc "MCA Gazebo adapter Reset completed" gazebo-transport.log || true)"
+            if ! gazebo_cli service -s /world/mca_gazebo_smoke/control \\
+                --reqtype gz.msgs.WorldControl --reptype gz.msgs.Boolean \\
+                --timeout 3000 --req 'reset: {all: true}' > "reset-stress-${reset_cycle}-response.log" 2>&1; then
+              print_log_excerpt "reset-stress-${reset_cycle}-response.log"
+              echo "Gazebo reset service failed during stress cycle ${reset_cycle}"
+              exit 1
+            fi
+            reset_seen=false
+            for _ in $(seq 1 40); do
+              reset_count_now="$(grep -Fc "MCA Gazebo adapter Reset completed" gazebo-transport.log || true)"
+              if [ "${reset_count_now:-0}" -gt "${reset_count_before:-0}" ]; then
+                reset_seen=true
+                break
+              fi
+              sleep 0.05
+            done
+            if [ "$reset_seen" != true ]; then
+              echo "MCA plugin Reset callback was not observed in stress cycle ${reset_cycle}"
+              print_log_excerpt "gazebo-transport.log"
+              exit 1
+            fi
+            latest_reset="$(grep "MCA Gazebo adapter Reset completed" gazebo-transport.log | tail -1)"
+            echo "Reset stress cycle ${reset_cycle}: ${latest_reset}"
+            if [[ "$latest_reset" != *"had_transport_command=true"* || \\
+                  "$latest_reset" != *"applied_effort=0"* || \\
+                  "$latest_reset" != *"force_component_available=true"* ]]; then
+              echo "Reset stress cycle ${reset_cycle} did not clear an active command and zero JointForceCmd"
+              exit 1
+            fi
+          done
+          echo "Repeated active-command Reset stress passed (2 additional cycles)"
+
           # Re-launch the same world in the same transport partition after
           # the first server has exited. This catches stale endpoints, plugin
           # teardown leaks, and one-shot initialization assumptions.

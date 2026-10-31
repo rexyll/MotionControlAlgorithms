@@ -264,12 +264,12 @@ jobs:
           inf_probe_received=false
           for _ in $(seq 1 60); do
             watchdog_rearm_count="$(python3 - <<'PY'
-import re
-from pathlib import Path
-log = Path("gazebo-transport.log").read_text(errors="replace")
-log = re.sub(re.escape(chr(27)) + r"\[[0-?]*[ -/]*[@-~]", "", log)
-print(log.count("MCA Gazebo adapter transport watchdog re-armed by valid command"))
-PY
+          import re
+          from pathlib import Path
+          log = Path("gazebo-transport.log").read_text(errors="replace")
+          log = re.sub(re.escape(chr(27)) + r"\[[0-?]*[ -/]*[@-~]", "", log)
+          print(log.count("MCA Gazebo adapter transport watchdog re-armed by valid command"))
+          PY
 )"
             if [ "${watchdog_rearm_count:-0}" -ge 1 ]; then
               inf_probe_received=true
@@ -318,12 +318,12 @@ PY
           reset_probe_received=false
           for _ in $(seq 1 60); do
             watchdog_rearm_count="$(python3 - <<'PY'
-import re
-from pathlib import Path
-log = Path("gazebo-transport.log").read_text(errors="replace")
-log = re.sub(re.escape(chr(27)) + r"\[[0-?]*[ -/]*[@-~]", "", log)
-print(log.count("MCA Gazebo adapter transport watchdog re-armed by valid command"))
-PY
+          import re
+          from pathlib import Path
+          log = Path("gazebo-transport.log").read_text(errors="replace")
+          log = re.sub(re.escape(chr(27)) + r"\[[0-?]*[ -/]*[@-~]", "", log)
+          print(log.count("MCA Gazebo adapter transport watchdog re-armed by valid command"))
+          PY
 )"
             if [ "${watchdog_rearm_count:-0}" -ge 2 ]; then
               reset_probe_received=true

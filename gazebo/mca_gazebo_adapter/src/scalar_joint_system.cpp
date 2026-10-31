@@ -430,10 +430,15 @@ class ScalarJointSystem final : public gz::sim::System,
 
   void OnCommand(double effort) {
     if (!std::isfinite(effort)) {
-      invalid_transport_command_count_.fetch_add(1, std::memory_order_relaxed);
-      if (!invalid_transport_command_logged_.exchange(true, std::memory_order_relaxed)) {
+      const auto rejected_count =
+          invalid_transport_command_count_.fetch_add(1, std::memory_order_relaxed) + 1;
+      // Log the first rejection and then powers of two. This makes repeated
+      // malformed traffic observable without allowing a bad publisher to flood
+      // the simulator log.
+      if (rejected_count == 1 || (rejected_count & (rejected_count - 1)) == 0) {
         gzerr << "MCA Gazebo adapter rejected non-finite transport effort command"
               << " value=" << effort
+              << " rejected_count=" << rejected_count
               << " topic=" << command_topic_
               << " action=command_ignored_and_watchdog_state_unchanged"
               << std::endl;

@@ -769,7 +769,7 @@ jobs:
           for reset_cycle in 1 2; do
             command_count_before="$(grep -Fc "MCA Gazebo adapter received typed transport effort command=" gazebo-transport.log || true)"
             echo "=== Repeated reset stress cycle ${reset_cycle}: arm active command ==="
-            env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \\
+            env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
               "${topic_prefix}/cmd_effort" 1.0 > "reset-stress-${reset_cycle}-publisher.log" 2>&1 &
             stress_publisher_pid=$!
             command_seen=false
@@ -792,8 +792,8 @@ jobs:
             wait "$stress_publisher_pid" 2>/dev/null || true
 
             reset_count_before="$(grep -Fc "MCA Gazebo adapter Reset completed" gazebo-transport.log || true)"
-            if ! gazebo_cli service -s /world/mca_gazebo_smoke/control \\
-                --reqtype gz.msgs.WorldControl --reptype gz.msgs.Boolean \\
+            if ! gazebo_cli service -s /world/mca_gazebo_smoke/control \
+                --reqtype gz.msgs.WorldControl --reptype gz.msgs.Boolean \
                 --timeout 3000 --req 'reset: {all: true}' > "reset-stress-${reset_cycle}-response.log" 2>&1; then
               print_log_excerpt "reset-stress-${reset_cycle}-response.log"
               echo "Gazebo reset service failed during stress cycle ${reset_cycle}"
@@ -815,8 +815,8 @@ jobs:
             fi
             latest_reset="$(grep "MCA Gazebo adapter Reset completed" gazebo-transport.log | tail -1)"
             echo "Reset stress cycle ${reset_cycle}: ${latest_reset}"
-            if [[ "$latest_reset" != *"had_transport_command=true"* || \\
-                  "$latest_reset" != *"applied_effort=0"* || \\
+            if [[ "$latest_reset" != *"had_transport_command=true"* || \
+                  "$latest_reset" != *"applied_effort=0"* || \
                   "$latest_reset" != *"force_component_available=true"* ]]; then
               echo "Reset stress cycle ${reset_cycle} did not clear an active command and zero JointForceCmd"
               exit 1

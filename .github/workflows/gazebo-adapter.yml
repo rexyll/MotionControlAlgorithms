@@ -301,10 +301,10 @@ jobs:
           post_reset_zero_echo_ready=false
           for _ in $(seq 1 30); do
             post_reset_command_topic_info="$(gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" 2>/dev/null || true)"
-            if printf '%s\\n' "$post_reset_command_topic_info" | awk '
-              /^Subscribers \\[/ { in_subscribers=1; next }
+            if printf '%s\n' "$post_reset_command_topic_info" | awk '
+              /^Subscribers \[/ { in_subscribers=1; next }
               /^[^[:space:]]/ { if (in_subscribers) in_subscribers=0 }
-              in_subscribers && /tcp:\\/\\// { count++ }
+              in_subscribers && /tcp:\/\// { count++ }
               END { exit(count >= 2 ? 0 : 1) }
             '; then
               post_reset_zero_echo_ready=true

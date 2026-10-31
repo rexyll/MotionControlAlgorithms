@@ -51,11 +51,33 @@ class ScalarJointSystem final : public gz::sim::System,
 
   void Configure(const gz::sim::Entity& entity, const std::shared_ptr<const sdf::Element>& sdf,
                  gz::sim::EntityComponentManager& ecm, gz::sim::EventManager&) override {
-    if (!sdf || !sdf->HasElement("joint_name")) return;
+    if (!sdf) {
+      gzerr << "MCA Gazebo adapter configuration rejected: SDF element is null"
+            << " model_entity=" << entity << std::endl;
+      return;
+    }
+    if (!sdf->HasElement("joint_name")) {
+      gzerr << "MCA Gazebo adapter configuration rejected: required <joint_name> "
+               "element is missing model_entity="
+            << entity << std::endl;
+      return;
+    }
     const auto joint_name = sdf->Get<std::string>("joint_name");
+    if (joint_name.empty()) {
+      gzerr << "MCA Gazebo adapter configuration rejected: <joint_name> is empty"
+            << " model_entity=" << entity << std::endl;
+      return;
+    }
     const gz::sim::Model model(entity);
     const auto joint = model.JointByName(ecm, joint_name);
-    if (joint == gz::sim::kNullEntity) return;
+    if (joint == gz::sim::kNullEntity) {
+      gzerr << "MCA Gazebo adapter configuration rejected: joint not found"
+            << " model=" << model.Name(ecm) << " joint_name=" << joint_name
+            << " model_entity=" << entity
+            << "; verify the joint exists directly under this model"
+            << std::endl;
+      return;
+    }
 
     joint_ = joint;
     if (!ecm.Component<gz::sim::components::JointPosition>(joint_)) {
@@ -75,7 +97,13 @@ class ScalarJointSystem final : public gz::sim::System,
     }
     if (sdf->HasElement("command_timeout_s")) {
       command_timeout_s_ = sdf->Get<double>("command_timeout_s");
-      if (!std::isfinite(command_timeout_s_) || command_timeout_s_ <= 0.0) return;
+      if (!std::isfinite(command_timeout_s_) || command_timeout_s_ <= 0.0) {
+        gzerr << "MCA Gazebo adapter configuration rejected: command_timeout_s must "
+                 "be finite and > 0, received "
+              << command_timeout_s_ << " model=" << model.Name(ecm)
+              << " joint_name=" << joint_name << std::endl;
+        return;
+      }
     }
     while (prefix.size() > 1 && prefix.back() == '/') prefix.pop_back();
     topic_prefix_ = prefix;
@@ -401,7 +429,17 @@ class ScalarJointSystem final : public gz::sim::System,
   }
 
   void OnCommand(double effort) {
-    if (!std::isfinite(effort)) return;
+    if (!std::isfinite(effort)) {
+      invalid_transport_command_count_.fetch_add(1, std::memory_order_relaxed);
+      if (!invalid_transport_command_logged_.exchange(true, std::memory_order_relaxed)) {
+        gzerr << "MCA Gazebo adapter rejected non-finite transport effort command"
+              << " value=" << effort
+              << " topic=" << command_topic_
+              << " action=command_ignored_and_watchdog_state_unchanged"
+              << std::endl;
+      }
+      return;
+    }
     if (!transport_command_logged_.exchange(true, std::memory_order_relaxed)) {
       gzmsg << "MCA Gazebo adapter received typed transport effort command=" << effort
             << " on " << command_topic_ << std::endl;
@@ -433,6 +471,8 @@ class ScalarJointSystem final : public gz::sim::System,
   std::chrono::steady_clock::time_point last_transport_command_wall_time_{};
   bool transport_command_active_{false};
   std::atomic<bool> transport_command_logged_{false};
+  std::atomic<bool> invalid_transport_command_logged_{false};
+  std::atomic<std::size_t> invalid_transport_command_count_{0};
   std::atomic<bool> typed_command_logged_{false};
   std::atomic<std::size_t> typed_command_callback_count_{0};
   std::atomic<bool> typed_command_callback_count_diagnostic_logged_{false};

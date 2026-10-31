@@ -200,6 +200,17 @@ jobs:
           cat ros-to-gz-bridge.log || true
           cat gz-to-ros-bridge.log || true
 
+          # Exercise malformed Gazebo Transport values directly, bypassing ROS
+          # message conversion so NaN/Inf reach the plugin callback unchanged.
+          # The adapter must reject them without refreshing or replacing the
+          # last valid command/watchdog state, and rate-limit diagnostics.
+          env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
+            "${topic_prefix}/cmd_effort" nan > malformed-nan-publisher.log 2>&1
+          env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
+            "${topic_prefix}/cmd_effort" inf > malformed-inf-publisher.log 2>&1
+          cat malformed-nan-publisher.log
+          cat malformed-inf-publisher.log
+
           # Start the state subscriber before any command is published. This
           # removes the previous one-second race in which the command publisher
           # could already be active while the ROS-side state subscriber was not.
@@ -513,6 +524,19 @@ jobs:
               f"timeout={timeout_s:.6f}s, applied_effort={applied_effort}"
           )
           PY
+
+          # Require the plugin to reject both NaN and infinity at its
+          # actual Gazebo Transport callback boundary. The second rejection
+          # proves repeated malformed input is counted while diagnostics stay
+          # rate-limited (the first two counts are always logged).
+          if ! grep -Fq "MCA Gazebo adapter rejected non-finite transport effort command" gazebo-transport.plain.log; then
+            echo "Gazebo adapter did not diagnose a non-finite transport command"
+            exit 1
+          fi
+          if ! grep -Fq "rejected_count=2" gazebo-transport.plain.log; then
+            echo "Gazebo adapter did not count repeated non-finite transport commands"
+            exit 1
+          fi
 
           # Keep the four real E2E assertions unchanged. Diagnostic ordering is
           # bridge -> plugin callback -> non-zero force -> ROS velocity, so a

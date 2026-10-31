@@ -525,6 +525,18 @@ jobs:
           )
           PY
 
+          # Missing model-joint configuration must fail loudly with the
+          # model and requested joint name; a missing required SDF field must
+          # identify the model entity and field.
+          if ! grep -Fq "configuration rejected: joint not found model=missing_joint_smoke joint_name=joint_that_does_not_exist" gazebo-transport.plain.log; then
+            echo "Gazebo adapter did not diagnose a missing joint with actionable context"
+            exit 1
+          fi
+          if ! grep -Fq "configuration rejected: required <joint_name> element is missing" gazebo-transport.plain.log; then
+            echo "Gazebo adapter did not diagnose a missing joint_name element"
+            exit 1
+          fi
+
           # Require the plugin to reject both NaN and infinity at its
           # actual Gazebo Transport callback boundary. The second rejection
           # proves repeated malformed input is counted while diagnostics stay

@@ -506,20 +506,39 @@ jobs:
             printf '\n'
           done
 
+          # Require SIGINT shutdown to complete without SIGKILL. Treat a
+          # zombie as exited (it is waiting only for the shell to reap it).
+          stop_gazebo_gracefully() {
+            local pid="$1"
+            local label="$2"
+            local process_state=""
+            local wait_status=0
+            kill -INT "$pid" 2>/dev/null || true
+            for _ in $(seq 1 10); do
+              process_state="$(ps -o stat= -p "$pid" 2>/dev/null || true)"
+              if [ -z "$process_state" ] || [[ "$process_state" == Z* ]]; then
+                break
+              fi
+              sleep 1
+            done
+            process_state="$(ps -o stat= -p "$pid" 2>/dev/null || true)"
+            if [ -n "$process_state" ] && [[ "$process_state" != Z* ]]; then
+              echo "$label did not exit after SIGINT (state=$process_state); refusing forced termination"
+              return 1
+            fi
+            wait "$pid" 2>/dev/null || wait_status=$?
+            if [ "$wait_status" -ne 0 ] && [ "$wait_status" -ne 130 ]; then
+              echo "$label exited with unexpected status $wait_status after SIGINT"
+              return 1
+            fi
+            echo "$label exited after SIGINT without SIGKILL (wait_status=$wait_status)"
+          }
+
           # Stop Gazebo after traffic collection and then read its final log.
           # This avoids testing against a partial log snapshot while the server
           # and its transport receiver are still running.
           echo "=== Gracefully stop Gazebo before reading final runtime log ==="
-          kill -INT "$gz_pid" 2>/dev/null || true
-          for _ in $(seq 1 10); do
-            kill -0 "$gz_pid" 2>/dev/null || break
-            sleep 1
-          done
-          if kill -0 "$gz_pid" 2>/dev/null; then
-            echo "Gazebo did not stop after SIGINT; forcing shutdown"
-            kill -KILL "$gz_pid" 2>/dev/null || true
-          fi
-          wait "$gz_pid" 2>/dev/null || true
+          stop_gazebo_gracefully "$gz_pid" "Initial Gazebo instance"
           gz_pid=""
 
           echo "=== Gazebo runtime log after shutdown ==="
@@ -658,4 +677,42 @@ jobs:
             echo "ROS 2 velocity state did not resume after Gazebo Reset"
             exit 1
           fi
+          # Re-launch the same world in the same transport partition after
+          # the first server has exited. This catches stale endpoints, plugin
+          # teardown leaks, and one-shot initialization assumptions.
+          echo "=== Relaunch Gazebo world after graceful shutdown ==="
+          env GZ_VERBOSE=1 GZ_PARTITION="$GZ_PARTITION" GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/build/gazebo-adapter:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
+            "$gazebo_executable" sim -s -r -v 4 gazebo/mca_gazebo_adapter/test/worlds/single_axis_smoke.sdf > gazebo-relaunch.log 2>&1 &
+          gz_pid=$!
+          relaunch_ready=false
+          for _ in $(seq 1 60); do
+            if grep -F "MCA Gazebo adapter configured command topic=${topic_prefix}/cmd_effort" gazebo-relaunch.log | grep -Fq "configured=true"; then
+              relaunch_topics="$(gazebo_cli topic -l 2>/dev/null || true)"
+              if printf '%s\\n' "$relaunch_topics" | grep -Fxq "${topic_prefix}/state/velocity"; then
+                relaunch_ready=true
+                break
+              fi
+            fi
+            sleep 1
+          done
+          if [ "$relaunch_ready" != true ]; then
+            echo "Gazebo adapter did not configure and republish state topics after a second world launch"
+            cat gazebo-relaunch.log || true
+            exit 1
+          fi
+          relaunch_command_info="$(gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" 2>/dev/null || true)"
+          if ! printf '%s\\n' "$relaunch_command_info" | awk '
+            /^Subscribers \\[/ { in_subscribers=1; next }
+            /^[^[:space:]]/ { if (in_subscribers) in_subscribers=0 }
+            in_subscribers && /tcp:\\/\\// { found=1 }
+            END { exit(found ? 0 : 1) }
+          '; then
+            echo "Gazebo adapter command subscriber was not recreated after world relaunch"
+            printf '%s\\n' "$relaunch_command_info"
+            exit 1
+          fi
+          stop_gazebo_gracefully "$gz_pid" "Relaunched Gazebo instance"
+          gz_pid=""
+          echo "Gazebo repeated world/plugin launch and graceful shutdown passed"
+
           echo "ROS 2 ↔ Gazebo bridge command/state path passed: bridge forwarding, plugin callback, non-zero JointForceCmd, velocity > 1e-5, measured acceleration > 1e-5, watchdog zero-effort expiry, Reset clears an active command, and post-reset command produces measured velocity on Gazebo Transport and ROS 2"

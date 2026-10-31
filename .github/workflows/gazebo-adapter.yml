@@ -263,7 +263,14 @@ jobs:
           publisher_pid=$!
           inf_probe_received=false
           for _ in $(seq 1 60); do
-            watchdog_rearm_count="$(grep -Fc "MCA Gazebo adapter transport watchdog re-armed by valid command" gazebo-transport.log || true)"
+            watchdog_rearm_count="$(python3 - <<'PY'
+import re
+from pathlib import Path
+log = Path("gazebo-transport.log").read_text(errors="replace")
+log = re.sub(re.escape(chr(27)) + r"\\[[0-?]*[ -/]*[@-~]", "", log)
+print(log.count("MCA Gazebo adapter transport watchdog re-armed by valid command"))
+PY
+)"
             if [ "${watchdog_rearm_count:-0}" -ge 1 ]; then
               inf_probe_received=true
               break
@@ -272,6 +279,14 @@ jobs:
           done
           if [ "$inf_probe_received" != true ]; then
             echo "Plugin did not acknowledge the valid command before the infinity watchdog test"
+            echo "=== Gazebo adapter log at failed valid-command acknowledgement ==="
+            cat gazebo-transport.log || true
+            echo "=== Transport subscriber probe ==="
+            cat transport-probe.log || true
+            echo "=== ROS-to-Gazebo bridge log ==="
+            cat ros-to-gz-bridge.log || true
+            echo "=== Valid-command publisher log ==="
+            cat inf-watchdog-probe-publisher.log || true
             exit 1
           fi
           kill -INT "$publisher_pid" 2>/dev/null || true
@@ -302,7 +317,14 @@ jobs:
           publisher_pid=$!
           reset_probe_received=false
           for _ in $(seq 1 60); do
-            watchdog_rearm_count="$(grep -Fc "MCA Gazebo adapter transport watchdog re-armed by valid command" gazebo-transport.log || true)"
+            watchdog_rearm_count="$(python3 - <<'PY'
+import re
+from pathlib import Path
+log = Path("gazebo-transport.log").read_text(errors="replace")
+log = re.sub(re.escape(chr(27)) + r"\\[[0-?]*[ -/]*[@-~]", "", log)
+print(log.count("MCA Gazebo adapter transport watchdog re-armed by valid command"))
+PY
+)"
             if [ "${watchdog_rearm_count:-0}" -ge 2 ]; then
               reset_probe_received=true
               break
@@ -311,6 +333,14 @@ jobs:
           done
           if [ "$reset_probe_received" != true ]; then
             echo "Plugin did not acknowledge a new command after watchdog expiry; refusing to run Reset precondition"
+            echo "=== Gazebo adapter log at failed reset-probe acknowledgement ==="
+            cat gazebo-transport.log || true
+            echo "=== Transport subscriber probe ==="
+            cat transport-probe.log || true
+            echo "=== ROS-to-Gazebo bridge log ==="
+            cat ros-to-gz-bridge.log || true
+            echo "=== Reset-probe publisher log ==="
+            cat reset-probe-publisher.log || true
             exit 1
           fi
 

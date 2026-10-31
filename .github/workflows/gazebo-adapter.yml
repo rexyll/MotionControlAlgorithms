@@ -67,10 +67,11 @@ jobs:
           bridge_pid=""
           publisher_pid=""
           velocity_pid=""
+          acceleration_pid=""
           command_echo_pid=""
           transport_probe_pid=""
           cleanup() {
-            for pid in "$velocity_pid" "$command_echo_pid" "$publisher_pid" "$transport_probe_pid"; do
+            for pid in "$velocity_pid" "$acceleration_pid" "$command_echo_pid" "$publisher_pid" "$transport_probe_pid"; do
               [ -n "$pid" ] || continue
               kill "$pid" 2>/dev/null || true
               wait "$pid" 2>/dev/null || true
@@ -200,6 +201,11 @@ jobs:
           # could already be active while the ROS-side state subscriber was not.
           timeout 10s ros2 topic echo "${topic_prefix}/state/velocity" std_msgs/msg/Float64 > velocity.log 2>&1 &
           velocity_pid=$!
+          # Observe measured acceleration directly on Gazebo Transport before
+          # applying effort, so the test cannot miss its initial transient.
+          timeout 10s env GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
+            "$gazebo_executable" topic -e -t "${topic_prefix}/state/acceleration" > acceleration.log 2>&1 &
+          acceleration_pid=$!
           sleep 1
 
           # Diagnostic probe must be alive before command publication so it can
@@ -223,6 +229,7 @@ jobs:
 
           wait "$publisher_pid" || true
           wait "$velocity_pid" || true
+          wait "$acceleration_pid" || true
           wait "$transport_probe_pid" || true
 
           echo "=== ROS command topic graph after publisher ==="
@@ -270,6 +277,8 @@ jobs:
           cat gazebo-transport.log || true
           echo "=== ROS velocity samples ==="
           cat velocity.log || true
+          echo "=== Gazebo joint acceleration samples ==="
+          cat acceleration.log || true
 
           # Gazebo Console inserts ANSI color sequences into GZ_VERBOSE=1 log
           # tokens (for example between "command=" and "1"). Preserve the raw
@@ -307,4 +316,12 @@ jobs:
             echo "ROS 2 effort command did not produce velocity above the 1e-5 threshold"
             exit 1
           fi
-          echo "ROS 2 ↔ Gazebo bridge command/state path passed: bridge forwarding, plugin callback, non-zero JointForceCmd, and velocity > 1e-5"
+          if ! grep -Eq 'data: [-+]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][-+]?[0-9]+)?' acceleration.log; then
+            echo "No measured Gazebo joint acceleration was observed"
+            exit 1
+          fi
+          if ! awk '/data:/{v=$2; if (v+0 > 1e-5 || v+0 < -1e-5) {found=1}} END{exit(found ? 0 : 1)}' acceleration.log; then
+            echo "Gazebo joint acceleration remained at or below the 1e-5 threshold"
+            exit 1
+          fi
+          echo "ROS 2 ↔ Gazebo bridge command/state path passed: bridge forwarding, plugin callback, non-zero JointForceCmd, velocity > 1e-5, and measured acceleration > 1e-5"

@@ -167,6 +167,9 @@ class ScalarJointSystem final : public gz::sim::System,
         transport_command_active_ = false;
         state_valid_ = false;
         step_index_.store(0, std::memory_order_relaxed);
+        // A time rollback starts a new simulation epoch. Do not calculate
+        // acceleration across the discontinuity; the first sample is a baseline.
+        has_previous_velocity_ = false;
       }
       last_sim_time_ = time_s;
       last_dt_ = dt_s;
@@ -236,6 +239,7 @@ class ScalarJointSystem final : public gz::sim::System,
         !position || !velocity || position->Data().empty() || velocity->Data().empty()) {
       std::lock_guard<std::mutex> lock(mutex_);
       state_valid_ = false;
+      has_previous_velocity_ = false;
       return;
     }
 
@@ -243,14 +247,29 @@ class ScalarJointSystem final : public gz::sim::System,
     mca::simulation::ScalarSimulationState next_state{};
     next_state.position[0] = position->Data()[0];
     next_state.velocity[0] = velocity->Data()[0];
-    next_state.acceleration[0] = 0.0;
     if (!next_step.valid() || !next_state.finite()) {
       std::lock_guard<std::mutex> lock(mutex_);
       state_valid_ = false;
+      has_previous_velocity_ = false;
       return;
     }
     {
       std::lock_guard<std::mutex> lock(mutex_);
+      // Estimate joint acceleration from consecutive post-physics velocity
+      // samples using the actual simulation dt. The first sample after startup
+      // or a time reset is a baseline and intentionally reports zero.
+      double acceleration = 0.0;
+      if (has_previous_velocity_) {
+        acceleration = (next_state.velocity[0] - previous_velocity_) / dt_s;
+      }
+      if (!std::isfinite(acceleration)) {
+        state_valid_ = false;
+        has_previous_velocity_ = false;
+        return;
+      }
+      next_state.acceleration[0] = acceleration;
+      previous_velocity_ = next_state.velocity[0];
+      has_previous_velocity_ = true;
       cached_step_ = next_step;
       cached_state_ = next_state;
       state_valid_ = true;
@@ -352,6 +371,8 @@ class ScalarJointSystem final : public gz::sim::System,
   std::atomic<bool> pre_update_logged_{false};
   std::atomic<bool> post_update_logged_{false};
   bool has_sim_time_{false};
+  bool has_previous_velocity_{false};
+  double previous_velocity_{0.0};
   mca::simulation::SimulationStep cached_step_{};
   mca::simulation::ScalarSimulationState cached_state_{};
   mca::simulation::ScalarActuatorCommand pending_command_value_{};

@@ -14,9 +14,11 @@ Optional Gazebo Harmonic system plugin implementing the simulator-independent
 - Exposes a Gazebo Transport command channel and scalar state channels so a
   ROS 2 bridge can connect without coupling the core simulation interfaces to ROS.
 
-Joint acceleration is currently reported as zero because the generic joint position
-and velocity components do not provide a portable acceleration field. This is an
-explicit limitation, not a measured acceleration.
+Joint acceleration is estimated from consecutive post-physics velocity samples
+using (velocity[k] - velocity[k-1]) / simulation_dt. The first sample after startup
+or a simulation-time rollback is a zero baseline because no prior sample exists.
+This is a finite-difference estimate, not a direct physics-engine acceleration
+measurement; consumers should account for the sample interval and reset boundary.
 
 ## Gazebo Transport contract
 

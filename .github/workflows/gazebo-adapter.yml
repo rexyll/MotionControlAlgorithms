@@ -237,6 +237,30 @@ jobs:
           echo "=== ROS velocity samples ==="
           cat velocity.log || true
 
+          # Capture the live Gazebo process state before any assertion can exit.
+          # The callback-receipt assertion may fail before the velocity assertion,
+          # so diagnostics must not be hidden behind the last assertion branch.
+          echo "=== Gazebo process and thread state before E2E assertions ==="
+          ps -eLo pid,ppid,tid,stat,pcpu,wchan:32,comm,args | grep -E '[g]z sim|[g]z-sim|[g]zserver|[s]trace' || true
+          echo "=== Gazebo server thread wait channels ==="
+          for task_file in /proc/"$gz_pid"/task/*/wchan; do
+            [ -r "$task_file" ] || continue
+            printf '%s: ' "$task_file"
+            cat "$task_file" || true
+          done
+          echo "=== Gazebo startup strace tails before E2E assertions ==="
+          trace_count=0
+          for trace_file in gazebo-startup.strace*; do
+            [ -f "$trace_file" ] || continue
+            trace_count=$((trace_count + 1))
+            if [ "$trace_count" -gt 20 ]; then
+              echo "Additional strace files omitted after first 20"
+              break
+            fi
+            echo "--- $trace_file ---"
+            tail -n 40 "$trace_file"
+          done
+
           # Keep the four real E2E assertions unchanged. Diagnostic ordering is
           # bridge -> plugin callback -> non-zero force -> ROS velocity, so a
           # failure identifies the broken layer without weakening acceptance.

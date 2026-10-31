@@ -43,5 +43,20 @@
         <command_timeout_s>0.5</command_timeout_s>
       </plugin>
     </model>
+    <!-- Negative configuration fixture: the model exists but the requested
+         joint does not. The adapter must emit an actionable diagnostic. -->
+    <model name="missing_joint_smoke">
+      <static>true</static>
+      <link name="base"/>
+      <plugin filename="libmca_gazebo_adapter.so" name="mca_gazebo_adapter::ScalarJointSystem">
+        <joint_name>joint_that_does_not_exist</joint_name>
+      </plugin>
+    </model>
+    <!-- Negative configuration fixture: required joint_name is omitted. -->
+    <model name="missing_joint_name_smoke">
+      <static>true</static>
+      <link name="base"/>
+      <plugin filename="libmca_gazebo_adapter.so" name="mca_gazebo_adapter::ScalarJointSystem"/>
+    </model>
   </world>
 </sdf>

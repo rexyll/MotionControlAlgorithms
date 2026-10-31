@@ -156,6 +156,28 @@ jobs:
             exit 1
           fi
 
+          # The ROS graph being ready is not sufficient: the bridge can exist
+          # while its Gazebo Transport publisher has not yet discovered the
+          # adapter subscription. Wait for the actual Gazebo-side subscriber
+          # before sending the first command, otherwise the first and only
+          # diagnostic bridge message can be dropped before plugin discovery.
+          gazebo_command_subscriber_ready=false
+          gazebo_command_topic_info=""
+          for _ in $(seq 1 20); do
+            gazebo_command_topic_info="$(gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" 2>/dev/null || true)"
+            if printf '%s\n' "$gazebo_command_topic_info" | grep -Eq 'Subscriber count:[[:space:]]*[1-9][0-9]*'; then
+              gazebo_command_subscriber_ready=true
+              break
+            fi
+            sleep 1
+          done
+          echo "=== Gazebo command topic readiness before command publication ==="
+          printf '%s\n' "${gazebo_command_topic_info:-<unavailable>}"
+          if [ "$gazebo_command_subscriber_ready" != true ]; then
+            echo "Gazebo adapter command subscriber was not discovered before command publication"
+            exit 1
+          fi
+
           echo "=== Bridge logs after startup ==="
           cat ros-to-gz-bridge.log || true
           cat gz-to-ros-bridge.log || true

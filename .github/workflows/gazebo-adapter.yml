@@ -267,7 +267,7 @@ jobs:
 import re
 from pathlib import Path
 log = Path("gazebo-transport.log").read_text(errors="replace")
-log = re.sub(re.escape(chr(27)) + r"\\[[0-?]*[ -/]*[@-~]", "", log)
+log = re.sub(re.escape(chr(27)) + r"\[[0-?]*[ -/]*[@-~]", "", log)
 print(log.count("MCA Gazebo adapter transport watchdog re-armed by valid command"))
 PY
 )"
@@ -321,7 +321,7 @@ PY
 import re
 from pathlib import Path
 log = Path("gazebo-transport.log").read_text(errors="replace")
-log = re.sub(re.escape(chr(27)) + r"\\[[0-?]*[ -/]*[@-~]", "", log)
+log = re.sub(re.escape(chr(27)) + r"\[[0-?]*[ -/]*[@-~]", "", log)
 print(log.count("MCA Gazebo adapter transport watchdog re-armed by valid command"))
 PY
 )"

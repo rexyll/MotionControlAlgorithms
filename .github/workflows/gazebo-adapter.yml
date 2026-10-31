@@ -700,13 +700,22 @@ jobs:
             cat gazebo-relaunch.log || true
             exit 1
           fi
-          relaunch_command_info="$(gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" 2>/dev/null || true)"
-          if ! printf '%s\n' "$relaunch_command_info" | awk '
-            /^Subscribers \[/ { in_subscribers=1; next }
-            /^[^[:space:]]/ { if (in_subscribers) in_subscribers=0 }
-            in_subscribers && /tcp:\/\// { found=1 }
-            END { exit(found ? 0 : 1) }
-          '; then
+          relaunch_subscriber_ready=false
+          relaunch_command_info=""
+          for _ in $(seq 1 20); do
+            relaunch_command_info="$(gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" 2>/dev/null || true)"
+            if printf '%s\n' "$relaunch_command_info" | awk '
+              /^Subscribers \[/ { in_subscribers=1; next }
+              /^[^[:space:]]/ { if (in_subscribers) in_subscribers=0 }
+              in_subscribers && /tcp:\/\// { found=1 }
+              END { exit(found ? 0 : 1) }
+            '; then
+              relaunch_subscriber_ready=true
+              break
+            fi
+            sleep 0.5
+          done
+          if [ "$relaunch_subscriber_ready" != true ]; then
             echo "Gazebo adapter command subscriber was not recreated after world relaunch"
             printf '%s\n' "$relaunch_command_info"
             exit 1

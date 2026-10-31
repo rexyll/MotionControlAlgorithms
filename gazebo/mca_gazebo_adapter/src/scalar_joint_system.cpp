@@ -256,6 +256,10 @@ class ScalarJointSystem final : public gz::sim::System,
       if (transport_command_active_ && !transport_command_fresh) {
         transport_command_active_ = false;
         transport_command_expired = true;
+        // Permit the next command after watchdog expiry to produce a fresh
+        // ingress diagnostic. The workflow uses this acknowledgement to
+        // ensure a transport command is active before invoking World Reset.
+        transport_command_logged_.store(false, std::memory_order_relaxed);
       }
       pending_command_ = false;
       if (current_step != std::numeric_limits<std::size_t>::max()) {

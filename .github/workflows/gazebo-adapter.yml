@@ -69,11 +69,10 @@ jobs:
           velocity_pid=""
           acceleration_pid=""
           post_reset_velocity_pid=""
-          post_reset_publisher_pid=""
           command_echo_pid=""
           transport_probe_pid=""
           cleanup() {
-            for pid in "$velocity_pid" "$acceleration_pid" "$post_reset_velocity_pid" "$post_reset_publisher_pid" "$command_echo_pid" "$publisher_pid" "$transport_probe_pid"; do
+            for pid in "$velocity_pid" "$acceleration_pid" "$post_reset_velocity_pid" "$command_echo_pid" "$publisher_pid" "$transport_probe_pid"; do
               [ -n "$pid" ] || continue
               kill "$pid" 2>/dev/null || true
               wait "$pid" 2>/dev/null || true
@@ -235,17 +234,27 @@ jobs:
           publisher_pid=""
 
           # The first command stream has ended and the watchdog has already
-          # cleared it. Open a fresh ROS state observer, send a new active
-          # command, then reset the world while that command is still fresh.
+          # cleared it. Re-arm the same command stream and wait for an explicit
+          # plugin-side acknowledgement before requesting Reset. Do not infer
+          # delivery from ros2 topic pub output: the bridge may still be flushing.
           sleep 0.7
           ros2 topic pub --rate 100 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > reset-probe-publisher.log 2>&1 &
           publisher_pid=$!
-          sleep 1
-          kill -INT "$publisher_pid" 2>/dev/null || true
-          wait "$publisher_pid" 2>/dev/null || true
-          publisher_pid=""
+          reset_probe_received=false
+          for _ in $(seq 1 60); do
+            reset_probe_count="$(grep -Fc "MCA Gazebo adapter received typed transport effort command=" gazebo-transport.log || true)"
+            if [ "${reset_probe_count:-0}" -ge 2 ]; then
+              reset_probe_received=true
+              break
+            fi
+            sleep 0.1
+          done
+          if [ "$reset_probe_received" != true ]; then
+            echo "Plugin did not acknowledge a new command after watchdog expiry; refusing to run Reset precondition"
+            exit 1
+          fi
 
-          echo "=== Reset Gazebo world through WorldControl ==="
+          echo "=== Reset Gazebo world through WorldControl while command stream is active ==="
           if ! gazebo_cli service -s /world/mca_gazebo_smoke/control \
               --reqtype gz.msgs.WorldControl --reptype gz.msgs.Boolean \
               --timeout 3000 --req 'reset: {all: true}' > reset-response.log 2>&1; then
@@ -272,19 +281,30 @@ jobs:
             exit 1
           fi
 
-          # Start a new subscriber only after the reset callback has completed.
-          # Its velocity samples therefore prove state publication resumed in the
-          # post-reset epoch, rather than reusing pre-reset motion samples.
-          timeout 4s ros2 topic echo "${topic_prefix}/state/velocity" std_msgs/msg/Float64 > post-reset-velocity.log 2>&1 &
+          # Start a new observer only after the Reset callback. Keep the original
+          # 100 Hz command stream running across the reset and wait for the plugin
+          # to acknowledge a post-reset command before stopping its publisher.
+          timeout 8s ros2 topic echo "${topic_prefix}/state/velocity" std_msgs/msg/Float64 > post-reset-velocity.log 2>&1 &
           post_reset_velocity_pid=$!
-          sleep 0.5
-
-          # Verify the same plugin instance and Transport endpoints keep working
-          # after Reset, not merely that the WorldControl service accepted a request.
-          timeout 2s ros2 topic pub --rate 100 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > post-reset-command-publisher.log 2>&1 &
-          post_reset_publisher_pid=$!
-          wait "$post_reset_publisher_pid" || true
-          post_reset_publisher_pid=""
+          post_reset_command_received=false
+          for _ in $(seq 1 60); do
+            reset_epoch_command_count="$(grep -Fc "MCA Gazebo adapter received typed transport effort command=" gazebo-transport.log || true)"
+            if [ "${reset_epoch_command_count:-0}" -ge 3 ]; then
+              post_reset_command_received=true
+              break
+            fi
+            sleep 0.1
+          done
+          if [ "$post_reset_command_received" != true ]; then
+            echo "The Gazebo plugin did not acknowledge a command after Reset"
+            exit 1
+          fi
+          # Keep effort active long enough to verify that post-reset physics
+          # advances and the ROS state bridge publishes a non-zero velocity.
+          sleep 2
+          kill -INT "$publisher_pid" 2>/dev/null || true
+          wait "$publisher_pid" 2>/dev/null || true
+          publisher_pid=""
           wait "$post_reset_velocity_pid" || true
           post_reset_velocity_pid=""
 
@@ -302,8 +322,6 @@ jobs:
           cat command-publisher.log || true
           echo "=== Reset probe publisher log ==="
           cat reset-probe-publisher.log || true
-          echo "=== Post-reset publisher log ==="
-          cat post-reset-command-publisher.log || true
           echo "=== Post-reset velocity samples ==="
           cat post-reset-velocity.log || true
           echo "=== Gazebo reset service response ==="
@@ -427,8 +445,8 @@ jobs:
             exit 1
           fi
           callback_count="$(grep -Fc "MCA Gazebo adapter received typed transport effort command=1" gazebo-transport.plain.log || true)"
-          if [ "$callback_count" -lt 2 ]; then
-            echo "Gazebo adapter did not receive a new effort command after Reset"
+          if [ "$callback_count" -lt 3 ]; then
+            echo "Gazebo adapter did not receive acknowledged effort commands before and after Reset"
             exit 1
           fi
           nonzero_force_count="$(grep -Fc "MCA Gazebo adapter applied non-zero JointForceCmd=" gazebo-transport.plain.log || true)"
@@ -440,4 +458,4 @@ jobs:
             echo "ROS 2 velocity state did not resume after Gazebo Reset"
             exit 1
           fi
-          echo "ROS 2 ↔ Gazebo bridge command/state path passed: bridge forwarding, plugin callback, non-zero JointForceCmd, velocity > 1e-5, measured acceleration > 1e-5, watchdog zero-effort expiry, reset clears active command, and command/state flow resumes after reset"
+          echo "ROS 2 ↔ Gazebo bridge command/state path passed: bridge forwarding, plugin callback, non-zero JointForceCmd, velocity > 1e-5, measured acceleration > 1e-5, watchdog zero-effort expiry, Reset clears an active command, and state/command flow resumes after Reset"

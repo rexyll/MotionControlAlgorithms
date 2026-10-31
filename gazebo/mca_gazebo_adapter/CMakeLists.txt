@@ -12,6 +12,12 @@ add_executable(mca_transport_subscriber_probe test/transport_subscriber_probe.cp
 target_compile_features(mca_transport_subscriber_probe PRIVATE cxx_std_17)
 target_link_libraries(mca_transport_subscriber_probe PRIVATE gz-transport13::gz-transport13 gz-msgs10::gz-msgs10)
 
+add_executable(mca_transport_command_publisher test/transport_command_publisher.cpp)
+target_compile_features(mca_transport_command_publisher PRIVATE cxx_std_17)
+target_link_libraries(mca_transport_command_publisher PRIVATE
+  gz-transport13::gz-transport13
+  gz-msgs10::gz-msgs10)
+
 add_library(mca_gazebo_adapter SHARED src/scalar_joint_system.cpp)
 target_compile_features(mca_gazebo_adapter PRIVATE cxx_std_17)
 target_include_directories(mca_gazebo_adapter PRIVATE

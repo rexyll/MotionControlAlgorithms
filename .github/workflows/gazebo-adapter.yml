@@ -72,11 +72,10 @@ jobs:
           post_reset_gz_velocity_pid=""
           post_reset_publisher_pid=""
           post_reset_zero_publisher_pid=""
-          post_reset_zero_echo_pid=""
           command_echo_pid=""
           transport_probe_pid=""
           cleanup() {
-            for pid in "$velocity_pid" "$acceleration_pid" "$post_reset_velocity_pid" "$post_reset_gz_velocity_pid" "$post_reset_publisher_pid" "$post_reset_zero_publisher_pid" "$post_reset_zero_echo_pid" "$command_echo_pid" "$publisher_pid" "$transport_probe_pid"; do
+            for pid in "$velocity_pid" "$acceleration_pid" "$post_reset_velocity_pid" "$post_reset_gz_velocity_pid" "$post_reset_publisher_pid" "$post_reset_zero_publisher_pid" "$command_echo_pid" "$publisher_pid" "$transport_probe_pid"; do
               [ -n "$pid" ] || continue
               kill "$pid" 2>/dev/null || true
               wait "$pid" 2>/dev/null || true
@@ -258,7 +257,14 @@ jobs:
             exit 1
           fi
 
-          echo "=== Reset Gazebo world through WorldControl while command stream is active ==="
+          # Freeze the pre-reset stream once the plugin has acknowledged an
+          # active command. Reset must see the still-fresh command, but no
+          # continuously generated 1.0 messages should cross the reset boundary.
+          kill -INT "$publisher_pid" 2>/dev/null || true
+          wait "$publisher_pid" 2>/dev/null || true
+          publisher_pid=""
+
+          echo "=== Reset Gazebo world through WorldControl with an active command ==="
           if ! gazebo_cli service -s /world/mca_gazebo_smoke/control \
               --reqtype gz.msgs.WorldControl --reptype gz.msgs.Boolean \
               --timeout 3000 --req 'reset: {all: true}' > reset-response.log 2>&1; then
@@ -285,54 +291,38 @@ jobs:
             exit 1
           fi
 
-          # Stop the 1.0 reset-probe stream immediately after Reset. Leaving
-          # non-zero effort active during the watchdog wait can drive this
-          # low-inertia test rotor into its joint limit before state observation.
-          kill -INT "$publisher_pid" 2>/dev/null || true
-          wait "$publisher_pid" 2>/dev/null || true
-          publisher_pid=""
-
-          # Verify the post-reset command endpoint with zero effort. This keeps
-          # the joint stationary while the watchdog window and state observers
-          # are prepared, without weakening the later physical-motion assertion.
-          timeout 5s env GZ_PARTITION="$GZ_PARTITION" PATH="$gazebo_path" LD_LIBRARY_PATH="$gazebo_ld_library_path" \
-            "$gazebo_executable" topic -e -t "${topic_prefix}/cmd_effort" > post-reset-zero-command-echo.log 2>&1 &
-          post_reset_zero_echo_pid=$!
-          post_reset_zero_echo_ready=false
-          for _ in $(seq 1 30); do
-            post_reset_command_topic_info="$(gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" 2>/dev/null || true)"
-            if printf '%s\n' "$post_reset_command_topic_info" | awk '
-              /^Subscribers \[/ { in_subscribers=1; next }
-              /^[^[:space:]]/ { if (in_subscribers) in_subscribers=0 }
-              in_subscribers && /tcp:\/\// { count++ }
-              END { exit(count >= 2 ? 0 : 1) }
-            '; then
-              post_reset_zero_echo_ready=true
-              break
-            fi
-            sleep 0.1
-          done
-          if [ "$post_reset_zero_echo_ready" != true ]; then
-            echo "Post-reset Gazebo command echo did not join the transport topic"
-            exit 1
-          fi
-
-          timeout 1s ros2 topic pub --rate 100 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 0.0}" > post-reset-zero-command-publisher.log 2>&1 &
+          # The first command after Reset is zero effort. Require the plugin's
+          # PreUpdate diagnostic to confirm it was received fresh and applied
+          # as zero before starting the physical-motion observation.
+          timeout 3s ros2 topic pub --rate 100 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 0.0}" > post-reset-zero-command-publisher.log 2>&1 &
           post_reset_zero_publisher_pid=$!
-          wait "$post_reset_zero_publisher_pid" || true
-          post_reset_zero_publisher_pid=""
-          post_reset_zero_command_seen=false
-          for _ in $(seq 1 30); do
-            if grep -Eq 'data:[[:space:]]*0([.]0*)?([[:space:]]|$)' post-reset-zero-command-echo.log; then
-              post_reset_zero_command_seen=true
+          post_reset_zero_command_applied=false
+          for _ in $(seq 1 60); do
+            if python3 - <<'PY'
+          import re
+          from pathlib import Path
+          raw = Path("gazebo-transport.log").read_text(errors="replace")
+          plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", raw)
+          matches = re.findall(
+              r"MCA Gazebo adapter PreUpdate observed transport command=([-+0-9.eE]+) "
+              r"fresh=(true|false).*?applied_effort=([-+0-9.eE]+)",
+              plain,
+          )
+          raise SystemExit(0 if len(matches) >= 2 and matches[-1] == ("0", "true", "0") else 1)
+          PY
+            then
+              post_reset_zero_command_applied=true
               break
             fi
             sleep 0.1
           done
-          if [ "$post_reset_zero_command_seen" != true ]; then
-            echo "Zero-effort command was not observed on Gazebo Transport after Reset"
+          if [ "$post_reset_zero_command_applied" != true ]; then
+            echo "The plugin did not confirm a fresh post-reset zero-effort command in PreUpdate"
             exit 1
           fi
+          kill -INT "$post_reset_zero_publisher_pid" 2>/dev/null || true
+          wait "$post_reset_zero_publisher_pid" 2>/dev/null || true
+          post_reset_zero_publisher_pid=""
 
           reset_epoch_command_count="$(grep -Fc "MCA Gazebo adapter received typed transport effort command=" gazebo-transport.log || true)"
           if [ "${reset_epoch_command_count:-0}" -lt 3 ]; then
@@ -353,10 +343,6 @@ jobs:
             echo "The post-reset zero-effort command did not expire before the fresh motion probe"
             exit 1
           fi
-          kill -INT "$post_reset_zero_echo_pid" 2>/dev/null || true
-          wait "$post_reset_zero_echo_pid" 2>/dev/null || true
-          post_reset_zero_echo_pid=""
-
           # Open both Gazebo Transport and ROS state observers before publishing
           # the next post-reset command. This avoids missing a fast acceleration
           # transient while the rotor moves away from its reset position.
@@ -442,8 +428,6 @@ jobs:
           cat post-reset-gz-velocity.log || true
           echo "=== Post-reset zero-effort publisher log ==="
           cat post-reset-zero-command-publisher.log || true
-          echo "=== Post-reset zero-effort Gazebo Transport echo ==="
-          cat post-reset-zero-command-echo.log || true
           echo "=== Post-reset command publisher log ==="
           cat post-reset-command-publisher.log || true
           echo "=== Gazebo reset service response ==="

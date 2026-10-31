@@ -453,6 +453,10 @@ class ScalarJointSystem final : public gz::sim::System,
     transport_command_value_.effort[0] = effort;
     last_transport_command_wall_time_ = std::chrono::steady_clock::now();
     transport_command_active_ = true;
+    // A newly accepted command begins a new watchdog observation interval.
+    // Re-arm the expiry diagnostic so repeated command/expiry cycles remain
+    // independently observable (including malformed-input regression tests).
+    transport_watchdog_expiry_logged_.store(false, std::memory_order_relaxed);
   }
 
   static void PublishScalar(gz::transport::Node::Publisher& publisher, double value) {
@@ -476,7 +480,6 @@ class ScalarJointSystem final : public gz::sim::System,
   std::chrono::steady_clock::time_point last_transport_command_wall_time_{};
   bool transport_command_active_{false};
   std::atomic<bool> transport_command_logged_{false};
-  std::atomic<bool> invalid_transport_command_logged_{false};
   std::atomic<std::size_t> invalid_transport_command_count_{0};
   std::atomic<bool> typed_command_logged_{false};
   std::atomic<std::size_t> typed_command_callback_count_{0};

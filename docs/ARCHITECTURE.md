@@ -287,3 +287,28 @@ PID primitives
 ```
 
 This keeps the mathematical/controller layer portable and makes the same composition suitable for later ROS 2/Gazebo adapters.
+
+
+## 16. Physical hardware boundary (P12)
+
+Physical devices are optional adapters, not dependencies of the algorithm or
+simulation core. The initial hardware boundary is capability-oriented:
+
+- `IHardwareLifecycle` owns initialize/activate/deactivate state transitions.
+- `IJointStateSource` publishes one coherent, fixed-size joint-state sample.
+- `IJointEffortCommandSink` accepts a fixed-size effort command and exposes a
+  software safe-stop request.
+- State-field validity is explicit. A driver must not represent an unavailable
+  acceleration, velocity, or effort measurement as a measured zero.
+- Core port types use fixed-size storage and contain no ROS 2, Gazebo, vendor SDK,
+  filesystem, network, or dynamically allocated message types.
+
+Concrete driver configuration, transport threads, bus scheduling, device-specific
+control modes, diagnostics, and partial multi-axis write semantics remain in the
+adapter. A failed multi-axis write is treated as a control fault; the concrete
+driver must document whether partial application is possible. A software
+safe-stop request is not a replacement for a safety-rated hardware emergency stop.
+
+The first implementation is an effort-command joint boundary. Additional
+position/velocity command capabilities and sensor-specific ports are added only
+when a concrete backend needs them, avoiding an oversized universal device API.

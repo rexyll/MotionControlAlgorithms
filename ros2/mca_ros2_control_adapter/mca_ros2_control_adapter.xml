@@ -8,4 +8,13 @@
       boundary. This plugin does not communicate with physical hardware.
     </description>
   </class>
+  <class
+    name="mca_ros2_control_adapter/MockSystem"
+    type="mca_ros2_control_adapter::MockSystem"
+    base_class_type="hardware_interface::SystemInterface">
+    <description>
+      Deterministic two-joint mock system for validating the MCA multi-joint
+      ros2_control boundary. This plugin does not communicate with physical hardware.
+    </description>
+  </class>
 </library>

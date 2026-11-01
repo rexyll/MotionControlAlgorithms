@@ -943,12 +943,18 @@ jobs:
               print_log_excerpt "reset-stress-${reset_cycle}-publisher.log"
               exit 1
             fi
+            # Freeze the stream immediately after the plugin acknowledges a
+            # finite command milestone. The last accepted command remains
+            # fresh, while no queued publisher traffic can cross the Reset
+            # boundary and re-arm effort after Reset has cleared it.
+            kill -TERM "$stress_publisher_pid" 2>/dev/null || true
+            wait "$stress_publisher_pid" 2>/dev/null || true
+            stress_publisher_pid=""
+
             reset_count_before="$(count_gazebo_log_matches "MCA Gazebo adapter Reset completed")"
             if ! gazebo_cli service -s /world/mca_gazebo_smoke/control \
                 --reqtype gz.msgs.WorldControl --reptype gz.msgs.Boolean \
                 --timeout 3000 --req 'reset: {all: true}' > "reset-stress-${reset_cycle}-response.log" 2>&1; then
-              kill "$stress_publisher_pid" 2>/dev/null || true
-              wait "$stress_publisher_pid" 2>/dev/null || true
               print_log_excerpt "reset-stress-${reset_cycle}-response.log"
               echo "Gazebo reset service failed during stress cycle ${reset_cycle}"
               exit 1
@@ -963,16 +969,12 @@ jobs:
               sleep 0.05
             done
             if [ "$reset_seen" != true ]; then
-              kill "$stress_publisher_pid" 2>/dev/null || true
-              wait "$stress_publisher_pid" 2>/dev/null || true
               echo "MCA plugin Reset callback was not observed in stress cycle ${reset_cycle}"
               print_log_excerpt "gazebo-transport.log"
               exit 1
             fi
             latest_reset="$(latest_gazebo_log_match "MCA Gazebo adapter Reset completed")"
             echo "Reset stress cycle ${reset_cycle}: ${latest_reset}"
-            kill "$stress_publisher_pid" 2>/dev/null || true
-            wait "$stress_publisher_pid" 2>/dev/null || true
             if [[ "$latest_reset" != *"had_transport_command=true"* || \
                   "$latest_reset" != *"applied_effort=0"* || \
                   "$latest_reset" != *"force_component_available=true"* ]]; then

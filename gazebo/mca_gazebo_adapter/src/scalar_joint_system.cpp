@@ -196,6 +196,7 @@ class ScalarJointSystem final : public gz::sim::System,
     typed_command_callback_count_.store(0, std::memory_order_relaxed);
     typed_command_callback_count_diagnostic_logged_.store(false,
                                                            std::memory_order_relaxed);
+    valid_transport_command_count_.store(0, std::memory_order_relaxed);
     nonzero_effort_logged_.store(false, std::memory_order_relaxed);
     zero_effort_command_logged_.store(false, std::memory_order_relaxed);
     transport_preupdate_diagnostic_logged_.store(false, std::memory_order_relaxed);
@@ -451,6 +452,15 @@ class ScalarJointSystem final : public gz::sim::System,
       }
       return;
     }
+    const auto valid_command_count =
+        valid_transport_command_count_.fetch_add(1, std::memory_order_relaxed) + 1;
+    // Emit a bounded-rate acknowledgement for long-running command streams.
+    // The one-shot "received typed command" diagnostic is reset only by Gazebo
+    // Reset, so it cannot acknowledge every later stress cycle.
+    if (valid_command_count % 128 == 0) {
+      gzmsg << "MCA Gazebo adapter accepted finite transport effort command count="
+            << valid_command_count << " topic=" << command_topic_ << std::endl;
+    }
     if (!transport_command_logged_.exchange(true, std::memory_order_relaxed)) {
       gzmsg << "MCA Gazebo adapter received typed transport effort command=" << effort
             << " on " << command_topic_ << std::endl;
@@ -507,6 +517,7 @@ class ScalarJointSystem final : public gz::sim::System,
   std::atomic<bool> typed_command_logged_{false};
   std::atomic<std::size_t> typed_command_callback_count_{0};
   std::atomic<bool> typed_command_callback_count_diagnostic_logged_{false};
+  std::atomic<std::size_t> valid_transport_command_count_{0};
   std::atomic<bool> nonzero_effort_logged_{false};
   std::atomic<bool> transport_preupdate_diagnostic_logged_{false};
   std::atomic<bool> transport_watchdog_expiry_logged_{false};

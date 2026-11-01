@@ -29,11 +29,19 @@ universal device interface speculatively.
 ## Staged tasks
 
 - [x] P12-01 audit existing ports and define hardware capability boundary.
-- [ ] P12-02 dependency-free joint-state / effort-command / lifecycle interfaces.
-- [ ] P12-03 deterministic fake hardware port regressions and Linux/Windows CI.
+- [x] P12-02 dependency-free joint-state / effort-command / lifecycle interfaces.
+- [x] P12-03 deterministic fake hardware port regressions and Linux/Windows CI.
 - [x] P12-04 inspect and design the optional ROS 2 control integration boundary.
-- [ ] P12-05 implement one concrete vendor/device adapter after selecting target hardware.
-- [ ] P12-06 perform target-device hardware-in-the-loop acceptance.
+- [ ] P12-04a implement and verify a single-DoF Jazzy `ActuatorInterface` bridge
+  using an explicit mock backend; this validates the ROS/core mapping only and
+  is not a physical driver.
+- [ ] P12-05 concrete device backend — select one real actuator/robot device,
+  verify its official SDK/transport and safety requirements, then implement a
+  driver adapter and documented deployment configuration.
+- [ ] P12-06 hardware-in-the-loop acceptance — verify sensor read coherence,
+  command timing/freshness, watchdog, fault propagation, stop behavior,
+  startup/shutdown and repeated reconnect on the selected device. Requires
+  access to the target hardware; simulation tests are not substitutes.
 
 ## P12-01 audit and design decisions
 
@@ -51,7 +59,7 @@ No device configuration parser, vendor callback, serial/CAN/EtherCAT transport,
 ROS executor, or OS I/O API is admitted into these core ports. Device-specific
 partial-write semantics and hardware safety behavior stay in the concrete adapter.
 
-## P12-02 / P12-03 acceptance
+## P12-02 / P12-03 acceptance — 2026-11-01
 
 The dependency-free types and interfaces live in
 `include/mca/hardware/interfaces.hpp` and are exported by `mca/mca.hpp`.
@@ -65,9 +73,16 @@ Lifecycle is explicitly Uninitialized / Inactive / Active / Faulted.
 The deterministic fake-device tests are registered in the existing
 `mca_core_tests` target through `tests/simulation/step_test.cpp`; they cover
 lifecycle transitions, partial measurements, output preservation, sequence
-propagation, finite/non-finite commands and safe-stop requests. Do not mark
-P12-02/P12-03 accepted until Linux and Windows Configure/Build/Test pass.
+propagation, finite/non-finite commands and safe-stop requests.
 
+Acceptance evidence: root CI [Run #1325](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41283481426)
+on code SHA `59225a651d6f9e3b0a7dce9bab4cdbef3a81a93f` completed successfully
+on both Linux and Windows. Configure, Build, the full core test target, and the
+dedicated P8-39 through P8-46 regression configure/build/test steps all passed.
+The Linux log explicitly reports 615/615 core tests passed, including the three
+new hardware-port tests. This accepts the dependency-free port contract and fake
+backend tests only; no real device or ROS 2 control plugin is claimed by this
+evidence.
 
 ## P12-04 ROS 2 control integration boundary audit
 
@@ -103,6 +118,24 @@ concrete plugin must choose a known robot dimension or explicitly batch/bridge
 runtime-sized ROS storage at the adapter boundary; it must not silently allocate
 or resize in the hard real-time write path.
 
-No ROS 2 control package implementation or physical backend is claimed by this
-audit. The next implementation depends on selecting a robot/device and its
-joint count, control modes, transport, fault model and safety behavior.
+## P12-04a reference plugin — implementation in progress
+
+The optional package `ros2/mca_ros2_control_adapter` provides a reusable
+single-DoF `ActuatorHardware` bridge and a pluginlib-exported
+`mca_ros2_control_adapter/MockActuator`. The bridge maps the ROS lifecycle to
+MCA lifecycle operations, copies only valid backend state fields into declared
+ROS state interfaces, and rejects non-finite effort before forwarding a command.
+Deactivation requests a software safe-stop before disabling the backend.
+
+The MockActuator backend returns synthetic zero position/velocity and stores
+effort in memory; it does not simulate a motor or communicate with hardware.
+The optional ROS 2 workflow is being extended to compile the package and run a
+plugin-discovery/load test. Do not mark P12-04a accepted until that workflow passes.
+
+## P12-05 / P12-06 boundary
+
+No specific physical robot, motor, drive, bus or vendor SDK has been selected in
+this task. Do not implement a speculative vendor backend. P12-05 requires a
+concrete device target and verified official SDK/transport/control-mode/fault
+documentation. P12-06 requires physical hardware access and separate HIL
+evidence; Gazebo or a mock backend cannot substitute for it.

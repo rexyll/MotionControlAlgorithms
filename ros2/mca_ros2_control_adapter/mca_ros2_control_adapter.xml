@@ -1,0 +1,11 @@
+<library path="mca_ros2_control_adapter">
+  <class
+    name="mca_ros2_control_adapter/MockActuator"
+    type="mca_ros2_control_adapter::MockActuator"
+    base_class_type="hardware_interface::ActuatorInterface">
+    <description>
+      Deterministic single-DoF mock actuator for validating the MCA ros2_control
+      boundary. This plugin does not communicate with physical hardware.
+    </description>
+  </class>
+</library>

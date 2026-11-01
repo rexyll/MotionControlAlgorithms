@@ -100,3 +100,12 @@ Fixed-size state values expose an explicit validity mask so unavailable sensor
 fields are not confused with measured zeros. Concrete vendor/device integrations
 remain optional adapters; no specific physical backend is claimed yet. See
 [`docs/P12_PLAN.md`](docs/P12_PLAN.md).
+
+
+## ROS 2 control hardware adapter
+
+The optional `ros2/mca_ros2_control_adapter` package maps MCA's dependency-free
+joint lifecycle/state/effort ports to ROS 2 Jazzy `hardware_interface`. Its
+`MockActuator` plugin is only a plugin-loading and interface-mapping fixture;
+it does not operate or model a physical actuator. A real vendor/device backend
+requires a selected hardware target and is not yet claimed.

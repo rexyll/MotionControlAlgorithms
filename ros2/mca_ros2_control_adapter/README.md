@@ -13,11 +13,13 @@ hardware ports in `include/mca/hardware/interfaces.hpp`.
 - ROS 2 lifecycle callbacks map to `IHardwareLifecycle`: configure initializes
   the backend, activate enables it, deactivate requests a software safe-stop
   before deactivation, and cleanup releases the backend.
-- `read()` copies one validated MCA state snapshot to the declared ROS state
-  interfaces. It fails rather than substituting zero when a declared measurement
-  is unavailable.
-- `write()` reads the declared effort command, validates finiteness and sequence,
-  then forwards the command to the backend.
+- `read()` copies one validated, monotonically sequenced MCA state snapshot to
+  pre-exported ROS state-interface handles. A repeated or stale sample fails;
+  unavailable measurements are not substituted with zero.
+- `write()` reads an effort value through a pre-exported command handle,
+  validates finiteness and sequence, then forwards the command to the backend.
+  The real-time path does not construct interface-name strings, perform name
+  lookup, or wait for interface storage.
 - Runtime ROS interface storage, URDF metadata, pluginlib and vendor transports
   remain in this optional package. The root CMake project has no ROS dependency.
 
@@ -26,9 +28,10 @@ hardware ports in `include/mca/hardware/interfaces.hpp`.
 The package exports `mca_ros2_control_adapter/MockActuator`. It is only a
 deterministic adapter-boundary fixture: its synthetic position and velocity
 remain zero and it stores effort commands in memory. It does not model a motor,
-provide physical feedback or control a real actuator. Use it to validate plugin
-discovery, loading, and package integration before replacing it with a
-device-specific backend.
+provide physical feedback or control a real actuator. The ROS 2 Jazzy test
+loads it through pluginlib, performs lifecycle configuration/activation, reads
+the mock state, sends a finite effort command, verifies NaN rejection, and
+checks that writes are rejected after deactivation.
 
 Example URDF fragment:
 
@@ -62,4 +65,4 @@ colcon test-result --test-result-base build/mca_ros2_control_adapter/test_result
 
 This package is driver-neutral. P12-05 still requires a selected physical device,
 its official SDK/transport, control mode and safety/fault handling. A plugin-load
-test is not hardware-in-the-loop acceptance.
+and mock lifecycle test are not hardware-in-the-loop acceptance.

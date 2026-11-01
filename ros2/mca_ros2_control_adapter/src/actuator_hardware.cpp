@@ -21,10 +21,11 @@ bool HasInterface(const std::vector<hardware_interface::InterfaceInfo>& interfac
 }  // namespace
 
 ActuatorHardware::CallbackReturn ActuatorHardware::on_init(
-    const hardware_interface::HardwareInfo& info) {
-  const auto parent_result = hardware_interface::ActuatorInterface::on_init(info);
+    const hardware_interface::HardwareComponentInterfaceParams& params) {
+  const auto parent_result = hardware_interface::ActuatorInterface::on_init(params);
   if (parent_result != CallbackReturn::SUCCESS) return parent_result;
 
+  const auto& info = params.hardware_info;
   if (info.type != "actuator" || info.joints.size() != 1U ||
       info.joints.front().name.empty()) {
     return CallbackReturn::ERROR;
@@ -41,6 +42,8 @@ ActuatorHardware::CallbackReturn ActuatorHardware::on_init(
     return CallbackReturn::ERROR;
   }
 
+  has_acceleration_state_ = false;
+  has_effort_state_ = false;
   for (const auto& state_interface : joint.state_interfaces) {
     if (state_interface.name == hardware_interface::HW_IF_POSITION ||
         state_interface.name == hardware_interface::HW_IF_VELOCITY) {
@@ -58,30 +61,86 @@ ActuatorHardware::CallbackReturn ActuatorHardware::on_init(
   }
 
   joint_name_ = joint.name;
+  position_state_interface_name_ = joint_name_ + "/" + hardware_interface::HW_IF_POSITION;
+  velocity_state_interface_name_ = joint_name_ + "/" + hardware_interface::HW_IF_VELOCITY;
+  acceleration_state_interface_name_ =
+      joint_name_ + "/" + hardware_interface::HW_IF_ACCELERATION;
+  effort_state_interface_name_ = joint_name_ + "/" + hardware_interface::HW_IF_EFFORT;
+  effort_command_interface_name_ = joint_name_ + "/" + hardware_interface::HW_IF_EFFORT;
+
   backend_ = create_backend();
   if (!backend_) return CallbackReturn::ERROR;
+  active_.store(false, std::memory_order_release);
+  has_last_state_sequence_ = false;
+  last_state_sequence_ = 0;
   next_command_sequence_ = 0;
+  position_state_handle_.reset();
+  velocity_state_handle_.reset();
+  acceleration_state_handle_.reset();
+  effort_state_handle_.reset();
+  effort_command_handle_.reset();
   return CallbackReturn::SUCCESS;
+}
+
+std::vector<hardware_interface::StateInterface::ConstSharedPtr>
+ActuatorHardware::on_export_state_interfaces() {
+  auto handles = hardware_interface::ActuatorInterface::on_export_state_interfaces();
+  try {
+    position_state_handle_ = get_state_interface_handle(position_state_interface_name_);
+    velocity_state_handle_ = get_state_interface_handle(velocity_state_interface_name_);
+    if (has_acceleration_state_) {
+      acceleration_state_handle_ =
+          get_state_interface_handle(acceleration_state_interface_name_);
+    }
+    if (has_effort_state_) {
+      effort_state_handle_ = get_state_interface_handle(effort_state_interface_name_);
+    }
+  } catch (...) {
+    position_state_handle_.reset();
+    velocity_state_handle_.reset();
+    acceleration_state_handle_.reset();
+    effort_state_handle_.reset();
+  }
+  return handles;
+}
+
+std::vector<hardware_interface::CommandInterface::SharedPtr>
+ActuatorHardware::on_export_command_interfaces() {
+  auto handles = hardware_interface::ActuatorInterface::on_export_command_interfaces();
+  try {
+    effort_command_handle_ = get_command_interface_handle(effort_command_interface_name_);
+  } catch (...) {
+    effort_command_handle_.reset();
+  }
+  return handles;
 }
 
 ActuatorHardware::CallbackReturn ActuatorHardware::on_configure(
     const rclcpp_lifecycle::State&) {
   if (!backend_) backend_ = create_backend();
   if (!backend_ || !backend_->initialize().ok()) return CallbackReturn::FAILURE;
+  has_last_state_sequence_ = false;
+  last_state_sequence_ = 0;
+  next_command_sequence_ = 0;
   return CallbackReturn::SUCCESS;
 }
 
 ActuatorHardware::CallbackReturn ActuatorHardware::on_activate(
     const rclcpp_lifecycle::State&) {
   if (!backend_ || !backend_->activate().ok()) return CallbackReturn::ERROR;
+  active_.store(true, std::memory_order_release);
   return CallbackReturn::SUCCESS;
 }
 
 ActuatorHardware::CallbackReturn ActuatorHardware::stop_and_deactivate() noexcept {
-  if (!backend_) return CallbackReturn::SUCCESS;
-  if (backend_->lifecycle_state() == mca::hardware::HardwareLifecycleState::Active) {
+  if (!backend_) {
+    active_.store(false, std::memory_order_release);
+    return CallbackReturn::SUCCESS;
+  }
+  if (active_.load(std::memory_order_acquire)) {
     if (!backend_->request_safe_stop().ok()) return CallbackReturn::ERROR;
     if (!backend_->deactivate().ok()) return CallbackReturn::ERROR;
+    active_.store(false, std::memory_order_release);
   }
   return CallbackReturn::SUCCESS;
 }
@@ -93,10 +152,7 @@ ActuatorHardware::CallbackReturn ActuatorHardware::on_deactivate(
 
 ActuatorHardware::CallbackReturn ActuatorHardware::on_cleanup(
     const rclcpp_lifecycle::State&) {
-  if (backend_ &&
-      backend_->lifecycle_state() == mca::hardware::HardwareLifecycleState::Active) {
-    return CallbackReturn::ERROR;
-  }
+  if (active_.load(std::memory_order_acquire)) return CallbackReturn::ERROR;
   backend_.reset();
   return CallbackReturn::SUCCESS;
 }
@@ -122,35 +178,62 @@ bool ActuatorHardware::validate_backend_state(
 
 hardware_interface::return_type ActuatorHardware::read(
     const rclcpp::Time&, const rclcpp::Duration&) {
-  if (!backend_) return hardware_interface::return_type::ERROR;
+  if (!backend_ || !position_state_handle_ || !velocity_state_handle_ ||
+      (has_acceleration_state_ && !acceleration_state_handle_) ||
+      (has_effort_state_ && !effort_state_handle_)) {
+    return hardware_interface::return_type::ERROR;
+  }
 
   mca::hardware::ScalarJointState state;
   if (!backend_->read_state(state).ok() || !validate_backend_state(state)) {
     return hardware_interface::return_type::ERROR;
   }
+  if (has_last_state_sequence_ && state.sequence <= last_state_sequence_) {
+    return hardware_interface::return_type::ERROR;
+  }
 
-  set_state(joint_name_ + "/" + hardware_interface::HW_IF_POSITION, state.position[0]);
-  set_state(joint_name_ + "/" + hardware_interface::HW_IF_VELOCITY, state.velocity[0]);
-  if (has_acceleration_state_) {
-    set_state(joint_name_ + "/" + hardware_interface::HW_IF_ACCELERATION,
-              state.acceleration[0]);
+  try {
+    // All handles and names were resolved during interface export. Use the
+    // non-blocking handle overloads in the control cycle; never construct
+    // strings, perform name lookups, or wait for interface storage here.
+    if (!set_state(position_state_handle_, state.position[0], false) ||
+        !set_state(velocity_state_handle_, state.velocity[0], false)) {
+      return hardware_interface::return_type::ERROR;
+    }
+    if (has_acceleration_state_ &&
+        !set_state(acceleration_state_handle_, state.acceleration[0], false)) {
+      return hardware_interface::return_type::ERROR;
+    }
+    if (has_effort_state_ &&
+        !set_state(effort_state_handle_, state.effort[0], false)) {
+      return hardware_interface::return_type::ERROR;
+    }
+  } catch (...) {
+    return hardware_interface::return_type::ERROR;
   }
-  if (has_effort_state_) {
-    set_state(joint_name_ + "/" + hardware_interface::HW_IF_EFFORT, state.effort[0]);
-  }
+
+  last_state_sequence_ = state.sequence;
+  has_last_state_sequence_ = true;
   return hardware_interface::return_type::OK;
 }
 
 hardware_interface::return_type ActuatorHardware::write(
     const rclcpp::Time&, const rclcpp::Duration&) {
-  if (!backend_ ||
-      backend_->lifecycle_state() != mca::hardware::HardwareLifecycleState::Active ||
+  if (!backend_ || !active_.load(std::memory_order_acquire) ||
+      !effort_command_handle_ ||
       next_command_sequence_ == std::numeric_limits<std::uint64_t>::max()) {
     return hardware_interface::return_type::ERROR;
   }
 
-  const double effort =
-      get_command<double>(joint_name_ + "/" + hardware_interface::HW_IF_EFFORT);
+  double effort = 0.0;
+  try {
+    if (!get_command(effort_command_handle_, effort, false)) {
+      return hardware_interface::return_type::ERROR;
+    }
+  } catch (...) {
+    return hardware_interface::return_type::ERROR;
+  }
+
   mca::hardware::ScalarJointEffortCommand command;
   command.effort[0] = effort;
   command.sequence = next_command_sequence_;

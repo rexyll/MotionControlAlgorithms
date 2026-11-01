@@ -129,8 +129,7 @@ Deactivation requests a software safe-stop before disabling the backend.
 
 The MockActuator backend returns synthetic zero position/velocity and stores
 effort in memory; it does not simulate a motor or communicate with hardware.
-The optional ROS 2 workflow is being extended to compile the package and run a
-plugin-discovery/load test. Do not mark P12-04a accepted until that workflow passes.
+The first ROS 2 Jazzy workflow [Run #14](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41284807421) successfully compiled both optional ROS packages and passed the existing scalar-adapter test and MockActuator plugin-discovery/load test. That first build exposed a deprecated Jazzy `on_init(HardwareInfo)` overload. The bridge is now being hardened to use the recommended `HardwareComponentInterfaceParams` overload, pre-export its interface handles before the control loop, reject stale state sequences, and exercise lifecycle/read/write/safe-stop behavior through the mock. Do not mark P12-04a accepted until the improved workflow and the main Linux/Windows CI pass.
 
 ## P12-05 / P12-06 boundary
 

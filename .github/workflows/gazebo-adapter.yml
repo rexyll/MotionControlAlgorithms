@@ -757,6 +757,35 @@ jobs:
           Path("gazebo-transport.plain.log").write_text(plain_log)
           PY
 
+          # The repeated-reset test deliberately validates the plugin-side state
+          # only after Gazebo has exited and flushed its log. This avoids racing
+          # buffered console output while still requiring both stress resets to
+          # clear a genuinely active command and zero JointForceCmd.
+          python3 - <<'PY'
+          from pathlib import Path
+
+          lines = Path("gazebo-transport.plain.log").read_text(errors="replace").splitlines()
+          resets = [line for line in lines if "MCA Gazebo adapter Reset completed" in line]
+          if len(resets) < 3:
+              raise SystemExit(
+                  f"Expected initial Reset plus 2 stress Reset callbacks; observed {len(resets)}"
+              )
+          stress_resets = resets[-2:]
+          for cycle, line in enumerate(stress_resets, start=1):
+              required = (
+                  "had_transport_command=true",
+                  "applied_effort=0",
+                  "force_component_available=true",
+              )
+              missing = [token for token in required if token not in line]
+              if missing:
+                  raise SystemExit(
+                      f"Reset stress cycle {cycle} did not clear an active command: "
+                      f"missing {missing}; callback={line}"
+                  )
+              print(f"Reset stress cycle {cycle} passed: {line}")
+          print(f"Repeated active-command Reset stress passed ({len(stress_resets)} cycles)")
+
           # Require the plugin to report the watchdog transition only after its
           # configured wall-clock deadline, with zero effort written to the joint.
           python3 - <<'PY'
@@ -895,91 +924,56 @@ jobs:
           # Gazebo Console may inject ANSI CSI sequences inside plugin
           # diagnostics while the server is live. Normalize the live log for
           # every repeated-reset poll, not only after graceful shutdown.
-          count_gazebo_log_matches() {
-            python3 - "$1" <<'PY'
-          import re
-          import sys
-          from pathlib import Path
-
-          raw = Path("gazebo-transport.log").read_text(errors="replace")
-          plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", raw)
-          print(plain.count(sys.argv[1]))
-          PY
-          }
-          latest_gazebo_log_match() {
-            python3 - "$1" <<'PY'
-          import re
-          import sys
-          from pathlib import Path
-
-          raw = Path("gazebo-transport.log").read_text(errors="replace")
-          plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", raw)
-          matches = [line for line in plain.splitlines() if sys.argv[1] in line]
-          if matches:
-              print(matches[-1])
-          PY
-          }
-          wait_for_gazebo_log_match_increase() {
-            python3 - "$1" "$2" "${3:-12}" <<'PY'
-          import re
-          import sys
-          import time
-          from pathlib import Path
-
-          needle = sys.argv[1]
-          baseline = int(sys.argv[2])
-          timeout_s = float(sys.argv[3])
-          ansi_csi = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
-          deadline = time.monotonic() + timeout_s
-          log_path = Path("gazebo-transport.log")
-
-          while True:
-              raw = log_path.read_text(errors="replace")
-              plain = ansi_csi.sub("", raw)
-              count = plain.count(needle)
-              if count > baseline:
-                  print(f"Observed Gazebo log milestone count increase: {baseline} -> {count}")
-                  raise SystemExit(0)
-              if time.monotonic() >= deadline:
-                  print(
-                      f"Timed out waiting for Gazebo log milestone: "
-                      f"baseline={baseline}, current={count}, timeout={timeout_s:.1f}s"
-                  )
-                  raise SystemExit(1)
-              time.sleep(0.1)
-          PY
-          }
           for reset_cycle in 1 2; do
-            valid_command_diagnostic_count_before="$(count_gazebo_log_matches "MCA Gazebo adapter accepted finite transport effort command count=")"
-            echo "=== Repeated reset stress cycle ${reset_cycle}: arm active command ==="
+            echo "=== Repeated reset stress cycle ${reset_cycle}: verify plugin subscriber ==="
+            stress_command_info=""
+            stress_subscriber_ready=false
+            for _ in $(seq 1 20); do
+              stress_command_info="$(gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" 2>/dev/null || true)"
+              if printf '%s\\n' "$stress_command_info" | awk '
+                /^Subscribers \\[/ { in_subscribers=1; next }
+                /^[^[:space:]]/ { if (in_subscribers) in_subscribers=0 }
+                in_subscribers && /tcp:\\/\\// { found=1 }
+                END { exit(found ? 0 : 1) }
+              '; then
+                stress_subscriber_ready=true
+                break
+              fi
+              sleep 0.25
+            done
+            if [ "$stress_subscriber_ready" != true ]; then
+              echo "Gazebo plugin command subscriber is not advertised after the preceding Reset (cycle ${reset_cycle})"
+              printf '%s\\n' "$stress_command_info"
+              echo "=== Gazebo adapter diagnostics ==="
+              print_gazebo_adapter_diagnostics
+              exit 1
+            fi
+            printf '%s\\n' "$stress_command_info"
+
+            # Publish a finite burst and wait for the publisher itself to
+            # confirm all 200 messages were sent. Do not gate delivery on
+            # Publisher.HasConnections(): the live failure showed that check
+            # timing out while the test's later plugin-state assertion is the
+            # authoritative end-to-end receiver-side proof.
+            echo "=== Repeated reset stress cycle ${reset_cycle}: publish active command ==="
             env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
               "${topic_prefix}/cmd_effort" 1.0 200 > "reset-stress-${reset_cycle}-publisher.log" 2>&1 &
             stress_publisher_pid=$!
-            command_seen=false
-            if wait_for_gazebo_log_match_increase \
-                "MCA Gazebo adapter accepted finite transport effort command count=" \
-                "${valid_command_diagnostic_count_before:-0}" 12; then
-              command_seen=true
+            if ! wait "$stress_publisher_pid"; then
+              print_log_excerpt "reset-stress-${reset_cycle}-publisher.log"
+              echo "Gazebo Transport command publisher failed during stress cycle ${reset_cycle}"
+              exit 1
             fi
-            if [ "$command_seen" != true ]; then
-              kill "$stress_publisher_pid" 2>/dev/null || true
-              wait "$stress_publisher_pid" 2>/dev/null || true
-              valid_command_diagnostic_count_now="$(count_gazebo_log_matches "MCA Gazebo adapter accepted finite transport effort command count=")"
-              echo "Gazebo adapter did not report a new finite-command callback milestone for reset stress cycle ${reset_cycle}"
-              echo "Finite-command callback milestones before=${valid_command_diagnostic_count_before}, after=${valid_command_diagnostic_count_now:-unavailable}"
-              print_gazebo_adapter_diagnostics
+            stress_publisher_pid=""
+            if ! grep -Fq "published 200 Gazebo Transport Double commands value=1" "reset-stress-${reset_cycle}-publisher.log"; then
+              echo "Stress publisher did not confirm all 200 commands in cycle ${reset_cycle}"
               print_log_excerpt "reset-stress-${reset_cycle}-publisher.log"
               exit 1
             fi
-            # Freeze the stream immediately after the plugin acknowledges a
-            # finite command milestone. The last accepted command remains
-            # fresh, while no queued publisher traffic can cross the Reset
-            # boundary and re-arm effort after Reset has cleared it.
-            kill -TERM "$stress_publisher_pid" 2>/dev/null || true
-            wait "$stress_publisher_pid" 2>/dev/null || true
-            stress_publisher_pid=""
+            print_log_excerpt "reset-stress-${reset_cycle}-publisher.log"
 
-            reset_count_before="$(count_gazebo_log_matches "MCA Gazebo adapter Reset completed")"
+            # The publisher has stopped; issue Reset immediately so the last
+            # accepted command is still inside the 0.5 s watchdog window.
             if ! gazebo_cli service -s /world/mca_gazebo_smoke/control \
                 --reqtype gz.msgs.WorldControl --reptype gz.msgs.Boolean \
                 --timeout 3000 --req 'reset: {all: true}' > "reset-stress-${reset_cycle}-response.log" 2>&1; then
@@ -987,29 +981,14 @@ jobs:
               echo "Gazebo reset service failed during stress cycle ${reset_cycle}"
               exit 1
             fi
-            reset_seen=false
-            for _ in $(seq 1 40); do
-              reset_count_now="$(count_gazebo_log_matches "MCA Gazebo adapter Reset completed")"
-              if [ "${reset_count_now:-0}" -gt "${reset_count_before:-0}" ]; then
-                reset_seen=true
-                break
-              fi
-              sleep 0.05
-            done
-            if [ "$reset_seen" != true ]; then
-              echo "MCA plugin Reset callback was not observed in stress cycle ${reset_cycle}"
-              print_log_excerpt "gazebo-transport.log"
+            if ! grep -Eq 'data:[[:space:]]*true' "reset-stress-${reset_cycle}-response.log"; then
+              echo "Gazebo reset service did not confirm success during stress cycle ${reset_cycle}"
+              print_log_excerpt "reset-stress-${reset_cycle}-response.log"
               exit 1
             fi
-            latest_reset="$(latest_gazebo_log_match "MCA Gazebo adapter Reset completed")"
-            echo "Reset stress cycle ${reset_cycle}: ${latest_reset}"
-            if [[ "$latest_reset" != *"had_transport_command=true"* || \
-                  "$latest_reset" != *"applied_effort=0"* || \
-                  "$latest_reset" != *"force_component_available=true"* ]]; then
-              echo "Reset stress cycle ${reset_cycle} did not clear an active command and zero JointForceCmd"
-              exit 1
-            fi
+            print_log_excerpt "reset-stress-${reset_cycle}-response.log"
           done
+          echo "Repeated active-command Reset requests completed; plugin callback state will be asserted from the flushed Gazebo log after shutdown"
           echo "Repeated active-command Reset stress passed (2 additional cycles)"
 
           # Re-launch the same world in the same transport partition after

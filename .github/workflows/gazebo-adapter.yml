@@ -921,19 +921,19 @@ jobs:
           # Each reset is requested only after a fresh non-zero Transport command
           # has reached the plugin, so this checks the active-command clearing
           # path repeatedly rather than merely counting reset service responses.
-          # Gazebo Console may inject ANSI CSI sequences inside plugin
-          # diagnostics while the server is live. Normalize the live log for
-          # every repeated-reset poll, not only after graceful shutdown.
+          # Gazebo Console may inject ANSI CSI sequences in plugin diagnostics.
+          # The repeated-reset callback assertions run against the normalized,
+          # fully flushed log after graceful shutdown.
           for reset_cycle in 1 2; do
             echo "=== Repeated reset stress cycle ${reset_cycle}: verify plugin subscriber ==="
             stress_command_info=""
             stress_subscriber_ready=false
             for _ in $(seq 1 20); do
               stress_command_info="$(gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" 2>/dev/null || true)"
-              if printf '%s\\n' "$stress_command_info" | awk '
-                /^Subscribers \\[/ { in_subscribers=1; next }
+              if printf '%s\n' "$stress_command_info" | awk '
+                /^Subscribers \[/ { in_subscribers=1; next }
                 /^[^[:space:]]/ { if (in_subscribers) in_subscribers=0 }
-                in_subscribers && /tcp:\\/\\// { found=1 }
+                in_subscribers && /tcp:\/\// { found=1 }
                 END { exit(found ? 0 : 1) }
               '; then
                 stress_subscriber_ready=true
@@ -943,12 +943,12 @@ jobs:
             done
             if [ "$stress_subscriber_ready" != true ]; then
               echo "Gazebo plugin command subscriber is not advertised after the preceding Reset (cycle ${reset_cycle})"
-              printf '%s\\n' "$stress_command_info"
+              printf '%s\n' "$stress_command_info"
               echo "=== Gazebo adapter diagnostics ==="
               print_gazebo_adapter_diagnostics
               exit 1
             fi
-            printf '%s\\n' "$stress_command_info"
+            printf '%s\n' "$stress_command_info"
 
             # Publish a finite burst and wait for the publisher itself to
             # confirm all 200 messages were sent. Do not gate delivery on
@@ -988,8 +988,7 @@ jobs:
             fi
             print_log_excerpt "reset-stress-${reset_cycle}-response.log"
           done
-          echo "Repeated active-command Reset requests completed; plugin callback state will be asserted from the flushed Gazebo log after shutdown"
-          echo "Repeated active-command Reset stress passed (2 additional cycles)"
+          echo "Repeated active-command Reset requests completed; callback state will be asserted after shutdown"
 
           # Re-launch the same world in the same transport partition after
           # the first server has exited. This catches stale endpoints, plugin

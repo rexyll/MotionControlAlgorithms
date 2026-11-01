@@ -482,62 +482,92 @@ jobs:
             exit 1
           fi
 
-          # Re-arm through the ROS 2 bridge and require an acknowledgement
-          # emitted only after OnCommand commits the finite value, timestamp,
-          # and active state under mutex_. Do not gate this on the separate
-          # watchdog-rearmed wording: the finite-command milestone is the
-          # receiver-side proof and includes active=true.
-          reset_probe_command_count_before="$(count_gazebo_log_matches "MCA Gazebo adapter accepted finite transport effort command count=")"
-          sleep 0.7
-          ros2 topic pub --rate 100 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > reset-probe-publisher.log 2>&1 &
-          publisher_pid=$!
-          reset_probe_received=false
-          reset_probe_command_count_now="${reset_probe_command_count_before:-0}"
-          for _ in $(seq 1 80); do
-            reset_probe_command_count_now="$(count_gazebo_log_matches "MCA Gazebo adapter accepted finite transport effort command count=")"
-            if [ "${reset_probe_command_count_now:-0}" -gt "${reset_probe_command_count_before:-0}" ]; then
-              reset_probe_received=true
+          # Subscribe to the plugin's dedicated acknowledgement topic before
+          # sending the ROS command. The plugin publishes this count only after
+          # OnCommand has committed the command state; this avoids polling
+          # Gazebo Console output, which can be buffered until shutdown.
+          reset_probe_ack_topic="${topic_prefix}/command_ack"
+          timeout 8s env GZ_PARTITION="$GZ_PARTITION" \
+            build/gazebo-adapter/mca_transport_subscriber_probe "$reset_probe_ack_topic" \
+            > reset-probe-ack.log 2>&1 &
+          reset_probe_ack_pid=$!
+          reset_probe_subscribed=false
+          for _ in $(seq 1 20); do
+            if grep -Fq "probe subscribed=true topic=$reset_probe_ack_topic" reset-probe-ack.log; then
+              reset_probe_subscribed=true
               break
             fi
             sleep 0.1
           done
+          if [ "$reset_probe_subscribed" != true ]; then
+            kill "$reset_probe_ack_pid" 2>/dev/null || true
+            wait "$reset_probe_ack_pid" 2>/dev/null || true
+            echo "Could not subscribe to the Gazebo adapter command acknowledgement topic"
+            print_log_excerpt "reset-probe-ack.log"
+            print_gazebo_adapter_diagnostics
+            exit 1
+          fi
+          ack_topic_info=""
+          reset_probe_ack_endpoint_ready=false
+          for _ in $(seq 1 20); do
+            ack_topic_info="$(gazebo_cli topic -i -t "$reset_probe_ack_topic" 2>/dev/null || true)"
+            if printf '%s\\n' "$ack_topic_info" | awk '
+              /^Subscribers \\[/ { in_subscribers=1; next }
+              /^[^[:space:]]/ { if (in_subscribers) in_subscribers=0 }
+              in_subscribers && /tcp:\\/\\// { found=1 }
+              END { exit(found ? 0 : 1) }
+            '; then
+              reset_probe_ack_endpoint_ready=true
+              break
+            fi
+            sleep 0.1
+          done
+          if [ "$reset_probe_ack_endpoint_ready" != true ]; then
+            kill "$reset_probe_ack_pid" 2>/dev/null || true
+            wait "$reset_probe_ack_pid" 2>/dev/null || true
+            echo "Gazebo command acknowledgement subscriber endpoint was not discovered"
+            printf '%s\\n' "$ack_topic_info"
+            print_log_excerpt "reset-probe-ack.log"
+            exit 1
+          fi
+
+          timeout 9s ros2 topic pub --rate 100 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > reset-probe-publisher.log 2>&1 &
+          publisher_pid=$!
+          reset_probe_received=false
+          if wait "$reset_probe_ack_pid"; then
+            reset_probe_received=true
+          fi
+          reset_probe_ack_pid=""
           if [ "$reset_probe_received" != true ]; then
             kill -TERM "$publisher_pid" 2>/dev/null || true
             wait "$publisher_pid" 2>/dev/null || true
             publisher_pid=""
-            echo "Plugin did not acknowledge a committed finite command after watchdog expiry; refusing to run Reset precondition"
-            echo "Finite-command milestones before=${reset_probe_command_count_before:-0}, after=${reset_probe_command_count_now:-unavailable}"
+            echo "Plugin did not publish a committed-command acknowledgement after watchdog expiry"
+            echo "=== Command acknowledgement subscriber ==="
+            print_log_excerpt "reset-probe-ack.log"
             echo "=== MCA command/watchdog diagnostics ==="
             print_gazebo_adapter_diagnostics
-            echo "=== Transport subscriber probe ==="
-            print_log_excerpt "transport-probe.log"
             echo "=== ROS-to-Gazebo bridge log ==="
             print_log_excerpt "ros-to-gz-bridge.log"
             echo "=== Reset-probe publisher log ==="
             print_log_excerpt "reset-probe-publisher.log"
             exit 1
           fi
-          latest_reset_probe_command="$(python3 - <<'PY'
+          print_log_excerpt "reset-probe-ack.log"
+          acknowledged_command_count="$(python3 - <<'PY'
           import re
           from pathlib import Path
-          raw = Path("gazebo-transport.log").read_text(errors="replace")
-          plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", raw)
-          matches = [
-              line for line in plain.splitlines()
-              if "MCA Gazebo adapter accepted finite transport effort command count=" in line
-          ]
-          print(matches[-1] if matches else "")
+          raw = Path("reset-probe-ack.log").read_text(errors="replace")
+          matches = re.findall(r"probe callback received gz\\.msgs\\.Double data=([-+0-9.eE]+)", raw)
+          if not matches:
+              raise SystemExit("Command acknowledgement subscriber returned without a count")
+          count = float(matches[-1])
+          if count <= 0:
+              raise SystemExit(f"Invalid command acknowledgement count: {count}")
+          print(int(count))
           PY
           )"
-          if [[ "$latest_reset_probe_command" != *"active=true"* ]]; then
-            kill -TERM "$publisher_pid" 2>/dev/null || true
-            wait "$publisher_pid" 2>/dev/null || true
-            publisher_pid=""
-            echo "Finite-command callback milestone did not confirm active command state"
-            print_gazebo_adapter_diagnostics
-            exit 1
-          fi
-          echo "Reset precondition confirmed by plugin callback: $latest_reset_probe_command"
+          echo "Reset precondition confirmed by command callback acknowledgement count=$acknowledged_command_count"
 
           # Freeze the pre-reset stream once the plugin has acknowledged an
           # active command. Reset must see the still-fresh command, but no

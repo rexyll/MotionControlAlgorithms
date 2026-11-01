@@ -67,6 +67,9 @@ class FaultInjectableVirtualJointDevice final : public IHardwareLifecycle,
     return {core::StatusCode::NotConfigured};
   }
   core::Status clear_faults() noexcept override {
+    // Clearing an empty diagnostic set is a no-op. In particular, it must not
+    // deactivate a healthy device merely because a caller polls diagnostics.
+    if (faults_.count == 0U) return {};
     for (std::size_t i=0; i<faults_.count; ++i)
       if (faults_.faults[i].active) return {core::StatusCode::ConstraintViolation};
     if (device_.lifecycle_state()==HardwareLifecycleState::Active) {

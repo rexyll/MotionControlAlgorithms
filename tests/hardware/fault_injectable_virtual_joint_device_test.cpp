@@ -2,6 +2,13 @@
 #include "mca/hardware/fault_injectable_virtual_joint_device.hpp"
 using Device = mca::hardware::FaultInjectableVirtualJointDevice<1>;
 using Category = mca::hardware::HardwareFaultCategory;
+TEST(FaultInjectableVirtualJointDevice, EmptyClearDoesNotDeactivateHealthyDevice) {
+  Device d; ASSERT_TRUE(d.initialize().ok()); ASSERT_TRUE(d.activate().ok());
+  ASSERT_TRUE(d.clear_faults().ok());
+  EXPECT_EQ(d.lifecycle_state(),mca::hardware::HardwareLifecycleState::Active);
+  mca::hardware::JointEffortCommand<double,1> c; c.effort={1.0};
+  EXPECT_TRUE(d.write_effort(c).ok());
+}
 TEST(FaultInjectableVirtualJointDevice, InjectedFaultStopsAndBlocksCommands) {
   Device d; ASSERT_TRUE(d.initialize().ok()); ASSERT_TRUE(d.activate().ok());
   mca::hardware::JointEffortCommand<double,1> c; c.effort={2.0};

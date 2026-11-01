@@ -173,13 +173,19 @@ bool SystemHardware::validate_backend_state(const DualJointState& state) const n
 }
 
 hardware_interface::return_type SystemHardware::read(
-    const rclcpp::Time&, const rclcpp::Duration&) {
+    const rclcpp::Time&, const rclcpp::Duration& period) {
   if (!backend_) return hardware_interface::return_type::ERROR;
   for (std::size_t i = 0; i < joint_names_.size(); ++i) {
     if (!position_handles_[i] || !velocity_handles_[i] ||
         (has_effort_state_ && !effort_state_handles_[i])) {
       return hardware_interface::return_type::ERROR;
     }
+  }
+
+  const double period_seconds = period.seconds();
+  if (!std::isfinite(period_seconds) || period_seconds < 0.0 ||
+      !backend_->update(period_seconds).ok()) {
+    return hardware_interface::return_type::ERROR;
   }
 
   DualJointState sample;

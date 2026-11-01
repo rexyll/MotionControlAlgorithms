@@ -20,6 +20,13 @@ class IDualJointBackend : public mca::hardware::IHardwareLifecycle,
                           public mca::hardware::IJointEffortCommandSink<double, 2> {
  public:
   ~IDualJointBackend() override = default;
+
+  // Optional simulator update. Physical backends retain the default no-op;
+  // simulation backends advance their plant using the ROS control period.
+  virtual mca::core::Status update(double period_seconds) noexcept {
+    (void)period_seconds;
+    return {};
+  }
 };
 
 // Fixed two-joint reference SystemInterface. ROS interface storage is created

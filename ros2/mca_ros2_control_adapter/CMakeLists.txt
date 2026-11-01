@@ -1,4 +1,3 @@
-
 cmake_minimum_required(VERSION 3.16)
 project(mca_ros2_control_adapter LANGUAGES CXX)
 
@@ -12,7 +11,8 @@ add_library(mca_ros2_control_adapter SHARED
   src/actuator_hardware.cpp
   src/mock_actuator.cpp
   src/system_hardware.cpp
-  src/mock_system.cpp)
+  src/mock_system.cpp
+  src/virtual_system.cpp)
 target_compile_features(mca_ros2_control_adapter PUBLIC cxx_std_17)
 target_compile_options(mca_ros2_control_adapter PRIVATE
   -Werror=deprecated-declarations)
@@ -43,6 +43,9 @@ if(BUILD_TESTING)
     hardware_interface pluginlib rclcpp_lifecycle)
   ament_add_gtest(test_mock_system_plugin test/test_mock_system_plugin.cpp)
   ament_target_dependencies(test_mock_system_plugin
+    hardware_interface pluginlib rclcpp_lifecycle)
+  ament_add_gtest(test_virtual_system_plugin test/test_virtual_system_plugin.cpp)
+  ament_target_dependencies(test_virtual_system_plugin
     hardware_interface pluginlib rclcpp_lifecycle)
 endif()
 

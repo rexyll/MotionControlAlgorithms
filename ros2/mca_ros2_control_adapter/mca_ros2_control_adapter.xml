@@ -17,4 +17,13 @@
       ros2_control boundary. This plugin does not communicate with physical hardware.
     </description>
   </class>
+  <class
+    name="mca_ros2_control_adapter/VirtualSystem"
+    type="mca_ros2_control_adapter::VirtualSystem"
+    base_class_type="hardware_interface::SystemInterface">
+    <description>
+      Two-joint deterministic virtual plant for exercising ros2_control effort
+      commands and state feedback. Simulation only; no physical hardware I/O.
+    </description>
+  </class>
 </library>

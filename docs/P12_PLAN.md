@@ -231,3 +231,35 @@ behavior for their actual execution model.
 Acceptance scope: deterministic virtual-plant and hardware-port behavior only.
 It does not establish real device parameters, communication compatibility,
 driver-package build, safety certification or HIL acceptance.
+
+
+## P12-05a.1 — catalog-backed motor simulation profile
+
+Added an optional motor-model example for maxon EC-i 40, 48 V, Hall-sensor
+part 496653 in
+`include/mca/plant/vendor_profiles/maxon_ec_i_40_496653.hpp`. The profile
+records the manufacturer's catalog values in SI units: 48 V, 7560 rpm no-load,
+6310 rpm nominal, 73.9 mN·m continuous torque, 1.19 A continuous current,
+2.59 Ω phase-to-phase terminal resistance, 1.93 mH phase-to-phase terminal
+inductance, 59.6 mN·m/A torque constant, 160 rpm/V speed constant, 12.8 g·cm²
+rotor inertia, 10,000 rpm maximum speed and 7 pole pairs.
+
+Official references:
+- maxon product page:
+  https://www.maxongroup.com/maxon/view/product/motor/ecmotor/EC-i/496653
+- maxon EC-i 40 datasheet:
+  https://www.maxongroup.com/medias/sys_master/root/9344338165790/Datasheet-EC-i-303-EN.pdf
+
+The catalog reports terminal resistance/inductance phase-to-phase, while
+`BldcPmsm` uses an uncoupled per-phase approximation. Therefore the profile
+does not silently convert these electrical parameters. Callers must explicitly
+supply a `ModelMapping` with per-phase resistance/inductance and damping.
+The test uses R_phase = R_terminal/2 and L_phase = L_terminal/2 solely as an
+illustrative star-connected, zero-mutual-coupling approximation; viscous
+damping 0.0001 N·m/(rad/s) is synthetic. Neither assumption is represented as
+a manufacturer specification. Torque/back-EMF convention must also be matched
+to the selected BLDC/PMSM model before treating this as a validated plant.
+
+The profile test verifies the catalog values, SI conversions and that the
+explicitly mapped model configuration is accepted by the existing motor plant.
+This is a parameter/configuration test, not physical motor validation.

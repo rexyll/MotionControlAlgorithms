@@ -31,7 +31,6 @@
 #include "mca/experiment/cascaded_servo.hpp"
 #include "mca/experiment/single_axis.hpp"
 #include "mca/hardware/interfaces.hpp"
-#include "mca/hardware/virtual_joint_device.hpp"
 #include "mca/model/interfaces.hpp"
 #include "mca/plant/dc_motor.hpp"
 #include "mca/plant/first_order.hpp"

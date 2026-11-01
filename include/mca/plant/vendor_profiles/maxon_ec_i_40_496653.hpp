@@ -47,10 +47,15 @@ struct MaxonEcI40_496653 {
     config.phase_resistance_ohm = mapping.phase_resistance_ohm;
     config.phase_inductance_h = mapping.phase_inductance_h;
     config.torque_constant_nm_per_a = torque_constant_nm_per_a;
-    // Convert rpm/V to V/(rad/s). This is a nominal catalog conversion;
-    // the exact phase/line convention must match the chosen motor model.
+    // The catalog speed constant is mechanical rpm/V. BldcPmsm multiplies
+    // its back-EMF constant by electrical speed (= mechanical speed * pole
+    // pairs), so the catalog mechanical constant must be divided by the pole
+    // pair count before entering this model. Without this conversion the
+    // simulated back-EMF is inflated by 7x for this motor.
     config.back_emf_constant_v_per_rad_s =
-        60.0 / (6.28318530717958647692 * speed_constant_rpm_per_v);
+        60.0 /
+        (6.28318530717958647692 * speed_constant_rpm_per_v *
+         static_cast<double>(pole_pairs));
     config.inertia_kg_m2 = rotor_inertia_kg_m2;
     config.viscous_damping_nm_per_rad_s =
         mapping.viscous_damping_nm_per_rad_s;

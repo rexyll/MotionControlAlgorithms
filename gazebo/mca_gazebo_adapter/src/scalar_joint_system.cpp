@@ -458,15 +458,6 @@ class ScalarJointSystem final : public gz::sim::System,
       }
       return;
     }
-    const auto valid_command_count =
-        valid_transport_command_count_.fetch_add(1, std::memory_order_relaxed) + 1;
-    // Emit a bounded-rate acknowledgement for long-running command streams.
-    // The one-shot "received typed command" diagnostic is reset only by Gazebo
-    // Reset, so it cannot acknowledge every later stress cycle.
-    if (valid_command_count % 128 == 0) {
-      gzmsg << "MCA Gazebo adapter accepted finite transport effort command count="
-            << valid_command_count << " topic=" << command_topic_ << std::endl;
-    }
     if (!transport_command_logged_.exchange(true, std::memory_order_relaxed)) {
       gzmsg << "MCA Gazebo adapter received typed transport effort command=" << effort
             << " on " << command_topic_ << std::endl;
@@ -489,6 +480,18 @@ class ScalarJointSystem final : public gz::sim::System,
       // the previous interval expired, losing the re-arm acknowledgement.
       watchdog_was_expired =
           transport_watchdog_expiry_logged_.exchange(false, std::memory_order_relaxed);
+    }
+    // Count the command only after its value, timestamp, and active state are
+    // committed under mutex_. The bounded-rate log is therefore an ingress
+    // acknowledgement of an accepted, stateful command, not just callback
+    // entry. This is also robust for publishers bridged through ROS 2.
+    const auto valid_command_count =
+        valid_transport_command_count_.fetch_add(1, std::memory_order_relaxed) + 1;
+    if (valid_command_count % 128 == 0) {
+      gzmsg << "MCA Gazebo adapter accepted finite transport effort command count="
+            << valid_command_count << " active=true watchdog_rearmed="
+            << (watchdog_was_expired ? "true" : "false")
+            << " topic=" << command_topic_ << std::endl;
     }
     if (watchdog_was_expired) {
       gzmsg << "MCA Gazebo adapter transport watchdog re-armed by valid command"

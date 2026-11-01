@@ -89,3 +89,14 @@ Application / Robot Scenario
 ## Repository status
 
 The repository is intentionally being built in stages. The authoritative implementation plan is [`docs/TASKPLAN.md`](docs/TASKPLAN.md), and architecture decisions are recorded in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+
+## Physical hardware integration
+
+The first dependency-free hardware ports are defined in
+[`include/mca/hardware/interfaces.hpp`](include/mca/hardware/interfaces.hpp).
+They separate device lifecycle, joint-state acquisition, and effort-command output.
+Fixed-size state values expose an explicit validity mask so unavailable sensor
+fields are not confused with measured zeros. Concrete vendor/device integrations
+remain optional adapters; no specific physical backend is claimed yet. See
+[`docs/P12_PLAN.md`](docs/P12_PLAN.md).

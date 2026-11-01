@@ -19,7 +19,9 @@ target_include_directories(mca_gz_ros2_control_adapter PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../include>
   $<INSTALL_INTERFACE:include>)
-target_link_libraries(mca_gz_ros2_control_adapter PRIVATE gz-sim8::gz-sim8)
+# ament_target_dependencies() uses the plain target_link_libraries() signature,
+# so keep the explicit Gazebo link on the same signature.
+target_link_libraries(mca_gz_ros2_control_adapter gz-sim8::gz-sim8)
 ament_target_dependencies(mca_gz_ros2_control_adapter
   gz_ros2_control hardware_interface pluginlib rclcpp rclcpp_lifecycle)
 

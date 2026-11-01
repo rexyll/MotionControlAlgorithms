@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -66,7 +67,7 @@ class GazeboSystem final : public gz_ros2_control::GazeboSimSystemInterface {
   std::array<hardware_interface::StateInterface::SharedPtr, 2> position_handles_{};
   std::array<hardware_interface::StateInterface::SharedPtr, 2> velocity_handles_{};
   std::array<hardware_interface::CommandInterface::SharedPtr, 2> effort_command_handles_{};
-  bool active_{false};
+  std::atomic<bool> active_{false};
   bool has_last_state_sequence_{false};
   std::uint64_t last_state_sequence_{0};
   std::uint64_t next_command_sequence_{0};

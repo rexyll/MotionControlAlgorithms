@@ -1,6 +1,7 @@
 #include "mca_gz_ros2_control_adapter/gazebo_system.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <limits>
 #include <memory>
@@ -49,38 +50,46 @@ class GazeboEcmBackend final : public IDualJointBackend {
   }
 
   mca::core::Status initialize() noexcept override {
-    if (!bound_ || lifecycle_ != Lifecycle::Uninitialized) {
+    if (!bound_ || lifecycle_.load() != Lifecycle::Uninitialized) {
       return {mca::core::StatusCode::NotConfigured};
     }
     sequence_ = 0;
     last_command_sequence_ = 0;
     has_command_sequence_ = false;
-    lifecycle_ = Lifecycle::Inactive;
+    lifecycle_.store(Lifecycle::Inactive);
     return {};
   }
 
   mca::core::Status activate() noexcept override {
-    if (lifecycle_ != Lifecycle::Inactive) {
+    if (lifecycle_.load() != Lifecycle::Inactive || safe_stop_requested_.load()) {
       return {mca::core::StatusCode::NotConfigured};
     }
-    lifecycle_ = Lifecycle::Active;
+    lifecycle_.store(Lifecycle::Active);
     return {};
   }
 
   mca::core::Status deactivate() noexcept override {
-    if (lifecycle_ != Lifecycle::Active || !apply_zero_effort()) {
-      return {mca::core::StatusCode::RuntimeError};
+    if (lifecycle_.load() != Lifecycle::Active) {
+      return {mca::core::StatusCode::NotConfigured};
     }
-    lifecycle_ = Lifecycle::Inactive;
+    safe_stop_requested_.store(true);
+    lifecycle_.store(Lifecycle::Inactive);
     return {};
   }
 
-  Lifecycle lifecycle_state() const noexcept override { return lifecycle_; }
+  Lifecycle lifecycle_state() const noexcept override { return lifecycle_.load(); }
 
   mca::core::Status read_state(DualJointState& output) noexcept override {
-    if (!bound_ || (lifecycle_ != Lifecycle::Inactive &&
-                    lifecycle_ != Lifecycle::Active) || !ecm_) {
+    if (!bound_ || (lifecycle_.load() != Lifecycle::Inactive &&
+                    lifecycle_.load() != Lifecycle::Active) || !ecm_) {
       return {mca::core::StatusCode::NotConfigured};
+    }
+
+    // Lifecycle callbacks run on the ROS executor, whereas ECM access is only
+    // safe on Gazebo's simulation update thread. Apply deferred stops here.
+    if (safe_stop_requested_.exchange(false) && !apply_zero_effort()) {
+      safe_stop_requested_.store(true);
+      return {mca::core::StatusCode::RuntimeError};
     }
 
     DualJointState sample;
@@ -106,7 +115,7 @@ class GazeboEcmBackend final : public IDualJointBackend {
 
   mca::core::Status write_effort(
       const DualJointEffortCommand& command) noexcept override {
-    if (lifecycle_ != Lifecycle::Active || !ecm_) {
+    if (lifecycle_.load() != Lifecycle::Active || safe_stop_requested_.load() || !ecm_) {
       return {mca::core::StatusCode::NotConfigured};
     }
     if (!command.valid() ||
@@ -125,9 +134,10 @@ class GazeboEcmBackend final : public IDualJointBackend {
   }
 
   mca::core::Status request_safe_stop() noexcept override {
-    if (lifecycle_ != Lifecycle::Active || !apply_zero_effort()) {
-      return {mca::core::StatusCode::RuntimeError};
+    if (lifecycle_.load() != Lifecycle::Active) {
+      return {mca::core::StatusCode::NotConfigured};
     }
+    safe_stop_requested_.store(true);
     return {};
   }
 
@@ -145,7 +155,8 @@ class GazeboEcmBackend final : public IDualJointBackend {
   std::array<gz::sim::Entity, 2> joints_{gz::sim::kNullEntity,
                                          gz::sim::kNullEntity};
   gz::sim::EntityComponentManager* ecm_{nullptr};
-  Lifecycle lifecycle_{Lifecycle::Uninitialized};
+  std::atomic<Lifecycle> lifecycle_{Lifecycle::Uninitialized};
+  std::atomic<bool> safe_stop_requested_{false};
   std::uint64_t sequence_{0};
   std::uint64_t last_command_sequence_{0};
   bool has_command_sequence_{false};
@@ -243,7 +254,7 @@ GazeboSystem::CallbackReturn GazeboSystem::on_configure(
 GazeboSystem::CallbackReturn GazeboSystem::on_activate(
     const rclcpp_lifecycle::State&) {
   if (!backend_ || !backend_->activate().ok()) return CallbackReturn::ERROR;
-  active_ = true;
+  active_.store(true);
   has_last_state_sequence_ = false;
   last_state_sequence_ = 0;
   next_command_sequence_ = 0;
@@ -251,11 +262,11 @@ GazeboSystem::CallbackReturn GazeboSystem::on_activate(
 }
 
 GazeboSystem::CallbackReturn GazeboSystem::stop_and_deactivate() noexcept {
-  if (!backend_ || !active_) return CallbackReturn::SUCCESS;
+  if (!backend_ || !active_.load()) return CallbackReturn::SUCCESS;
   if (!backend_->request_safe_stop().ok() || !backend_->deactivate().ok()) {
     return CallbackReturn::ERROR;
   }
-  active_ = false;
+  active_.store(false);
   return CallbackReturn::SUCCESS;
 }
 
@@ -300,7 +311,7 @@ hardware_interface::return_type GazeboSystem::read(
 
 hardware_interface::return_type GazeboSystem::write(
     const rclcpp::Time&, const rclcpp::Duration&) {
-  if (!backend_ || !active_ ||
+  if (!backend_ || !active_.load() ||
       next_command_sequence_ == std::numeric_limits<std::uint64_t>::max()) {
     return hardware_interface::return_type::ERROR;
   }

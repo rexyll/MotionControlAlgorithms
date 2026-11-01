@@ -1133,8 +1133,12 @@ jobs:
       - name: Build and test MCA Gazebo ros2_control plugin
         shell: bash
         run: |
-          set -euo pipefail
+          set -eo pipefail
+          # ROS setup scripts reference optional variables that may be unset.
+          # Source them with nounset disabled, then restore strict checking.
+          set +u
           source /opt/ros/jazzy/setup.bash
+          set -u
           colcon build --base-paths ros2 --packages-select mca_gz_ros2_control_adapter --build-base build/colcon-build --install-base build/colcon-install
           source build/colcon-install/setup.bash
           colcon test --base-paths ros2 --packages-select mca_gz_ros2_control_adapter --build-base build/colcon-build --install-base build/colcon-install --test-result-base build/colcon-test-results

@@ -23,7 +23,13 @@ int main(int argc, char** argv) {
     return 2;
   }
 
-  int publish_count = 20;
+  // The watchdog re-arm probe intentionally omits COUNT and is stopped by the
+  // workflow after the plugin acknowledges a fresh valid command. Keep that
+  // finite-value stream alive long enough for the workflow to perform the
+  // hand-off to malformed traffic without the watchdog expiring in between.
+  // Explicit COUNT remains authoritative, while malformed values keep the
+  // short default burst used by the rejection tests.
+  int publish_count = std::isfinite(value) ? 2000 : 20;
   if (argc == 4) {
     errno = 0;
     char* count_end = nullptr;

@@ -41,7 +41,18 @@ universal device interface speculatively.
   `ea1fd4648af76fdcb64c721f16526c29c681e904`; see the detailed acceptance
   record below. This validates the ROS/core adapter and mock backend only,
   not a physical driver or hardware-in-the-loop behavior.
-- [x] P12-05a.2 fault-injectable virtual-device diagnostics and safe-recovery semantics; accepted on 2026-11-01 for simulation-only scope after root CI Run #1356 and ROS 2 Jazzy Run #32 passed on code SHA `b0c5d85c6ebe86bacaf5c625db7cda9f30ac2d1f`; see acceptance record below.\n- [ ] P12-05 concrete device backend — select one real actuator/robot device,
+- [x] P12-05a.1 vendor-neutral virtual joint plant and catalog-backed motor
+  simulation profile; software/simulation scope only.
+- [x] P12-05a.2 fault-injectable virtual-device diagnostics and safe-recovery
+  semantics; accepted on 2026-11-01 for simulation-only scope after root CI
+  Run #1356 and ROS 2 Jazzy Run #32 passed on code SHA
+  `b0c5d85c6ebe86bacaf5c625db7cda9f30ac2d1f`.
+- [x] P12-05a.3 connect the deterministic two-joint virtual plant to a
+  pluginlib-exported ROS 2 Jazzy `SystemInterface`; accepted on 2026-11-01
+  for simulation-only scope on code SHA
+  `f0513644ce5f6ad0909c7757cbda2bdd3e366a91`. See
+  [P12-05a.3 acceptance](P12-05a3_ACCEPTANCE.md).
+- [ ] P12-05 concrete device backend — select one real actuator/robot device,
   verify its official SDK/transport and safety requirements, then implement a
   driver adapter and documented deployment configuration.
 - [ ] P12-06 hardware-in-the-loop acceptance — verify sensor read coherence,
@@ -130,8 +141,8 @@ The optional package `ros2/mca_ros2_control_adapter` provides a reusable
 single-DoF `ActuatorHardware` bridge and a pluginlib-exported
 `mca_ros2_control_adapter/MockActuator`. The bridge uses Jazzy's
 `HardwareComponentInterfaceParams` initialization API, maps ROS lifecycle
-callbacks to MCA lifecycle operations, caches state/command handles before the
-control loop, copies only valid backend state fields, rejects non-finite effort,
+callbacks to MCA lifecycle operations, caches state/command handles before
+the control loop, copies only valid backend state fields, rejects non-finite effort,
 and rejects non-increasing state sample sequence numbers. The read/write path
 uses non-blocking handle access; it does not construct interface-name strings
 or perform interface-name lookups each cycle. Deactivation requests software
@@ -166,8 +177,8 @@ evidence; Gazebo or a mock backend cannot substitute for it.
 The optional `mca_ros2_control_adapter` package now also contains
 `SystemHardware`, a deliberately fixed two-joint implementation of Jazzy's
 `hardware_interface::SystemInterface`, and the pluginlib-exported
-`mca_ros2_control_adapter/MockSystem`. The fixed dimension is explicit at the
-MCA boundary (`JointState<double, 2>` and
+`mca_ros2_control_adapter/MockSystem`. The fixed dimension is explicit at
+the MCA boundary (`JointState<double, 2>` and
 `JointEffortCommand<double, 2>`); runtime-sized ROS metadata is handled only
 during initialization and interface export.
 
@@ -304,3 +315,45 @@ decoder. It does not establish physical watchdog response, safety-rated stop,
 vendor fault mapping, communication timing, real-time scheduling, physical
 device behavior or hardware-in-the-loop acceptance. P12-05 and P12-06 remain
 open until a concrete target device and hardware access are available.
+
+
+## P12-05a.3 — ROS 2 control integration with the virtual joint plant — accepted 2026-11-01
+
+Added pluginlib-exported `mca_ros2_control_adapter/VirtualSystem`, a fixed
+two-joint Jazzy `SystemInterface` implementation backed by
+`VirtualJointDevice<2>`. The existing `MockSystem` remains unchanged and
+continues to test the adapter boundary with fixed mock telemetry.
+
+The dual-joint backend now has an optional `update(period_seconds)` hook with
+a default no-op implementation. `SystemHardware::read()` validates the ROS
+control period and invokes this hook before acquiring the coherent backend
+sample. The virtual backend advances its plant by the supplied period only
+while active; zero period is a no-op, invalid/negative periods are rejected,
+and periods above the plant's configured 10 ms integration bound fail
+explicitly rather than being silently sub-stepped. Physical backends can retain
+the default no-op and implement their own acquisition/update semantics.
+
+The ROS plugin tests verify plugin discovery/construction, opposing positive
+and negative two-joint effort commands producing corresponding position and
+velocity feedback, effort feedback, software safe-stop/deactivation, and
+rejection of a control period exceeding the integration bound. These tests
+exercise the ROS plugin and deterministic virtual plant together; they do not
+validate Gazebo integration or a physical device.
+
+Acceptance evidence on code SHA
+`f0513644ce5f6ad0909c7757cbda2bdd3e366a91`:
+- Root CI [Run #1358](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41317219152)
+  passed Linux and Windows. Both platforms completed Configure, Build and
+  Test; each reported 628/628 core tests passed, and all dedicated P8-39
+  through P8-46 regression configure/build/test jobs passed.
+- ROS 2 Jazzy workflow
+  [Run #33](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41317219131)
+  passed the optional adapter build and all three test targets. The new
+  `test_virtual_system_plugin` reported 3/3 tests passed.
+
+This acceptance is limited to deterministic software and virtual-plant
+integration. It does not establish Gazebo bridge behavior, simulation-time
+synchronization with Gazebo, physical motor/drive behavior, transport timing,
+watchdog behavior, safety-rated stop, or HIL acceptance. P12-05 concrete
+hardware backend and P12-06 physical HIL remain open pending selection and
+access to a real target device.

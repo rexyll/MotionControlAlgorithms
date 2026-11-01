@@ -920,15 +920,15 @@ jobs:
           PY
           }
           for reset_cycle in 1 2; do
-            command_count_before="$(count_gazebo_log_matches "MCA Gazebo adapter received typed transport effort command=")"
+            valid_command_diagnostic_count_before="$(count_gazebo_log_matches "MCA Gazebo adapter accepted finite transport effort command count=")"
             echo "=== Repeated reset stress cycle ${reset_cycle}: arm active command ==="
             env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
               "${topic_prefix}/cmd_effort" 1.0 200 > "reset-stress-${reset_cycle}-publisher.log" 2>&1 &
             stress_publisher_pid=$!
             command_seen=false
             for _ in $(seq 1 40); do
-              command_count_now="$(count_gazebo_log_matches "MCA Gazebo adapter received typed transport effort command=")"
-              if [ "${command_count_now:-0}" -gt "${command_count_before:-0}" ]; then
+              valid_command_diagnostic_count_now="$(count_gazebo_log_matches "MCA Gazebo adapter accepted finite transport effort command count=")"
+              if [ "${valid_command_diagnostic_count_now:-0}" -gt "${valid_command_diagnostic_count_before:-0}" ]; then
                 command_seen=true
                 break
               fi
@@ -937,7 +937,9 @@ jobs:
             if [ "$command_seen" != true ]; then
               kill "$stress_publisher_pid" 2>/dev/null || true
               wait "$stress_publisher_pid" 2>/dev/null || true
-              echo "Gazebo adapter did not acknowledge the active command for reset stress cycle ${reset_cycle}"
+              echo "Gazebo adapter did not report a new finite-command callback milestone for reset stress cycle ${reset_cycle}"
+              echo "Finite-command callback milestones before=${valid_command_diagnostic_count_before}, after=${valid_command_diagnostic_count_now:-unavailable}"
+              print_gazebo_adapter_diagnostics
               print_log_excerpt "reset-stress-${reset_cycle}-publisher.log"
               exit 1
             fi

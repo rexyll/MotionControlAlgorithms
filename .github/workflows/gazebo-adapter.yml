@@ -839,10 +839,26 @@ jobs:
           from pathlib import Path
 
           lines = Path("gazebo-transport.plain.log").read_text(errors="replace").splitlines()
-          resets = [line for line in lines if "MCA Gazebo adapter Reset completed" in line]
+          all_resets = [
+              line for line in lines
+              if "MCA Gazebo adapter Reset completed" in line
+          ]
+          # The smoke world deliberately loads two negative-configuration
+          # plugin instances as well as the valid single-axis instance.
+          # Gazebo calls ISystemReset for every loaded system, so do not select
+          # the last two unqualified Reset lines: they may belong to fixtures
+          # with no joint. Scope the assertion to the real actuator plugin.
+          resets = [
+              line for line in all_resets
+              if " model=single_axis_smoke " in line
+              and " joint_name=axis_joint " in line
+              and " configured=true " in line
+          ]
           if len(resets) < 3:
               raise SystemExit(
-                  f"Expected initial Reset plus 2 stress Reset callbacks; observed {len(resets)}"
+                  f"Expected initial Reset plus 2 stress Reset callbacks for "
+                  f"single_axis_smoke/axis_joint; observed {len(resets)}. "
+                  f"All plugin Reset callbacks:\\n" + "\\n".join(all_resets)
               )
           stress_resets = resets[-2:]
           for cycle, line in enumerate(stress_resets, start=1):

@@ -691,6 +691,79 @@ jobs:
           echo "=== Gazebo -> ROS bridge log ==="
           print_log_excerpt "gz-to-ros-bridge.log"
 
+          # Exercise repeated Reset transitions in one live simulator process.
+          # Each reset is requested only after a fresh non-zero Transport command
+          # has reached the plugin, so this checks the active-command clearing
+          # path repeatedly rather than merely counting reset service responses.
+          # Gazebo Console may inject ANSI CSI sequences in plugin diagnostics.
+          # The repeated-reset callback assertions run against the normalized,
+          # fully flushed log after graceful shutdown.
+          for reset_cycle in 1 2; do
+            echo "=== Repeated reset stress cycle ${reset_cycle}: verify plugin subscriber ==="
+            stress_command_info=""
+            stress_subscriber_ready=false
+            for _ in $(seq 1 20); do
+              stress_command_info="$(gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" 2>/dev/null || true)"
+              if printf '%s\n' "$stress_command_info" | awk '
+                /^Subscribers \[/ { in_subscribers=1; next }
+                /^[^[:space:]]/ { if (in_subscribers) in_subscribers=0 }
+                in_subscribers && /tcp:\/\// { found=1 }
+                END { exit(found ? 0 : 1) }
+              '; then
+                stress_subscriber_ready=true
+                break
+              fi
+              sleep 0.25
+            done
+            if [ "$stress_subscriber_ready" != true ]; then
+              echo "Gazebo plugin command subscriber is not advertised after the preceding Reset (cycle ${reset_cycle})"
+              printf '%s\n' "$stress_command_info"
+              echo "=== Gazebo adapter diagnostics ==="
+              print_gazebo_adapter_diagnostics
+              exit 1
+            fi
+            printf '%s\n' "$stress_command_info"
+
+            # Publish a finite burst and wait for the publisher itself to
+            # confirm all 200 messages were sent. Do not gate delivery on
+            # Publisher.HasConnections(): the live failure showed that check
+            # timing out while the test's later plugin-state assertion is the
+            # authoritative end-to-end receiver-side proof.
+            echo "=== Repeated reset stress cycle ${reset_cycle}: publish active command ==="
+            env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
+              "${topic_prefix}/cmd_effort" 1.0 200 > "reset-stress-${reset_cycle}-publisher.log" 2>&1 &
+            stress_publisher_pid=$!
+            if ! wait "$stress_publisher_pid"; then
+              print_log_excerpt "reset-stress-${reset_cycle}-publisher.log"
+              echo "Gazebo Transport command publisher failed during stress cycle ${reset_cycle}"
+              exit 1
+            fi
+            stress_publisher_pid=""
+            if ! grep -Fq "published 200 Gazebo Transport Double commands value=1" "reset-stress-${reset_cycle}-publisher.log"; then
+              echo "Stress publisher did not confirm all 200 commands in cycle ${reset_cycle}"
+              print_log_excerpt "reset-stress-${reset_cycle}-publisher.log"
+              exit 1
+            fi
+            print_log_excerpt "reset-stress-${reset_cycle}-publisher.log"
+
+            # The publisher has stopped; issue Reset immediately so the last
+            # accepted command is still inside the 0.5 s watchdog window.
+            if ! gazebo_cli service -s /world/mca_gazebo_smoke/control \
+                --reqtype gz.msgs.WorldControl --reptype gz.msgs.Boolean \
+                --timeout 3000 --req 'reset: {all: true}' > "reset-stress-${reset_cycle}-response.log" 2>&1; then
+              print_log_excerpt "reset-stress-${reset_cycle}-response.log"
+              echo "Gazebo reset service failed during stress cycle ${reset_cycle}"
+              exit 1
+            fi
+            if ! grep -Eq 'data:[[:space:]]*true' "reset-stress-${reset_cycle}-response.log"; then
+              echo "Gazebo reset service did not confirm success during stress cycle ${reset_cycle}"
+              print_log_excerpt "reset-stress-${reset_cycle}-response.log"
+              exit 1
+            fi
+            print_log_excerpt "reset-stress-${reset_cycle}-response.log"
+          done
+          echo "Repeated active-command Reset requests completed; callback state will be asserted after shutdown"
+
           # Snapshot the actual Gazebo process (not a strace wrapper) before
           # shutdown. This captures all threads and their wait channels.
           echo "=== Gazebo process and thread state before shutdown ==="
@@ -786,6 +859,7 @@ jobs:
                   )
               print(f"Reset stress cycle {cycle} passed: {line}")
           print(f"Repeated active-command Reset stress passed ({len(stress_resets)} cycles)")
+          PY
 
           # Require the plugin to report the watchdog transition only after its
           # configured wall-clock deadline, with zero effort written to the joint.
@@ -918,78 +992,6 @@ jobs:
             echo "ROS 2 velocity state did not resume after Gazebo Reset"
             exit 1
           fi
-          # Exercise repeated Reset transitions in one live simulator process.
-          # Each reset is requested only after a fresh non-zero Transport command
-          # has reached the plugin, so this checks the active-command clearing
-          # path repeatedly rather than merely counting reset service responses.
-          # Gazebo Console may inject ANSI CSI sequences in plugin diagnostics.
-          # The repeated-reset callback assertions run against the normalized,
-          # fully flushed log after graceful shutdown.
-          for reset_cycle in 1 2; do
-            echo "=== Repeated reset stress cycle ${reset_cycle}: verify plugin subscriber ==="
-            stress_command_info=""
-            stress_subscriber_ready=false
-            for _ in $(seq 1 20); do
-              stress_command_info="$(gazebo_cli topic -i -t "${topic_prefix}/cmd_effort" 2>/dev/null || true)"
-              if printf '%s\n' "$stress_command_info" | awk '
-                /^Subscribers \[/ { in_subscribers=1; next }
-                /^[^[:space:]]/ { if (in_subscribers) in_subscribers=0 }
-                in_subscribers && /tcp:\/\// { found=1 }
-                END { exit(found ? 0 : 1) }
-              '; then
-                stress_subscriber_ready=true
-                break
-              fi
-              sleep 0.25
-            done
-            if [ "$stress_subscriber_ready" != true ]; then
-              echo "Gazebo plugin command subscriber is not advertised after the preceding Reset (cycle ${reset_cycle})"
-              printf '%s\n' "$stress_command_info"
-              echo "=== Gazebo adapter diagnostics ==="
-              print_gazebo_adapter_diagnostics
-              exit 1
-            fi
-            printf '%s\n' "$stress_command_info"
-
-            # Publish a finite burst and wait for the publisher itself to
-            # confirm all 200 messages were sent. Do not gate delivery on
-            # Publisher.HasConnections(): the live failure showed that check
-            # timing out while the test's later plugin-state assertion is the
-            # authoritative end-to-end receiver-side proof.
-            echo "=== Repeated reset stress cycle ${reset_cycle}: publish active command ==="
-            env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
-              "${topic_prefix}/cmd_effort" 1.0 200 > "reset-stress-${reset_cycle}-publisher.log" 2>&1 &
-            stress_publisher_pid=$!
-            if ! wait "$stress_publisher_pid"; then
-              print_log_excerpt "reset-stress-${reset_cycle}-publisher.log"
-              echo "Gazebo Transport command publisher failed during stress cycle ${reset_cycle}"
-              exit 1
-            fi
-            stress_publisher_pid=""
-            if ! grep -Fq "published 200 Gazebo Transport Double commands value=1" "reset-stress-${reset_cycle}-publisher.log"; then
-              echo "Stress publisher did not confirm all 200 commands in cycle ${reset_cycle}"
-              print_log_excerpt "reset-stress-${reset_cycle}-publisher.log"
-              exit 1
-            fi
-            print_log_excerpt "reset-stress-${reset_cycle}-publisher.log"
-
-            # The publisher has stopped; issue Reset immediately so the last
-            # accepted command is still inside the 0.5 s watchdog window.
-            if ! gazebo_cli service -s /world/mca_gazebo_smoke/control \
-                --reqtype gz.msgs.WorldControl --reptype gz.msgs.Boolean \
-                --timeout 3000 --req 'reset: {all: true}' > "reset-stress-${reset_cycle}-response.log" 2>&1; then
-              print_log_excerpt "reset-stress-${reset_cycle}-response.log"
-              echo "Gazebo reset service failed during stress cycle ${reset_cycle}"
-              exit 1
-            fi
-            if ! grep -Eq 'data:[[:space:]]*true' "reset-stress-${reset_cycle}-response.log"; then
-              echo "Gazebo reset service did not confirm success during stress cycle ${reset_cycle}"
-              print_log_excerpt "reset-stress-${reset_cycle}-response.log"
-              exit 1
-            fi
-            print_log_excerpt "reset-stress-${reset_cycle}-response.log"
-          done
-          echo "Repeated active-command Reset requests completed; callback state will be asserted after shutdown"
 
           # Re-launch the same world in the same transport partition after
           # the first server has exited. This catches stale endpoints, plugin

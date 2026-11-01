@@ -118,18 +118,33 @@ concrete plugin must choose a known robot dimension or explicitly batch/bridge
 runtime-sized ROS storage at the adapter boundary; it must not silently allocate
 or resize in the hard real-time write path.
 
-## P12-04a reference plugin — implementation in progress
+## P12-04a reference plugin — accepted 2026-11-01
 
 The optional package `ros2/mca_ros2_control_adapter` provides a reusable
 single-DoF `ActuatorHardware` bridge and a pluginlib-exported
-`mca_ros2_control_adapter/MockActuator`. The bridge maps the ROS lifecycle to
-MCA lifecycle operations, copies only valid backend state fields into declared
-ROS state interfaces, and rejects non-finite effort before forwarding a command.
-Deactivation requests a software safe-stop before disabling the backend.
+`mca_ros2_control_adapter/MockActuator`. The bridge uses Jazzy's
+`HardwareComponentInterfaceParams` initialization API, maps ROS lifecycle
+callbacks to MCA lifecycle operations, caches state/command handles before the
+control loop, copies only valid backend state fields, rejects non-finite effort,
+and rejects non-increasing state sample sequence numbers. The read/write path
+uses non-blocking handle access; it does not construct interface-name strings
+or perform interface-name lookups each cycle. Deactivation requests software
+safe-stop before disabling the backend.
 
 The MockActuator backend returns synthetic zero position/velocity and stores
 effort in memory; it does not simulate a motor or communicate with hardware.
-The first ROS 2 Jazzy workflow [Run #14](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41284807421) successfully compiled both optional ROS packages and passed the existing scalar-adapter test and MockActuator plugin-discovery/load test. That first build exposed a deprecated Jazzy `on_init(HardwareInfo)` overload. The bridge is now being hardened to use the recommended `HardwareComponentInterfaceParams` overload, pre-export its interface handles before the control loop, reject stale state sequences, and exercise lifecycle/read/write/safe-stop behavior through the mock. Do not mark P12-04a accepted until the improved workflow and the main Linux/Windows CI pass.
+Acceptance evidence: ROS 2 Jazzy workflow
+[Run #15](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41285081125),
+code SHA `8a21ad1dcdcedd191302a025719348b4c643ace4`, completed successfully.
+Both optional packages built and installed. The existing `mca_ros2_adapter`
+reported 4 tests, 0 errors, 0 failures, 0 skipped. The new
+`mca_ros2_control_adapter` reported 2 tests, 0 errors, 0 failures, 0 skipped;
+these cover plugin discovery/construction and the mock lifecycle/configuration,
+state read, finite effort write, NaN rejection, deactivation safe-stop path,
+and rejection of writes after deactivation. The build has no deprecated
+`on_init(HardwareInfo)` warning; deprecated declarations are treated as errors
+for this package. This accepts the ROS/core adapter contract only. It is not
+physical device driver or hardware-in-the-loop evidence.
 
 ## P12-05 / P12-06 boundary
 

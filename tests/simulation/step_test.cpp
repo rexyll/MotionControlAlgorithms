@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include "mca/experiment/single_axis.hpp"
+#include "mca/hardware/interfaces.hpp"
 #include "mca/simulation/lifecycle.hpp"
 #include "mca/simulation/replay.hpp"
 #include "mca/simulation/ros2_adapter.hpp"
@@ -457,4 +458,168 @@ TEST(SingleAxisSimulationAcceptance, SnapshotFailurePreservesCallerOutput) {
   const auto status = experiment.state_snapshot(output);
   EXPECT_EQ(status.code, mca::core::StatusCode::NotConfigured);
   EXPECT_DOUBLE_EQ(output.position[0], 42.0);
+}
+
+
+namespace {
+class FakeJointHardware final
+    : public mca::hardware::IHardwareLifecycle,
+      public mca::hardware::IJointStateSource<double, 2>,
+      public mca::hardware::IJointEffortCommandSink<double, 2> {
+ public:
+  using State = mca::hardware::JointState<double, 2>;
+  using Command = mca::hardware::JointEffortCommand<double, 2>;
+
+  mca::core::Status initialize() noexcept override {
+    if (lifecycle_ != mca::hardware::HardwareLifecycleState::Uninitialized) {
+      return {mca::core::StatusCode::InvalidArgument};
+    }
+    lifecycle_ = mca::hardware::HardwareLifecycleState::Inactive;
+    return {};
+  }
+
+  mca::core::Status activate() noexcept override {
+    if (lifecycle_ != mca::hardware::HardwareLifecycleState::Inactive) {
+      return {mca::core::StatusCode::NotConfigured};
+    }
+    lifecycle_ = mca::hardware::HardwareLifecycleState::Active;
+    return {};
+  }
+
+  mca::core::Status deactivate() noexcept override {
+    if (lifecycle_ != mca::hardware::HardwareLifecycleState::Active) {
+      return {mca::core::StatusCode::NotConfigured};
+    }
+    lifecycle_ = mca::hardware::HardwareLifecycleState::Inactive;
+    return {};
+  }
+
+  mca::hardware::HardwareLifecycleState lifecycle_state() const noexcept override {
+    return lifecycle_;
+  }
+
+  mca::core::Status read_state(State& output) noexcept override {
+    if (lifecycle_ != mca::hardware::HardwareLifecycleState::Active) {
+      return {mca::core::StatusCode::NotConfigured};
+    }
+    if (!state_available_ || !state_.valid()) {
+      return {mca::core::StatusCode::RuntimeError};
+    }
+    output = state_;
+    return {};
+  }
+
+  mca::core::Status write_effort(const Command& command) noexcept override {
+    if (lifecycle_ != mca::hardware::HardwareLifecycleState::Active) {
+      return {mca::core::StatusCode::NotConfigured};
+    }
+    if (!command.valid()) return {mca::core::StatusCode::InvalidArgument};
+    last_command_ = command;
+    ++write_count_;
+    return {};
+  }
+
+  mca::core::Status request_safe_stop() noexcept override {
+    if (lifecycle_ != mca::hardware::HardwareLifecycleState::Active) {
+      return {mca::core::StatusCode::NotConfigured};
+    }
+    last_command_ = {};
+    ++safe_stop_count_;
+    return {};
+  }
+
+  void set_state_available(bool available) noexcept { state_available_ = available; }
+  void set_state(const State& state) noexcept { state_ = state; }
+  const Command& last_command() const noexcept { return last_command_; }
+  std::size_t write_count() const noexcept { return write_count_; }
+  std::size_t safe_stop_count() const noexcept { return safe_stop_count_; }
+
+ private:
+  mca::hardware::HardwareLifecycleState lifecycle_{
+      mca::hardware::HardwareLifecycleState::Uninitialized};
+  State state_{};
+  Command last_command_{};
+  bool state_available_{false};
+  std::size_t write_count_{0};
+  std::size_t safe_stop_count_{0};
+};
+}  // namespace
+
+TEST(HardwarePortValues, JointStateTracksAvailableFieldsWithoutInventingMeasurements) {
+  using State = mca::hardware::JointState<double, 2>;
+  State state;
+  state.position = {1.0, -2.0};
+  state.velocity = {0.5, -0.25};
+  state.acceleration[0] = std::numeric_limits<double>::quiet_NaN();
+  state.sequence = 17;
+  state.valid_fields = State::kPositionValid | State::kVelocityValid;
+
+  EXPECT_TRUE(state.valid());
+  EXPECT_TRUE(state.has(mca::hardware::JointStateField::Position));
+  EXPECT_FALSE(state.has(mca::hardware::JointStateField::Acceleration));
+
+  state.valid_fields |= State::kAccelerationValid;
+  EXPECT_FALSE(state.valid());
+  state.valid_fields = 0U;
+  EXPECT_FALSE(state.valid());
+  state.valid_fields = 0x80U;
+  EXPECT_FALSE(state.valid());
+}
+
+TEST(HardwarePortValues, FixedSizeEffortCommandRejectsNonFiniteValues) {
+  mca::hardware::JointEffortCommand<double, 2> command;
+  command.effort = {2.0, -1.5};
+  command.sequence = 8;
+  EXPECT_TRUE(command.valid());
+
+  command.effort[1] = std::numeric_limits<double>::infinity();
+  EXPECT_FALSE(command.valid());
+}
+
+TEST(HardwarePorts, LifecycleReadAndEffortCapabilitiesHaveExplicitContracts) {
+  using State = mca::hardware::JointState<double, 2>;
+  using Command = mca::hardware::JointEffortCommand<double, 2>;
+  FakeJointHardware hardware;
+
+  EXPECT_EQ(hardware.lifecycle_state(),
+            mca::hardware::HardwareLifecycleState::Uninitialized);
+  EXPECT_EQ(hardware.activate().code, mca::core::StatusCode::NotConfigured);
+  ASSERT_TRUE(hardware.initialize().ok());
+  EXPECT_EQ(hardware.lifecycle_state(), mca::hardware::HardwareLifecycleState::Inactive);
+  ASSERT_TRUE(hardware.activate().ok());
+  EXPECT_EQ(hardware.lifecycle_state(), mca::hardware::HardwareLifecycleState::Active);
+
+  State output;
+  output.position[0] = 42.0;
+  EXPECT_EQ(hardware.read_state(output).code, mca::core::StatusCode::RuntimeError);
+  EXPECT_DOUBLE_EQ(output.position[0], 42.0);
+
+  State measured;
+  measured.position = {0.25, -0.5};
+  measured.velocity = {1.0, 0.0};
+  measured.sequence = 23;
+  measured.valid_fields = State::kPositionValid | State::kVelocityValid;
+  hardware.set_state(measured);
+  hardware.set_state_available(true);
+  ASSERT_TRUE(hardware.read_state(output).ok());
+  EXPECT_EQ(output.sequence, 23U);
+  EXPECT_DOUBLE_EQ(output.position[0], 0.25);
+
+  Command command;
+  command.effort = {3.0, -2.0};
+  command.sequence = 24;
+  ASSERT_TRUE(hardware.write_effort(command).ok());
+  EXPECT_EQ(hardware.write_count(), 1U);
+  EXPECT_DOUBLE_EQ(hardware.last_command().effort[1], -2.0);
+
+  command.effort[0] = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_EQ(hardware.write_effort(command).code, mca::core::StatusCode::InvalidArgument);
+  EXPECT_EQ(hardware.write_count(), 1U);
+
+  ASSERT_TRUE(hardware.request_safe_stop().ok());
+  EXPECT_EQ(hardware.safe_stop_count(), 1U);
+  EXPECT_DOUBLE_EQ(hardware.last_command().effort[0], 0.0);
+  ASSERT_TRUE(hardware.deactivate().ok());
+  EXPECT_EQ(hardware.lifecycle_state(), mca::hardware::HardwareLifecycleState::Inactive);
+  EXPECT_EQ(hardware.write_effort(Command{}).code, mca::core::StatusCode::NotConfigured);
 }

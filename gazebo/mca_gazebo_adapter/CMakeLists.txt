@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.16)
 project(mca_gazebo_adapter LANGUAGES CXX)
 
 # Gazebo Harmonic uses versioned CMake packages/targets (gz-sim8, gz-transport13, etc.).
+# Keep explicit Gazebo links and ament_target_dependencies() targets consistent
+# when a package combines the native Gazebo and ROS 2 dependency graphs.
 find_package(gz-sim8 REQUIRED)
 find_package(gz-plugin2 REQUIRED COMPONENTS register)
 find_package(gz-common5 REQUIRED)

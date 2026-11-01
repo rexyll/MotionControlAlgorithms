@@ -79,20 +79,33 @@ configure it with an SDF `<plugin>` element containing `<joint_name>...</joint_n
 
 ## Evidence boundary
 
-The Gazebo workflow verifies dependency installation, plugin compilation, headless
-plugin loading, and a live ROS 2 ↔ Gazebo bridge smoke test. Run #22 on commit
-`42e62a35cc8e881b9f4509a3887749956d05c880` publishes a ROS 2 effort command, bridges it
-to Gazebo Transport, and observes a velocity response through the reverse bridge.
-See [workflow Run #22](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/40456187215).
+The Gazebo workflow builds the plugin against Gazebo Harmonic and runs a live ROS 2 Jazzy
+`ros_gz_bridge` ↔ Gazebo Transport ↔ `ScalarJointSystem` smoke test in the pinned
+Ubuntu 24.04 CI container.
 
-This is integration-smoke evidence, not full acceptance. The strengthened Run #24
-assertion (commit `96aa3c759217c0c5ac034608ea6b9672869876e0`) failed: the velocity
-samples collected while the ROS 2 publisher was active remained near zero, exposing
-that the previous one-step transport mailbox did not reliably actuate the joint.
-The transport hold/watchdog was added in commit
-`b8676f91deee932cc8a40d958689bf36f425b5c3`. Run #26 then showed that a simulation-time
-watchdog expires too quickly under unthrottled headless simulation; the watchdog was
-changed to steady wall-clock time in commit `0811896b2894fc58d55fbe14f0998594cd1d41c7`.
-The follow-up Gazebo runtime result is still pending. Missing-joint diagnostics, malformed/non-finite transport input,
-safe shutdown, repeated launch, and measured acceleration remain open robustness or
-modeling limitations.
+Final acceptance evidence:
+
+- [Gazebo workflow Run #223](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41281232810)
+  passed Configure, Build, and the live command/state smoke on code SHA
+  `b07b0d1c883428a96bbab975b5b3ec80bc7f22dd`.
+- [Root CI Run #1312](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41281232803)
+  passed Linux and Windows Configure/Build/Test and P8-39 through P8-46 regressions
+  on the same SHA.
+
+The live smoke verifies ROS 2 effort forwarding, typed plugin callback receipt,
+non-zero `JointForceCmd`, measured velocity and finite-difference acceleration,
+wall-clock watchdog expiry with zero applied effort, rejection of NaN and positive
+infinity without refreshing the watchdog, missing-joint and missing-`joint_name`
+diagnostics, two Reset cycles during an active command, post-reset zero-effort and
+fresh-motion recovery, graceful SIGINT shutdown without SIGKILL, and relaunch of
+the same world/plugin in the same Gazebo Transport partition with endpoint
+rediscovery. The CI watchdog fixture uses a 0.5 s timeout to tolerate scheduling
+jitter; the adapter default remains 0.1 s.
+
+The evidence is integration-smoke acceptance, not proof of production hardware
+behavior, safety certification, local VMware/Ubuntu performance, an absent-model
+entity case, or an explicit simulation-time-rollback injection test. Earlier failed
+runs (#24 and #26) were useful diagnostic evidence: sustained actuation required a
+held Transport command, and the watchdog needed steady wall-clock rather than
+simulation time under unthrottled headless execution. Those failures are superseded
+by the passing final run for the behaviors listed above.

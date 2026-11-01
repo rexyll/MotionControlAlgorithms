@@ -1,4 +1,6 @@
+#include <algorithm>
 #include <cmath>
+#include <string>
 #include <limits>
 #include <memory>
 
@@ -35,6 +37,16 @@ hardware_interface::HardwareInfo MakeSystemInfo() {
   return info;
 }
 
+template <typename Handles>
+auto FindHandle(const Handles& handles, const std::string& name)
+    -> typename Handles::value_type {
+  const auto it = std::find_if(handles.begin(), handles.end(),
+                               [&name](const auto& handle) {
+                                 return handle && handle->get_name() == name;
+                               });
+  return it == handles.end() ? typename Handles::value_type{} : *it;
+}
+
 }  // namespace
 
 TEST(McaRos2ControlAdapter, MockSystemPluginIsDiscoverableAndConstructible) {
@@ -62,6 +74,25 @@ TEST(McaRos2ControlAdapter, MultiJointLifecycleReadWriteAndSafeStop) {
   ASSERT_EQ(state_handles.size(), 6U);
   ASSERT_EQ(command_handles.size(), 2U);
 
+  // ros2_control does not promise a stable vector order for exported handles.
+  // Resolve every handle by its fully qualified interface name.
+  const auto position_a = FindHandle(state_handles, "joint_a/position");
+  const auto velocity_a = FindHandle(state_handles, "joint_a/velocity");
+  const auto effort_a = FindHandle(state_handles, "joint_a/effort");
+  const auto position_b = FindHandle(state_handles, "joint_b/position");
+  const auto velocity_b = FindHandle(state_handles, "joint_b/velocity");
+  const auto effort_b = FindHandle(state_handles, "joint_b/effort");
+  const auto command_a = FindHandle(command_handles, "joint_a/effort");
+  const auto command_b = FindHandle(command_handles, "joint_b/effort");
+  ASSERT_NE(position_a, nullptr);
+  ASSERT_NE(velocity_a, nullptr);
+  ASSERT_NE(effort_a, nullptr);
+  ASSERT_NE(position_b, nullptr);
+  ASSERT_NE(velocity_b, nullptr);
+  ASSERT_NE(effort_b, nullptr);
+  ASSERT_NE(command_a, nullptr);
+  ASSERT_NE(command_b, nullptr);
+
   const rclcpp_lifecycle::State previous_state;
   ASSERT_EQ(system->on_configure(previous_state),
             hardware_interface::CallbackReturn::SUCCESS);
@@ -69,40 +100,40 @@ TEST(McaRos2ControlAdapter, MultiJointLifecycleReadWriteAndSafeStop) {
             hardware_interface::return_type::OK);
 
   double value = 0.0;
-  ASSERT_TRUE(state_handles[0]->get_value(value, false));
+  ASSERT_TRUE(position_a->get_value(value, false));
   EXPECT_DOUBLE_EQ(value, 0.25);
-  ASSERT_TRUE(state_handles[1]->get_value(value, false));
+  ASSERT_TRUE(velocity_a->get_value(value, false));
   EXPECT_DOUBLE_EQ(value, 1.0);
-  ASSERT_TRUE(state_handles[3]->get_value(value, false));
+  ASSERT_TRUE(position_b->get_value(value, false));
   EXPECT_DOUBLE_EQ(value, -0.5);
 
   ASSERT_EQ(system->on_activate(previous_state),
             hardware_interface::CallbackReturn::SUCCESS);
-  ASSERT_TRUE(command_handles[0]->set_value(1.25, false));
-  ASSERT_TRUE(command_handles[1]->set_value(-2.5, false));
+  ASSERT_TRUE(command_a->set_value(1.25, false));
+  ASSERT_TRUE(command_b->set_value(-2.5, false));
   EXPECT_EQ(system->write(rclcpp::Time(0), rclcpp::Duration(0, 1000000)),
             hardware_interface::return_type::OK);
 
   // A non-finite value in either joint rejects the entire command before the
   // backend is called; the backend retains the previously accepted pair.
-  ASSERT_TRUE(command_handles[1]->set_value(
+  ASSERT_TRUE(command_b->set_value(
       std::numeric_limits<double>::quiet_NaN(), false));
   EXPECT_EQ(system->write(rclcpp::Time(0), rclcpp::Duration(0, 1000000)),
             hardware_interface::return_type::ERROR);
   EXPECT_EQ(system->read(rclcpp::Time(0), rclcpp::Duration(0, 1000000)),
             hardware_interface::return_type::OK);
-  ASSERT_TRUE(state_handles[2]->get_value(value, false));
+  ASSERT_TRUE(effort_a->get_value(value, false));
   EXPECT_DOUBLE_EQ(value, 1.25);
-  ASSERT_TRUE(state_handles[5]->get_value(value, false));
+  ASSERT_TRUE(effort_b->get_value(value, false));
   EXPECT_DOUBLE_EQ(value, -2.5);
 
-  ASSERT_TRUE(command_handles[0]->set_value(
+  ASSERT_TRUE(command_a->set_value(
       std::numeric_limits<double>::infinity(), false));
-  ASSERT_TRUE(command_handles[1]->set_value(0.0, false));
+  ASSERT_TRUE(command_b->set_value(0.0, false));
   EXPECT_EQ(system->write(rclcpp::Time(0), rclcpp::Duration(0, 1000000)),
             hardware_interface::return_type::ERROR);
 
-  ASSERT_TRUE(command_handles[0]->set_value(0.0, false));
+  ASSERT_TRUE(command_a->set_value(0.0, false));
   EXPECT_EQ(system->write(rclcpp::Time(0), rclcpp::Duration(0, 1000000)),
             hardware_interface::return_type::OK);
 

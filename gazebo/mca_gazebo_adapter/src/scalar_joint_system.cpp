@@ -56,19 +56,21 @@ class ScalarJointSystem final : public gz::sim::System,
             << " model_entity=" << entity << std::endl;
       return;
     }
+    const gz::sim::Model model(entity);
+    model_name_ = model.Name(ecm);
     if (!sdf->HasElement("joint_name")) {
       gzerr << "MCA Gazebo adapter configuration rejected: required <joint_name> "
-               "element is missing model_entity="
-            << entity << std::endl;
+               "element is missing model="
+            << model_name_ << " model_entity=" << entity << std::endl;
       return;
     }
     const auto joint_name = sdf->Get<std::string>("joint_name");
+    joint_name_ = joint_name;
     if (joint_name.empty()) {
       gzerr << "MCA Gazebo adapter configuration rejected: <joint_name> is empty"
             << " model_entity=" << entity << std::endl;
       return;
     }
-    const gz::sim::Model model(entity);
     const auto joint = model.JointByName(ecm, joint_name);
     if (joint == gz::sim::kNullEntity) {
       gzerr << "MCA Gazebo adapter configuration rejected: joint not found"
@@ -205,8 +207,12 @@ class ScalarJointSystem final : public gz::sim::System,
     pre_update_logged_.store(false, std::memory_order_relaxed);
     post_update_logged_.store(false, std::memory_order_relaxed);
 
-    gzmsg << "MCA Gazebo adapter Reset completed sim_time_s="
-          << std::chrono::duration<double>(info.simTime).count()
+    gzmsg << "MCA Gazebo adapter Reset completed"
+          << " model=" << (model_name_.empty() ? "<unknown>" : model_name_)
+          << " joint_name=" << (joint_name_.empty() ? "<unset>" : joint_name_)
+          << " configured=" << (configured_ ? "true" : "false")
+          << " joint_entity=" << joint_
+          << " sim_time_s=" << std::chrono::duration<double>(info.simTime).count()
           << " had_transport_command=" << (had_transport_command ? "true" : "false")
           << " applied_effort=0 step_index=0 state_valid=false"
           << " force_component_available=" << (force_component_available ? "true" : "false")
@@ -498,6 +504,8 @@ class ScalarJointSystem final : public gz::sim::System,
     publisher.Publish(message);
   }
 
+  std::string model_name_;
+  std::string joint_name_;
   gz::sim::Entity joint_{gz::sim::kNullEntity};
   bool configured_{false};
   bool command_subscribed_{false};

@@ -300,6 +300,10 @@ jobs:
           wait "$publisher_pid" || true
           publisher_pid=""
 
+          # Background publishers are intentionally stopped with SIGTERM:
+          # Bash starts asynchronous jobs with SIGINT ignored in non-interactive
+          # shells, and these helpers do not install a SIGINT handler. Sending
+          # SIGINT and then wait can therefore block forever on an infinite stream.
           # The finite ROS bridge publisher has stopped. First require the
           # plugin to observe its watchdog deadline. Starting the next valid
           # stream before expiry would keep the watchdog fresh and make a
@@ -390,7 +394,7 @@ jobs:
           # Stop valid traffic only after the plugin has rejected NaN. The
           # subsequent watchdog expiry must therefore be caused by the last
           # valid command aging out; malformed traffic must not refresh it.
-          kill -INT "$nan_valid_publisher_pid" 2>/dev/null || true
+          kill -TERM "$nan_valid_publisher_pid" 2>/dev/null || true
           wait "$nan_valid_publisher_pid" 2>/dev/null || true
           nan_valid_publisher_pid=""
 
@@ -425,7 +429,7 @@ jobs:
             sleep 0.1
           done
           if [ "$inf_probe_received" != true ]; then
-            kill -INT "$publisher_pid" 2>/dev/null || true
+            kill -TERM "$publisher_pid" 2>/dev/null || true
             wait "$publisher_pid" 2>/dev/null || true
             publisher_pid=""
             echo "Plugin did not acknowledge a valid command after the NaN watchdog expiry"
@@ -437,7 +441,7 @@ jobs:
             print_log_excerpt "inf-watchdog-probe-publisher.log"
             exit 1
           fi
-          kill -INT "$publisher_pid" 2>/dev/null || true
+          kill -TERM "$publisher_pid" 2>/dev/null || true
           wait "$publisher_pid" 2>/dev/null || true
           publisher_pid=""
 
@@ -509,7 +513,7 @@ jobs:
           # Freeze the pre-reset stream once the plugin has acknowledged an
           # active command. Reset must see the still-fresh command, but no
           # continuously generated 1.0 messages should cross the reset boundary.
-          kill -INT "$publisher_pid" 2>/dev/null || true
+          kill -TERM "$publisher_pid" 2>/dev/null || true
           wait "$publisher_pid" 2>/dev/null || true
           publisher_pid=""
 
@@ -569,7 +573,7 @@ jobs:
             echo "The plugin did not confirm a fresh post-reset zero-effort command in PreUpdate"
             exit 1
           fi
-          kill -INT "$post_reset_zero_publisher_pid" 2>/dev/null || true
+          kill -TERM "$post_reset_zero_publisher_pid" 2>/dev/null || true
           wait "$post_reset_zero_publisher_pid" 2>/dev/null || true
           post_reset_zero_publisher_pid=""
 

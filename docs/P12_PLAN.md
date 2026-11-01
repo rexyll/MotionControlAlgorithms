@@ -198,3 +198,36 @@ post-deactivation write rejection, safe-stop zero effort, and invalid joint
 topology. The CI evidence accepts the fixed two-joint ROS/core adapter and its
 deterministic mock backend only; no physical driver, plant dynamics, or HIL
 behavior is claimed.
+
+
+## P12-05a — vendor-neutral hardware profile and virtual device
+
+The first reusable device backend is intentionally manufacturer-independent.
+`VirtualJointDeviceConfig<N>` provides per-axis inertia, viscous damping,
+stiffness, effort limits, position/velocity limits, initial position and a
+maximum integration step. `VirtualJointDevice<N>` implements the existing
+`IHardwareLifecycle`, `IJointStateSource` and
+`IJointEffortCommandSink` contracts, and adds a bounded simulation-only
+`step(dt)` operation. The plant uses a simple rotary-joint equation
+`J*qdd = effort - damping*qd - stiffness*q`, semi-implicit Euler integration,
+and position/velocity bounds.
+
+Default profile (all values are synthetic engineering assumptions, not a
+manufacturer data sheet): inertia 0.02 kg·m², viscous damping 0.02 N·m·s/rad,
+stiffness 0 N·m/rad, effort limit ±5 N·m, position range ±π rad, velocity
+limit ±10 rad/s, initial position 0 rad, maximum simulation step 10 ms.
+Each axis can override every parameter. Invalid profiles and out-of-range
+commands are rejected; invalid writes do not replace the last accepted command.
+State samples include position, velocity, acceleration and applied effort with
+a monotonically increasing sample sequence. Failed reads preserve caller output.
+
+The generic ports remain independent of ROS 2, Gazebo and vendor SDKs. A future
+vendor adapter should translate vendor telemetry/commands into these normalized
+SI-unit values and preserve device-specific fault codes, timing and partial-write
+semantics at its boundary. The current virtual backend is single-thread-owned;
+physical backends must define bounded synchronization and transport/watchdog
+behavior for their actual execution model.
+
+Acceptance scope: deterministic virtual-plant and hardware-port behavior only.
+It does not establish real device parameters, communication compatibility,
+driver-package build, safety certification or HIL acceptance.

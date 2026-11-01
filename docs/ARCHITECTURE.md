@@ -312,3 +312,22 @@ safe-stop request is not a replacement for a safety-rated hardware emergency sto
 The first implementation is an effort-command joint boundary. Additional
 position/velocity command capabilities and sensor-specific ports are added only
 when a concrete backend needs them, avoiding an oversized universal device API.
+
+
+### 16.1 ROS 2 control adapter mapping
+
+The optional ROS 2 control plugin is an outer adapter, not a core base class.
+ROS 2 Jazzy provides `hardware_interface::ActuatorInterface` for a one-DoF
+actuator and `hardware_interface::SystemInterface` for multi-joint systems.
+Both expose state/command interfaces and lifecycle/read/write hooks. The plugin
+maps its lifecycle and periodic I/O into MCA's independent
+`IHardwareLifecycle`, `IJointStateSource`, and
+`IJointEffortCommandSink` capabilities. URDF parsing, pluginlib registration,
+ROS interface vectors and vendor SDKs remain in the optional adapter package.
+For a known robot, compile-time dimensions may be used in the core; any
+runtime-sized ROS interface storage must be validated and mapped at the adapter
+boundary before entering the fixed-size control path.
+
+Official Jazzy API references:
+- https://control.ros.org/jazzy/doc/api/classhardware__interface_1_1ActuatorInterface.html
+- https://control.ros.org/jazzy/doc/api/classhardware__interface_1_1SystemInterface.html

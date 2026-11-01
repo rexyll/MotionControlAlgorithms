@@ -50,6 +50,26 @@ int main(int argc, char** argv) {
     return 3;
   }
 
+  // Advertising a topic does not mean a subscriber is connected yet.
+  // Gazebo Transport discovery is asynchronous, and messages published before
+  // the adapter subscription is established can be dropped. Wait for the
+  // actual subscriber before starting finite or continuous command streams.
+  constexpr auto kConnectionTimeout = std::chrono::seconds(10);
+  const auto connection_deadline =
+      std::chrono::steady_clock::now() + kConnectionTimeout;
+  while (!publisher.HasConnections() &&
+         std::chrono::steady_clock::now() < connection_deadline) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  if (!publisher.HasConnections()) {
+    std::cerr << "timed out waiting for a Gazebo Transport subscriber on "
+              << topic << " after " << kConnectionTimeout.count()
+              << " seconds" << std::endl;
+    return 5;
+  }
+  std::cout << "Gazebo Transport subscriber connected on " << topic
+            << std::endl;
+
   gz::msgs::Double message;
   message.set_data(value);
   int published_count = 0;

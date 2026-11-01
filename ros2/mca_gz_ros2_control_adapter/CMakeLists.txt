@@ -3,7 +3,9 @@ project(mca_gz_ros2_control_adapter LANGUAGES CXX)
 
 find_package(ament_cmake REQUIRED)
 find_package(gz_ros2_control REQUIRED)
-find_package(gz-sim REQUIRED)
+# Gazebo Harmonic ships the versioned CMake package/target names.
+# The CI image installs libgz-sim8-dev, so use the matching gz-sim8 package.
+find_package(gz-sim8 REQUIRED)
 find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -17,7 +19,7 @@ target_include_directories(mca_gz_ros2_control_adapter PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../include>
   $<INSTALL_INTERFACE:include>)
-target_link_libraries(mca_gz_ros2_control_adapter PRIVATE gz-sim::gz-sim)
+target_link_libraries(mca_gz_ros2_control_adapter PRIVATE gz-sim8::gz-sim8)
 ament_target_dependencies(mca_gz_ros2_control_adapter
   gz_ros2_control hardware_interface pluginlib rclcpp rclcpp_lifecycle)
 

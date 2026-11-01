@@ -277,6 +277,14 @@ jobs:
           # last valid command is recent when the valid stream is stopped.
           # Require the plugin-side rejection diagnostic before stopping the
           # valid stream; publisher-side Publish() success is not delivery proof.
+          nan_watchdog_count_before="$(python3 - <<'PY'
+          import re
+          from pathlib import Path
+          log = Path("gazebo-transport.log").read_text(errors="replace")
+          log = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", log)
+          print(log.count("MCA Gazebo adapter transport watchdog expired"))
+          PY
+          )"
           env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
             "${topic_prefix}/cmd_effort" 1.0 0 > nan-watchdog-valid-publisher.log 2>&1 &
           nan_valid_publisher_pid=$!
@@ -357,7 +365,7 @@ jobs:
           print(log.count("MCA Gazebo adapter transport watchdog expired"))
           PY
           )"
-            if [ "${watchdog_count:-0}" -ge 1 ]; then
+            if [ "${watchdog_count:-0}" -gt "${nan_watchdog_count_before:-0}" ]; then
               nan_watchdog_expired=true
               break
             fi

@@ -29,8 +29,8 @@ int main(int argc, char** argv) {
     char* count_end = nullptr;
     const long parsed_count = std::strtol(argv[3], &count_end, 10);
     if (count_end == argv[3] || *count_end != '\0' || errno == ERANGE ||
-        parsed_count <= 0 || parsed_count > 100000) {
-      std::cerr << "invalid positive COUNT: " << argv[3] << std::endl;
+        parsed_count < 0 || parsed_count > 100000) {
+      std::cerr << "invalid non-negative COUNT: " << argv[3] << std::endl;
       return 2;
     }
     publish_count = static_cast<int>(parsed_count);
@@ -46,14 +46,18 @@ int main(int argc, char** argv) {
 
   gz::msgs::Double message;
   message.set_data(value);
-  for (int i = 0; i < publish_count; ++i) {
+  int published_count = 0;
+  while (publish_count == 0 || published_count < publish_count) {
     if (!publisher.Publish(message)) {
-      std::cerr << "failed to publish command on " << topic << std::endl;
+      std::cerr << "failed to publish command on " << topic
+                << " after " << published_count << " successful publishes" << std::endl;
       return 4;
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+    ++published_count;
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
   }
-  std::cout << "published " << publish_count << " Gazebo Transport Double commands value=" << value
+  std::cout << "published " << published_count
+            << " Gazebo Transport Double commands value=" << value
             << " topic=" << topic << std::endl;
   return 0;
 }

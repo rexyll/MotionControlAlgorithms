@@ -31,7 +31,7 @@ universal device interface speculatively.
 - [x] P12-01 audit existing ports and define hardware capability boundary.
 - [ ] P12-02 dependency-free joint-state / effort-command / lifecycle interfaces.
 - [ ] P12-03 deterministic fake hardware port regressions and Linux/Windows CI.
-- [ ] P12-04 inspect and design the optional ROS 2 control integration boundary.
+- [x] P12-04 inspect and design the optional ROS 2 control integration boundary.
 - [ ] P12-05 implement one concrete vendor/device adapter after selecting target hardware.
 - [ ] P12-06 perform target-device hardware-in-the-loop acceptance.
 
@@ -67,3 +67,42 @@ The deterministic fake-device tests are registered in the existing
 lifecycle transitions, partial measurements, output preservation, sequence
 propagation, finite/non-finite commands and safe-stop requests. Do not mark
 P12-02/P12-03 accepted until Linux and Windows Configure/Build/Test pass.
+
+
+## P12-04 ROS 2 control integration boundary audit
+
+The ROS 2 Jazzy API documentation supports two adapter shapes:
+
+- `hardware_interface::ActuatorInterface` is the one-DoF hardware component
+  interface, with state/command exports and `read(time, period)` /
+  `write(time, period)` hooks. It is appropriate for a single motor or
+  actuator adapter. Official API:
+  https://control.ros.org/jazzy/doc/api/classhardware__interface_1_1ActuatorInterface.html
+- `hardware_interface::SystemInterface` is intended for complex systems with
+  multiple joints and optional sensors. It exposes state and command
+  interfaces and the same read/write cycle. Official API:
+  https://control.ros.org/jazzy/doc/api/classhardware__interface_1_1SystemInterface.html
+
+Both derive from the ROS 2 hardware-component lifecycle. Jazzy documents
+UNCONFIGURED, INACTIVE, ACTIVE and FINALIZED phases; INACTIVE means the device
+communication is configured and state can be read, while movement command
+interfaces are unavailable. ACTIVE enables movement command interfaces and
+may enable power/brake circuits. This informs the adapter mapping:
+ROS `on_configure` establishes the core device connection, `on_activate` maps
+to `IHardwareLifecycle::activate`, `on_deactivate` maps to
+`deactivate`, `read` copies a coherent `JointState`, and `write` validates
+and forwards an effort command. `on_init` remains responsible for URDF/plugin
+configuration parsing at the ROS boundary.
+
+The ROS 2 plugin must live in a separate optional package and translate between
+ROS interface storage and the dependency-free MCA ports. ROS 2 types, pluginlib,
+URDF parsing, dynamic vectors, and device SDKs do not enter `include/mca/**` or
+the root CMake build. Because `SystemInterface` discovers joint counts at
+runtime while MCA's first hardware value types are fixed-size templates, a
+concrete plugin must choose a known robot dimension or explicitly batch/bridge
+runtime-sized ROS storage at the adapter boundary; it must not silently allocate
+or resize in the hard real-time write path.
+
+No ROS 2 control package implementation or physical backend is claimed by this
+audit. The next implementation depends on selecting a robot/device and its
+joint count, control modes, transport, fault model and safety behavior.

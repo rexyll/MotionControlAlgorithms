@@ -29,6 +29,7 @@ SystemHardware::CallbackReturn SystemHardware::on_init(
   }
 
   has_effort_state_ = false;
+  bool effort_state_topology_initialized = false;
   for (std::size_t i = 0; i < joint_names_.size(); ++i) {
     const auto& joint = info.joints[i];
     if (joint.name.empty() || joint.command_interfaces.size() != 1U ||
@@ -38,17 +39,24 @@ SystemHardware::CallbackReturn SystemHardware::on_init(
       return CallbackReturn::ERROR;
     }
 
+    bool joint_has_effort_state = false;
     for (const auto& state : joint.state_interfaces) {
       if (state.name == hardware_interface::HW_IF_POSITION ||
           state.name == hardware_interface::HW_IF_VELOCITY) {
         continue;
       }
       if (state.name == hardware_interface::HW_IF_EFFORT) {
-        has_effort_state_ = true;
+        joint_has_effort_state = true;
         continue;
       }
       return CallbackReturn::ERROR;
     }
+    if (effort_state_topology_initialized &&
+        joint_has_effort_state != has_effort_state_) {
+      return CallbackReturn::ERROR;
+    }
+    has_effort_state_ = joint_has_effort_state;
+    effort_state_topology_initialized = true;
 
     joint_names_[i] = joint.name;
     position_names_[i] = joint.name + "/" + hardware_interface::HW_IF_POSITION;

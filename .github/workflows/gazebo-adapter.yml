@@ -271,16 +271,92 @@ jobs:
           wait "$publisher_pid" || true
           publisher_pid=""
 
-          # Send malformed values only after a valid command stream has stopped.
-          # The NaN stream lasts approximately 0.5 s, matching the watchdog
-          # timeout. The watchdog must expire during that stream, proving that
-          # rejected traffic does not refresh the last-valid-command timestamp.
+          # Re-arm the watchdog with a continuous valid Transport stream, then
+          # overlap a short NaN burst with it. This guarantees that NaN is
+          # delivered while the command subscription is active and that the
+          # last valid command is recent when the valid stream is stopped.
+          # Require the plugin-side rejection diagnostic before stopping the
+          # valid stream; publisher-side Publish() success is not delivery proof.
+          env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
+            "${topic_prefix}/cmd_effort" 1.0 0 > nan-watchdog-valid-publisher.log 2>&1 &
+          nan_valid_publisher_pid=$!
+          nan_valid_command_received=false
+          for _ in $(seq 1 60); do
+            if python3 - <<'PY'
+          import re
+          from pathlib import Path
+          log = Path("gazebo-transport.log").read_text(errors="replace")
+          log = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", log)
+          raise SystemExit(0 if "MCA Gazebo adapter transport watchdog re-armed by valid command" in log else 1)
+          PY
+            then
+              nan_valid_command_received=true
+              break
+            fi
+            sleep 0.1
+          done
+          if [ "$nan_valid_command_received" != true ]; then
+            kill "$nan_valid_publisher_pid" 2>/dev/null || true
+            wait "$nan_valid_publisher_pid" 2>/dev/null || true
+            echo "Plugin did not acknowledge the valid command before the NaN watchdog test"
+            print_log_excerpt "nan-watchdog-valid-publisher.log"
+            print_log_excerpt "gazebo-transport.log"
+            exit 1
+          fi
+
+          nan_rejection_count_before="$(python3 - <<'PY'
+          import re
+          from pathlib import Path
+          log = Path("gazebo-transport.log").read_text(errors="replace")
+          log = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", log)
+          print(log.count("MCA Gazebo adapter rejected non-finite transport effort command"))
+          PY
+          )"
           env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
             "${topic_prefix}/cmd_effort" nan > malformed-nan-publisher.log 2>&1
           print_log_excerpt "malformed-nan-publisher.log"
+
+          nan_rejected=false
+          for _ in $(seq 1 40); do
+            nan_rejection_count_now="$(python3 - <<'PY'
+          import re
+          from pathlib import Path
+          log = Path("gazebo-transport.log").read_text(errors="replace")
+          log = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", log)
+          print(log.count("MCA Gazebo adapter rejected non-finite transport effort command"))
+          PY
+          )"
+            if [ "${nan_rejection_count_now:-0}" -gt "${nan_rejection_count_before:-0}" ]; then
+              nan_rejected=true
+              break
+            fi
+            sleep 0.05
+          done
+          if [ "$nan_rejected" != true ]; then
+            kill "$nan_valid_publisher_pid" 2>/dev/null || true
+            wait "$nan_valid_publisher_pid" 2>/dev/null || true
+            echo "Gazebo adapter did not acknowledge and reject the NaN transport command"
+            print_log_excerpt "gazebo-transport.log"
+            exit 1
+          fi
+
+          # Stop valid traffic only after the plugin has rejected NaN. The
+          # subsequent watchdog expiry must therefore be caused by the last
+          # valid command aging out; malformed traffic must not refresh it.
+          kill -INT "$nan_valid_publisher_pid" 2>/dev/null || true
+          wait "$nan_valid_publisher_pid" 2>/dev/null || true
+          nan_valid_publisher_pid=""
+
           nan_watchdog_expired=false
-          for _ in $(seq 1 10); do
-            watchdog_count="$(grep -Fc "MCA Gazebo adapter transport watchdog expired" gazebo-transport.log || true)"
+          for _ in $(seq 1 40); do
+            watchdog_count="$(python3 - <<'PY'
+          import re
+          from pathlib import Path
+          log = Path("gazebo-transport.log").read_text(errors="replace")
+          log = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", log)
+          print(log.count("MCA Gazebo adapter transport watchdog expired"))
+          PY
+          )"
             if [ "${watchdog_count:-0}" -ge 1 ]; then
               nan_watchdog_expired=true
               break
@@ -288,7 +364,8 @@ jobs:
             sleep 0.05
           done
           if [ "$nan_watchdog_expired" != true ]; then
-            echo "NaN transport traffic refreshed the watchdog or was not rejected"
+            echo "Watchdog did not expire after valid traffic stopped and NaN was rejected"
+            print_log_excerpt "gazebo-transport.log"
             exit 1
           fi
 

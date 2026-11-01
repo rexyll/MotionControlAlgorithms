@@ -35,6 +35,9 @@ universal device interface speculatively.
 - [x] P12-04a implement and verify a single-DoF Jazzy `ActuatorInterface` bridge
   using an explicit mock backend; this validates the ROS/core mapping only and
   is not a physical driver.
+- [ ] P12-04b implement and verify a fixed two-joint Jazzy `SystemInterface`
+  bridge with a pluginlib mock backend. Implementation is present on `main`;
+  acceptance is pending ROS 2 Jazzy build/test results and review of any failures.
 - [ ] P12-05 concrete device backend — select one real actuator/robot device,
   verify its official SDK/transport and safety requirements, then implement a
   driver adapter and documented deployment configuration.
@@ -153,3 +156,30 @@ this task. Do not implement a speculative vendor backend. P12-05 requires a
 concrete device target and verified official SDK/transport/control-mode/fault
 documentation. P12-06 requires physical hardware access and separate HIL
 evidence; Gazebo or a mock backend cannot substitute for it.
+
+
+## P12-04b multi-joint reference plugin — implementation under verification
+
+The optional `mca_ros2_control_adapter` package now also contains
+`SystemHardware`, a deliberately fixed two-joint implementation of Jazzy's
+`hardware_interface::SystemInterface`, and the pluginlib-exported
+`mca_ros2_control_adapter/MockSystem`. The fixed dimension is explicit at the
+MCA boundary (`JointState<double, 2>` and
+`JointEffortCommand<double, 2>`); runtime-sized ROS metadata is handled only
+during initialization and interface export.
+
+The adapter validates a two-joint topology, requires position and velocity
+state plus effort command interfaces for both joints, optionally exports effort
+state, pre-caches all state/command handles before the control loop, checks
+sample validity and monotonically increasing sequence numbers, and reads the
+complete two-axis command before issuing one fixed-size backend write. A
+non-finite value on either axis rejects the whole command before the backend
+call. Deactivation requests software safe-stop before backend deactivation.
+The mock backend provides deterministic values only and does not simulate plant
+dynamics or communicate with hardware.
+
+Focused tests cover plugin discovery, lifecycle, two-joint state export,
+two-joint effort write, whole-command rejection for a NaN, post-deactivation
+write rejection, safe-stop zero effort, and invalid joint topology. This section
+is intentionally marked implementation-under-verification until the Jazzy
+workflow completes successfully; no physical driver or HIL evidence is claimed.

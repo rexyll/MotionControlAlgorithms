@@ -919,6 +919,36 @@ jobs:
               print(matches[-1])
           PY
           }
+          wait_for_gazebo_log_match_increase() {
+            python3 - "$1" "$2" "${3:-12}" <<'PY'
+          import re
+          import sys
+          import time
+          from pathlib import Path
+
+          needle = sys.argv[1]
+          baseline = int(sys.argv[2])
+          timeout_s = float(sys.argv[3])
+          ansi_csi = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+          deadline = time.monotonic() + timeout_s
+          log_path = Path("gazebo-transport.log")
+
+          while True:
+              raw = log_path.read_text(errors="replace")
+              plain = ansi_csi.sub("", raw)
+              count = plain.count(needle)
+              if count > baseline:
+                  print(f"Observed Gazebo log milestone count increase: {baseline} -> {count}")
+                  raise SystemExit(0)
+              if time.monotonic() >= deadline:
+                  print(
+                      f"Timed out waiting for Gazebo log milestone: "
+                      f"baseline={baseline}, current={count}, timeout={timeout_s:.1f}s"
+                  )
+                  raise SystemExit(1)
+              time.sleep(0.1)
+          PY
+          }
           for reset_cycle in 1 2; do
             valid_command_diagnostic_count_before="$(count_gazebo_log_matches "MCA Gazebo adapter accepted finite transport effort command count=")"
             echo "=== Repeated reset stress cycle ${reset_cycle}: arm active command ==="
@@ -926,17 +956,15 @@ jobs:
               "${topic_prefix}/cmd_effort" 1.0 200 > "reset-stress-${reset_cycle}-publisher.log" 2>&1 &
             stress_publisher_pid=$!
             command_seen=false
-            for _ in $(seq 1 40); do
-              valid_command_diagnostic_count_now="$(count_gazebo_log_matches "MCA Gazebo adapter accepted finite transport effort command count=")"
-              if [ "${valid_command_diagnostic_count_now:-0}" -gt "${valid_command_diagnostic_count_before:-0}" ]; then
-                command_seen=true
-                break
-              fi
-              sleep 0.05
-            done
+            if wait_for_gazebo_log_match_increase \
+                "MCA Gazebo adapter accepted finite transport effort command count=" \
+                "${valid_command_diagnostic_count_before:-0}" 12; then
+              command_seen=true
+            fi
             if [ "$command_seen" != true ]; then
               kill "$stress_publisher_pid" 2>/dev/null || true
               wait "$stress_publisher_pid" 2>/dev/null || true
+              valid_command_diagnostic_count_now="$(count_gazebo_log_matches "MCA Gazebo adapter accepted finite transport effort command count=")"
               echo "Gazebo adapter did not report a new finite-command callback milestone for reset stress cycle ${reset_cycle}"
               echo "Finite-command callback milestones before=${valid_command_diagnostic_count_before}, after=${valid_command_diagnostic_count_now:-unavailable}"
               print_gazebo_adapter_diagnostics

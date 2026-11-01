@@ -32,7 +32,7 @@ universal device interface speculatively.
 - [x] P12-02 dependency-free joint-state / effort-command / lifecycle interfaces.
 - [x] P12-03 deterministic fake hardware port regressions and Linux/Windows CI.
 - [x] P12-04 inspect and design the optional ROS 2 control integration boundary.
-- [ ] P12-04a implement and verify a single-DoF Jazzy `ActuatorInterface` bridge
+- [x] P12-04a implement and verify a single-DoF Jazzy `ActuatorInterface` bridge
   using an explicit mock backend; this validates the ROS/core mapping only and
   is not a physical driver.
 - [ ] P12-05 concrete device backend — select one real actuator/robot device,

@@ -33,7 +33,7 @@ jobs:
           curl -fsSL https://packages.osrfoundation.org/gazebo.gpg -o /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
           echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] https://packages.osrfoundation.org/gazebo/ubuntu-stable $(. /etc/os-release && echo ${UBUNTU_CODENAME}) main" > /etc/apt/sources.list.d/gazebo-stable.list
           apt-get update
-          apt-get install -y --no-install-recommends gz-harmonic libgz-sim8-dev libgz-plugin2-dev libgz-common5-dev libgz-math7-dev libgz-transport13-dev libgz-msgs10-dev ros-jazzy-ros-gz-bridge
+          apt-get install -y --no-install-recommends gz-harmonic libgz-sim8-dev libgz-plugin2-dev libgz-common5-dev libgz-math7-dev libgz-transport13-dev libgz-msgs10-dev ros-jazzy-ros-gz-bridge ros-jazzy-gz-ros2-control ros-jazzy-ament-cmake-gtest
       - name: Configure Gazebo adapter
         shell: bash
         run: cmake -S gazebo/mca_gazebo_adapter -B build/gazebo-adapter -DCMAKE_BUILD_TYPE=Release
@@ -1129,3 +1129,13 @@ jobs:
           echo "Gazebo repeated world/plugin launch and graceful shutdown passed"
 
           echo "ROS 2 ↔ Gazebo bridge command/state path passed: bridge forwarding, plugin callback, non-zero JointForceCmd, velocity > 1e-5, measured acceleration > 1e-5, watchdog zero-effort expiry, Reset clears an active command, and post-reset command produces measured velocity on Gazebo Transport and ROS 2"
+
+      - name: Build and test MCA Gazebo ros2_control plugin
+        shell: bash
+        run: |
+          set -euo pipefail
+          source /opt/ros/jazzy/setup.bash
+          colcon build --base-paths ros2 --packages-select mca_gz_ros2_control_adapter --build-base build/colcon-build --install-base build/colcon-install
+          source build/colcon-install/setup.bash
+          colcon test --base-paths ros2 --packages-select mca_gz_ros2_control_adapter --build-base build/colcon-build --install-base build/colcon-install --test-result-base build/colcon-test-results
+          colcon test-result --test-result-base build/colcon-test-results --verbose

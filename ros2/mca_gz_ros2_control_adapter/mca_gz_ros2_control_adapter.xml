@@ -1,0 +1,11 @@
+<library path="mca_gz_ros2_control_adapter">
+  <class
+    name="mca_gz_ros2_control_adapter/GazeboSystem"
+    type="mca_gz_ros2_control_adapter::GazeboSystem"
+    base_class_type="gz_ros2_control::GazeboSimSystemInterface">
+    <description>
+      Two-joint Gazebo Harmonic SystemInterface. It reads joint state and writes
+      effort directly through Gazebo ECS using MCA hardware port contracts.
+    </description>
+  </class>
+</library>

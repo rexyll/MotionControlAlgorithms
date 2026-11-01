@@ -143,9 +143,9 @@ TEST(McaRos2ControlAdapter, MultiJointLifecycleReadWriteAndSafeStop) {
             hardware_interface::return_type::ERROR);
   EXPECT_EQ(system->read(rclcpp::Time(0), rclcpp::Duration(0, 1000000)),
             hardware_interface::return_type::OK);
-  ASSERT_TRUE(state_handles[2]->get_value(value, false));
+  ASSERT_TRUE(effort_a->get_value(value, false));
   EXPECT_DOUBLE_EQ(value, 0.0);
-  ASSERT_TRUE(state_handles[5]->get_value(value, false));
+  ASSERT_TRUE(effort_b->get_value(value, false));
   EXPECT_DOUBLE_EQ(value, 0.0);
 }
 

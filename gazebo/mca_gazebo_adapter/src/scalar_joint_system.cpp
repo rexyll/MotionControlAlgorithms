@@ -110,6 +110,7 @@ class ScalarJointSystem final : public gz::sim::System,
     while (prefix.size() > 1 && prefix.back() == '/') prefix.pop_back();
     topic_prefix_ = prefix;
     command_topic_ = topic_prefix_ + "/cmd_effort";
+    command_ack_topic_ = topic_prefix_ + "/command_ack";
     position_topic_ = topic_prefix_ + "/state/position";
     velocity_topic_ = topic_prefix_ + "/state/velocity";
     acceleration_topic_ = topic_prefix_ + "/state/acceleration";
@@ -126,19 +127,22 @@ class ScalarJointSystem final : public gz::sim::System,
     // state publication. This avoids a second plugin-owned Transport node and
     // keeps both directions on one node callback dispatcher.
     command_subscribed_ = CreateCommandSubscriber();
+    command_ack_pub_ = node_->Advertise<gz::msgs::Double>(command_ack_topic_);
     position_pub_ = node_->Advertise<gz::msgs::Double>(position_topic_);
     velocity_pub_ = node_->Advertise<gz::msgs::Double>(velocity_topic_);
     acceleration_pub_ = node_->Advertise<gz::msgs::Double>(acceleration_topic_);
     time_pub_ = node_->Advertise<gz::msgs::Double>(time_topic_);
     step_pub_ = node_->Advertise<gz::msgs::Double>(step_topic_);
-    configured_ = command_subscribed_ && position_pub_ && velocity_pub_ &&
-                  acceleration_pub_ && time_pub_ && step_pub_;
+    configured_ = command_subscribed_ && command_ack_pub_ && position_pub_ &&
+                  velocity_pub_ && acceleration_pub_ && time_pub_ && step_pub_;
     const auto subscribed_topics = node_->SubscribedTopics();
     const char* environment_partition = std::getenv("GZ_PARTITION");
     gzmsg << "MCA Gazebo adapter configured command topic=" << command_topic_
           << " subscribe_ok=" << (command_subscribed_ ? "true" : "false")
           << " configured=" << (configured_ ? "true" : "false")
           << " command_subscription_mode=typed-subscribe-shared-node"
+          << " command_ack_topic=" << command_ack_topic_
+          << " command_ack_publish_ok=" << (command_ack_pub_ ? "true" : "false")
           << " node_subscribed_topics=" << subscribed_topics.size()
           << " environment_partition="
           << (environment_partition != nullptr ? environment_partition : "<unset>")
@@ -488,9 +492,18 @@ class ScalarJointSystem final : public gz::sim::System,
     const auto valid_command_count =
         valid_transport_command_count_.fetch_add(1, std::memory_order_relaxed) + 1;
     if (valid_command_count % 128 == 0) {
+      // Publish a transport-level acknowledgement only after the command's
+      // finite value, wall timestamp, and active state have been committed.
+      // This provides an observable receiver-side handshake independent of
+      // Gazebo Console's buffered text logging.
+      gz::msgs::Double acknowledgement;
+      acknowledgement.set_data(static_cast<double>(valid_command_count));
+      const bool acknowledgement_published =
+          command_ack_pub_ && command_ack_pub_.Publish(acknowledgement);
       gzmsg << "MCA Gazebo adapter accepted finite transport effort command count="
             << valid_command_count << " active=true watchdog_rearmed="
             << (watchdog_was_expired ? "true" : "false")
+            << " ack_published=" << (acknowledgement_published ? "true" : "false")
             << " topic=" << command_topic_ << std::endl;
     }
     if (watchdog_was_expired) {
@@ -546,11 +559,13 @@ class ScalarJointSystem final : public gz::sim::System,
   std::unique_ptr<gz::transport::Node> node_;
   std::string topic_prefix_;
   std::string command_topic_;
+  std::string command_ack_topic_;
   std::string position_topic_;
   std::string velocity_topic_;
   std::string acceleration_topic_;
   std::string time_topic_;
   std::string step_topic_;
+  gz::transport::Node::Publisher command_ack_pub_;
   gz::transport::Node::Publisher position_pub_;
   gz::transport::Node::Publisher velocity_pub_;
   gz::transport::Node::Publisher acceleration_pub_;

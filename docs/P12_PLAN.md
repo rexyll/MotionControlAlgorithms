@@ -35,9 +35,12 @@ universal device interface speculatively.
 - [x] P12-04a implement and verify a single-DoF Jazzy `ActuatorInterface` bridge
   using an explicit mock backend; this validates the ROS/core mapping only and
   is not a physical driver.
-- [ ] P12-04b implement and verify a fixed two-joint Jazzy `SystemInterface`
-  bridge with a pluginlib mock backend. Implementation is present on `main`;
-  acceptance is pending ROS 2 Jazzy build/test results and review of any failures.
+- [x] P12-04b implement and verify a fixed two-joint Jazzy `SystemInterface`
+  bridge with a pluginlib mock backend. Accepted on 2026-11-01 after ROS 2
+  Jazzy workflow Run #26 and root CI Run #1342 passed on code SHA
+  `ea1fd4648af76fdcb64c721f16526c29c681e904`; see the detailed acceptance
+  record below. This validates the ROS/core adapter and mock backend only,
+  not a physical driver or hardware-in-the-loop behavior.
 - [ ] P12-05 concrete device backend — select one real actuator/robot device,
   verify its official SDK/transport and safety requirements, then implement a
   driver adapter and documented deployment configuration.
@@ -158,7 +161,7 @@ documentation. P12-06 requires physical hardware access and separate HIL
 evidence; Gazebo or a mock backend cannot substitute for it.
 
 
-## P12-04b multi-joint reference plugin — implementation under verification
+## P12-04b multi-joint reference plugin — accepted 2026-11-01
 
 The optional `mca_ros2_control_adapter` package now also contains
 `SystemHardware`, a deliberately fixed two-joint implementation of Jazzy's
@@ -180,6 +183,18 @@ dynamics or communicate with hardware.
 
 Focused tests cover plugin discovery, lifecycle, two-joint state export,
 two-joint effort write, whole-command rejection for a NaN, post-deactivation
-write rejection, safe-stop zero effort, and invalid joint topology. This section
-is intentionally marked implementation-under-verification until the Jazzy
-workflow completes successfully; no physical driver or HIL evidence is claimed.
+write rejection, safe-stop zero effort, and invalid joint topology. Acceptance evidence:
+- ROS 2 Jazzy workflow [Run #26](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41291882781)
+  passed the optional adapter package build and test steps.
+- Root CI [Run #1342](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41291882763)
+  passed on both Linux and Windows, including Configure, Build, Test, and the
+  dedicated P8-39 through P8-46 regression configure/build/test steps.
+- Both workflows tested code SHA
+  `ea1fd4648af76fdcb64c721f16526c29c681e904`.
+
+The focused ROS 2 tests verify plugin discovery, lifecycle, two-joint state
+export/read, two-joint effort write, whole-command rejection for a NaN,
+post-deactivation write rejection, safe-stop zero effort, and invalid joint
+topology. The CI evidence accepts the fixed two-joint ROS/core adapter and its
+deterministic mock backend only; no physical driver, plant dynamics, or HIL
+behavior is claimed.

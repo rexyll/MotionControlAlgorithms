@@ -81,6 +81,33 @@ jobs:
               print("\n".join(lines[-20:]))
           PY
           }
+          count_gazebo_log_matches() {
+            python3 - "$1" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+          raw = Path("gazebo-transport.log").read_text(errors="replace")
+          plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", raw)
+          print(plain.count(sys.argv[1]))
+          PY
+          }
+          print_gazebo_adapter_diagnostics() {
+            python3 - <<'PY'
+          import re
+          from pathlib import Path
+          raw = Path("gazebo-transport.log").read_text(errors="replace")
+          plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", raw)
+          lines = [
+              line for line in plain.splitlines()
+              if "MCA Gazebo adapter" in line
+              and any(token in line for token in (
+                  "watchdog", "typed command", "transport effort command",
+                  "PreUpdate observed", "JointForceCmd"
+              ))
+          ]
+          print("\n".join(lines[-80:]) if lines else "<no MCA command/watchdog diagnostics>")
+          PY
+          }
           echo "Gazebo Transport partition: $GZ_PARTITION"
           echo "System Gazebo CLI: $gazebo_executable"
           echo "System Gazebo CLI libraries: $gazebo_ld_library_path"
@@ -255,6 +282,8 @@ jobs:
 
           # Stop command publication after four seconds. Keep the state observers alive
           # long enough to cross the configured 0.5 s watchdog deadline.
+          # Capture the watchdog baseline before any bridged command is sent.
+          nan_initial_watchdog_count_before="$(count_gazebo_log_matches "MCA Gazebo adapter transport watchdog expired")"
           timeout 4s ros2 topic pub --rate 100 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > command-publisher.log 2>&1 &
           publisher_pid=$!
 
@@ -271,33 +300,38 @@ jobs:
           wait "$publisher_pid" || true
           publisher_pid=""
 
-          # Re-arm the watchdog with a continuous valid Transport stream, then
-          # overlap a short NaN burst with it. This guarantees that NaN is
-          # delivered while the command subscription is active and that the
-          # last valid command is recent when the valid stream is stopped.
-          # Require the plugin-side rejection diagnostic before stopping the
-          # valid stream; publisher-side Publish() success is not delivery proof.
-          nan_watchdog_count_before="$(python3 - <<'PY'
-          import re
-          from pathlib import Path
-          log = Path("gazebo-transport.log").read_text(errors="replace")
-          log = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", log)
-          print(log.count("MCA Gazebo adapter transport watchdog expired"))
-          PY
-          )"
+          # The finite ROS bridge publisher has stopped. First require the
+          # plugin to observe its watchdog deadline. Starting the next valid
+          # stream before expiry would keep the watchdog fresh and make a
+          # re-arm transition impossible by construction.
+          nan_initial_watchdog_expired=false
+          for _ in $(seq 1 80); do
+            watchdog_count="$(count_gazebo_log_matches "MCA Gazebo adapter transport watchdog expired")"
+            if [ "${watchdog_count:-0}" -gt "${nan_initial_watchdog_count_before:-0}" ]; then
+              nan_initial_watchdog_expired=true
+              break
+            fi
+            sleep 0.1
+          done
+          if [ "$nan_initial_watchdog_expired" != true ]; then
+            echo "Initial bridged command stream did not expire before the NaN watchdog test"
+            echo "=== MCA command/watchdog diagnostics ==="
+            print_gazebo_adapter_diagnostics
+            echo "=== ROS command publisher ==="
+            print_log_excerpt "command-publisher.log"
+            exit 1
+          fi
+
+          # After expiry, begin a continuous valid Transport stream and require
+          # a new re-arm event. This proves the plugin received a fresh command.
+          nan_rearm_count_before="$(count_gazebo_log_matches "MCA Gazebo adapter transport watchdog re-armed by valid command")"
           env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
             "${topic_prefix}/cmd_effort" 1.0 0 > nan-watchdog-valid-publisher.log 2>&1 &
           nan_valid_publisher_pid=$!
           nan_valid_command_received=false
           for _ in $(seq 1 60); do
-            if python3 - <<'PY'
-          import re
-          from pathlib import Path
-          log = Path("gazebo-transport.log").read_text(errors="replace")
-          log = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", log)
-          raise SystemExit(0 if "MCA Gazebo adapter transport watchdog re-armed by valid command" in log else 1)
-          PY
-            then
+            watchdog_rearm_count="$(count_gazebo_log_matches "MCA Gazebo adapter transport watchdog re-armed by valid command")"
+            if [ "${watchdog_rearm_count:-0}" -gt "${nan_rearm_count_before:-0}" ]; then
               nan_valid_command_received=true
               break
             fi
@@ -306,11 +340,16 @@ jobs:
           if [ "$nan_valid_command_received" != true ]; then
             kill "$nan_valid_publisher_pid" 2>/dev/null || true
             wait "$nan_valid_publisher_pid" 2>/dev/null || true
-            echo "Plugin did not acknowledge the valid command before the NaN watchdog test"
+            echo "Plugin did not acknowledge a valid command after the initial watchdog expiry"
+            echo "=== MCA command/watchdog diagnostics ==="
+            print_gazebo_adapter_diagnostics
+            echo "=== Valid-command publisher ==="
             print_log_excerpt "nan-watchdog-valid-publisher.log"
-            print_log_excerpt "gazebo-transport.log"
             exit 1
           fi
+
+          # Only the subsequent expiry may satisfy the NaN-stage assertion.
+          nan_watchdog_count_before="$(count_gazebo_log_matches "MCA Gazebo adapter transport watchdog expired")"
 
           nan_rejection_count_before="$(python3 - <<'PY'
           import re
@@ -356,20 +395,13 @@ jobs:
           nan_valid_publisher_pid=""
 
           nan_watchdog_expired=false
-          for _ in $(seq 1 40); do
-            watchdog_count="$(python3 - <<'PY'
-          import re
-          from pathlib import Path
-          log = Path("gazebo-transport.log").read_text(errors="replace")
-          log = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", log)
-          print(log.count("MCA Gazebo adapter transport watchdog expired"))
-          PY
-          )"
+          for _ in $(seq 1 80); do
+            watchdog_count="$(count_gazebo_log_matches "MCA Gazebo adapter transport watchdog expired")"
             if [ "${watchdog_count:-0}" -gt "${nan_watchdog_count_before:-0}" ]; then
               nan_watchdog_expired=true
               break
             fi
-            sleep 0.05
+            sleep 0.1
           done
           if [ "$nan_watchdog_expired" != true ]; then
             echo "Watchdog did not expire after valid traffic stopped and NaN was rejected"
@@ -377,80 +409,85 @@ jobs:
             exit 1
           fi
 
-          # Re-arm with a valid command, then repeat the same deadline test for
-          # infinity. This independently verifies both non-finite encodings.
-          # Re-arm the watchdog with a direct Gazebo Transport command burst.
-          # The ROS bridge path is exercised independently above; using the
-          # transport publisher here isolates the watchdog transition from ROS
-          # publisher scheduling and bridge delivery cadence.
+          # Repeat the state-transition test for positive infinity. Use
+          # phase-local baselines so earlier NaN events cannot satisfy it.
+          inf_rearm_count_before="$(count_gazebo_log_matches "MCA Gazebo adapter transport watchdog re-armed by valid command")"
           env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
             "${topic_prefix}/cmd_effort" 1.0 > inf-watchdog-probe-publisher.log 2>&1 &
           publisher_pid=$!
           inf_probe_received=false
           for _ in $(seq 1 60); do
-            watchdog_rearm_count="$(python3 - <<'PY'
-          import re
-          from pathlib import Path
-          log = Path("gazebo-transport.log").read_text(errors="replace")
-          log = re.sub(re.escape(chr(27)) + r"\[[0-?]*[ -/]*[@-~]", "", log)
-          print(log.count("MCA Gazebo adapter transport watchdog re-armed by valid command"))
-          PY
-          )"
-            if [ "${watchdog_rearm_count:-0}" -ge 1 ]; then
+            watchdog_rearm_count="$(count_gazebo_log_matches "MCA Gazebo adapter transport watchdog re-armed by valid command")"
+            if [ "${watchdog_rearm_count:-0}" -gt "${inf_rearm_count_before:-0}" ]; then
               inf_probe_received=true
               break
             fi
             sleep 0.1
           done
           if [ "$inf_probe_received" != true ]; then
-            echo "Plugin did not acknowledge the valid command before the infinity watchdog test"
-            echo "=== Gazebo adapter log at failed valid-command acknowledgement ==="
-            print_log_excerpt "gazebo-transport.log"
+            kill -INT "$publisher_pid" 2>/dev/null || true
+            wait "$publisher_pid" 2>/dev/null || true
+            publisher_pid=""
+            echo "Plugin did not acknowledge a valid command after the NaN watchdog expiry"
+            echo "=== MCA command/watchdog diagnostics ==="
+            print_gazebo_adapter_diagnostics
             echo "=== Transport subscriber probe ==="
             print_log_excerpt "transport-probe.log"
-            echo "=== ROS-to-Gazebo bridge log ==="
-            print_log_excerpt "ros-to-gz-bridge.log"
-            echo "=== Valid-command publisher log ==="
+            echo "=== Valid-command publisher ==="
             print_log_excerpt "inf-watchdog-probe-publisher.log"
             exit 1
           fi
           kill -INT "$publisher_pid" 2>/dev/null || true
           wait "$publisher_pid" 2>/dev/null || true
           publisher_pid=""
+
+          inf_watchdog_count_before="$(count_gazebo_log_matches "MCA Gazebo adapter transport watchdog expired")"
+          inf_rejection_count_before="$(count_gazebo_log_matches "MCA Gazebo adapter rejected non-finite transport effort command")"
           env GZ_PARTITION="$GZ_PARTITION" build/gazebo-adapter/mca_transport_command_publisher \
             "${topic_prefix}/cmd_effort" inf > malformed-inf-publisher.log 2>&1
           print_log_excerpt "malformed-inf-publisher.log"
-          inf_watchdog_expired=false
-          for _ in $(seq 1 10); do
-            watchdog_count="$(grep -Fc "MCA Gazebo adapter transport watchdog expired" gazebo-transport.log || true)"
-            if [ "${watchdog_count:-0}" -ge 2 ]; then
-              inf_watchdog_expired=true
+
+          inf_rejected=false
+          for _ in $(seq 1 40); do
+            inf_rejection_count_now="$(count_gazebo_log_matches "MCA Gazebo adapter rejected non-finite transport effort command")"
+            if [ "${inf_rejection_count_now:-0}" -gt "${inf_rejection_count_before:-0}" ]; then
+              inf_rejected=true
               break
             fi
             sleep 0.05
           done
+          if [ "$inf_rejected" != true ]; then
+            echo "Gazebo adapter did not acknowledge and reject the Infinity transport command"
+            print_gazebo_adapter_diagnostics
+            exit 1
+          fi
+
+          inf_watchdog_expired=false
+          for _ in $(seq 1 80); do
+            watchdog_count="$(count_gazebo_log_matches "MCA Gazebo adapter transport watchdog expired")"
+            if [ "${watchdog_count:-0}" -gt "${inf_watchdog_count_before:-0}" ]; then
+              inf_watchdog_expired=true
+              break
+            fi
+            sleep 0.1
+          done
           if [ "$inf_watchdog_expired" != true ]; then
-            echo "Infinity transport traffic refreshed the watchdog or was not rejected"
+            echo "Infinity transport traffic refreshed the watchdog or its fresh expiry was not observed"
+            print_gazebo_adapter_diagnostics
             exit 1
           fi
 
           # Re-arm the same command stream and wait for an explicit
           # plugin-side acknowledgement before requesting Reset. Do not infer
           # delivery from ros2 topic pub output: the bridge may still be flushing.
+          reset_probe_rearm_count_before="$(count_gazebo_log_matches "MCA Gazebo adapter transport watchdog re-armed by valid command")"
           sleep 0.7
           ros2 topic pub --rate 100 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > reset-probe-publisher.log 2>&1 &
           publisher_pid=$!
           reset_probe_received=false
           for _ in $(seq 1 60); do
-            watchdog_rearm_count="$(python3 - <<'PY'
-          import re
-          from pathlib import Path
-          log = Path("gazebo-transport.log").read_text(errors="replace")
-          log = re.sub(re.escape(chr(27)) + r"\[[0-?]*[ -/]*[@-~]", "", log)
-          print(log.count("MCA Gazebo adapter transport watchdog re-armed by valid command"))
-          PY
-          )"
-            if [ "${watchdog_rearm_count:-0}" -ge 2 ]; then
+            watchdog_rearm_count="$(count_gazebo_log_matches "MCA Gazebo adapter transport watchdog re-armed by valid command")"
+            if [ "${watchdog_rearm_count:-0}" -gt "${reset_probe_rearm_count_before:-0}" ]; then
               reset_probe_received=true
               break
             fi

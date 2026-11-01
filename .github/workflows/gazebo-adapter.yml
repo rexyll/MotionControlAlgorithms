@@ -128,8 +128,9 @@ jobs:
           post_reset_zero_publisher_pid=""
           command_echo_pid=""
           transport_probe_pid=""
+          stress_publisher_pid=""
           cleanup() {
-            for pid in "$velocity_pid" "$acceleration_pid" "$post_reset_velocity_pid" "$post_reset_gz_velocity_pid" "$post_reset_publisher_pid" "$post_reset_zero_publisher_pid" "$command_echo_pid" "$publisher_pid" "$transport_probe_pid"; do
+            for pid in "$velocity_pid" "$acceleration_pid" "$post_reset_velocity_pid" "$post_reset_gz_velocity_pid" "$post_reset_publisher_pid" "$post_reset_zero_publisher_pid" "$command_echo_pid" "$publisher_pid" "$transport_probe_pid" "$stress_publisher_pid"; do
               [ -n "$pid" ] || continue
               kill "$pid" 2>/dev/null || true
               wait "$pid" 2>/dev/null || true

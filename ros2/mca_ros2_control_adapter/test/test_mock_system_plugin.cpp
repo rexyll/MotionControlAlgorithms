@@ -84,12 +84,25 @@ TEST(McaRos2ControlAdapter, MultiJointLifecycleReadWriteAndSafeStop) {
             hardware_interface::return_type::OK);
 
   // A non-finite value in either joint rejects the entire command before the
-  // backend is called; the subsequent valid write proves the plugin recovers.
+  // backend is called; the backend retains the previously accepted pair.
   ASSERT_TRUE(command_handles[1]->set_value(
       std::numeric_limits<double>::quiet_NaN(), false));
   EXPECT_EQ(system->write(rclcpp::Time(0), rclcpp::Duration(0, 1000000)),
             hardware_interface::return_type::ERROR);
+  EXPECT_EQ(system->read(rclcpp::Time(0), rclcpp::Duration(0, 1000000)),
+            hardware_interface::return_type::OK);
+  ASSERT_TRUE(state_handles[2]->get_value(value, false));
+  EXPECT_DOUBLE_EQ(value, 1.25);
+  ASSERT_TRUE(state_handles[5]->get_value(value, false));
+  EXPECT_DOUBLE_EQ(value, -2.5);
+
+  ASSERT_TRUE(command_handles[0]->set_value(
+      std::numeric_limits<double>::infinity(), false));
   ASSERT_TRUE(command_handles[1]->set_value(0.0, false));
+  EXPECT_EQ(system->write(rclcpp::Time(0), rclcpp::Duration(0, 1000000)),
+            hardware_interface::return_type::ERROR);
+
+  ASSERT_TRUE(command_handles[0]->set_value(0.0, false));
   EXPECT_EQ(system->write(rclcpp::Time(0), rclcpp::Duration(0, 1000000)),
             hardware_interface::return_type::OK);
 

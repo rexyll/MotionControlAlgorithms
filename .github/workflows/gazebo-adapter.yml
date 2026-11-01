@@ -482,26 +482,33 @@ jobs:
             exit 1
           fi
 
-          # Re-arm the same command stream and wait for an explicit
-          # plugin-side acknowledgement before requesting Reset. Do not infer
-          # delivery from ros2 topic pub output: the bridge may still be flushing.
-          reset_probe_rearm_count_before="$(count_gazebo_log_matches "MCA Gazebo adapter transport watchdog re-armed by valid command")"
+          # Re-arm through the ROS 2 bridge and require an acknowledgement
+          # emitted only after OnCommand commits the finite value, timestamp,
+          # and active state under mutex_. Do not gate this on the separate
+          # watchdog-rearmed wording: the finite-command milestone is the
+          # receiver-side proof and includes active=true.
+          reset_probe_command_count_before="$(count_gazebo_log_matches "MCA Gazebo adapter accepted finite transport effort command count=")"
           sleep 0.7
           ros2 topic pub --rate 100 "${topic_prefix}/cmd_effort" std_msgs/msg/Float64 "{data: 1.0}" > reset-probe-publisher.log 2>&1 &
           publisher_pid=$!
           reset_probe_received=false
-          for _ in $(seq 1 60); do
-            watchdog_rearm_count="$(count_gazebo_log_matches "MCA Gazebo adapter transport watchdog re-armed by valid command")"
-            if [ "${watchdog_rearm_count:-0}" -gt "${reset_probe_rearm_count_before:-0}" ]; then
+          reset_probe_command_count_now="${reset_probe_command_count_before:-0}"
+          for _ in $(seq 1 80); do
+            reset_probe_command_count_now="$(count_gazebo_log_matches "MCA Gazebo adapter accepted finite transport effort command count=")"
+            if [ "${reset_probe_command_count_now:-0}" -gt "${reset_probe_command_count_before:-0}" ]; then
               reset_probe_received=true
               break
             fi
             sleep 0.1
           done
           if [ "$reset_probe_received" != true ]; then
-            echo "Plugin did not acknowledge a new command after watchdog expiry; refusing to run Reset precondition"
-            echo "=== Gazebo adapter log at failed reset-probe acknowledgement ==="
-            print_log_excerpt "gazebo-transport.log"
+            kill -TERM "$publisher_pid" 2>/dev/null || true
+            wait "$publisher_pid" 2>/dev/null || true
+            publisher_pid=""
+            echo "Plugin did not acknowledge a committed finite command after watchdog expiry; refusing to run Reset precondition"
+            echo "Finite-command milestones before=${reset_probe_command_count_before:-0}, after=${reset_probe_command_count_now:-unavailable}"
+            echo "=== MCA command/watchdog diagnostics ==="
+            print_gazebo_adapter_diagnostics
             echo "=== Transport subscriber probe ==="
             print_log_excerpt "transport-probe.log"
             echo "=== ROS-to-Gazebo bridge log ==="
@@ -510,6 +517,27 @@ jobs:
             print_log_excerpt "reset-probe-publisher.log"
             exit 1
           fi
+          latest_reset_probe_command="$(python3 - <<'PY'
+          import re
+          from pathlib import Path
+          raw = Path("gazebo-transport.log").read_text(errors="replace")
+          plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", raw)
+          matches = [
+              line for line in plain.splitlines()
+              if "MCA Gazebo adapter accepted finite transport effort command count=" in line
+          ]
+          print(matches[-1] if matches else "")
+          PY
+          )"
+          if [[ "$latest_reset_probe_command" != *"active=true"* ]]; then
+            kill -TERM "$publisher_pid" 2>/dev/null || true
+            wait "$publisher_pid" 2>/dev/null || true
+            publisher_pid=""
+            echo "Finite-command callback milestone did not confirm active command state"
+            print_gazebo_adapter_diagnostics
+            exit 1
+          fi
+          echo "Reset precondition confirmed by plugin callback: $latest_reset_probe_command"
 
           # Freeze the pre-reset stream once the plugin has acknowledged an
           # active command. Reset must see the still-fresh command, but no

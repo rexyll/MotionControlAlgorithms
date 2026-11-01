@@ -41,7 +41,7 @@ universal device interface speculatively.
   `ea1fd4648af76fdcb64c721f16526c29c681e904`; see the detailed acceptance
   record below. This validates the ROS/core adapter and mock backend only,
   not a physical driver or hardware-in-the-loop behavior.
-- [ ] P12-05 concrete device backend — select one real actuator/robot device,
+- [x] P12-05a.2 fault-injectable virtual-device diagnostics and safe-recovery semantics; accepted on 2026-11-01 for simulation-only scope after root CI Run #1356 and ROS 2 Jazzy Run #32 passed on code SHA `b0c5d85c6ebe86bacaf5c625db7cda9f30ac2d1f`; see acceptance record below.\n- [ ] P12-05 concrete device backend — select one real actuator/robot device,
   verify its official SDK/transport and safety requirements, then implement a
   driver adapter and documented deployment configuration.
 - [ ] P12-06 hardware-in-the-loop acceptance — verify sensor read coherence,
@@ -263,3 +263,44 @@ to the selected BLDC/PMSM model before treating this as a validated plant.
 The profile test verifies the catalog values, SI conversions and that the
 explicitly mapped model configuration is accepted by the existing motor plant.
 This is a parameter/configuration test, not physical motor validation.
+
+
+## P12-05a.2 — fault-injectable virtual-device diagnostics — accepted 2026-11-01
+
+Added `IHardwareDiagnostics` as a dependency-free, fixed-capacity diagnostics
+capability. A fault record preserves a vendor-opaque raw code, normalized
+category, active/latched state, monotonically increasing sequence and caller-
+supplied timestamp. Diagnostics remain separate from lifecycle, state-source
+and command-sink interfaces.
+
+`FaultInjectableVirtualJointDevice<N>` decorates the deterministic virtual
+joint device. It supports multiple simultaneous categories, rejects a duplicate
+active category, requests software safe-stop on injection, blocks subsequent
+effort commands and simulation steps while fault records remain, and permits
+explicit fault resolution followed by latch clearing and reactivation. State
+reads remain available while faulted so a test harness can inspect the stopped
+state. An empty `clear_faults()` is a no-op and must not deactivate a healthy
+device; a regression test covers this behavior.
+
+Focused tests verify healthy-device no-op clearing, immediate zero-effort
+safe-stop and command inhibition, preservation of opaque raw fault codes,
+active/latched semantics, rejection of clearing active faults, explicit
+resolve/clear/reactivation, and retention of multiple independent categories.
+
+Acceptance evidence on code SHA
+`b0c5d85c6ebe86bacaf5c625db7cda9f30ac2d1f`:
+- Root CI [Run #1356](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41313455621)
+  passed Linux and Windows. Both platforms reported 628/628 core tests passed;
+  the four `FaultInjectableVirtualJointDevice` tests passed, including the
+  empty-clear regression. The dedicated P8-39 through P8-46 regression suites
+  also passed.
+- ROS 2 Jazzy workflow
+  [Run #32](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41313455557)
+  passed both mock hardware plugin tests and the scalar adapter test.
+
+This acceptance covers deterministic software behavior and diagnostics
+contracts only. Fault injection is a test facility, not a real drive fault
+decoder. It does not establish physical watchdog response, safety-rated stop,
+vendor fault mapping, communication timing, real-time scheduling, physical
+device behavior or hardware-in-the-loop acceptance. P12-05 and P12-06 remain
+open until a concrete target device and hardware access are available.

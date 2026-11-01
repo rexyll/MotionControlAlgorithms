@@ -1140,6 +1140,10 @@ jobs:
           source /opt/ros/jazzy/setup.bash
           set -u
           colcon build --base-paths ros2 --packages-select mca_gz_ros2_control_adapter --build-base build/colcon-build --install-base build/colcon-install
+          # Colcon-generated setup scripts also read optional trace variables.
+          # Disable nounset only while loading the generated environment.
+          set +u
           source build/colcon-install/setup.bash
+          set -u
           colcon test --base-paths ros2 --packages-select mca_gz_ros2_control_adapter --build-base build/colcon-build --install-base build/colcon-install --test-result-base build/colcon-test-results
           colcon test-result --test-result-base build/colcon-test-results --verbose

@@ -136,8 +136,14 @@ class GazeboEcmBackend final : public IDualJointBackend {
       return {mca::core::StatusCode::InvalidArgument};
     }
     for (std::size_t i = 0; i < joints_.size(); ++i) {
-      if (!ecm_->SetComponentData<gz::sim::components::JointForceCmd>(
-              joints_[i], {command.effort[i]})) {
+      // ECM returns false when the value is unchanged, not only on failure.
+      // A zero command is commonly identical to the seeded startup value.
+      ecm_->SetComponentData<gz::sim::components::JointForceCmd>(
+          joints_[i], {command.effort[i]});
+      const auto* applied =
+          ecm_->Component<gz::sim::components::JointForceCmd>(joints_[i]);
+      if (!applied || applied->Data().size() != 1U ||
+          applied->Data()[0] != command.effort[i]) {
         return {mca::core::StatusCode::RuntimeError};
       }
     }
@@ -159,8 +165,11 @@ class GazeboEcmBackend final : public IDualJointBackend {
     if (!ecm_) return false;
     bool success = true;
     for (const auto joint : joints_) {
-      success = ecm_->SetComponentData<gz::sim::components::JointForceCmd>(
-                    joint, {0.0}) && success;
+      ecm_->SetComponentData<gz::sim::components::JointForceCmd>(joint, {0.0});
+      const auto* applied =
+          ecm_->Component<gz::sim::components::JointForceCmd>(joint);
+      success = (applied && applied->Data().size() == 1U &&
+                 applied->Data()[0] == 0.0) && success;
     }
     return success;
   }

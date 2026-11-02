@@ -388,3 +388,40 @@ This closes the Gazebo/ROS 2 simulation integration milestone only. It does
 not establish physical actuator behavior, vendor transport compatibility,
 safety-rated stopping, hard real-time behavior or HIL acceptance. P12-05
 concrete hardware backend and P12-06 HIL remain open.
+
+
+## P12-05b — vendor-neutral servo abstraction and technology evaluation
+
+The hardware boundary is being expanded from an effort-only joint port into a
+capability-oriented servo-device HAL. The design and staged evaluation matrix
+are recorded in [P12-05b device abstraction](P12_DEVICE_ABSTRACTION.md).
+Protocol and vendor code remain optional and cannot leak into the dependency-
+free core.
+
+The evaluation shortlist is maxon EPOS4 / EPOS Command Library, Synapticon
+SOMANET / ACTILINK over CoE/CiA 402, Elmo Gold over CANopen or EtherCAT,
+Beckhoff AX8000 over CoE/CiA 402, plus SOEM and IgH EtherCAT masters and Linux
+SocketCAN. Public documentation confirms these protocol families, but does not
+establish that every vendor publishes a redistributable runtime SDK. SDK
+availability, supported firmware, licensing and target architecture must be
+verified separately.
+
+The maxon Command Library is a useful first SDK candidate, but vendor
+exchange-rate guidance reports typical calls around 10–20 ms in evaluated
+interfaces. It must be measured and treated as supervisory/commissioning
+integration unless exact hardware tests prove it meets the required cyclic
+timing. It is not presumed to be a 1 kHz hard-real-time API.
+
+Acceptance gates:
+- Gate A: dependency-free capability, command-mode, timing and identity
+  contracts; Linux/Windows root CI.
+- Gate B: deterministic CiA 402 drive simulator with separate drive and
+  EtherCAT state machines.
+- Gate C: CANopen and EtherCAT software-in-the-loop protocol tests.
+- Gate D: optional, version-pinned vendor SDK adapter builds and fake-ABI
+  tests; no proprietary binaries or credentials in the repository.
+- Gate E: physical HIL only after a real target and safe test fixture exist.
+
+The immediate next implementation is P12-05b.1: capability and timing metadata
+types, retaining source compatibility for current lifecycle/state/effort ports.
+No physical backend or HIL acceptance is claimed at this stage.

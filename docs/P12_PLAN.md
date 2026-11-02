@@ -378,7 +378,7 @@ Gazebo workflow [Run #28](https://github.com/rexyll/MotionControlAlgorithms/acti
 and root CI [Run #1398](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41393338912)
 passed on code SHA `dc43644d0e82384f8c96ad2725a52ec7dfd1e17e`. The live
 run collected 2,938 valid joint-state samples and observed approximately
-3.14 rad absolute movement on each joint, retained the `1e-4) movement
+3.14 rad absolute movement on each joint, retained the `1e-4` movement
 threshold, and ended with
 `Live Gazebo + controller_manager closed-loop acceptance passed`. Root CI
 passed Linux and Windows. See [P12-05a.4 acceptance](P12-05a4_ACCEPTANCE.md)

@@ -31,6 +31,63 @@ CanopenCanFrame sdo(std::uint8_t command, std::uint16_t index,
   return frame;
 }
 
+class FakeCanopenTransport final : public ICanopenTransport {
+ public:
+  core::Status send(const CanopenCanFrame& frame) noexcept override {
+    if (!frame.valid()) return {core::StatusCode::InvalidArgument};
+    last_sent_ = frame;
+    sent_ = true;
+    return {};
+  }
+  core::Status receive(CanopenCanFrame& frame,
+                       bool& has_frame) noexcept override {
+    has_frame = pending_;
+    if (pending_) {
+      frame = incoming_;
+      pending_ = false;
+    }
+    return {};
+  }
+  CanopenTransportState state() const noexcept override { return state_; }
+  void queue(const CanopenCanFrame& frame) noexcept {
+    incoming_ = frame;
+    pending_ = true;
+  }
+  void set_state(CanopenTransportState state) noexcept { state_ = state; }
+  bool sent() const noexcept { return sent_; }
+  const CanopenCanFrame& last_sent() const noexcept { return last_sent_; }
+ private:
+  CanopenCanFrame incoming_{};
+  CanopenCanFrame last_sent_{};
+  CanopenTransportState state_{CanopenTransportState::Online};
+  bool pending_{false};
+  bool sent_{false};
+};
+
+TEST(CanopenTransport, SeparatesEmptyNonblockingReadFromTransportFailure) {
+  FakeCanopenTransport transport;
+  EXPECT_EQ(transport.state(), CanopenTransportState::Online);
+  CanopenCanFrame received;
+  bool has_frame = true;
+  ASSERT_TRUE(transport.receive(received, has_frame).ok());
+  EXPECT_FALSE(has_frame);
+
+  CanopenCanFrame outgoing;
+  outgoing.cob_id = 0x123U;
+  outgoing.dlc = 1U;
+  outgoing.data[0] = 0x5AU;
+  ASSERT_TRUE(transport.send(outgoing).ok());
+  EXPECT_TRUE(transport.sent());
+  EXPECT_EQ(transport.last_sent().data[0], 0x5AU);
+
+  transport.queue(outgoing);
+  ASSERT_TRUE(transport.receive(received, has_frame).ok());
+  EXPECT_TRUE(has_frame);
+  EXPECT_EQ(received.cob_id, 0x123U);
+  transport.set_state(CanopenTransportState::BusOff);
+  EXPECT_EQ(transport.state(), CanopenTransportState::BusOff);
+}
+
 TEST(CanopenFrame, ValidatesStandardCanIdentifierAndDlc) {
   CanopenCanFrame frame;
   EXPECT_TRUE(frame.valid());

@@ -398,8 +398,9 @@ class CanopenVirtualNode {
   CanopenCanFrame process_sdo(const CanopenCanFrame& request) noexcept {
     if (request.dlc != 8U) return abort_sdo(request, 0x05040001U);
     const auto command = request.data[0];
-    const auto index = static_cast<std::uint16_t>(request.data[1]) |
-                       (static_cast<std::uint16_t>(request.data[2]) << 8U);
+    const auto index = static_cast<std::uint16_t>(
+        static_cast<std::uint32_t>(request.data[1]) |
+        (static_cast<std::uint32_t>(request.data[2]) << 8U));
     const auto subindex = request.data[3];
     auto* object = find_object(index, subindex);
     if (object == nullptr) return abort_sdo(request, 0x06020000U);

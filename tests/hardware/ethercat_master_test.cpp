@@ -202,4 +202,46 @@ TEST(EthercatMasterContract, FakeMasterExercisesLifecycleAndCyclicExchange) {
   EXPECT_EQ(master.state(), EthercatMasterState::Configured);
 }
 
+TEST(EthercatMasterContract, FailedOperationsPreserveCallerOutputs) {
+  FakeEthercatMaster master;
+  TestMaster::Topology topology;
+  ASSERT_TRUE(master.discover(topology).ok());
+  ASSERT_TRUE(master.configure(make_valid_layout()).ok());
+  ASSERT_TRUE(master.activate().ok());
+
+  TestMaster::ProcessImage input;
+  input.size = 1U;
+  input.bytes[0] = 0xA5U;
+  const auto input_before = input;
+
+  EthercatDomainCycleStatus cycle;
+  cycle.domain_id = 99U;
+  cycle.expected_working_counter = 11U;
+  cycle.observed_working_counter = 7U;
+  cycle.working_counter_state = EthercatWorkingCounterState::Incomplete;
+  cycle.cycle_sequence = 42U;
+  cycle.timestamp_ns = 123456U;
+  const auto cycle_before = cycle;
+
+  TestMaster::ProcessImage output;
+  output.size = 1U;
+  output.bytes[0] = 0x11U;
+
+  EXPECT_EQ(master.exchange(99U, output, input, cycle).code,
+            mca::core::StatusCode::RuntimeError);
+  EXPECT_EQ(input.size, input_before.size);
+  EXPECT_EQ(input.bytes, input_before.bytes);
+  EXPECT_EQ(cycle.domain_id, cycle_before.domain_id);
+  EXPECT_EQ(cycle.expected_working_counter,
+            cycle_before.expected_working_counter);
+  EXPECT_EQ(cycle.observed_working_counter,
+            cycle_before.observed_working_counter);
+  EXPECT_EQ(cycle.working_counter_state, cycle_before.working_counter_state);
+  EXPECT_EQ(cycle.cycle_sequence, cycle_before.cycle_sequence);
+  EXPECT_EQ(cycle.timestamp_ns, cycle_before.timestamp_ns);
+
+  EXPECT_EQ(master.deactivate().ok(), true);
+  EXPECT_EQ(master.deactivate().code, mca::core::StatusCode::RuntimeError);
+}
+
 }  // namespace

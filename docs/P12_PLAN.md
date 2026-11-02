@@ -557,8 +557,11 @@ serial identity invalidates the old mapping; a lost/faulted slave must pass
 through Recovering before returning to Present. Aggregate WKC alone does not
 identify a missing slave.
 
-The recovery/topology tests are implemented; asynchronous mailbox/SDO
-isolation and Linux/Windows root CI review remain before Gate 1 acceptance.
+The recovery/topology tests and fixed-capacity asynchronous SDO request/
+result plus mailbox enqueue/poll seam are implemented. Backend bounded-queue
+behavior, duplicate-live-ID rejection, deadline enforcement, queue-full
+backpressure and deterministic fake-mailbox tests still need completion, as
+does Linux/Windows root CI review, before Gate 1 acceptance.
 This is fake-master contract validation only. It is not EtherCAT wire protocol
 simulation, SOEM/IgH adapter validation, physical bus testing, real-time timing
 evidence or HIL. SOEM and IgH remain optional follow-on adapters; production

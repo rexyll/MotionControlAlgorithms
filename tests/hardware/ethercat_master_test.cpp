@@ -170,7 +170,7 @@ TEST(EthercatWorkingCounter, ClassifiesExpectedAndObservedValues) {
 TEST(EthercatMasterContract, FakeMasterExercisesLifecycleAndCyclicExchange) {
   FakeEthercatMaster master;
   EXPECT_EQ(master.state(), EthercatMasterState::Offline);
-  EXPECT_EQ(master.activate().code, mca::mca::core::StatusCode::RuntimeError);
+  EXPECT_EQ(master.activate().code, mca::core::StatusCode::RuntimeError);
 
   TestMaster::Topology topology;
   ASSERT_TRUE(master.discover(topology).ok());

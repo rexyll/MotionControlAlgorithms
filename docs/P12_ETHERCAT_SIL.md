@@ -119,6 +119,35 @@ Use a deterministic fake master to test:
 This validates MCA semantics and deterministic adapter behavior. It is not a
 wire-level EtherCAT simulation.
 
+### Gate 1 recovery and topology-revalidation rules
+
+The portable contract now distinguishes per-slave health from the aggregate
+master lifecycle:
+
+- Health transitions are explicit: Unknown -> Present/Lost/Fault,
+  Present -> Lost/Fault, Lost -> Recovering/Fault,
+  Recovering -> Present/Lost/Fault, and Fault -> Recovering.
+  Lost or Fault cannot jump directly to Present.
+- A health snapshot is fixed-capacity, sequence-tagged, non-empty and rejects
+  duplicate station positions or Unknown entries.
+- A rediscovered topology is compared with the configured topology by
+  station position plus vendor ID, product code, revision and serial number.
+  Snapshot sequence and current AL state/status are not identity fields.
+  Entry ordering in the returned snapshot is irrelevant; station positions
+  are matched explicitly.
+- Any missing/extra station or identity-field change rejects reuse of the
+  previous PDO layout. The adapter must leave cyclic operation inactive and
+  require explicit reconfiguration. An unchanged identity set permits the
+  adapter to proceed with its revalidation/configuration policy; it does not
+  by itself prove that the slave is Operational.
+- Aggregate WKC loss is not treated as proof of which slave disappeared.
+  Per-slave presence and identity must come from topology/AL observations.
+
+These are master-neutral policy/value contracts, not a wire-level recovery
+algorithm. Master adapters remain responsible for bounded polling, protocol
+requests and timeouts. Gate 1 remains open until asynchronous mailbox/SDO
+isolation and the full root CI pass.
+
 ### Gate 2 — SOEM optional adapter
 
 Pin a SOEM release/commit and build only in an opt-in package/CI job. Start with

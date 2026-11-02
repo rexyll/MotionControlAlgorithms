@@ -124,6 +124,69 @@ TEST(EthercatTopology, RejectsEmptyDuplicateAndOverCapacitySnapshots) {
   EXPECT_FALSE(topology.valid());
 }
 
+TEST(EthercatTopologyRecovery, RequiresExactIdentityBeforeLayoutReuse) {
+  EthercatTopologySnapshot<3U> configured;
+  configured.slave_count = 2U;
+  configured.sequence = 1U;
+  configured.slaves[0] = {0U, 0x02U, 0x1001U, 3U, 11U,
+                          EthercatAlState::Operational, 0U};
+  configured.slaves[1] = {1U, 0x02U, 0x1002U, 4U, 12U,
+                          EthercatAlState::Operational, 0U};
+  ASSERT_TRUE(configured.valid());
+
+  auto rediscovered = configured;
+  rediscovered.sequence = 2U;
+  rediscovered.slaves[0].al_state = EthercatAlState::PreOperational;
+  EXPECT_TRUE(ethercat_topology_identity_matches(configured, rediscovered));
+
+  rediscovered.slaves[1].serial_number++;
+  EXPECT_FALSE(ethercat_topology_identity_matches(configured, rediscovered));
+  rediscovered = configured;
+  rediscovered.slave_count = 1U;
+  EXPECT_FALSE(ethercat_topology_identity_matches(configured, rediscovered));
+  rediscovered = configured;
+  rediscovered.slaves[0].station_position = 2U;
+  EXPECT_FALSE(ethercat_topology_identity_matches(configured, rediscovered));
+  rediscovered = configured;
+  rediscovered.slaves[0].revision++;
+  EXPECT_FALSE(ethercat_topology_identity_matches(configured, rediscovered));
+}
+
+TEST(EthercatSlaveRecovery, RequiresExplicitRecoveringBeforeReturningPresent) {
+  EXPECT_TRUE(ethercat_slave_health_transition_allowed(
+      EthercatSlaveHealthState::Present, EthercatSlaveHealthState::Lost));
+  EXPECT_TRUE(ethercat_slave_health_transition_allowed(
+      EthercatSlaveHealthState::Lost, EthercatSlaveHealthState::Recovering));
+  EXPECT_TRUE(ethercat_slave_health_transition_allowed(
+      EthercatSlaveHealthState::Recovering, EthercatSlaveHealthState::Present));
+  EXPECT_TRUE(ethercat_slave_health_transition_allowed(
+      EthercatSlaveHealthState::Fault, EthercatSlaveHealthState::Recovering));
+  EXPECT_FALSE(ethercat_slave_health_transition_allowed(
+      EthercatSlaveHealthState::Lost, EthercatSlaveHealthState::Present));
+  EXPECT_FALSE(ethercat_slave_health_transition_allowed(
+      EthercatSlaveHealthState::Present, EthercatSlaveHealthState::Recovering));
+  EXPECT_FALSE(ethercat_slave_health_transition_allowed(
+      EthercatSlaveHealthState::Fault, EthercatSlaveHealthState::Present));
+  EXPECT_FALSE(ethercat_slave_health_transition_allowed(
+      EthercatSlaveHealthState::Unknown, EthercatSlaveHealthState::Present) == false);
+}
+
+TEST(EthercatSlaveRecovery, ValidatesBoundedUniqueHealthSnapshots) {
+  EthercatSlaveHealthSnapshot<2U> health;
+  EXPECT_FALSE(health.valid());
+  health.slave_count = 2U;
+  health.sequence = 1U;
+  health.slaves[0] = {0U, EthercatSlaveHealthState::Present};
+  health.slaves[1] = {1U, EthercatSlaveHealthState::Lost};
+  EXPECT_TRUE(health.valid());
+  health.slaves[1].station_position = 0U;
+  EXPECT_FALSE(health.valid());
+  health.slaves[1] = {1U, EthercatSlaveHealthState::Unknown};
+  EXPECT_FALSE(health.valid());
+  health.slave_count = 3U;
+  EXPECT_FALSE(health.valid());
+}
+
 TEST(EthercatPdoLayout, AcceptsBitPreciseMappingsAndRejectsInvalidRanges) {
   auto layout = make_valid_layout();
   EXPECT_TRUE(layout.valid(1U));

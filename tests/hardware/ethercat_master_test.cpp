@@ -93,6 +93,39 @@ class FakeEthercatMaster final : public TestMaster {
   std::uint64_t cycle_{0U};
 };
 
+class FakeEthercatMailbox final : public IEthercatMailbox<8U> {
+ public:
+  mca::core::Status enqueue(const Request& request) noexcept override {
+    if (!request.valid()) return {mca::core::StatusCode::InvalidArgument};
+    if (occupied_) return {mca::core::StatusCode::RuntimeError};
+    request_ = request;
+    result_ = {};
+    result_.request_id = request.request_id;
+    result_.state = EthercatMailboxResultState::Pending;
+    occupied_ = true;
+    return {};
+  }
+
+  mca::core::Status poll(std::uint64_t request_id,
+                         Result& output) noexcept override {
+    if (!occupied_ || request_id != request_.request_id)
+      return {mca::core::StatusCode::InvalidArgument};
+    output = result_;
+    return {};
+  }
+
+  void complete(std::uint8_t value) noexcept {
+    result_.state = EthercatMailboxResultState::Completed;
+    result_.payload[0] = value;
+    result_.payload_size = 1U;
+  }
+
+ private:
+  Request request_{};
+  Result result_{};
+  bool occupied_{false};
+};
+
 EthercatProcessDataLayout<2U, 8U> make_valid_layout() {
   EthercatProcessDataLayout<2U, 8U> layout;
   layout.domain_count = 1U;
@@ -381,6 +414,31 @@ TEST(EthercatMailboxContract, ValidatesBoundedReadWriteRequestsAndResults) {
   result.state = EthercatMailboxResultState::Aborted;
   result.payload_size = 0U;
   EXPECT_TRUE(result.valid());
+}
+
+TEST(EthercatMailboxContract, FakeMailboxIsBoundedAndPolledWithoutBlocking) {
+  FakeEthercatMailbox mailbox;
+  EthercatSdoRequest<8U> request;
+  request.request_id = 9U;
+  request.slave_position = 0U;
+  request.index = 0x6041U;
+  request.operation = EthercatSdoOperation::Read;
+  request.max_response_size = 2U;
+  request.deadline_timestamp_ns = 5000U;
+  ASSERT_TRUE(mailbox.enqueue(request).ok());
+
+  EthercatSdoResult<8U> result;
+  ASSERT_TRUE(mailbox.poll(9U, result).ok());
+  EXPECT_EQ(result.state, EthercatMailboxResultState::Pending);
+  EXPECT_EQ(mailbox.enqueue(request).code, mca::core::StatusCode::RuntimeError);
+  EXPECT_EQ(mailbox.poll(10U, result).code,
+            mca::core::StatusCode::InvalidArgument);
+
+  mailbox.complete(0x34U);
+  ASSERT_TRUE(mailbox.poll(9U, result).ok());
+  EXPECT_TRUE(result.valid());
+  EXPECT_EQ(result.state, EthercatMailboxResultState::Completed);
+  EXPECT_EQ(result.payload[0], 0x34U);
 }
 
 TEST(EthercatMasterContract, FakeMasterExercisesLifecycleAndCyclicExchange) {

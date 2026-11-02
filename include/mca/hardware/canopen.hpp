@@ -80,7 +80,7 @@ class CanopenHeartbeatMonitor {
   bool observe(const CanopenCanFrame& frame, std::uint64_t now_ms) noexcept {
     if (!valid() || !frame.valid() ||
         frame.cob_id != static_cast<std::uint16_t>(0x700U + node_id_) ||
-        frame.dlc != 1U || frame.data[0] > 0x7FU) {
+        frame.dlc != 1U ||\n        (frame.data[0] != 0x00U && frame.data[0] != 0x04U &&\n         frame.data[0] != 0x05U && frame.data[0] != 0x7FU)) {
       return false;
     }
     last_state_ = frame.data[0];
@@ -227,9 +227,9 @@ class CanopenVirtualNode {
   [[nodiscard]] bool make_tpdo1(CanopenCanFrame& frame) const noexcept {
     if (nmt_state_ != CanopenNmtState::Operational ||
         !tpdo1_mapping_.valid()) return false;
-    frame = {};
-    frame.cob_id = static_cast<std::uint16_t>(0x180U + node_id_);
-    frame.dlc = static_cast<std::uint8_t>(mapped_bytes(tpdo1_mapping_));
+    CanopenCanFrame candidate;
+    candidate.cob_id = static_cast<std::uint16_t>(0x180U + node_id_);
+    candidate.dlc = static_cast<std::uint8_t>(mapped_bytes(tpdo1_mapping_));
     std::size_t offset = 0U;
     for (std::size_t i = 0; i < tpdo1_mapping_.count; ++i) {
       const auto& map = tpdo1_mapping_.entries[i];
@@ -237,10 +237,11 @@ class CanopenVirtualNode {
       if (object == nullptr || !object->readable ||
           object->size_bytes * 8U != map.bit_length) return false;
       for (std::size_t b = 0; b < object->size_bytes; ++b) {
-        frame.data[offset++] =
+        candidate.data[offset++] =
             static_cast<std::uint8_t>((object->value >> (8U * b)) & 0xFFU);
       }
     }
+    frame = candidate;
     return true;
   }
 

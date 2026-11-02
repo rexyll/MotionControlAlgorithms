@@ -167,8 +167,8 @@ TEST(EthercatSlaveRecovery, RequiresExplicitRecoveringBeforeReturningPresent) {
       EthercatSlaveHealthState::Present, EthercatSlaveHealthState::Recovering));
   EXPECT_FALSE(ethercat_slave_health_transition_allowed(
       EthercatSlaveHealthState::Fault, EthercatSlaveHealthState::Present));
-  EXPECT_FALSE(ethercat_slave_health_transition_allowed(
-      EthercatSlaveHealthState::Unknown, EthercatSlaveHealthState::Present) == false);
+  EXPECT_TRUE(ethercat_slave_health_transition_allowed(
+      EthercatSlaveHealthState::Unknown, EthercatSlaveHealthState::Present));
 }
 
 TEST(EthercatSlaveRecovery, ValidatesBoundedUniqueHealthSnapshots) {

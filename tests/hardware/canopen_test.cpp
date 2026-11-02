@@ -278,6 +278,29 @@ TEST(CanopenSdo, SegmentedEightByteUploadDownloadAndToggleValidation) {
   EXPECT_EQ(response.data[7], 0x07U);
 }
 
+TEST(CanopenSdo, ClientAbortTerminatesSegmentedTransferWithoutResponse) {
+  CanopenVirtualNode<4> node(1U);
+  ASSERT_TRUE(node.add_object(
+      {0x2003U, 0U, 0x8877665544332211ULL, 8U, true, true}).ok());
+  CanopenCanFrame request;
+  request.cob_id = 0x601U;
+  request.dlc = 8U;
+  request.data[0] = 0x21U;
+  request.data[1] = 0x03U;
+  request.data[2] = 0x20U;
+  request.data[4] = 8U;
+  CanopenCanFrame response;
+  bool has_response = false;
+  ASSERT_TRUE(node.process(request, response, has_response).ok());
+  ASSERT_TRUE(has_response);
+  EXPECT_EQ(response.data[0], 0x60U);
+
+  request.data[0] = 0x80U;
+  request.data[4] = 0U;
+  ASSERT_TRUE(node.process(request, response, has_response).ok());
+  EXPECT_FALSE(has_response);
+}
+
 TEST(CanopenCiA402Node, ControlwordWritesAdvanceVirtualPdsState) {
   CanopenVirtualNode<8> node(1U);
   ASSERT_TRUE(node.add_object({0x6040U, 0U, 0U, 2U, true, true}).ok());

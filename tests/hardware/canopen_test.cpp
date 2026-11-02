@@ -316,8 +316,9 @@ TEST(CanopenCiA402Node, ControlwordWritesAdvanceVirtualPdsState) {
                                      response, has_response);
     EXPECT_TRUE(status.ok());
     EXPECT_TRUE(has_response);
-    const auto raw = static_cast<std::uint16_t>(response.data[4]) |
-                     (static_cast<std::uint16_t>(response.data[5]) << 8U);
+    const auto raw = static_cast<std::uint16_t>(
+        static_cast<std::uint32_t>(response.data[4]) |
+        (static_cast<std::uint32_t>(response.data[5]) << 8U));
     return decode_cia402_pds_state(raw);
   };
 

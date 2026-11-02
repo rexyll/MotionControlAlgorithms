@@ -335,6 +335,39 @@ TEST(CanopenCiA402Node, ControlwordWritesAdvanceVirtualPdsState) {
   EXPECT_EQ(read_state(), Cia402PdsState::SwitchOnDisabled);
 }
 
+TEST(CanopenPdo, ValidatesTransmissionTypeAndSyncCadence) {
+  EXPECT_TRUE(canopen_tpdo_transmission_type_valid(0U));
+  EXPECT_TRUE(canopen_tpdo_transmission_type_valid(1U));
+  EXPECT_TRUE(canopen_tpdo_transmission_type_valid(240U));
+  EXPECT_FALSE(canopen_tpdo_transmission_type_valid(241U));
+  EXPECT_FALSE(canopen_tpdo_transmission_type_valid(252U));
+  EXPECT_FALSE(canopen_tpdo_transmission_type_valid(253U));
+  EXPECT_TRUE(canopen_tpdo_transmission_type_valid(254U));
+  EXPECT_TRUE(canopen_tpdo_transmission_type_valid(255U));
+
+  EXPECT_TRUE(canopen_tpdo_is_synchronous(0U));
+  EXPECT_TRUE(canopen_tpdo_is_synchronous(240U));
+  EXPECT_FALSE(canopen_tpdo_is_synchronous(254U));
+  EXPECT_TRUE(canopen_tpdo_is_event_driven(254U));
+  EXPECT_TRUE(canopen_tpdo_is_event_driven(255U));
+  EXPECT_FALSE(canopen_tpdo_sync_due(0U, 10U));
+  EXPECT_TRUE(canopen_tpdo_sync_due(1U, 1U));
+  EXPECT_TRUE(canopen_tpdo_sync_due(4U, 8U));
+  EXPECT_FALSE(canopen_tpdo_sync_due(4U, 7U));
+  EXPECT_FALSE(canopen_tpdo_sync_due(255U, 8U));
+
+  CanopenVirtualNode<4> node(1U);
+  CanopenPdoCommunicationParameters parameters;
+  parameters.transmission_type = 4U;
+  parameters.inhibit_time_100us = 10U;
+  parameters.event_timer_ms = 50U;
+  ASSERT_TRUE(node.set_tpdo1_communication(parameters).ok());
+  EXPECT_EQ(node.tpdo1_communication().transmission_type, 4U);
+  parameters.transmission_type = 252U;
+  EXPECT_EQ(node.set_tpdo1_communication(parameters).code,
+            mca::core::StatusCode::InvalidArgument);
+}
+
 TEST(CanopenPdo, AppliesRpdoAtomicallyAndBuildsTpdo) {
   CanopenVirtualNode<8> node(1U);
   ASSERT_TRUE(node.add_object({0x2000U, 0U, 0U, 2U, true, true}).ok());

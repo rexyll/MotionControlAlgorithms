@@ -153,12 +153,13 @@ These are master-neutral policy/value contracts, not a wire-level recovery algor
 
 ### Gate 2 — SOEM optional adapter
 
-Pin a SOEM release/commit and build only in an opt-in package/CI job. Start with
-discovery, PDO map extraction, process-data exchange, expected/observed WKC,
-AL state polling, DC configuration/health and controlled recovery. Keep SOEM
-headers and IOmap private to the adapter. Test against an EtherCAT slave
-simulator or a dedicated virtual fixture if one is available; otherwise report
-only compile/API integration, not EtherCAT protocol SIL.
+**Upstream candidate pinned for evaluation (not yet approved for redistribution):** `OpenEtherCATsociety/SOEM` commit `49fc34923b973c17700592319159af22157350c9` (upstream `master`, commit dated 2026-10-14; CMake project version 2.0.0). Pinning this immutable SHA makes API/build investigation reproducible; it is not a claim that the dependency is license-cleared or production-selected.
+
+**License is a blocking release decision.** The pinned upstream `LICENSE.md` states dual licensing under GPLv3 and a commercial license, and explicitly warns that commercial products likely need a purchased license. The GitHub repository metadata reports `NOASSERTION`, so it must not be treated as permissive. This repository currently has no root `LICENSE`/`LICENSE.md` file to establish an obvious GPL-compatible project license. Do not vendor SOEM, redistribute binaries, or add an automatic FetchContent dependency until the project owner confirms either (a) a compatible open-source licensing path after legal review, or (b) a commercial SOEM license. This is a licensing gate, not a technical assumption.
+
+**Build integration constraints:** SOEM 2.0.0's top-level CMake requires 3.28, while MCA root CMake requires 3.20. Do not raise the root minimum or FetchContent SOEM into the default build. Prefer a separately installed/pinned SOEM build and an opt-in adapter package that consumes its exported CMake target. Upstream Linux integration links `pthread` and `rt`; upstream Windows integration links bundled WinPcap `wpcap.lib`/`Packet.lib` plus `ws2_32` and `winmm`, so Windows CI needs a documented/approved packet-capture driver/runtime strategy. Raw NIC access and privileges must be explicit on both OSes.
+
+After license and dependency packaging are cleared, start with discovery, topology identity, PDO map extraction, process-data exchange, expected/observed WKC, AL state polling, DC configuration/health and controlled recovery. Keep SOEM headers, context and IOmap private to the adapter. Test against an EtherCAT slave simulator or dedicated virtual fixture if available; otherwise report only compile/API integration, not EtherCAT protocol SIL.
 
 ### Gate 3 — IgH optional adapter
 
@@ -210,6 +211,9 @@ fake master or a simulator-only CI job.
   chipset/driver, required cycle time, axis count, slave topology and support
   commitment. No user hardware choice is assumed.
 - Exact license and redistribution obligations must be checked against pinned
-  upstream release files before adding either dependency.
+  upstream release files before adding either dependency. For SOEM candidate
+  commit `49fc34923b973c17700592319159af22157350c9`, the upstream license is
+  GPLv3/commercial dual licensing; project-owner/legal approval and a selected
+  licensing path are mandatory before adapter integration or redistribution.
 - Real WKC/DC/recovery quality requires a real slave or a validated EtherCAT
   simulator; fake-master results must be labeled separately.

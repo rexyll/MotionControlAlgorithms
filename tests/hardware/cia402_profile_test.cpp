@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <cstdint>
 
 #include <gtest/gtest.h>
@@ -26,9 +27,9 @@ TEST(Cia402PdsState, DecodesAllStandardStates) {
 }
 
 TEST(Cia402PdsState, RejectsUnknownPatternsAndDecodesStatusFlags) {
-  EXPECT_EQ(decode_cia402_pds_state(0x001FU), Cia402PdsState::Unknown);
-  const auto status = decode_cia402_status(0x0E97U);
-  EXPECT_EQ(status.raw, 0x0E97U);
+  EXPECT_EQ(decode_cia402_pds_state(0x005FU), Cia402PdsState::Unknown);
+  const auto status = decode_cia402_status(0x0ED7U);
+  EXPECT_EQ(status.raw, 0x0ED7U);
   EXPECT_TRUE(status.warning);
   EXPECT_TRUE(status.remote);
   EXPECT_TRUE(status.target_reached);

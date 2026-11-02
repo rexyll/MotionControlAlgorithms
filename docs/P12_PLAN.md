@@ -52,6 +52,11 @@ universal device interface speculatively.
   for simulation-only scope on code SHA
   `f0513644ce5f6ad0909c7757cbda2bdd3e366a91`. See
   [P12-05a.3 acceptance](P12-05a3_ACCEPTANCE.md).
+- [x] P12-05a.4 live Gazebo Harmonic + ROS 2 Jazzy `ros2_control`
+  integration, including two-joint motion and hardware/controller lifecycle
+  recovery; accepted on 2026-11-02 on code SHA
+  `dc43644d0e82384f8c96ad2725a52ec7dfd1e17e`. See
+  [P12-05a.4 acceptance](P12-05a4_ACCEPTANCE.md).
 - [ ] P12-05 concrete device backend — select one real actuator/robot device,
   verify its official SDK/transport and safety requirements, then implement a
   driver adapter and documented deployment configuration.
@@ -357,3 +362,29 @@ synchronization with Gazebo, physical motor/drive behavior, transport timing,
 watchdog behavior, safety-rated stop, or HIL acceptance. P12-05 concrete
 hardware backend and P12-06 physical HIL remain open pending selection and
 access to a real target device.
+
+
+## P12-05a.4 — live Gazebo + ros2_control integration — accepted 2026-11-02
+
+The pluginlib-exported `mca_gz_ros2_control_adapter` was loaded by Gazebo
+Harmonic and connected to ROS 2 Jazzy `controller_manager`. The live
+two-joint test verified hardware initialization, controller activation,
+non-zero joint motion, explicit controller/hardware deactivation, hardware
+reactivation, and controller recovery. The adapter preserves its monotonically
+increasing command sequence across reactivation so the backend does not reject
+the first resumed command as stale.
+
+Gazebo workflow [Run #28](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41393338877)
+and root CI [Run #1398](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41393338912)
+passed on code SHA `dc43644d0e82384f8c96ad2725a52ec7dfd1e17e`. The live
+run collected 2,938 valid joint-state samples and observed approximately
+3.14 rad absolute movement on each joint, retained the `1e-4) movement
+threshold, and ended with
+`Live Gazebo + controller_manager closed-loop acceptance passed`. Root CI
+passed Linux and Windows. See [P12-05a.4 acceptance](P12-05a4_ACCEPTANCE.md)
+for the detailed lifecycle and runtime evidence.
+
+This closes the Gazebo/ROS 2 simulation integration milestone only. It does
+not establish physical actuator behavior, vendor transport compatibility,
+safety-rated stopping, hard real-time behavior or HIL acceptance. P12-05
+concrete hardware backend and P12-06 HIL remain open.

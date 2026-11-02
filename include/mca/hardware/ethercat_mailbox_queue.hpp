@@ -70,8 +70,10 @@ class EthercatMailboxQueue {
     if (slot->result.state != EthercatMailboxResultState::Pending ||
         now_ns >= slot->request.deadline_timestamp_ns)
       return {core::StatusCode::RuntimeError};
-    if (result.payload_size > slot->request.max_response_size &&
-        slot->request.operation == EthercatSdoOperation::Read)
+    if ((slot->request.operation == EthercatSdoOperation::Read &&
+         result.payload_size > slot->request.max_response_size) ||
+        (slot->request.operation == EthercatSdoOperation::Write &&
+         result.payload_size != 0U))
       return {core::StatusCode::InvalidArgument};
     slot->result = result;
     return {};

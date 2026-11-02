@@ -13,9 +13,9 @@ using TestMaster = IEthercatMaster<4U, 2U, 8U, 16U>;
 
 class FakeEthercatMaster final : public TestMaster {
  public:
-  core::Status discover(Topology& output) noexcept override {
+  mca::core::Status discover(Topology& output) noexcept override {
     if (state_ != EthercatMasterState::Offline)
-      return {core::StatusCode::RuntimeError};
+      return {mca::core::StatusCode::RuntimeError};
     Topology discovered;
     discovered.slave_count = 1U;
     discovered.sequence = 1U;
@@ -28,35 +28,35 @@ class FakeEthercatMaster final : public TestMaster {
     return {};
   }
 
-  core::Status configure(const Layout& layout) noexcept override {
+  mca::core::Status configure(const Layout& layout) noexcept override {
     if (state_ != EthercatMasterState::Discovered ||
         !layout.valid(1U))
-      return {core::StatusCode::InvalidArgument};
+      return {mca::core::StatusCode::InvalidArgument};
     layout_ = layout;
     state_ = EthercatMasterState::Configured;
     return {};
   }
 
-  core::Status activate() noexcept override {
+  mca::core::Status activate() noexcept override {
     if (state_ != EthercatMasterState::Configured)
-      return {core::StatusCode::RuntimeError};
+      return {mca::core::StatusCode::RuntimeError};
     state_ = EthercatMasterState::Active;
     return {};
   }
 
-  core::Status deactivate() noexcept override {
+  mca::core::Status deactivate() noexcept override {
     if (state_ != EthercatMasterState::Active)
-      return {core::StatusCode::RuntimeError};
+      return {mca::core::StatusCode::RuntimeError};
     state_ = EthercatMasterState::Configured;
     return {};
   }
 
-  core::Status exchange(std::uint16_t domain_id, const ProcessImage& output,
+  mca::core::Status exchange(std::uint16_t domain_id, const ProcessImage& output,
                         ProcessImage& input,
                         EthercatDomainCycleStatus& cycle_status) noexcept override {
     if (state_ != EthercatMasterState::Active || !output.valid() ||
         domain_id != layout_.domains[0].id)
-      return {core::StatusCode::RuntimeError};
+      return {mca::core::StatusCode::RuntimeError};
     ProcessImage next_input;
     next_input.size = 1U;
     next_input.bytes[0] = output.size > 0U ? output.bytes[0] : 0U;
@@ -72,9 +72,9 @@ class FakeEthercatMaster final : public TestMaster {
     return {};
   }
 
-  core::Status clock_status(EthercatClockStatus& output) const noexcept override {
+  mca::core::Status clock_status(EthercatClockStatus& output) const noexcept override {
     if (state_ != EthercatMasterState::Active)
-      return {core::StatusCode::RuntimeError};
+      return {mca::core::StatusCode::RuntimeError};
     output.state = EthercatDcState::Locked;
     output.cycle_time_ns = 1000000U;
     output.phase_error_ns = 120;
@@ -170,7 +170,7 @@ TEST(EthercatWorkingCounter, ClassifiesExpectedAndObservedValues) {
 TEST(EthercatMasterContract, FakeMasterExercisesLifecycleAndCyclicExchange) {
   FakeEthercatMaster master;
   EXPECT_EQ(master.state(), EthercatMasterState::Offline);
-  EXPECT_EQ(master.activate().code, mca::core::StatusCode::RuntimeError);
+  EXPECT_EQ(master.activate().code, mca::mca::core::StatusCode::RuntimeError);
 
   TestMaster::Topology topology;
   ASSERT_TRUE(master.discover(topology).ok());

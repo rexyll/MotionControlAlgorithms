@@ -133,11 +133,51 @@ jobs:
           Path(sys.argv[2]).write_text(yaml.safe_dump(params, sort_keys=False))
           PY
 
+          # Publish the transient-local URDF before Gazebo starts. The
+          # gz_ros2_control plugin waits for robot_description during Configure;
+          # delaying this publisher would block world startup and its clock.
+          ros2 run robot_state_publisher robot_state_publisher --ros-args --params-file "$robot_description_params" >"$robot_state_publisher_log" 2>&1 &
+          rsp_pid=$!
+          robot_description_ready=false
+          for _ in $(seq 1 20); do
+            if ! kill -0 "$rsp_pid" 2>/dev/null; then
+              echo "robot_state_publisher exited before publishing robot_description"
+              cat "$robot_state_publisher_log" || true
+              exit 1
+            fi
+            if ros2 topic info /robot_description 2>/dev/null | grep -Eq 'Publisher count: [1-9]'; then
+              robot_description_ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$robot_description_ready" != true ]; then
+            echo "robot_state_publisher did not publish /robot_description"
+            cat "$robot_state_publisher_log" || true
+            exit 1
+          fi
+          echo "=== robot_description publisher ==="
+          ros2 topic info -v /robot_description
+
+          # Start a bridge for Gazebo Harmonic's world-scoped clock before
+          # starting the server, so ROS /clock is available as soon as the
+          # simulation begins advancing.
+          clock_bridge_log="$GITHUB_WORKSPACE/clock-bridge.log"
+          clock_bridge_config="$RUNNER_TEMP/clock_bridge.yaml"
+          cat >"$clock_bridge_config" <<'YAML'
+          - ros_topic_name: "/clock"
+            gz_topic_name: "/world/mca_ros2_control_closed_loop/clock"
+            ros_type_name: "rosgraph_msgs/msg/Clock"
+            gz_type_name: "gz.msgs.Clock"
+            direction: GZ_TO_ROS
+            lazy: false
+          YAML
+          ros2 run ros_gz_bridge parameter_bridge --ros-args -p config_file:="$clock_bridge_config" >"$clock_bridge_log" 2>&1 &
+          clock_bridge_pid=$!
+
           cd "$GITHUB_WORKSPACE"
           gz sim -s -r -v 4 "$world" >"$gazebo_log" 2>&1 &
           gz_pid=$!
-          clock_bridge_log="$GITHUB_WORKSPACE/clock-bridge.log"
-          clock_bridge_config="$RUNNER_TEMP/clock_bridge.yaml"
 
           cleanup() {
             if [ -n "${rsp_pid:-}" ]; then
@@ -190,19 +230,6 @@ jobs:
             exit 1
           fi
 
-          # Gazebo Harmonic publishes the advancing clock on the fully
-          # qualified world topic. Bridge that source onto ROS /clock.
-          cat >"$clock_bridge_config" <<'YAML'
-          - ros_topic_name: "/clock"
-            gz_topic_name: "/world/mca_ros2_control_closed_loop/clock"
-            ros_type_name: "rosgraph_msgs/msg/Clock"
-            gz_type_name: "gz.msgs.Clock"
-            direction: GZ_TO_ROS
-            lazy: false
-          YAML
-          ros2 run ros_gz_bridge parameter_bridge --ros-args -p config_file:="$clock_bridge_config" >"$clock_bridge_log" 2>&1 &
-          clock_bridge_pid=$!
-
           echo "=== Waiting for Gazebo ROS clock bridge ==="
           clock_ready=false
           for _ in $(seq 1 30); do
@@ -226,32 +253,6 @@ jobs:
           echo "=== ROS /clock bridge is publishing ==="
           ros2 topic info -v /clock
           cat "$GITHUB_WORKSPACE/clock-sample.log"
-
-          # The gz_ros2_control plugin is waiting for this transient-local
-          # topic. Publishing only after /clock is live prevents controller
-          # manager initialization against an unadvanced ROS clock.
-          ros2 run robot_state_publisher robot_state_publisher --ros-args --params-file "$robot_description_params" >"$robot_state_publisher_log" 2>&1 &
-          rsp_pid=$!
-          robot_description_ready=false
-          for _ in $(seq 1 20); do
-            if ! kill -0 "$rsp_pid" 2>/dev/null; then
-              echo "robot_state_publisher exited before publishing robot_description"
-              cat "$robot_state_publisher_log" || true
-              exit 1
-            fi
-            if ros2 topic info /robot_description 2>/dev/null | grep -Eq 'Publisher count: [1-9]'; then
-              robot_description_ready=true
-              break
-            fi
-            sleep 1
-          done
-          if [ "$robot_description_ready" != true ]; then
-            echo "robot_state_publisher did not publish /robot_description"
-            cat "$robot_state_publisher_log" || true
-            exit 1
-          fi
-          echo "=== robot_description publisher ==="
-          ros2 topic info -v /robot_description
 
           echo "=== Waiting for controller_manager ==="
           manager_ready=false

@@ -550,9 +550,17 @@ interface. A deterministic fake master test covers discovery, configuration,
 activation, exchange, WKC and DC status. The root test target registers these
 tests without adding SOEM, IgH, NIC, kernel-module or ROS dependencies.
 
-The initial contract and tests are awaiting Linux/Windows root CI review.
-This is Gate 1 fake-master contract validation only. It is not EtherCAT wire
-protocol simulation, SOEM/IgH adapter validation, physical bus testing,
-real-time timing evidence or HIL. SOEM and IgH remain optional follow-on
-adapters; production master selection is deferred until deployment hardware
-and target OS/NIC requirements are known.
+The contract now also defines per-slave health transitions, bounded health
+snapshots and exact topology identity revalidation before an existing PDO
+layout may be reused. A missing/extra slave or changed vendor/product/revision/
+serial identity invalidates the old mapping; a lost/faulted slave must pass
+through Recovering before returning to Present. Aggregate WKC alone does not
+identify a missing slave.
+
+The recovery/topology tests are implemented; asynchronous mailbox/SDO
+isolation and Linux/Windows root CI review remain before Gate 1 acceptance.
+This is fake-master contract validation only. It is not EtherCAT wire protocol
+simulation, SOEM/IgH adapter validation, physical bus testing, real-time timing
+evidence or HIL. SOEM and IgH remain optional follow-on adapters; production
+master selection is deferred until deployment hardware and target OS/NIC
+requirements are known.

@@ -469,8 +469,9 @@ class CanopenVirtualNode {
     if (command == 0x60U || command == 0x70U) {
       const auto toggle = static_cast<std::uint8_t>((command >> 4U) & 0x01U);
       if (!sdo_upload_active_ || toggle != sdo_toggle_) {
+        const auto abort = abort_sdo_transfer(0x05030000U);
         reset_sdo_transfer();
-        return abort_sdo(request, 0x05030000U);
+        return abort;
       }
       const auto remaining = static_cast<std::uint8_t>(
           sdo_expected_size_ - sdo_bytes_sent_);

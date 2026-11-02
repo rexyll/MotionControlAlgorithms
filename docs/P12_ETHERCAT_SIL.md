@@ -165,11 +165,13 @@ After license, dependency packaging and mailbox/cycle isolation are cleared, sta
 
 ### Gate 3 — IgH optional adapter
 
-Pin an EtherLab release and build only in an opt-in Linux environment. Validate
-master request/release, domain registration, process-data mapping, domain WKC
-state, SDO configuration/request, AL state, DC application-time calls and
-recovery. Kernel module and NIC-driver compatibility must be recorded. A
-successful compile is not runtime bus validation.
+**Current candidate:** official EtherLab EtherCAT Master 1.6 series; upstream recommends the `stable-1.6` branch for production systems. This is a Linux-only kernel-module/userspace-library architecture, not a Windows alternative.
+
+**License split (must be reviewed for the actual distribution model):** the master/kernel-side code is GPLv2; the official manual states the userspace application library `libethercat` is LGPLv2.1 to permit static linking of userspace applications. This is materially different from SOEM 2.0's GPLv3/commercial dual license, and makes IgH worth evaluating for a Linux robot controller with a proprietary userspace application. Do not infer that the complete deployment is automatically cleared: kernel module packaging/modification, static vs dynamic linking, notices/source obligations, and any EtherCAT technology/trademark requirements need project/legal review.
+
+**Technical fit:** official EtherLab documentation lists userspace SDO requests/handlers, domain process data and WKC state, AL state monitoring, DC application-time APIs, and bus scanning/reconfiguration. Its userspace API is a natural candidate for keeping SDO request progression outside the hard cyclic loop. Verify exact asynchronous SDO lifecycle and cancellation semantics against the pinned 1.6 API before mapping it to `IEthercatMailbox`; never block `exchange()` on a completed SDO transfer.
+
+Pin an exact 1.6.x release/commit and build only in an opt-in Linux environment. Validate master request/release, domain registration, process-data mapping, domain WKC state, SDO configuration/request, AL state, DC application-time calls and recovery. Kernel module, kernel version, NIC-driver and real-time scheduling compatibility must be recorded. A successful compile is not runtime bus validation.
 
 ### Gate 4 — target deployment / HIL
 

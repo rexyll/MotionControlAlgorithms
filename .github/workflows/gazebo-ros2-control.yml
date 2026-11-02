@@ -89,6 +89,14 @@ jobs:
             if [ -f "$robot_state_publisher_log" ]; then
               tail -n 100 "$robot_state_publisher_log"
             fi
+            if [ -f "$state_log" ]; then
+              echo "=== Joint state subscriber output ==="
+              tail -n 100 "$state_log"
+            fi
+            if [ -f "$clock_bridge_log" ]; then
+              echo "=== Clock bridge output ==="
+              tail -n 80 "$clock_bridge_log"
+            fi
             exit "$status"
           }
           trap dump_failure_diagnostics ERR
@@ -288,8 +296,13 @@ jobs:
           ros2 control list_controllers | grep -F 'joint_state_broadcaster' | grep -F 'active'
           ros2 control list_controllers | grep -F 'effort_controller' | grep -F 'active'
 
+          echo "=== Joint state topic QoS ==="
+          ros2 topic info -v /joint_states
           echo "=== Capturing joint state while applying effort ==="
-          timeout 7s ros2 topic echo /joint_states sensor_msgs/msg/JointState >"$state_log" 2>&1 &
+          # A best-effort subscriber is compatible with both best-effort and
+          # reliable publishers; the CLI's default reliable request may not
+          # match a sensor-data publisher.
+          timeout 7s ros2 topic echo /joint_states sensor_msgs/msg/JointState --qos-reliability best_effort >"$state_log" 2>&1 &
           state_pid=$!
           sleep 1
           timeout 4s ros2 topic pub --rate 100 /effort_controller/commands \

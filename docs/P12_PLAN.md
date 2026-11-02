@@ -536,3 +536,23 @@ notifications, arbitration under load, cycle timing, vendor interoperability,
 physical hardware or HIL. Those remain explicit hardware validation items.
 See [P12 SocketCAN](P12_SOCKETCAN.md).
 
+
+
+## P12-05c.2 — EtherCAT master-neutral contract and SIL — in progress
+
+The SOEM/IgH comparison and staged SIL strategy are documented in
+[P12 EtherCAT SIL](P12_ETHERCAT_SIL.md). The initial dependency-free contract
+is implemented in `include/mca/hardware/ethercat_master.hpp` and exported by
+`mca/mca.hpp`. It defines bounded slave topology, domain/PDO layout,
+bit-precise mapping validation, WKC classification, DC health states,
+per-domain cycle metadata and a master-neutral lifecycle/cyclic-exchange
+interface. A deterministic fake master test covers discovery, configuration,
+activation, exchange, WKC and DC status. The root test target registers these
+tests without adding SOEM, IgH, NIC, kernel-module or ROS dependencies.
+
+The initial contract and tests are awaiting Linux/Windows root CI review.
+This is Gate 1 fake-master contract validation only. It is not EtherCAT wire
+protocol simulation, SOEM/IgH adapter validation, physical bus testing,
+real-time timing evidence or HIL. SOEM and IgH remain optional follow-on
+adapters; production master selection is deferred until deployment hardware
+and target OS/NIC requirements are known.

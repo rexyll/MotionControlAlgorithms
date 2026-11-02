@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "mca/core/types.hpp"
+#include "mca/hardware/cia402_profile.hpp"
 
 namespace mca::hardware {
 
@@ -187,6 +188,19 @@ class CanopenVirtualNode {
     return {};
   }
 
+  core::Status set_object_value(std::uint16_t index, std::uint8_t subindex,
+                                std::uint32_t value) noexcept {
+    auto* object = find_object(index, subindex);
+    if (object == nullptr ||
+        (object->size_bytes < 4U &&
+         value >= (static_cast<std::uint32_t>(1U) <<
+                   (8U * object->size_bytes)))) {
+      return {core::StatusCode::ConstraintViolation};
+    }
+    object->value = value;
+    return {};
+  }
+
   void set_rpdo1_mapping(const CanopenPdoMapping<4U>& mapping) noexcept {
     rpdo1_mapping_ = mapping;
   }
@@ -288,6 +302,61 @@ class CanopenVirtualNode {
     return nullptr;
   }
 
+  void advance_virtual_cia402() noexcept {
+    auto* controlword = find_object(0x6040U, 0U);
+    auto* statusword = find_object(0x6041U, 0U);
+    if (controlword == nullptr || statusword == nullptr ||
+        controlword->size_bytes != 2U || statusword->size_bytes != 2U) {
+      return;
+    }
+    const auto state = decode_cia402_pds_state(
+        static_cast<std::uint16_t>(statusword->value));
+    const auto command = static_cast<std::uint16_t>(controlword->value);
+    Cia402PdsState next = state;
+    const auto action = static_cast<std::uint16_t>(command & 0x000FU);
+    if (state == Cia402PdsState::Fault && (command & 0x0080U) != 0U) {
+      next = Cia402PdsState::SwitchOnDisabled;
+    } else if (action == 0x0000U &&
+               state != Cia402PdsState::Unknown) {
+      next = Cia402PdsState::SwitchOnDisabled;
+    } else {
+      switch (state) {
+        case Cia402PdsState::SwitchOnDisabled:
+          if (action == 0x0006U) next = Cia402PdsState::ReadyToSwitchOn;
+          break;
+        case Cia402PdsState::ReadyToSwitchOn:
+          if (action == 0x0007U) next = Cia402PdsState::SwitchedOn;
+          break;
+        case Cia402PdsState::SwitchedOn:
+          if (action == 0x000FU) next = Cia402PdsState::OperationEnabled;
+          else if (action == 0x0006U) next = Cia402PdsState::ReadyToSwitchOn;
+          break;
+        case Cia402PdsState::OperationEnabled:
+          if (action == 0x0007U) next = Cia402PdsState::SwitchedOn;
+          else if (action == 0x0002U) next = Cia402PdsState::QuickStopActive;
+          else if (action == 0x0006U) next = Cia402PdsState::ReadyToSwitchOn;
+          break;
+        case Cia402PdsState::QuickStopActive:
+          if (action == 0x0006U) next = Cia402PdsState::ReadyToSwitchOn;
+          break;
+        default: break;
+      }
+    }
+    std::uint16_t pattern = static_cast<std::uint16_t>(statusword->value);
+    switch (next) {
+      case Cia402PdsState::NotReadyToSwitchOn: pattern = 0x0000U; break;
+      case Cia402PdsState::SwitchOnDisabled: pattern = 0x0040U; break;
+      case Cia402PdsState::ReadyToSwitchOn: pattern = 0x0021U; break;
+      case Cia402PdsState::SwitchedOn: pattern = 0x0023U; break;
+      case Cia402PdsState::OperationEnabled: pattern = 0x0027U; break;
+      case Cia402PdsState::QuickStopActive: pattern = 0x0007U; break;
+      case Cia402PdsState::FaultReactionActive: pattern = 0x000FU; break;
+      case Cia402PdsState::Fault: pattern = 0x0008U; break;
+      case Cia402PdsState::Unknown: return;
+    }
+    statusword->value = (statusword->value & ~0x006FU) | pattern;
+  }
+
   core::Status process_nmt(const CanopenCanFrame& frame) noexcept {
     if (frame.dlc != 2U || frame.data[1] > 127U ||
         (frame.data[1] != 0U && frame.data[1] != node_id_)) {
@@ -363,6 +432,7 @@ class CanopenVirtualNode {
     for (std::size_t i = 0; i < size; ++i)
       value |= static_cast<std::uint32_t>(request.data[4U + i]) << (8U * i);
     object->value = value;
+    advance_virtual_cia402();
     response.data[0] = 0x60U;
     return response;
   }
@@ -390,6 +460,7 @@ class CanopenVirtualNode {
         value |= static_cast<std::uint32_t>(frame.data[offset++]) << (8U * b);
       targets[i]->value = value;
     }
+    advance_virtual_cia402();
     return {};
   }
 

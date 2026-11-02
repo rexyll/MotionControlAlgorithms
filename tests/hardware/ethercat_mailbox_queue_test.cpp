@@ -75,6 +75,28 @@ TEST(EthercatMailboxQueue, TimesOutAtDeadlineAndRejectsLateCompletion) {
   EXPECT_TRUE(queue.retire(9U).ok());
 }
 
+TEST(EthercatMailboxQueue, WriteCompletionCannotReturnReadPayload) {
+  Queue queue;
+  Request request;
+  request.request_id = 11U;
+  request.index = 0x6040U;
+  request.operation = mca::hardware::EthercatSdoOperation::Write;
+  request.payload[0] = 0x06U;
+  request.payload_size = 1U;
+  request.deadline_timestamp_ns = 100U;
+  ASSERT_TRUE(queue.enqueue(request, 10U).ok());
+
+  Result completed;
+  completed.request_id = 11U;
+  completed.state = State::Completed;
+  completed.payload[0] = 0x06U;
+  completed.payload_size = 1U;
+  EXPECT_EQ(queue.complete(11U, 20U, completed).code,
+            mca::core::StatusCode::InvalidArgument);
+  completed.payload_size = 0U;
+  EXPECT_TRUE(queue.complete(11U, 20U, completed).ok());
+}
+
 TEST(EthercatMailboxQueue, RejectsExpiredRequestsAndInvalidTransitions) {
   Queue queue;
   EXPECT_EQ(queue.enqueue(make_read(1U, 10U), 10U).code,

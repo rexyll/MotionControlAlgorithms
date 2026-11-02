@@ -40,7 +40,7 @@ jobs:
             libgz-math7-dev libgz-transport13-dev libgz-msgs10-dev \
             ros-jazzy-gz-ros2-control ros-jazzy-controller-manager \
             ros-jazzy-forward-command-controller ros-jazzy-joint-state-broadcaster \
-            ros-jazzy-ament-cmake-gtest
+            ros-jazzy-ament-cmake-gtest ros-jazzy-robot-state-publisher
 
       - name: Build MCA Gazebo ros2_control adapter
         shell: bash
@@ -68,6 +68,9 @@ jobs:
           export GZ_SIM_SYSTEM_PLUGIN_PATH="$GITHUB_WORKSPACE/install/mca_gz_ros2_control_adapter/lib:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
           world_source="$GITHUB_WORKSPACE/ros2/mca_gz_ros2_control_adapter/test/worlds/closed_loop.sdf"
           config="$GITHUB_WORKSPACE/ros2/mca_gz_ros2_control_adapter/test/closed_loop_controller.yaml"
+          urdf="$GITHUB_WORKSPACE/ros2/mca_gz_ros2_control_adapter/test/closed_loop_robot.urdf"
+          robot_description_params="$RUNNER_TEMP/robot_state_publisher.yaml"
+          robot_state_publisher_log="$GITHUB_WORKSPACE/robot-state-publisher.log"
           world="$RUNNER_TEMP/mca_ros2_control_closed_loop_runtime.sdf"
           gazebo_log="$GITHUB_WORKSPACE/gazebo-ros2-control.log"
           state_log="$GITHUB_WORKSPACE/joint-states.log"
@@ -76,6 +79,7 @@ jobs:
           printf 'world_source=%s\nconfig=%s\nworld_runtime=%s\n' "$world_source" "$config" "$world"
           test -f "$world_source"
           test -f "$config"
+          test -f "$urdf"
           # The Jazzy gz_ros2_control plugin passes <parameters> directly to rclcpp;
           # it does not expand the $(find package) syntax shown in its documentation.
           # Materialize the checked-in SDF with an absolute controller YAML path so
@@ -94,10 +98,61 @@ jobs:
           PY
           grep -F "<parameters>$config</parameters>" "$world"
 
+          # Jazzy controller_manager no longer accepts robot_description as a
+          # parameter: gz_ros2_control waits for the transient-local topic. Start
+          # robot_state_publisher first so its latched URDF is available when the
+          # Gazebo plugin creates controller_manager.
+          python3 - "$urdf" "$robot_description_params" <<'PY'
+          import sys
+          from pathlib import Path
+          import yaml
+
+          description = Path(sys.argv[1]).read_text()
+          params = {
+              "robot_state_publisher": {
+                  "ros__parameters": {"robot_description": description}
+              }
+          }
+          Path(sys.argv[2]).write_text(yaml.safe_dump(params, sort_keys=False))
+          PY
+
+          ros2 run robot_state_publisher robot_state_publisher \\
+            --ros-args --params-file "$robot_description_params" \\
+            >"$robot_state_publisher_log" 2>&1 &
+          rsp_pid=$!
+          cleanup_robot_state_publisher() {
+            if [ -n "${rsp_pid:-}" ]; then
+              kill "$rsp_pid" 2>/dev/null || true
+              wait "$rsp_pid" 2>/dev/null || true
+            fi
+          }
+
+          robot_description_ready=false
+          for _ in $(seq 1 20); do
+            if ! kill -0 "$rsp_pid" 2>/dev/null; then
+              echo "robot_state_publisher exited before publishing robot_description"
+              cat "$robot_state_publisher_log" || true
+              exit 1
+            fi
+            if ros2 topic info /robot_description 2>/dev/null | grep -Eq 'Publisher count: [1-9]'; then
+              robot_description_ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$robot_description_ready" != true ]; then
+            echo "robot_state_publisher did not publish /robot_description"
+            cat "$robot_state_publisher_log" || true
+            exit 1
+          fi
+          echo "=== robot_description publisher ==="
+          ros2 topic info -v /robot_description
+
           cd "$GITHUB_WORKSPACE"
           gz sim -s -r -v 4 "$world" >"$gazebo_log" 2>&1 &
           gz_pid=$!
           cleanup() {
+            cleanup_robot_state_publisher
             if [ -n "${state_pid:-}" ]; then
               kill "$state_pid" 2>/dev/null || true
               wait "$state_pid" 2>/dev/null || true

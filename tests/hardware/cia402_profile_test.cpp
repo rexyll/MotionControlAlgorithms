@@ -49,6 +49,27 @@ TEST(Cia402Controlword, ProducesStandardActionPatterns) {
   EXPECT_EQ(cia402_controlword(Cia402ControlAction::FaultReset), 0x0080U);
 }
 
+TEST(Cia402Controlword, GuardsActionsByObservedPdsState) {
+  EXPECT_TRUE(cia402_control_action_allowed(
+      Cia402PdsState::SwitchOnDisabled, Cia402ControlAction::Shutdown));
+  EXPECT_TRUE(cia402_control_action_allowed(
+      Cia402PdsState::ReadyToSwitchOn, Cia402ControlAction::SwitchOn));
+  EXPECT_TRUE(cia402_control_action_allowed(
+      Cia402PdsState::SwitchedOn, Cia402ControlAction::EnableOperation));
+  EXPECT_TRUE(cia402_control_action_allowed(
+      Cia402PdsState::OperationEnabled, Cia402ControlAction::DisableOperation));
+  EXPECT_TRUE(cia402_control_action_allowed(
+      Cia402PdsState::OperationEnabled, Cia402ControlAction::QuickStop));
+  EXPECT_TRUE(cia402_control_action_allowed(
+      Cia402PdsState::Fault, Cia402ControlAction::FaultReset));
+  EXPECT_FALSE(cia402_control_action_allowed(
+      Cia402PdsState::OperationEnabled, Cia402ControlAction::FaultReset));
+  EXPECT_FALSE(cia402_control_action_allowed(
+      Cia402PdsState::Fault, Cia402ControlAction::EnableOperation));
+  EXPECT_FALSE(cia402_control_action_allowed(
+      Cia402PdsState::Unknown, Cia402ControlAction::DisableVoltage));
+}
+
 TEST(Cia402Modes, EncodesAndDecodesStandardOperationModeValues) {
   const DriveOperationMode modes[] = {
       DriveOperationMode::ProfilePosition,

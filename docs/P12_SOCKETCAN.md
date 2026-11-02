@@ -31,4 +31,6 @@ Construct the transport with an existing SocketCAN interface name such as `can0`
 
 ## Validation boundary
 
-The root Linux CI enables the option and compiles/runs a focused construction-validation test. It does not create a `vcan` interface, require `CAP_NET_ADMIN`, or claim live bus traffic, controller recovery, timing/jitter, vendor interoperability, physical hardware, or HIL acceptance. Those require a privileged Linux fixture or selected physical CAN interface and remain later validation work.
+The root Linux CI enables the option and runs the construction-validation test. It also attempts to provision `vcan0` (kernel module plus virtual CAN link) when the hosted runner permits it. When provisioned, a second test opens independent sender/receiver sockets and verifies non-blocking empty receive plus a complete classic-CAN frame round trip. If the runner lacks the required kernel module or network capabilities, that runtime test is explicitly skipped rather than reported as passed.
+
+A successful `vcan0` round trip validates Linux socket binding and basic frame transport only. It does not emulate physical CAN controller error frames, electrical faults, arbitration under load, timing/jitter, vendor interoperability, physical hardware or HIL acceptance. Bus-Off/restart behavior still requires a controller or dedicated fault-injection fixture.

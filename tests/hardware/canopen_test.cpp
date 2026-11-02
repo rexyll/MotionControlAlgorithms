@@ -196,6 +196,83 @@ TEST(CanopenSdo, SupportsExpeditedUploadDownloadAndAbortCodes) {
   EXPECT_EQ(response.data[7], 0x06U);
 }
 
+TEST(CanopenSdo, SegmentedEightByteUploadDownloadAndToggleValidation) {
+  CanopenVirtualNode<8> node(1U);
+  constexpr std::uint64_t original = 0x8877665544332211ULL;
+  ASSERT_TRUE(node.add_object(
+      {0x2002U, 0U, original, 8U, true, true}).ok());
+  CanopenCanFrame response;
+  bool has_response = false;
+
+  auto initiate_upload = sdo(0x40U, 0x2002U, 0U);
+  ASSERT_TRUE(node.process(initiate_upload, response, has_response).ok());
+  ASSERT_TRUE(has_response);
+  EXPECT_EQ(response.data[0], 0x41U);
+  EXPECT_EQ(response.data[4], 8U);
+
+  CanopenCanFrame upload_segment;
+  upload_segment.cob_id = 0x601U;
+  upload_segment.dlc = 8U;
+  upload_segment.data[0] = 0x60U;
+  ASSERT_TRUE(node.process(upload_segment, response, has_response).ok());
+  EXPECT_EQ(response.data[0], 0x00U);
+  EXPECT_EQ(response.data[1], 0x11U);
+  EXPECT_EQ(response.data[7], 0x77U);
+
+  upload_segment.data[0] = 0x70U;
+  ASSERT_TRUE(node.process(upload_segment, response, has_response).ok());
+  EXPECT_EQ(response.data[0], 0x1DU);
+  EXPECT_EQ(response.data[1], 0x88U);
+
+  CanopenCanFrame initiate_download;
+  initiate_download.cob_id = 0x601U;
+  initiate_download.dlc = 8U;
+  initiate_download.data[0] = 0x21U;
+  initiate_download.data[1] = 0x02U;
+  initiate_download.data[2] = 0x20U;
+  initiate_download.data[3] = 0U;
+  initiate_download.data[4] = 8U;
+  ASSERT_TRUE(node.process(initiate_download, response, has_response).ok());
+  EXPECT_EQ(response.data[0], 0x60U);
+
+  CanopenCanFrame download_segment;
+  download_segment.cob_id = 0x601U;
+  download_segment.dlc = 8U;
+  download_segment.data = {0x00U, 0x01U, 0x02U, 0x03U,
+                           0x04U, 0x05U, 0x06U, 0x07U};
+  ASSERT_TRUE(node.process(download_segment, response, has_response).ok());
+  EXPECT_EQ(response.data[0], 0x20U);
+
+  download_segment.data = {0x1DU, 0x08U, 0U, 0U, 0U, 0U, 0U, 0U};
+  ASSERT_TRUE(node.process(download_segment, response, has_response).ok());
+  EXPECT_EQ(response.data[0], 0x30U);
+
+  ASSERT_TRUE(node.process(initiate_upload, response, has_response).ok());
+  ASSERT_TRUE(node.process(upload_segment, response, has_response).ok());
+  EXPECT_EQ(response.data[1], 0x01U);
+  EXPECT_EQ(response.data[7], 0x07U);
+  upload_segment.data[0] = 0x70U;
+  ASSERT_TRUE(node.process(upload_segment, response, has_response).ok());
+  EXPECT_EQ(response.data[1], 0x08U);
+
+  // A wrong toggle aborts the transfer and leaves the object unchanged.
+  ASSERT_TRUE(node.process(initiate_download, response, has_response).ok());
+  download_segment.data = {0x00U, 0xAAU, 0xBBU, 0xCCU, 0xDDU,
+                           0xEEU, 0xFFU, 0x11U};
+  ASSERT_TRUE(node.process(download_segment, response, has_response).ok());
+  download_segment.data[0] = 0x00U;
+  ASSERT_TRUE(node.process(download_segment, response, has_response).ok());
+  EXPECT_EQ(response.data[0], 0x80U);
+  EXPECT_EQ(response.data[4], 0x00U);
+  EXPECT_EQ(response.data[5], 0x00U);
+  EXPECT_EQ(response.data[6], 0x03U);
+  EXPECT_EQ(response.data[7], 0x05U);
+  ASSERT_TRUE(node.process(initiate_upload, response, has_response).ok());
+  ASSERT_TRUE(node.process(upload_segment, response, has_response).ok());
+  EXPECT_EQ(response.data[1], 0x01U);
+  EXPECT_EQ(response.data[7], 0x07U);
+}
+
 TEST(CanopenCiA402Node, ControlwordWritesAdvanceVirtualPdsState) {
   CanopenVirtualNode<8> node(1U);
   ASSERT_TRUE(node.add_object({0x6040U, 0U, 0U, 2U, true, true}).ok());

@@ -114,6 +114,48 @@ class CanopenHeartbeatMonitor {
   bool timed_out_{false};
 };
 
+enum class CanopenPdoTransmissionType : std::uint8_t {
+  SynchronousAcyclic = 0U,
+  SynchronousCyclicEverySync = 1U,
+  AsynchronousManufacturerSpecific = 254U,
+  AsynchronousDeviceProfile = 255U
+};
+
+// CANopen TPDO transmission types 0..240 are synchronous; 0 is acyclic and
+// 1..240 transmit every Nth SYNC. 254/255 are asynchronous. Reserved values
+// (including legacy RTR types 252/253) are deliberately rejected by this SIL
+// contract rather than assigned ambiguous timing semantics.
+[[nodiscard]] constexpr bool canopen_tpdo_transmission_type_valid(
+    std::uint8_t type) noexcept {
+  return type <= 240U || type == 254U || type == 255U;
+}
+
+[[nodiscard]] constexpr bool canopen_tpdo_is_synchronous(
+    std::uint8_t type) noexcept {
+  return type <= 240U;
+}
+
+[[nodiscard]] constexpr bool canopen_tpdo_is_event_driven(
+    std::uint8_t type) noexcept {
+  return type == 254U || type == 255U;
+}
+
+[[nodiscard]] constexpr bool canopen_tpdo_sync_due(
+    std::uint8_t type, std::uint32_t sync_counter) noexcept {
+  return type > 0U && type <= 240U && sync_counter > 0U &&
+         (sync_counter % type) == 0U;
+}
+
+struct CanopenPdoCommunicationParameters {
+  std::uint8_t transmission_type{255U};
+  std::uint16_t inhibit_time_100us{0U};
+  std::uint16_t event_timer_ms{0U};
+
+  [[nodiscard]] constexpr bool valid() const noexcept {
+    return canopen_tpdo_transmission_type_valid(transmission_type);
+  }
+};
+
 struct CanopenPdoMappingEntry {
   std::uint16_t index{0};
   std::uint8_t subindex{0};
@@ -206,6 +248,18 @@ class CanopenVirtualNode {
   }
   void set_tpdo1_mapping(const CanopenPdoMapping<4U>& mapping) noexcept {
     tpdo1_mapping_ = mapping;
+  }
+
+  core::Status set_tpdo1_communication(
+      const CanopenPdoCommunicationParameters& parameters) noexcept {
+    if (!parameters.valid()) return {core::StatusCode::InvalidArgument};
+    tpdo1_communication_ = parameters;
+    return {};
+  }
+
+  [[nodiscard]] constexpr const CanopenPdoCommunicationParameters&
+  tpdo1_communication() const noexcept {
+    return tpdo1_communication_;
   }
 
   // Process one received frame and return at most one response. NMT, SDO and
@@ -627,6 +681,7 @@ class CanopenVirtualNode {
   std::size_t object_count_{0U};
   CanopenPdoMapping<4U> rpdo1_mapping_{};
   CanopenPdoMapping<4U> tpdo1_mapping_{};
+  CanopenPdoCommunicationParameters tpdo1_communication_{};
   bool sdo_upload_active_{false};
   bool sdo_download_active_{false};
   std::uint16_t sdo_index_{0U};

@@ -66,19 +66,35 @@ jobs:
           export ROS_DOMAIN_ID=47
           export GZ_PARTITION="mca-ros2-control-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           export GZ_SIM_SYSTEM_PLUGIN_PATH="$GITHUB_WORKSPACE/install/mca_gz_ros2_control_adapter/lib:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
-          # Launch the checked-out fixture directly.  The installed package is still
-          # used for plugin discovery and $(find ...) resolution, but the world path
-          # itself must not depend on CMake/colcon install layout.
-          world="$GITHUB_WORKSPACE/ros2/mca_gz_ros2_control_adapter/test/worlds/closed_loop.sdf"
+          world_source="$GITHUB_WORKSPACE/ros2/mca_gz_ros2_control_adapter/test/worlds/closed_loop.sdf"
           config="$GITHUB_WORKSPACE/ros2/mca_gz_ros2_control_adapter/test/closed_loop_controller.yaml"
+          world="$RUNNER_TEMP/mca_ros2_control_closed_loop_runtime.sdf"
           gazebo_log="$GITHUB_WORKSPACE/gazebo-ros2-control.log"
           state_log="$GITHUB_WORKSPACE/joint-states.log"
 
           echo "=== Closed-loop fixture paths ==="
-          printf 'world=%s\nconfig=%s\n' "$world" "$config"
-          test -f "$world"
+          printf 'world_source=%s\nconfig=%s\nworld_runtime=%s\n' "$world_source" "$config" "$world"
+          test -f "$world_source"
           test -f "$config"
+          # The Jazzy gz_ros2_control plugin passes <parameters> directly to rclcpp;
+          # it does not expand the $(find package) syntax shown in its documentation.
+          # Materialize the checked-in SDF with an absolute controller YAML path so
+          # the acceptance test is independent of the process working directory.
+          python3 - "$world_source" "$world" "$config" <<'PY'
+          import sys
+          from pathlib import Path
 
+          source = Path(sys.argv[1]).read_text()
+          output = Path(sys.argv[2])
+          config = sys.argv[3]
+          token = "$(find mca_gz_ros2_control_adapter)/test/closed_loop_controller.yaml"
+          if source.count(token) != 1:
+              raise SystemExit(f"expected exactly one controller config token, found {source.count(token)}")
+          output.write_text(source.replace(token, config, 1))
+          PY
+          grep -F "<parameters>$config</parameters>" "$world"
+
+          cd "$GITHUB_WORKSPACE"
           gz sim -s -r -v 4 "$world" >"$gazebo_log" 2>&1 &
           gz_pid=$!
           cleanup() {

@@ -341,7 +341,9 @@ GazeboSystem::CallbackReturn GazeboSystem::on_activate(
   active_.store(true);
   has_last_state_sequence_ = false;
   last_state_sequence_ = 0;
-  next_command_sequence_ = 0;
+  // Command sequence numbers belong to the backend stream and must remain
+  // monotonic across deactivate/reactivate cycles. Resetting this counter
+  // makes the first post-reactivation write look stale to the backend.
   RCLCPP_INFO(get_logger(), "GazeboSystem on_activate succeeded");
   return CallbackReturn::SUCCESS;
 }

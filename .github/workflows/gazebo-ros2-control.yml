@@ -80,6 +80,19 @@ jobs:
           gazebo_log="$GITHUB_WORKSPACE/gazebo-ros2-control.log"
           state_log="$GITHUB_WORKSPACE/joint-states.log"
 
+          # Preserve the simulator's own diagnostics when any acceptance
+          # assertion fails; otherwise the redirected Gazebo log is lost.
+          dump_failure_diagnostics() {
+            status=$?
+            echo "=== Gazebo / robot_state_publisher logs after acceptance failure ==="
+            if [ -f "$gazebo_log" ]; then tail -n 300 "$gazebo_log"; fi
+            if [ -f "$robot_state_publisher_log" ]; then
+              tail -n 100 "$robot_state_publisher_log"
+            fi
+            exit "$status"
+          }
+          trap dump_failure_diagnostics ERR
+
           echo "=== Closed-loop fixture paths ==="
           printf 'world_source=%s\nconfig=%s\nworld_runtime=%s\n' "$world_source" "$config" "$world"
           test -f "$world_source"

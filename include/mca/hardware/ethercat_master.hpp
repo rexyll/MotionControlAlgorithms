@@ -126,12 +126,17 @@ constexpr bool ethercat_topology_identity_matches(
     return false;
   for (std::size_t i = 0; i < configured.slave_count; ++i) {
     const auto& expected = configured.slaves[i];
-    const auto& actual = rediscovered.slaves[i];
-    if (expected.station_position != actual.station_position ||
-        expected.vendor_id != actual.vendor_id ||
-        expected.product_code != actual.product_code ||
-        expected.revision != actual.revision ||
-        expected.serial_number != actual.serial_number)
+    const EthercatSlaveInfo* actual = nullptr;
+    for (std::size_t j = 0; j < rediscovered.slave_count; ++j) {
+      if (rediscovered.slaves[j].station_position == expected.station_position) {
+        actual = &rediscovered.slaves[j];
+        break;
+      }
+    }
+    if (actual == nullptr || expected.vendor_id != actual->vendor_id ||
+        expected.product_code != actual->product_code ||
+        expected.revision != actual->revision ||
+        expected.serial_number != actual->serial_number)
       return false;
   }
   return true;

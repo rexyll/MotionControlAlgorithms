@@ -143,16 +143,13 @@ master lifecycle:
 - Aggregate WKC loss is not treated as proof of which slave disappeared.
   Per-slave presence and identity must come from topology/AL observations.
 
-These are master-neutral policy/value contracts, not a wire-level recovery
-algorithm. Master adapters remain responsible for bounded polling, protocol
-requests and timeouts. Gate 1 remains open until asynchronous mailbox/SDO
-isolation and the full root CI pass.
+These are master-neutral policy/value contracts, not a wire-level recovery algorithm. The fixed-capacity mailbox queue lifecycle primitive and its deterministic timeout/backpressure tests are now implemented; root CI Run #1519 passed Linux and Windows plus the P8 regression suites. The dependency-free Gate 1 contract is validated, but it does not claim a real SDO backend, wire-level EtherCAT simulation or physical bus recovery. Master adapters remain responsible for bounded polling, protocol requests, cancellation and protocol-specific timeout/error handling.
 
 ### Asynchronous SDO/mailbox contract
 
 `EthercatSdoRequest<MaxBytes>` and `EthercatSdoResult<MaxBytes>` are fixed-capacity values. Requests carry a unique nonzero request ID, slave position, CoE object index/subindex, read/write operation, bounded payload or response capacity, and an absolute deadline. Results distinguish Pending, Completed, Aborted (with a nonzero CoE abort code), TimedOut and Failed.
 
-`IEthercatMailbox<MaxBytes>` exposes only nonblocking enqueue/poll operations. Adapter implementations must use a bounded queue, reject duplicate live IDs, enforce request deadlines and return promptly on queue saturation. Queue-full is a runtime/backpressure condition, not permission to block the caller. The cyclic `exchange()` API does not accept mailbox work and must never wait for an SDO result. This interface defines the seam; backend queue scheduling, segmented transfer progression and protocol-specific abort handling remain adapter responsibilities.
+`IEthercatMailbox<MaxBytes>` exposes only nonblocking enqueue/poll operations. The reusable `EthercatMailboxQueue<QueueCapacity, MaxBytes>` primitive provides fixed-capacity storage, duplicate-live-ID rejection, caller-supplied monotonic-time deadline checks, timeout terminal state, late-completion rejection, explicit terminal retirement and immediate queue-full backpressure. It has no clock, allocation, lock or blocking operation. The adapter must call it from a suitable scheduling context and still implement actual CoE/SDO transport, segmented transfer progression, protocol-specific abort handling and safe backend cancellation. Queue-full is a runtime/backpressure condition, not permission to block the caller. The cyclic `exchange()` API does not accept mailbox work and must never wait for an SDO result.
 
 ### Gate 2 — SOEM optional adapter
 

@@ -40,6 +40,13 @@ enum class EthercatDcState : std::uint8_t {
   Degraded
 };
 
+enum class EthercatCycleTimingState : std::uint8_t {
+  Unknown,
+  OnTime,
+  Late,
+  Missed
+};
+
 struct EthercatSlaveInfo {
   std::uint16_t station_position{0};
   std::uint32_t vendor_id{0};
@@ -232,6 +239,23 @@ constexpr bool ethercat_dc_transition_allowed(EthercatDcState from,
   return false;
 }
 
+// The timing contract is master-neutral: the adapter reports the deadline and
+// completion timestamps it observed, plus the number of schedule slots missed
+// since the previous exchange. No protocol-specific lateness threshold is
+// invented here; equality with the deadline is on-time, completion after it is
+// late, and one or more missed slots makes the cycle missed.
+constexpr EthercatCycleTimingState classify_ethercat_cycle_timing(
+    std::uint64_t deadline_timestamp_ns, std::uint64_t completion_timestamp_ns,
+    std::uint32_t missed_cycles_since_previous_exchange) noexcept {
+  if (deadline_timestamp_ns == 0U || completion_timestamp_ns == 0U)
+    return EthercatCycleTimingState::Unknown;
+  if (missed_cycles_since_previous_exchange != 0U)
+    return EthercatCycleTimingState::Missed;
+  if (completion_timestamp_ns <= deadline_timestamp_ns)
+    return EthercatCycleTimingState::OnTime;
+  return EthercatCycleTimingState::Late;
+}
+
 struct EthercatDomainCycleStatus {
   std::uint16_t domain_id{0U};
   std::uint16_t expected_working_counter{0U};
@@ -240,9 +264,17 @@ struct EthercatDomainCycleStatus {
       EthercatWorkingCounterState::Unknown};
   std::uint64_t cycle_sequence{0U};
   std::uint64_t timestamp_ns{0U};
+  std::uint64_t deadline_timestamp_ns{0U};
+  std::uint64_t completion_timestamp_ns{0U};
+  std::uint32_t missed_cycles_since_previous_exchange{0U};
+  EthercatCycleTimingState timing_state{EthercatCycleTimingState::Unknown};
 
   [[nodiscard]] bool valid() const noexcept {
     return cycle_sequence != 0U && timestamp_ns != 0U &&
+           timing_state == classify_ethercat_cycle_timing(
+                                deadline_timestamp_ns,
+                                completion_timestamp_ns,
+                                missed_cycles_since_previous_exchange) &&
            working_counter_state == classify_ethercat_working_counter(
                                         expected_working_counter,
                                         observed_working_counter);

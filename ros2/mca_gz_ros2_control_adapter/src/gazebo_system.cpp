@@ -229,19 +229,59 @@ GazeboSystem::on_export_command_interfaces() {
 }
 
 bool GazeboSystem::initSim(
-    rclcpp::Node::SharedPtr&,
+    rclcpp::Node::SharedPtr& model_nh,
     std::map<std::string, gz::sim::Entity>& joints,
     const hardware_interface::HardwareInfo& hardware_info,
     gz::sim::EntityComponentManager& ecm,
     unsigned int) {
-  if (!backend_ || hardware_info.joints.size() != joint_names_.size()) return false;
-  std::array<gz::sim::Entity, 2> entities{};
-  for (std::size_t i = 0; i < joint_names_.size(); ++i) {
-    const auto it = joints.find(joint_names_[i]);
-    if (it == joints.end() || it->second == gz::sim::kNullEntity) return false;
-    entities[i] = it->second;
+  // gz_ros2_control calls initSim() before ResourceManager::import_component(),
+  // and import_component() is what invokes on_init(). Do not read joint_names_
+  // here: it is intentionally populated later by on_init().
+  if (!backend_ || hardware_info.joints.size() != joint_names_.size()) {
+    RCLCPP_ERROR(model_nh->get_logger(),
+                 "GazeboSystem initSim: expected exactly %zu URDF joints, got %zu",
+                 joint_names_.size(), hardware_info.joints.size());
+    return false;
   }
-  return backend_->bind(entities, ecm);
+
+  std::array<gz::sim::Entity, 2> entities{};
+  for (std::size_t i = 0; i < hardware_info.joints.size(); ++i) {
+    const auto& joint_name = hardware_info.joints[i].name;
+    const auto it = joints.find(joint_name);
+    if (it == joints.end()) {
+      RCLCPP_ERROR(model_nh->get_logger(),
+                   "GazeboSystem initSim: URDF joint '%s' is absent from Gazebo model; "
+                   "Gazebo exposes %zu enabled joints",
+                   joint_name.c_str(), joints.size());
+      for (const auto& [available_name, entity] : joints) {
+        RCLCPP_ERROR(model_nh->get_logger(), "  Gazebo joint '%s' entity=%lu",
+                     available_name.c_str(), static_cast<unsigned long>(entity));
+      }
+      return false;
+    }
+    if (it->second == gz::sim::kNullEntity) {
+      RCLCPP_ERROR(model_nh->get_logger(),
+                   "GazeboSystem initSim: URDF joint '%s' resolved to a null Gazebo entity",
+                   joint_name.c_str());
+      return false;
+    }
+    entities[i] = it->second;
+    RCLCPP_INFO(model_nh->get_logger(),
+                "GazeboSystem initSim: resolved URDF joint '%s' to Gazebo entity=%lu",
+                joint_name.c_str(), static_cast<unsigned long>(it->second));
+  }
+
+  if (!backend_->bind(entities, ecm)) {
+    RCLCPP_ERROR(model_nh->get_logger(),
+                 "GazeboSystem initSim: backend rejected Gazebo entities [%lu, %lu]",
+                 static_cast<unsigned long>(entities[0]),
+                 static_cast<unsigned long>(entities[1]));
+    return false;
+  }
+  RCLCPP_INFO(model_nh->get_logger(),
+              "GazeboSystem initSim: successfully bound %zu Gazebo joints",
+              entities.size());
+  return true;
 }
 
 GazeboSystem::CallbackReturn GazeboSystem::on_configure(

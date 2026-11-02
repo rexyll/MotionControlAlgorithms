@@ -185,7 +185,9 @@ TEST(CanopenSdo, SupportsExpeditedUploadDownloadAndAbortCodes) {
                            response, has_response).ok());
   EXPECT_EQ(response.data[0], 0x80U);
   EXPECT_EQ(response.data[4], 0x02U);
-  EXPECT_EQ(response.data[5], 0x01U);
+  EXPECT_EQ(response.data[5], 0x00U);
+  EXPECT_EQ(response.data[6], 0x01U);
+  EXPECT_EQ(response.data[7], 0x06U);
 }
 
 TEST(CanopenPdo, AppliesRpdoAtomicallyAndBuildsTpdo) {

@@ -397,6 +397,14 @@ class CanopenVirtualNode {
     return response;
   }
 
+  CanopenCanFrame abort_sdo_transfer(std::uint32_t code) const noexcept {
+    CanopenCanFrame request;
+    request.data[1] = static_cast<std::uint8_t>(sdo_index_ & 0xFFU);
+    request.data[2] = static_cast<std::uint8_t>(sdo_index_ >> 8U);
+    request.data[3] = sdo_subindex_;
+    return abort_sdo(request, code);
+  }
+
   CanopenCanFrame process_sdo(const CanopenCanFrame& request) noexcept {
     if (request.dlc != 8U) return abort_sdo(request, 0x05040001U);
     const auto command = request.data[0];
@@ -412,21 +420,24 @@ class CanopenVirtualNode {
     if ((command & 0xE0U) == 0U) {
       if (!sdo_download_active_ ||
           ((command >> 4U) & 0x01U) != sdo_toggle_) {
+        const auto abort = abort_sdo_transfer(0x05030000U);
         reset_sdo_transfer();
-        return abort_sdo(request, 0x05030000U);
+        return abort;
       }
       const bool last = (command & 0x01U) != 0U;
       const auto unused = static_cast<std::uint8_t>((command >> 1U) & 0x07U);
       if ((!last && unused != 0U) || (last && unused > 6U)) {
+        const auto abort = abort_sdo_transfer(0x05040001U);
         reset_sdo_transfer();
-        return abort_sdo(request, 0x05040001U);
+        return abort;
       }
       const auto bytes = static_cast<std::uint8_t>(7U - unused);
       if (sdo_bytes_received_ + bytes > sdo_expected_size_ ||
           (!last && bytes != 7U) ||
           (last && sdo_bytes_received_ + bytes != sdo_expected_size_)) {
+        const auto abort = abort_sdo_transfer(0x06070010U);
         reset_sdo_transfer();
-        return abort_sdo(request, 0x06070010U);
+        return abort;
       }
       for (std::size_t i = 0; i < bytes; ++i) {
         sdo_staged_value_ |=
@@ -442,8 +453,9 @@ class CanopenVirtualNode {
       if (last) {
         auto* target = find_object(sdo_index_, sdo_subindex_);
         if (target == nullptr || !target->writable) {
+          const auto abort = abort_sdo_transfer(0x06010002U);
           reset_sdo_transfer();
-          return abort_sdo(request, 0x06010002U);
+          return abort;
         }
         target->value = sdo_staged_value_;
         reset_sdo_transfer();

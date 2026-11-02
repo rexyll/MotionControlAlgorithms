@@ -228,6 +228,10 @@ class CanopenVirtualNode {
           nmt_state_ == CanopenNmtState::Initialising) {
         return {core::StatusCode::RuntimeError};
       }
+      if (request.dlc == 8U && request.data[0] == 0x80U) {
+        reset_sdo_transfer();
+        return {};
+      }
       response = process_sdo(request);
       has_response = true;
       return {};
@@ -408,12 +412,6 @@ class CanopenVirtualNode {
   CanopenCanFrame process_sdo(const CanopenCanFrame& request) noexcept {
     if (request.dlc != 8U) return abort_sdo(request, 0x05040001U);
     const auto command = request.data[0];
-
-    // Client abort terminates either direction without modifying the object.
-    if (command == 0x80U) {
-      reset_sdo_transfer();
-      return abort_sdo(request, 0x05040000U);
-    }
 
     // Download segment: toggle, unused-byte count and last-segment flag are
     // checked before accepting bytes into the staged value.

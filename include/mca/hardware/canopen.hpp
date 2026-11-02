@@ -129,7 +129,7 @@ struct CanopenPdoMapping {
     for (std::size_t i = 0; i < count; ++i) {
       const auto& entry = entries[i];
       if (entry.index == 0U || entry.bit_length == 0U ||
-          entry.bit_length > 32U || (entry.bit_length % 8U) != 0U) {
+          (entry.bit_length != 8U && entry.bit_length != 16U &&\n           entry.bit_length != 32U)) {
         return false;
       }
       total_bits += entry.bit_length;
@@ -286,11 +286,16 @@ class CanopenVirtualNode {
   }
 
   core::Status process_nmt(const CanopenCanFrame& frame) noexcept {
-    if (frame.dlc != 2U ||
+    if (frame.dlc != 2U || frame.data[1] > 127U ||
         (frame.data[1] != 0U && frame.data[1] != node_id_)) {
       return {core::StatusCode::InvalidArgument};
     }
-    switch (frame.data[0]) {
+    const auto command = frame.data[0];
+    if (nmt_state_ == CanopenNmtState::Initialising &&
+        command != 0x81U && command != 0x82U) {
+      return {core::StatusCode::RuntimeError};
+    }
+    switch (command) {
       case 0x01U: nmt_state_ = CanopenNmtState::Operational; break;
       case 0x02U: nmt_state_ = CanopenNmtState::Stopped; break;
       case 0x80U: nmt_state_ = CanopenNmtState::PreOperational; break;

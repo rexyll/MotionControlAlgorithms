@@ -129,7 +129,8 @@ struct CanopenPdoMapping {
     for (std::size_t i = 0; i < count; ++i) {
       const auto& entry = entries[i];
       if (entry.index == 0U || entry.bit_length == 0U ||
-          (entry.bit_length != 8U && entry.bit_length != 16U &&\n           entry.bit_length != 32U)) {
+          (entry.bit_length != 8U && entry.bit_length != 16U &&
+           entry.bit_length != 32U)) {
         return false;
       }
       total_bits += entry.bit_length;

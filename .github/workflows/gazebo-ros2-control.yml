@@ -298,6 +298,40 @@ jobs:
 
           echo "=== Joint state topic QoS ==="
           ros2 topic info -v /joint_states
+          # The Gazebo fixture may start at any valid joint position. A fixed
+          # positive effort can therefore push a joint already at +limit into
+          # its stop and falsely report a broken command path. Read the actual
+          # starting state and command each joint toward the center of its
+          # travel so this acceptance test is independent of startup pose.
+          initial_state_log="$GITHUB_WORKSPACE/initial-joint-state.log"
+          timeout 5s ros2 topic echo /joint_states sensor_msgs/msg/JointState \
+            --qos-reliability best_effort --once >"$initial_state_log" 2>&1
+          read -r effort_a effort_b < <(python3 - "$initial_state_log" <<'PY'
+          import math
+          import sys
+          from pathlib import Path
+          import yaml
+
+          messages = [m for m in yaml.safe_load_all(Path(sys.argv[1]).read_text(errors="replace"))
+                      if isinstance(m, dict)]
+          if not messages:
+              raise SystemExit("no initial joint state message received")
+          message = messages[-1]
+          names = message.get("name", [])
+          values = message.get("position", [])
+          by_name = dict(zip(names, values))
+          try:
+              positions = [float(by_name["joint_a"]), float(by_name["joint_b"])]
+          except (KeyError, TypeError, ValueError) as error:
+              raise SystemExit(f"initial joint state is incomplete: {error}")
+          if not all(math.isfinite(value) for value in positions):
+              raise SystemExit(f"initial joint state is non-finite: {positions}")
+          efforts = [-1.0 if value > 0.0 else 1.0 for value in positions]
+          print(*efforts)
+          print(f"initial_joint_positions={positions}", file=sys.stderr)
+          print(f"selected_effort_command={efforts}", file=sys.stderr)
+          PY
+          )
           echo "=== Capturing joint state while applying effort ==="
           # A best-effort subscriber is compatible with both best-effort and
           # reliable publishers; the CLI's default reliable request may not
@@ -306,7 +340,7 @@ jobs:
           state_pid=$!
           sleep 1
           timeout 4s ros2 topic pub --rate 100 /effort_controller/commands \
-            std_msgs/msg/Float64MultiArray '{data: [1.0, 1.0]}' > command-publisher.log 2>&1 &
+            std_msgs/msg/Float64MultiArray "{data: [$effort_a, $effort_b]}" > command-publisher.log 2>&1 &
           publisher_pid=$!
           wait "$publisher_pid" || true
           sleep 1

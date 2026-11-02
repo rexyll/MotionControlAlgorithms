@@ -1,0 +1,101 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <world name="mca_ros2_control_closed_loop">
+    <gravity>0 0 -9.81</gravity>
+    <physics name="default" type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>0</real_time_factor>
+    </physics>
+
+    <model name="mca_two_joint_robot">
+      <static>false</static>
+      <pose>0 0 0.5 0 0 0</pose>
+
+      <link name="base">
+        <inertial>
+          <mass>5.0</mass>
+          <inertia>
+            <ixx>0.1</ixx><iyy>0.1</iyy><izz>0.1</izz>
+            <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.2 0.2 0.2</size></box></geometry>
+        </collision>
+      </link>
+
+      <link name="link_a">
+        <pose>0 0 -0.5 0 0 0</pose>
+        <inertial>
+          <mass>1.0</mass>
+          <inertia>
+            <ixx>0.09</ixx><iyy>0.09</iyy><izz>0.01</izz>
+            <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <pose>0 0 -0.5 0 0 0</pose>
+          <geometry><box><size>0.1 0.1 1.0</size></box></geometry>
+        </collision>
+      </link>
+
+      <link name="link_b">
+        <pose>0 0 -1.5 0 0 0</pose>
+        <inertial>
+          <mass>1.0</mass>
+          <inertia>
+            <ixx>0.09</ixx><iyy>0.09</iyy><izz>0.01</izz>
+            <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <pose>0 0 -0.5 0 0 0</pose>
+          <geometry><box><size>0.1 0.1 1.0</size></box></geometry>
+        </collision>
+      </link>
+
+      <joint name="joint_a" type="revolute">
+        <parent>base</parent>
+        <child>link_a</child>
+        <pose>0 0 0 0 0 0</pose>
+        <axis>
+          <xyz>0 1 0</xyz>
+          <limit><lower>-3.14</lower><upper>3.14</upper><effort>20</effort><velocity>20</velocity></limit>
+          <dynamics><damping>0.05</damping></dynamics>
+        </axis>
+      </joint>
+
+      <joint name="joint_b" type="revolute">
+        <parent>link_a</parent>
+        <child>link_b</child>
+        <pose>0 0 -1 0 0 0</pose>
+        <axis>
+          <xyz>0 1 0</xyz>
+          <limit><lower>-3.14</lower><upper>3.14</upper><effort>20</effort><velocity>20</velocity></limit>
+          <dynamics><damping>0.05</damping></dynamics>
+        </axis>
+      </joint>
+
+      <ros2_control name="McaGazeboSystem" type="system">
+        <hardware>
+          <plugin>mca_gz_ros2_control_adapter/GazeboSystem</plugin>
+        </hardware>
+        <joint name="joint_a">
+          <command_interface name="effort"><param name="min">-20</param><param name="max">20</param></command_interface>
+          <state_interface name="position"/>
+          <state_interface name="velocity"/>
+        </joint>
+        <joint name="joint_b">
+          <command_interface name="effort"><param name="min">-20</param><param name="max">20</param></command_interface>
+          <state_interface name="position"/>
+          <state_interface name="velocity"/>
+        </joint>
+      </ros2_control>
+
+      <plugin filename="libgz_ros2_control-system.so" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+        <parameters>ros2/mca_gz_ros2_control_adapter/test/closed_loop_controller.yaml</parameters>
+        <hold_joints>false</hold_joints>
+      </plugin>
+    </model>
+  </world>
+</sdf>

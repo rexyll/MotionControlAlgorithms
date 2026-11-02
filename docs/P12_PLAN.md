@@ -578,8 +578,10 @@ IgH/EtherLab 1.6.13 (`stable-1.6`, commit
 Linux-only deployment path; pin this immutable SHA before implementation.
 Official EtherLab documentation recommends `stable-1.6` for production and
 documents a GPLv2 master/kernel component plus an LGPLv2.1 userspace
-`libethercat`. The manual also documents userspace SDO requests/handlers,
-domain WKC, AL-state and DC APIs. This license split is not a legal clearance;
+`libethercat`. The userspace API exposes asynchronous `ecrt_sdo_request_read/write/state/timeout`,
+domain WKC, AL-state and DC APIs. IgH read buffers may be reallocated while
+requests are busy, so data must be copied only after terminal success; general
+immediate cancellation remains unverified. This license split is not a legal clearance;
 the exact 1.6.x pin, kernel-module distribution obligations, static/dynamic
 linking model, NIC/RT-kernel compatibility and SDO cancellation semantics must
 be reviewed before implementation. IgH is Linux-only and does not solve the

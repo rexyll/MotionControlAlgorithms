@@ -499,3 +499,26 @@ and guarded controlword model only. It is not a complete asynchronous drive
 state-machine executor, a vendor firmware conformance result, a safety-rated
 stop implementation, a fieldbus transport, physical-driver validation or HIL
 evidence. P12-05c protocol SIL and P12-05d/P12-06 hardware work remain open.
+
+
+## P12-05c.1 — CANopen SIL and optional SocketCAN transport — in progress
+
+The dependency-free CANopen transport seam and virtual-node SIL model cover NMT,
+heartbeat monitoring, EMCY decoding, expedited and segmented SDO, PDO mapping
+and transmission-type semantics, CiA 402 virtual PDS progression, and explicit
+Bus-Off fault/recovery behavior. The protocol model remains separate from the
+physical transport.
+
+An optional Linux-only `mca::hardware::SocketCanTransport` now implements the
+existing non-blocking `ICanopenTransport` contract. It is isolated in
+`include/mca/hardware/socketcan_transport.hpp`, is not included by the portable
+`mca/mca.hpp` umbrella, and is disabled by default. Linux CI enables
+`MCA_ENABLE_SOCKETCAN` to compile the adapter and run a focused invalid-interface
+construction regression; Windows continues to build the portable core with the
+option disabled. Runtime documentation: [P12 SocketCAN](P12_SOCKETCAN.md).
+
+This is compile/contract validation only. The CI does not create a privileged
+`vcan` interface or exercise live CAN traffic, bus-off controller recovery,
+cycle timing, vendor interoperability, physical hardware or HIL. P12-05c.1
+remains open until the full Linux/Windows root CI result for this change is
+successful and a privileged SocketCAN runtime fixture is evaluated separately.

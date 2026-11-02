@@ -437,7 +437,10 @@ P12-05b.2 implements fixed-capacity mode-aware position/velocity/torque
 setpoints, preserves Profile versus Cyclic Synchronous semantics, validates
 per-axis operation-mode capability, rejects stale sequences and expired or
 clock-incompatible deadlines, and provides a batch sink contract requiring
-full validation before transport I/O. A deterministic transactional fake sink
+full validation before transport I/O. Direct current setpoints use the MCA
+normalized current capability and are explicitly not represented as a
+standardized CiA 402 PDS operation mode; adapters may expose them only when
+the vendor/device advertises that capability. A deterministic transactional fake sink
 checks that rejected batches do not partially commit or advance the accepted
 sequence. Linux/Windows CI acceptance is pending. No physical backend or HIL
 acceptance is claimed at this stage.

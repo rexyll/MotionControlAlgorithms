@@ -17,6 +17,15 @@ jobs:
         run: cmake -S . -B build -G Ninja -DMCA_BUILD_TESTS=ON -DMCA_BUILD_BENCHMARKS=OFF -DMCA_ENABLE_SOCKETCAN=ON
       - name: Build
         run: cmake --build build --parallel
+      - name: Provision vcan0 when runner permissions allow
+        run: |
+          if ip link show vcan0 >/dev/null 2>&1; then
+            if sudo ip link set vcan0 up; then echo "MCA_TEST_VCAN=1" >> "$GITHUB_ENV"; fi
+          elif sudo modprobe vcan 2>/dev/null && sudo ip link add dev vcan0 type vcan 2>/dev/null && sudo ip link set vcan0 up; then
+            echo "MCA_TEST_VCAN=1" >> "$GITHUB_ENV"
+          else
+            echo "vcan0 unavailable; SocketCAN runtime test will report a skip"
+          fi
       - name: Test
         run: ctest --test-dir build --output-on-failure
       - name: Configure P8-39 exception regressions

@@ -51,7 +51,7 @@ class TransactionalFakeSink final : public IDriveCommandSink<3> {
   explicit TransactionalFakeSink(DeviceCapabilities<3> caps)
       : caps_(caps) {}
 
-  core::Status write_batch(const DriveCommandBatch<3>& batch,
+  mca::core::Status write_batch(const DriveCommandBatch<3>& batch,
                            std::uint64_t now_ns,
                            HardwareClockDomain domain) noexcept override {
     const auto status = validate_drive_command_batch(
@@ -106,7 +106,7 @@ TEST(DriveCommandBatch, RejectsUnsupportedModesAxesAndDuplicateAxes) {
   EXPECT_EQ(validate_drive_command_batch(
                 caps, batch, 100U, HardwareClockDomain::HostMonotonic, 0U)
                 .code,
-            core::StatusCode::ConstraintViolation);
+            mca::core::StatusCode::ConstraintViolation);
   batch = make_batch(1);
   batch.setpoints[1].axis = 0;
   EXPECT_FALSE(batch.valid_shape());
@@ -115,7 +115,7 @@ TEST(DriveCommandBatch, RejectsUnsupportedModesAxesAndDuplicateAxes) {
   EXPECT_EQ(validate_drive_command_batch(
                 caps, batch, 100U, HardwareClockDomain::HostMonotonic, 0U)
                 .code,
-            core::StatusCode::ConstraintViolation);
+            mca::core::StatusCode::ConstraintViolation);
 }
 
 TEST(DriveCommandBatch, RejectsStaleExpiredAndClockMismatchedCommands) {
@@ -124,15 +124,15 @@ TEST(DriveCommandBatch, RejectsStaleExpiredAndClockMismatchedCommands) {
   EXPECT_EQ(validate_drive_command_batch(
                 caps, batch, 100U, HardwareClockDomain::HostMonotonic, 5U)
                 .code,
-            core::StatusCode::InvalidArgument);
+            mca::core::StatusCode::InvalidArgument);
   EXPECT_EQ(validate_drive_command_batch(
                 caps, batch, 5000000U, HardwareClockDomain::HostMonotonic, 0U)
                 .code,
-            core::StatusCode::RuntimeError);
+            mca::core::StatusCode::RuntimeError);
   EXPECT_EQ(validate_drive_command_batch(
                 caps, batch, 100U, HardwareClockDomain::DeviceMonotonic, 0U)
                 .code,
-            core::StatusCode::RuntimeError);
+            mca::core::StatusCode::RuntimeError);
 }
 
 TEST(DriveCommandBatch, RejectsNonFiniteActiveSetpointAndMalformedBatch) {
@@ -167,7 +167,7 @@ TEST(DriveCommandBatch, KeepsVendorCurrentControlSeparateFromCiA402Modes) {
   EXPECT_EQ(validate_drive_command_batch(
                 no_current, batch, 100U, HardwareClockDomain::HostMonotonic,
                 0U).code,
-            core::StatusCode::ConstraintViolation);
+            mca::core::StatusCode::ConstraintViolation);
 }
 
 TEST(DriveCommandBatch, FailedBatchDoesNotPartiallyCommitOrAdvanceSequence) {
@@ -182,7 +182,7 @@ TEST(DriveCommandBatch, FailedBatchDoesNotPartiallyCommitOrAdvanceSequence) {
   invalid.setpoints[1].operation_mode = DriveOperationMode::ProfileTorque;
   EXPECT_EQ(sink.write_batch(invalid, 100U,
                              HardwareClockDomain::HostMonotonic).code,
-            core::StatusCode::ConstraintViolation);
+            mca::core::StatusCode::ConstraintViolation);
   EXPECT_EQ(sink.writes(), 1U);
   EXPECT_EQ(sink.last_accepted_sequence(), 1U);
   EXPECT_DOUBLE_EQ(sink.accepted().setpoints[0].position_rad, 1.25);

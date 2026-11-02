@@ -104,7 +104,7 @@ struct EthercatProcessDataLayout {
   std::size_t entry_count{0U};
 
   [[nodiscard]] bool valid(std::size_t slave_count) const noexcept {
-    if (slave_count == 0U || domain_count == 0U ||
+    if (slave_count == 0U || domain_count == 0U || entry_count == 0U ||
         domain_count > MaxDomains || entry_count > MaxEntries)
       return false;
 
@@ -122,7 +122,9 @@ struct EthercatProcessDataLayout {
     for (std::size_t i = 0; i < entry_count; ++i) {
       const auto& entry = entries[i];
       if (entry.slave_position >= slave_count || entry.index == 0U ||
-          entry.bit_length == 0U || entry.bit_length > 64U)
+          entry.bit_length == 0U || entry.bit_length > 64U ||
+          (entry.direction != EthercatPdoDirection::Input &&
+           entry.direction != EthercatPdoDirection::Output))
         return false;
       const EthercatProcessDataDomain* domain = nullptr;
       for (std::size_t j = 0; j < domain_count; ++j) {

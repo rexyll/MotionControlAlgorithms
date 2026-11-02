@@ -196,6 +196,40 @@ TEST(CanopenSdo, SupportsExpeditedUploadDownloadAndAbortCodes) {
   EXPECT_EQ(response.data[7], 0x06U);
 }
 
+TEST(CanopenCiA402Node, ControlwordWritesAdvanceVirtualPdsState) {
+  CanopenVirtualNode<8> node(1U);
+  ASSERT_TRUE(node.add_object({0x6040U, 0U, 0U, 2U, true, true}).ok());
+  ASSERT_TRUE(node.add_object({0x6041U, 0U, 0x0040U, 2U, true, false}).ok());
+  CanopenCanFrame response;
+  bool has_response = false;
+
+  const auto write_controlword = [&](std::uint16_t value) {
+    return node.process(sdo(0x2BU, 0x6040U, 0U, value), response, has_response);
+  };
+  const auto read_state = [&]() {
+    const auto status = node.process(sdo(0x40U, 0x6041U, 0U),
+                                     response, has_response);
+    EXPECT_TRUE(status.ok());
+    EXPECT_TRUE(has_response);
+    const auto raw = static_cast<std::uint16_t>(response.data[4]) |
+                     (static_cast<std::uint16_t>(response.data[5]) << 8U);
+    return decode_cia402_pds_state(raw);
+  };
+
+  ASSERT_TRUE(write_controlword(0x0006U).ok());
+  EXPECT_EQ(read_state(), Cia402PdsState::ReadyToSwitchOn);
+  ASSERT_TRUE(write_controlword(0x0007U).ok());
+  EXPECT_EQ(read_state(), Cia402PdsState::SwitchedOn);
+  ASSERT_TRUE(write_controlword(0x000FU).ok());
+  EXPECT_EQ(read_state(), Cia402PdsState::OperationEnabled);
+  ASSERT_TRUE(write_controlword(0x0002U).ok());
+  EXPECT_EQ(read_state(), Cia402PdsState::QuickStopActive);
+
+  ASSERT_TRUE(node.set_object_value(0x6041U, 0U, 0x0008U).ok());
+  ASSERT_TRUE(write_controlword(0x0080U).ok());
+  EXPECT_EQ(read_state(), Cia402PdsState::SwitchOnDisabled);
+}
+
 TEST(CanopenPdo, AppliesRpdoAtomicallyAndBuildsTpdo) {
   CanopenVirtualNode<8> node(1U);
   ASSERT_TRUE(node.add_object({0x2000U, 0U, 0U, 2U, true, true}).ok());

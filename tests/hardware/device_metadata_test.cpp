@@ -91,3 +91,72 @@ TEST(HardwareDeviceMetadata, EnforcesCommandDeadlineAndClockDomain) {
   EXPECT_FALSE(command.expired(
       UINT64_MAX, mca::hardware::HardwareClockDomain::Unknown));
 }
+
+
+TEST(HardwareDeviceMetadata, PreservesCiA402OperationModeSemantics) {
+  using namespace mca::hardware;
+  AxisCapabilities axis;
+  axis.supported_modes = control_mode_bit(DriveControlMode::Position) |
+                         control_mode_bit(DriveControlMode::Velocity) |
+                         control_mode_bit(DriveControlMode::Torque);
+  axis.supported_operation_modes =
+      operation_mode_bit(DriveOperationMode::ProfilePosition) |
+      operation_mode_bit(DriveOperationMode::CyclicSynchronousPosition) |
+      operation_mode_bit(DriveOperationMode::CyclicSynchronousVelocity);
+  EXPECT_TRUE(axis.valid());
+  EXPECT_TRUE(axis.supports(DriveOperationMode::ProfilePosition));
+  EXPECT_TRUE(axis.supports(DriveOperationMode::CyclicSynchronousPosition));
+  EXPECT_EQ(normalized_control_mode(
+                DriveOperationMode::CyclicSynchronousVelocity),
+            DriveControlMode::Velocity);
+
+  axis.supported_modes = control_mode_bit(DriveControlMode::Position);
+  EXPECT_FALSE(axis.valid());  // CSV cannot be advertised without velocity.
+  axis.supported_operation_modes = 0x8000U;
+  EXPECT_FALSE(axis.valid());
+}
+
+TEST(HardwareDeviceMetadata, ValidatesFixedCapacityDeviceIdentityAndTopology) {
+  using namespace mca::hardware;
+  DeviceIdentity<2> identity;
+  identity.axis_count = 2;
+  identity.vendor_name[0] = 'A';
+  identity.product_name[0] = 'D';
+  identity.serial_number[0] = '1';
+  identity.firmware_version[0] = '2';
+  identity.axis_names[0][0] = 'l';
+  identity.axis_names[0][1] = 'e';
+  identity.axis_names[0][2] = 'f';
+  identity.axis_names[1][0] = 'r';
+  identity.axis_names[1][1] = 'i';
+  identity.axis_names[1][2] = 'g';
+  identity.axis_names[1][3] = 'h';
+  identity.axis_names[1][4] = 't';
+  identity.vendor_id = 0x1234U;
+  identity.product_code = 0x5678U;
+  identity.revision = 3U;
+  EXPECT_TRUE(identity.valid());
+
+  identity.axis_names[1] = identity.axis_names[0];
+  EXPECT_FALSE(identity.valid());
+  identity.axis_names[1][0] = 'r';
+  identity.axis_count = 3;
+  EXPECT_FALSE(identity.valid());
+  identity.axis_count = 1;
+  identity.vendor_name.fill('x');  // Missing NUL terminator.
+  EXPECT_FALSE(identity.valid());
+}
+
+TEST(HardwareDeviceMetadata, CapabilityLookupDoesNotRequireWholeDeviceValidation) {
+  using namespace mca::hardware;
+  DeviceCapabilities<3> capabilities;
+  capabilities.axis_count = 2;
+  capabilities.axes[0].supported_modes =
+      control_mode_bit(DriveControlMode::Position);
+  // Axis 1 is deliberately not configured. The lookup for axis 0 must remain
+  // constant-time and must not scan unrelated axis metadata.
+  EXPECT_TRUE(capabilities.supports(0, DriveControlMode::Position));
+  EXPECT_FALSE(capabilities.supports(1, DriveControlMode::Position));
+  EXPECT_FALSE(capabilities.supports(3, DriveControlMode::Position));
+  EXPECT_FALSE(capabilities.valid());
+}

@@ -49,7 +49,11 @@ jobs:
           set +u
           source /opt/ros/jazzy/setup.bash
           set -u
-          colcon build --packages-select mca_gz_ros2_control_adapter --merge-install
+          package_list="$(colcon list --base-paths ros2)"
+          printf '%s\n' "$package_list"
+          printf '%s\n' "$package_list" | awk '{print $1}' | grep -Fxq mca_gz_ros2_control_adapter
+          colcon build --base-paths ros2 --packages-select mca_gz_ros2_control_adapter --merge-install
+          test -f install/mca_gz_ros2_control_adapter/lib/libmca_gz_ros2_control_adapter.so
           set +u
           source install/setup.bash
           set -u

@@ -40,7 +40,7 @@ jobs:
             libgz-math7-dev libgz-transport13-dev libgz-msgs10-dev \
             ros-jazzy-gz-ros2-control ros-jazzy-controller-manager ros-jazzy-ros2controlcli \
             ros-jazzy-forward-command-controller ros-jazzy-joint-state-broadcaster \
-            ros-jazzy-ament-cmake-gtest ros-jazzy-robot-state-publisher
+            ros-jazzy-ament-cmake-gtest ros-jazzy-robot-state-publisher ros-jazzy-ros-gz-bridge
 
       - name: Build MCA Gazebo ros2_control adapter
         shell: bash
@@ -116,10 +116,9 @@ jobs:
           PY
           grep -F "<parameters>$config</parameters>" "$world"
 
-          # Jazzy controller_manager no longer accepts robot_description as a
-          # parameter: gz_ros2_control waits for the transient-local topic. Start
-          # robot_state_publisher first so its latched URDF is available when the
-          # Gazebo plugin creates controller_manager.
+          # Prepare the robot description, but do not publish it until the
+          # Gazebo -> ROS clock bridge is live. The controller manager and
+          # broadcasters use_sim_time=true and otherwise cannot advance timers.
           python3 - "$urdf" "$robot_description_params" <<'PY'
           import sys
           from pathlib import Path
@@ -134,15 +133,76 @@ jobs:
           Path(sys.argv[2]).write_text(yaml.safe_dump(params, sort_keys=False))
           PY
 
-          ros2 run robot_state_publisher robot_state_publisher --ros-args --params-file "$robot_description_params" >"$robot_state_publisher_log" 2>&1 &
-          rsp_pid=$!
-          cleanup_robot_state_publisher() {
+          cd "$GITHUB_WORKSPACE"
+          gz sim -s -r -v 4 "$world" >"$gazebo_log" 2>&1 &
+          gz_pid=$!
+          clock_bridge_log="$GITHUB_WORKSPACE/clock-bridge.log"
+          ros2 run ros_gz_bridge parameter_bridge /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock >"$clock_bridge_log" 2>&1 &
+          clock_bridge_pid=$!
+
+          cleanup() {
             if [ -n "${rsp_pid:-}" ]; then
               kill "$rsp_pid" 2>/dev/null || true
               wait "$rsp_pid" 2>/dev/null || true
             fi
+            if [ -n "${state_pid:-}" ]; then
+              kill "$state_pid" 2>/dev/null || true
+              wait "$state_pid" 2>/dev/null || true
+            fi
+            if [ -n "${publisher_pid:-}" ]; then
+              kill "$publisher_pid" 2>/dev/null || true
+              wait "$publisher_pid" 2>/dev/null || true
+            fi
+            if [ -n "${clock_bridge_pid:-}" ]; then
+              kill "$clock_bridge_pid" 2>/dev/null || true
+              wait "$clock_bridge_pid" 2>/dev/null || true
+            fi
+            if [ -n "${gz_pid:-}" ]; then
+              kill -INT "$gz_pid" 2>/dev/null || true
+              for _ in $(seq 1 5); do
+                kill -0 "$gz_pid" 2>/dev/null || break
+                sleep 1
+              done
+              kill -KILL "$gz_pid" 2>/dev/null || true
+              wait "$gz_pid" 2>/dev/null || true
+            fi
           }
+          trap cleanup EXIT
 
+          echo "=== Waiting for Gazebo ROS clock bridge ==="
+          clock_ready=false
+          for _ in $(seq 1 30); do
+            if ! kill -0 "$gz_pid" 2>/dev/null; then
+              echo "Gazebo exited before publishing its clock"
+              cat "$gazebo_log" || true
+              exit 1
+            fi
+            if ! kill -0 "$clock_bridge_pid" 2>/dev/null; then
+              echo "ros_gz_bridge exited before bridging /clock"
+              cat "$clock_bridge_log" || true
+              exit 1
+            fi
+            if timeout 2s ros2 topic echo /clock rosgraph_msgs/msg/Clock --once >"$GITHUB_WORKSPACE/clock-sample.log" 2>&1; then
+              clock_ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$clock_ready" != true ]; then
+            echo "ROS /clock did not receive a Gazebo clock sample"
+            cat "$clock_bridge_log" || true
+            cat "$gazebo_log" || true
+            exit 1
+          fi
+          echo "=== ROS /clock bridge is publishing ==="
+          ros2 topic info -v /clock
+          cat "$GITHUB_WORKSPACE/clock-sample.log"
+
+          # The gz_ros2_control plugin is waiting for this transient-local
+          # topic. Publishing only after /clock is live prevents controller
+          # manager initialization against an unadvanced ROS clock.
+          ros2 run robot_state_publisher robot_state_publisher --ros-args --params-file "$robot_description_params" >"$robot_state_publisher_log" 2>&1 &
+          rsp_pid=$!
           robot_description_ready=false
           for _ in $(seq 1 20); do
             if ! kill -0 "$rsp_pid" 2>/dev/null; then
@@ -163,31 +223,6 @@ jobs:
           fi
           echo "=== robot_description publisher ==="
           ros2 topic info -v /robot_description
-
-          cd "$GITHUB_WORKSPACE"
-          gz sim -s -r -v 4 "$world" >"$gazebo_log" 2>&1 &
-          gz_pid=$!
-          cleanup() {
-            cleanup_robot_state_publisher
-            if [ -n "${state_pid:-}" ]; then
-              kill "$state_pid" 2>/dev/null || true
-              wait "$state_pid" 2>/dev/null || true
-            fi
-            if [ -n "${publisher_pid:-}" ]; then
-              kill "$publisher_pid" 2>/dev/null || true
-              wait "$publisher_pid" 2>/dev/null || true
-            fi
-            if [ -n "${gz_pid:-}" ]; then
-              kill -INT "$gz_pid" 2>/dev/null || true
-              for _ in $(seq 1 5); do
-                kill -0 "$gz_pid" 2>/dev/null || break
-                sleep 1
-              done
-              kill -KILL "$gz_pid" 2>/dev/null || true
-              wait "$gz_pid" 2>/dev/null || true
-            fi
-          }
-          trap cleanup EXIT
 
           echo "=== Waiting for controller_manager ==="
           manager_ready=false

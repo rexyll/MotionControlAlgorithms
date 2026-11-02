@@ -66,10 +66,18 @@ jobs:
           export ROS_DOMAIN_ID=47
           export GZ_PARTITION="mca-ros2-control-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           export GZ_SIM_SYSTEM_PLUGIN_PATH="$GITHUB_WORKSPACE/install/mca_gz_ros2_control_adapter/lib:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
-          world="$GITHUB_WORKSPACE/install/mca_gz_ros2_control_adapter/share/mca_gz_ros2_control_adapter/test/worlds/closed_loop.sdf"
-          config="$GITHUB_WORKSPACE/install/mca_gz_ros2_control_adapter/share/mca_gz_ros2_control_adapter/test/closed_loop_controller.yaml"
+          # Launch the checked-out fixture directly.  The installed package is still
+          # used for plugin discovery and $(find ...) resolution, but the world path
+          # itself must not depend on CMake/colcon install layout.
+          world="$GITHUB_WORKSPACE/ros2/mca_gz_ros2_control_adapter/test/worlds/closed_loop.sdf"
+          config="$GITHUB_WORKSPACE/ros2/mca_gz_ros2_control_adapter/test/closed_loop_controller.yaml"
           gazebo_log="$GITHUB_WORKSPACE/gazebo-ros2-control.log"
           state_log="$GITHUB_WORKSPACE/joint-states.log"
+
+          echo "=== Closed-loop fixture paths ==="
+          printf 'world=%s\nconfig=%s\n' "$world" "$config"
+          test -f "$world"
+          test -f "$config"
 
           gz sim -s -r -v 4 "$world" >"$gazebo_log" 2>&1 &
           gz_pid=$!

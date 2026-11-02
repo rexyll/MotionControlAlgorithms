@@ -35,6 +35,7 @@
 #include "mca/hardware/drive_commands.hpp"
 #include "mca/hardware/cia402_profile.hpp"
 #include "mca/hardware/canopen.hpp"
+#include "mca/hardware/ethercat_master.hpp"
 #include "mca/hardware/diagnostics.hpp"
 #include "mca/hardware/fault_injectable_virtual_joint_device.hpp"
 #include "mca/hardware/virtual_joint_device.hpp"

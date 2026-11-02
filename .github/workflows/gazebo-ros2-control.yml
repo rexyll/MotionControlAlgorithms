@@ -345,19 +345,33 @@ jobs:
               raise SystemExit("closed-loop effort command produced no measurable joint motion")
           PY
 
+          # Jazzy's manual set_hardware_component_state transition does not
+          # automatically deactivate controllers that claim the component's
+          # interfaces (see ros-controls/ros2_control#3444). Stop every
+          # dependent controller explicitly before taking hardware offline.
+          echo "=== Deactivating controllers before hardware ==="
+          ros2 control set_controller_state effort_controller inactive
+          ros2 control set_controller_state joint_state_broadcaster inactive
+          ros2 control list_controllers
+          ros2 control list_controllers | grep -F 'effort_controller' | grep -F 'inactive'
+          ros2 control list_controllers | grep -F 'joint_state_broadcaster' | grep -F 'inactive'
+
           echo "=== Deactivating hardware through controller_manager ==="
           ros2 control set_hardware_component_state McaGazeboSystem inactive
           ros2 control list_hardware_components --verbose
           ros2 control list_hardware_components --verbose | grep -A8 -F 'name: McaGazeboSystem' | grep -F 'label=inactive'
-          ros2 control list_controllers
-          if ros2 control list_controllers | grep -F 'effort_controller' | grep -F 'active'; then
-            echo "effort_controller remained active after hardware deactivation"
-            exit 1
-          fi
+          ros2 control list_controllers | grep -F 'effort_controller' | grep -F 'inactive'
+          ros2 control list_controllers | grep -F 'joint_state_broadcaster' | grep -F 'inactive'
 
           echo "=== Re-activating hardware ==="
           ros2 control set_hardware_component_state McaGazeboSystem active
           ros2 control list_hardware_components --verbose | grep -A8 -F 'name: McaGazeboSystem' | grep -F 'label=active'
+
+          echo "=== Re-activating controllers ==="
+          ros2 control set_controller_state joint_state_broadcaster active
+          ros2 control set_controller_state effort_controller active
+          ros2 control list_controllers | grep -F 'joint_state_broadcaster' | grep -F 'active'
+          ros2 control list_controllers | grep -F 'effort_controller' | grep -F 'active'
 
           echo "=== Gazebo / controller_manager diagnostics ==="
           grep -Ei 'error|exception|failed|fatal|mca_gz_ros2_control_adapter|GazeboSystem' "$gazebo_log" | tail -n 120 || true

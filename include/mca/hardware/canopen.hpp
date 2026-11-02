@@ -374,7 +374,6 @@ class CanopenVirtualNode {
       case 0x81U:
       case 0x82U:
         nmt_state_ = CanopenNmtState::Initialising;
-        communication_faulted_ = false;
         break;
       default: return {core::StatusCode::InvalidArgument};
     }

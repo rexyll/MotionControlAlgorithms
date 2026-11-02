@@ -148,6 +148,12 @@ algorithm. Master adapters remain responsible for bounded polling, protocol
 requests and timeouts. Gate 1 remains open until asynchronous mailbox/SDO
 isolation and the full root CI pass.
 
+### Asynchronous SDO/mailbox contract
+
+`EthercatSdoRequest<MaxBytes>` and `EthercatSdoResult<MaxBytes>` are fixed-capacity values. Requests carry a unique nonzero request ID, slave position, CoE object index/subindex, read/write operation, bounded payload or response capacity, and an absolute deadline. Results distinguish Pending, Completed, Aborted (with a nonzero CoE abort code), TimedOut and Failed.
+
+`IEthercatMailbox<MaxBytes>` exposes only nonblocking enqueue/poll operations. Adapter implementations must use a bounded queue, reject duplicate live IDs, enforce request deadlines and return promptly on queue saturation. Queue-full is a runtime/backpressure condition, not permission to block the caller. The cyclic `exchange()` API does not accept mailbox work and must never wait for an SDO result. This interface defines the seam; backend queue scheduling, segmented transfer progression and protocol-specific abort handling remain adapter responsibilities.
+
 ### Gate 2 — SOEM optional adapter
 
 Pin a SOEM release/commit and build only in an opt-in package/CI job. Start with

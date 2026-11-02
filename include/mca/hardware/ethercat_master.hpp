@@ -78,6 +78,89 @@ struct EthercatTopologySnapshot {
   }
 };
 
+enum class EthercatSlaveHealthState : std::uint8_t {
+  Unknown,
+  Present,
+  Lost,
+  Recovering,
+  Fault
+};
+
+struct EthercatSlaveHealth {
+  std::uint16_t station_position{0U};
+  EthercatSlaveHealthState state{EthercatSlaveHealthState::Unknown};
+};
+
+template <std::size_t MaxSlaves>
+struct EthercatSlaveHealthSnapshot {
+  static_assert(MaxSlaves > 0U, "EtherCAT health capacity must be positive");
+
+  std::array<EthercatSlaveHealth, MaxSlaves> slaves{};
+  std::size_t slave_count{0U};
+  std::uint64_t sequence{0U};
+
+  [[nodiscard]] bool valid() const noexcept {
+    if (slave_count == 0U || slave_count > MaxSlaves || sequence == 0U)
+      return false;
+    for (std::size_t i = 0; i < slave_count; ++i) {
+      if (slaves[i].state == EthercatSlaveHealthState::Unknown)
+        return false;
+      for (std::size_t j = 0; j < i; ++j) {
+        if (slaves[i].station_position == slaves[j].station_position)
+          return false;
+      }
+    }
+    return true;
+  }
+};
+
+// A rediscovered bus may reuse a PDO layout only when the complete ordered
+// station identity set is unchanged. AL state/status and snapshot sequence are
+// intentionally excluded; station position and identity fields are not.
+template <std::size_t MaxSlaves>
+constexpr bool ethercat_topology_identity_matches(
+    const EthercatTopologySnapshot<MaxSlaves>& configured,
+    const EthercatTopologySnapshot<MaxSlaves>& rediscovered) noexcept {
+  if (!configured.valid() || !rediscovered.valid() ||
+      configured.slave_count != rediscovered.slave_count)
+    return false;
+  for (std::size_t i = 0; i < configured.slave_count; ++i) {
+    const auto& expected = configured.slaves[i];
+    const auto& actual = rediscovered.slaves[i];
+    if (expected.station_position != actual.station_position ||
+        expected.vendor_id != actual.vendor_id ||
+        expected.product_code != actual.product_code ||
+        expected.revision != actual.revision ||
+        expected.serial_number != actual.serial_number)
+      return false;
+  }
+  return true;
+}
+
+constexpr bool ethercat_slave_health_transition_allowed(
+    EthercatSlaveHealthState from, EthercatSlaveHealthState to) noexcept {
+  if (from == to) return true;
+  switch (from) {
+    case EthercatSlaveHealthState::Unknown:
+      return to == EthercatSlaveHealthState::Present ||
+             to == EthercatSlaveHealthState::Lost ||
+             to == EthercatSlaveHealthState::Fault;
+    case EthercatSlaveHealthState::Present:
+      return to == EthercatSlaveHealthState::Lost ||
+             to == EthercatSlaveHealthState::Fault;
+    case EthercatSlaveHealthState::Lost:
+      return to == EthercatSlaveHealthState::Recovering ||
+             to == EthercatSlaveHealthState::Fault;
+    case EthercatSlaveHealthState::Recovering:
+      return to == EthercatSlaveHealthState::Present ||
+             to == EthercatSlaveHealthState::Lost ||
+             to == EthercatSlaveHealthState::Fault;
+    case EthercatSlaveHealthState::Fault:
+      return to == EthercatSlaveHealthState::Recovering;
+  }
+  return false;
+}
+
 struct EthercatPdoEntry {
   std::uint16_t slave_position{0U};
   std::uint16_t domain_id{0U};

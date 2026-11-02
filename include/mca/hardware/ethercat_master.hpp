@@ -200,6 +200,38 @@ constexpr bool ethercat_al_transition_allowed(EthercatAlState from,
   return false;
 }
 
+// DC health is deliberately modeled separately from AL and CiA 402 state.
+// Unsupported is terminal for a configured domain; a configured clock starts
+// synchronization, reaches Locked only after the adapter reports convergence,
+// and can degrade or be lost without implying an AL transition.
+constexpr bool ethercat_dc_transition_allowed(EthercatDcState from,
+                                               EthercatDcState to) noexcept {
+  if (from == to) return true;
+  switch (from) {
+    case EthercatDcState::Unsupported:
+      return false;
+    case EthercatDcState::NotConfigured:
+      return to == EthercatDcState::Synchronizing;
+    case EthercatDcState::Synchronizing:
+      return to == EthercatDcState::Locked ||
+             to == EthercatDcState::Lost ||
+             to == EthercatDcState::Degraded ||
+             to == EthercatDcState::NotConfigured;
+    case EthercatDcState::Locked:
+      return to == EthercatDcState::Synchronizing ||
+             to == EthercatDcState::Degraded || to == EthercatDcState::Lost ||
+             to == EthercatDcState::NotConfigured;
+    case EthercatDcState::Lost:
+      return to == EthercatDcState::Synchronizing ||
+             to == EthercatDcState::NotConfigured;
+    case EthercatDcState::Degraded:
+      return to == EthercatDcState::Locked ||
+             to == EthercatDcState::Synchronizing ||
+             to == EthercatDcState::Lost || to == EthercatDcState::NotConfigured;
+  }
+  return false;
+}
+
 struct EthercatDomainCycleStatus {
   std::uint16_t domain_id{0U};
   std::uint16_t expected_working_counter{0U};

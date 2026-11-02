@@ -463,3 +463,39 @@ This accepts the dependency-free mode-aware command and transactional batch
 contract plus the existing optional ROS 2/Gazebo integration compatibility.
 It does not claim a physical drive backend, vendor SDK integration, fieldbus
 transport, safety certification or HIL acceptance.
+
+## P12-05b.3 — CiA 402 profile model — accepted 2026-11-02
+
+Added the dependency-free CiA 402 profile model in
+`include/mca/hardware/cia402_profile.hpp`. It decodes the standard Power
+Drive System (PDS) statusword states, exposes statusword flags, maps supported
+CiA 402 operation-mode codes, validates mode selection against per-axis
+capabilities and device mode-switch policy, and maps guarded control actions
+to standard controlword values. The action guard is deliberately not a
+standalone drive executor: the adapter must continue to observe device
+feedback and advance the drive state from actual statuswords.
+
+EtherCAT Application Layer state is represented and decoded independently
+from the CiA 402 PDS state. EtherCAT Operational therefore does not imply
+CiA 402 Operation Enabled. The implementation remains a portable value/model
+layer with no CAN, EtherCAT master, vendor SDK, ROS 2 or OS dependency.
+
+Focused tests cover all recognized PDS states and Unknown, statusword flags,
+controlword values, state/action guards, operation-mode encoding/decoding,
+unsupported modes, per-axis capability checks, device-specific mode-switch
+policy, and the independence of EtherCAT AL and PDS state. A test regression
+initially used the stale `quick_stop` member name after the public field was
+made explicit as `quick_stop_not_active`; the corrected test also verifies
+bit-5 polarity (zero means quick stop active; one means not active).
+
+Acceptance evidence: Root CI [Run #1430](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41408825009)
+passed on code SHA `355469c296c28f8adf43460be24ef6a7ccf194c0`. Both Linux and
+Windows jobs completed Configure, Build and Test successfully, including the
+registered CiA 402 profile regressions and the dedicated P8-39 through P8-46
+regression suites.
+
+This accepts the portable CiA 402 profile decoder, mode mapping/validation
+and guarded controlword model only. It is not a complete asynchronous drive
+state-machine executor, a vendor firmware conformance result, a safety-rated
+stop implementation, a fieldbus transport, physical-driver validation or HIL
+evidence. P12-05c protocol SIL and P12-05d/P12-06 hardware work remain open.

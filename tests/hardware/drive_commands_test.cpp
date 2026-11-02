@@ -36,10 +36,12 @@ DriveCommandBatch<3> make_batch(std::uint64_t sequence) {
   batch.metadata.deadline_ns = 5000000U;
   batch.metadata.clock_domain = HardwareClockDomain::HostMonotonic;
   batch.setpoints[0].axis = 0;
+  batch.setpoints[0].control_mode = DriveControlMode::Position;
   batch.setpoints[0].operation_mode =
       DriveOperationMode::CyclicSynchronousPosition;
   batch.setpoints[0].position_rad = 1.25;
   batch.setpoints[1].axis = 1;
+  batch.setpoints[1].control_mode = DriveControlMode::Torque;
   batch.setpoints[1].operation_mode =
       DriveOperationMode::CyclicSynchronousTorque;
   batch.setpoints[1].torque_nm = 0.8;
@@ -52,12 +54,11 @@ class TransactionalFakeSink final : public IDriveCommandSink<3> {
       : caps_(caps) {}
 
   mca::core::Status write_batch(const DriveCommandBatch<3>& batch,
-                           std::uint64_t now_ns,
-                           HardwareClockDomain domain) noexcept override {
+                                std::uint64_t now_ns,
+                                HardwareClockDomain domain) noexcept override {
     const auto status = validate_drive_command_batch(
         caps_, batch, now_ns, domain, last_sequence_);
     if (!status.ok()) return status;
-    // Commit only after every element and metadata field has passed.
     accepted_ = batch;
     last_sequence_ = batch.metadata.sequence;
     ++writes_;
@@ -96,13 +97,13 @@ TEST(DriveCommandBatch, RejectsUnsupportedModesAxesAndDuplicateAxes) {
   auto batch = make_batch(1);
   batch.setpoints[0].operation_mode =
       DriveOperationMode::CyclicSynchronousVelocity;
+  batch.setpoints[0].control_mode = DriveControlMode::Velocity;
   batch.setpoints[0].velocity_rad_s = 2.0;
   EXPECT_TRUE(validate_drive_command_batch(
                   caps, batch, 100U, HardwareClockDomain::HostMonotonic, 0U)
                   .ok());
 
-  batch.setpoints[0].operation_mode =
-      DriveOperationMode::ProfileVelocity;
+  batch.setpoints[0].operation_mode = DriveOperationMode::ProfileVelocity;
   EXPECT_EQ(validate_drive_command_batch(
                 caps, batch, 100U, HardwareClockDomain::HostMonotonic, 0U)
                 .code,
@@ -136,7 +137,6 @@ TEST(DriveCommandBatch, RejectsStaleExpiredAndClockMismatchedCommands) {
 }
 
 TEST(DriveCommandBatch, RejectsNonFiniteActiveSetpointAndMalformedBatch) {
-  const auto caps = make_capabilities();
   auto batch = make_batch(1);
   batch.setpoints[0].position_rad =
       std::numeric_limits<double>::quiet_NaN();
@@ -148,7 +148,6 @@ TEST(DriveCommandBatch, RejectsNonFiniteActiveSetpointAndMalformedBatch) {
   batch.metadata.sequence = 0;
   EXPECT_FALSE(batch.valid_shape());
 }
-
 
 TEST(DriveCommandBatch, KeepsVendorCurrentControlSeparateFromCiA402Modes) {
   const auto caps = make_capabilities();

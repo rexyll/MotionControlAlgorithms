@@ -1,0 +1,192 @@
+#include <cstdint>
+
+#include <gtest/gtest.h>
+
+#include "mca/hardware/canopen.hpp"
+
+namespace {
+
+using namespace mca::hardware;
+
+CanopenCanFrame nmt(std::uint8_t command, std::uint8_t node = 1U) {
+  CanopenCanFrame frame;
+  frame.cob_id = 0x000U;
+  frame.dlc = 2U;
+  frame.data[0] = command;
+  frame.data[1] = node;
+  return frame;
+}
+
+CanopenCanFrame sdo(std::uint8_t command, std::uint16_t index,
+                    std::uint8_t subindex, std::uint32_t value = 0U) {
+  CanopenCanFrame frame;
+  frame.cob_id = 0x601U;
+  frame.dlc = 8U;
+  frame.data[0] = command;
+  frame.data[1] = static_cast<std::uint8_t>(index & 0xFFU);
+  frame.data[2] = static_cast<std::uint8_t>(index >> 8U);
+  frame.data[3] = subindex;
+  for (std::size_t i = 0; i < 4U; ++i)
+    frame.data[4U + i] = static_cast<std::uint8_t>((value >> (8U * i)) & 0xFFU);
+  return frame;
+}
+
+TEST(CanopenFrame, ValidatesStandardCanIdentifierAndDlc) {
+  CanopenCanFrame frame;
+  EXPECT_TRUE(frame.valid());
+  frame.cob_id = 0x800U;
+  EXPECT_FALSE(frame.valid());
+  frame.cob_id = 0x7FFU;
+  frame.dlc = 9U;
+  EXPECT_FALSE(frame.valid());
+}
+
+TEST(CanopenNmt, HandlesStartStopPreOperationalAndResetCommands) {
+  CanopenVirtualNode<8> node(1U);
+  EXPECT_EQ(node.nmt_state(), CanopenNmtState::PreOperational);
+  CanopenCanFrame response;
+  bool has_response = true;
+
+  EXPECT_TRUE(node.process(nmt(0x01U), response, has_response).ok());
+  EXPECT_EQ(node.nmt_state(), CanopenNmtState::Operational);
+  EXPECT_FALSE(has_response);
+  EXPECT_TRUE(node.process(nmt(0x02U), response, has_response).ok());
+  EXPECT_EQ(node.nmt_state(), CanopenNmtState::Stopped);
+  EXPECT_TRUE(node.process(nmt(0x80U), response, has_response).ok());
+  EXPECT_EQ(node.nmt_state(), CanopenNmtState::PreOperational);
+  EXPECT_TRUE(node.process(nmt(0x81U), response, has_response).ok());
+  EXPECT_EQ(node.nmt_state(), CanopenNmtState::Initialising);
+  EXPECT_EQ(node.process(nmt(0x03U), response, has_response).code,
+            mca::core::StatusCode::InvalidArgument);
+  EXPECT_EQ(node.process(nmt(0x01U, 2U), response, has_response).code,
+            mca::core::StatusCode::InvalidArgument);
+}
+
+TEST(CanopenHeartbeat, ObservesProducerStateAndDetectsTimeoutRecovery) {
+  CanopenHeartbeatMonitor monitor(7U, 100U);
+  EXPECT_TRUE(monitor.valid());
+  CanopenCanFrame heartbeat;
+  heartbeat.cob_id = 0x707U;
+  heartbeat.dlc = 1U;
+  heartbeat.data[0] = 0x05U;
+  EXPECT_TRUE(monitor.observe(heartbeat, 1000U));
+  EXPECT_EQ(monitor.last_state(), 0x05U);
+  EXPECT_FALSE(monitor.poll(1099U));
+  EXPECT_TRUE(monitor.poll(1100U));
+  EXPECT_TRUE(monitor.timed_out());
+  EXPECT_TRUE(monitor.observe(heartbeat, 1200U));
+  EXPECT_FALSE(monitor.timed_out());
+  EXPECT_FALSE(monitor.poll(1199U));
+  heartbeat.data[0] = 0x06U;
+  EXPECT_FALSE(monitor.observe(heartbeat, 1300U));
+}
+
+TEST(CanopenEmcy, DecodesErrorRegisterAndPreservesManufacturerBytes) {
+  CanopenCanFrame frame;
+  frame.cob_id = 0x081U;
+  frame.dlc = 8U;
+  frame.data = {0x34U, 0x12U, 0x08U, 1U, 2U, 3U, 4U, 5U};
+  CanopenEmcy emcy;
+  ASSERT_TRUE(decode_canopen_emcy(frame, 1U, emcy));
+  EXPECT_EQ(emcy.error_code, 0x1234U);
+  EXPECT_EQ(emcy.error_register, 0x08U);
+  EXPECT_EQ(emcy.manufacturer_data[0], 1U);
+  EXPECT_EQ(emcy.manufacturer_data[4], 5U);
+  frame.dlc = 7U;
+  EXPECT_FALSE(decode_canopen_emcy(frame, 1U, emcy));
+  EXPECT_EQ(emcy.error_code, 0x1234U);
+}
+
+TEST(CanopenSdo, SupportsExpeditedUploadDownloadAndAbortCodes) {
+  CanopenVirtualNode<8> node(1U);
+  ASSERT_TRUE(node.add_object({0x6040U, 0U, 0x000FU, 2U, true, true}).ok());
+  CanopenCanFrame response;
+  bool has_response = false;
+
+  ASSERT_TRUE(node.process(sdo(0x40U, 0x6040U, 0U), response, has_response).ok());
+  ASSERT_TRUE(has_response);
+  EXPECT_EQ(response.cob_id, 0x581U);
+  EXPECT_EQ(response.data[0], 0x4BU);
+  EXPECT_EQ(response.data[4], 0x0FU);
+  EXPECT_EQ(response.data[5], 0x00U);
+
+  ASSERT_TRUE(node.process(sdo(0x2BU, 0x6040U, 0U, 0x0006U),
+                           response, has_response).ok());
+  EXPECT_EQ(response.data[0], 0x60U);
+  ASSERT_TRUE(node.process(sdo(0x40U, 0x6040U, 0U), response, has_response).ok());
+  EXPECT_EQ(response.data[4], 0x06U);
+
+  ASSERT_TRUE(node.process(sdo(0x40U, 0x2000U, 0U), response, has_response).ok());
+  EXPECT_EQ(response.data[0], 0x80U);
+  EXPECT_EQ(response.data[4], 0x00U);
+  EXPECT_EQ(response.data[5], 0x00U);
+  EXPECT_EQ(response.data[6], 0x02U);
+  EXPECT_EQ(response.data[7], 0x06U);
+
+  ASSERT_TRUE(node.add_object({0x2001U, 0U, 0x12345678U, 4U, true, false}).ok());
+  ASSERT_TRUE(node.process(sdo(0x23U, 0x2001U, 0U, 0U),
+                           response, has_response).ok());
+  EXPECT_EQ(response.data[0], 0x80U);
+  EXPECT_EQ(response.data[4], 0x02U);
+  EXPECT_EQ(response.data[5], 0x01U);
+}
+
+TEST(CanopenPdo, AppliesRpdoAtomicallyAndBuildsTpdo) {
+  CanopenVirtualNode<8> node(1U);
+  ASSERT_TRUE(node.add_object({0x2000U, 0U, 0U, 2U, true, true}).ok());
+  ASSERT_TRUE(node.add_object({0x2001U, 0U, 0U, 2U, true, true}).ok());
+  ASSERT_TRUE(node.add_object({0x2002U, 0U, 0x12345678U, 4U, true, false}).ok());
+
+  CanopenPdoMapping<4U> rpdo;
+  rpdo.count = 2U;
+  rpdo.entries[0] = {0x2000U, 0U, 16U};
+  rpdo.entries[1] = {0x2001U, 0U, 16U};
+  ASSERT_TRUE(rpdo.valid());
+  node.set_rpdo1_mapping(rpdo);
+
+  CanopenPdoMapping<4U> tpdo;
+  tpdo.count = 1U;
+  tpdo.entries[0] = {0x2002U, 0U, 32U};
+  ASSERT_TRUE(tpdo.valid());
+  node.set_tpdo1_mapping(tpdo);
+
+  CanopenCanFrame response;
+  bool has_response = false;
+  ASSERT_TRUE(node.process(nmt(0x01U), response, has_response).ok());
+
+  CanopenCanFrame rpdo_frame;
+  rpdo_frame.cob_id = 0x201U;
+  rpdo_frame.dlc = 4U;
+  rpdo_frame.data = {0x34U, 0x12U, 0xCDU, 0xABU, 0U, 0U, 0U, 0U};
+  ASSERT_TRUE(node.process(rpdo_frame, response, has_response).ok());
+
+  CanopenCanFrame tpdo_frame;
+  ASSERT_TRUE(node.make_tpdo1(tpdo_frame));
+  EXPECT_EQ(tpdo_frame.cob_id, 0x181U);
+  EXPECT_EQ(tpdo_frame.dlc, 4U);
+  EXPECT_EQ(tpdo_frame.data[0], 0x78U);
+  EXPECT_EQ(tpdo_frame.data[3], 0x12U);
+
+  auto invalid_map = rpdo;
+  invalid_map.entries[1].index = 0x2FFFU;
+  node.set_rpdo1_mapping(invalid_map);
+  rpdo_frame.data[0] = 0xFFU;
+  EXPECT_EQ(node.process(rpdo_frame, response, has_response).code,
+            mca::core::StatusCode::ConstraintViolation);
+}
+
+TEST(CanopenRecovery, BusOffInhibitsProtocolAndRecoveryRestoresIt) {
+  CanopenVirtualNode<4> node(1U);
+  CanopenCanFrame response;
+  bool has_response = false;
+  node.set_bus_off();
+  EXPECT_TRUE(node.communication_faulted());
+  EXPECT_EQ(node.process(nmt(0x01U), response, has_response).code,
+            mca::core::StatusCode::RuntimeError);
+  node.set_bus_recovered();
+  EXPECT_FALSE(node.communication_faulted());
+  EXPECT_TRUE(node.process(nmt(0x01U), response, has_response).ok());
+  EXPECT_EQ(node.nmt_state(), CanopenNmtState::Operational);
+}
+
+}  // namespace

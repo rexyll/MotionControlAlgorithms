@@ -1,0 +1,190 @@
+name: gazebo-ros2-control
+
+concurrency:
+  group: gazebo-ros2-control-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - "ros2/mca_gz_ros2_control_adapter/**"
+      - "include/mca/hardware/**"
+      - ".github/workflows/gazebo-ros2-control.yml"
+  pull_request:
+    paths:
+      - "ros2/mca_gz_ros2_control_adapter/**"
+      - "include/mca/hardware/**"
+      - ".github/workflows/gazebo-ros2-control.yml"
+
+jobs:
+  closed-loop:
+    runs-on: ubuntu-24.04
+    container:
+      image: ros:jazzy-ros-base
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Gazebo Harmonic and ros2_control dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl gnupg cmake g++ pkg-config
+          curl -fsSL https://packages.osrfoundation.org/gazebo.gpg -o /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] https://packages.osrfoundation.org/gazebo/ubuntu-stable $(. /etc/os-release && echo ${UBUNTU_CODENAME}) main" > /etc/apt/sources.list.d/gazebo-stable.list
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            gz-harmonic libgz-sim8-dev libgz-plugin2-dev libgz-common5-dev \
+            libgz-math7-dev libgz-transport13-dev libgz-msgs10-dev \
+            ros-jazzy-gz-ros2-control ros-jazzy-controller-manager \
+            ros-jazzy-forward-command-controller ros-jazzy-joint-state-broadcaster \
+            ros-jazzy-ament-cmake-gtest
+
+      - name: Build MCA Gazebo ros2_control adapter
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          colcon build --packages-select mca_gz_ros2_control_adapter --merge-install
+          set +u
+          source install/setup.bash
+          set -u
+
+      - name: Run live controller_manager closed-loop acceptance
+        shell: bash
+        run: |
+          set -eo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          set -u
+
+          export ROS_DOMAIN_ID=47
+          export GZ_PARTITION="mca-ros2-control-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          export GZ_SIM_SYSTEM_PLUGIN_PATH="$GITHUB_WORKSPACE/install/mca_gz_ros2_control_adapter/lib:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
+          world="$GITHUB_WORKSPACE/install/mca_gz_ros2_control_adapter/share/mca_gz_ros2_control_adapter/test/worlds/closed_loop.sdf"
+          config="$GITHUB_WORKSPACE/install/mca_gz_ros2_control_adapter/share/mca_gz_ros2_control_adapter/test/closed_loop_controller.yaml"
+          gazebo_log="$GITHUB_WORKSPACE/gazebo-ros2-control.log"
+          state_log="$GITHUB_WORKSPACE/joint-states.log"
+
+          gz sim -s -r -v 4 "$world" >"$gazebo_log" 2>&1 &
+          gz_pid=$!
+          cleanup() {
+            if [ -n "${state_pid:-}" ]; then
+              kill "$state_pid" 2>/dev/null || true
+              wait "$state_pid" 2>/dev/null || true
+            fi
+            if [ -n "${publisher_pid:-}" ]; then
+              kill "$publisher_pid" 2>/dev/null || true
+              wait "$publisher_pid" 2>/dev/null || true
+            fi
+            if [ -n "${gz_pid:-}" ]; then
+              kill -INT "$gz_pid" 2>/dev/null || true
+              for _ in $(seq 1 5); do
+                kill -0 "$gz_pid" 2>/dev/null || break
+                sleep 1
+              done
+              kill -KILL "$gz_pid" 2>/dev/null || true
+              wait "$gz_pid" 2>/dev/null || true
+            fi
+          }
+          trap cleanup EXIT
+
+          echo "=== Waiting for controller_manager ==="
+          manager_ready=false
+          for _ in $(seq 1 60); do
+            if ros2 service list 2>/dev/null | grep -Fxq '/controller_manager/list_controllers'; then
+              manager_ready=true
+              break
+            fi
+            kill -0 "$gz_pid" 2>/dev/null || break
+            sleep 1
+          done
+          if [ "$manager_ready" != true ]; then
+            echo "controller_manager did not become available"
+            cat "$gazebo_log" || true
+            exit 1
+          fi
+
+          echo "=== Hardware before controller activation ==="
+          ros2 control list_hardware_components --verbose
+          ros2 control list_hardware_interfaces --verbose
+          ros2 control list_hardware_components --verbose | grep -A8 -F 'name: McaGazeboSystem' | grep -F 'label=active'
+
+          echo "=== Loading controllers ==="
+          ros2 run controller_manager spawner joint_state_broadcaster \
+            --controller-manager /controller_manager \
+            --param-file "$config" \
+            --controller-manager-timeout 30
+          ros2 run controller_manager spawner effort_controller \
+            --controller-manager /controller_manager \
+            --param-file "$config" \
+            --controller-manager-timeout 30
+          ros2 control list_controllers
+          ros2 control list_controllers | grep -F 'joint_state_broadcaster' | grep -F 'active'
+          ros2 control list_controllers | grep -F 'effort_controller' | grep -F 'active'
+
+          echo "=== Capturing joint state while applying effort ==="
+          timeout 7s ros2 topic echo /joint_states sensor_msgs/msg/JointState >"$state_log" 2>&1 &
+          state_pid=$!
+          sleep 1
+          timeout 4s ros2 topic pub --rate 100 /effort_controller/commands \
+            std_msgs/msg/Float64MultiArray '{data: [1.0, 1.0]}' > command-publisher.log 2>&1 &
+          publisher_pid=$!
+          wait "$publisher_pid" || true
+          sleep 1
+
+          python3 - "$state_log" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          text = Path(sys.argv[1]).read_text(errors="replace")
+          positions = []
+          for match in re.finditer(r"position:\s*\[([^\]]+)\]", text):
+              values = []
+              for token in match.group(1).split(','):
+                  try:
+                      values.append(float(token.strip()))
+                  except ValueError:
+                      pass
+              if len(values) >= 2:
+                  positions.append(values[:2])
+          if len(positions) < 5:
+              raise SystemExit(f"insufficient joint state samples: {len(positions)}")
+          first = positions[0]
+          last = positions[-1]
+          delta = [abs(last[i] - first[i]) for i in range(2)]
+          print(f"first_position={first}")
+          print(f"last_position={last}")
+          print(f"absolute_delta={delta}")
+          if max(delta) < 1.0e-4:
+              raise SystemExit("closed-loop effort command produced no measurable joint motion")
+          PY
+
+          echo "=== Deactivating hardware through controller_manager ==="
+          ros2 control set_hardware_component_state McaGazeboSystem inactive
+          ros2 control list_hardware_components --verbose
+          ros2 control list_hardware_components --verbose | grep -A8 -F 'name: McaGazeboSystem' | grep -F 'label=inactive'
+          ros2 control list_controllers
+          if ros2 control list_controllers | grep -F 'effort_controller' | grep -F 'active'; then
+            echo "effort_controller remained active after hardware deactivation"
+            exit 1
+          fi
+
+          echo "=== Re-activating hardware ==="
+          ros2 control set_hardware_component_state McaGazeboSystem active
+          ros2 control list_hardware_components --verbose | grep -A8 -F 'name: McaGazeboSystem' | grep -F 'label=active'
+
+          echo "=== Gazebo / controller_manager diagnostics ==="
+          grep -Ei 'error|exception|failed|fatal|mca_gz_ros2_control_adapter|GazeboSystem' "$gazebo_log" | tail -n 120 || true
+          if grep -Eiq 'Segmentation fault|AddressSanitizer|terminate called|uncaught exception' "$gazebo_log"; then
+            echo "Gazebo/controller_manager reported a fatal runtime failure"
+            exit 1
+          fi
+
+          echo "Live Gazebo + controller_manager closed-loop acceptance passed"

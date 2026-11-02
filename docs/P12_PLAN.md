@@ -501,7 +501,7 @@ stop implementation, a fieldbus transport, physical-driver validation or HIL
 evidence. P12-05c protocol SIL and P12-05d/P12-06 hardware work remain open.
 
 
-## P12-05c.1 — CANopen SIL and optional SocketCAN transport — in progress
+## P12-05c.1 — CANopen SIL and optional SocketCAN transport — accepted 2026-11-02
 
 The dependency-free CANopen transport seam and virtual-node SIL model cover NMT,
 heartbeat monitoring, EMCY decoding, expedited and segmented SDO, PDO mapping
@@ -514,15 +514,25 @@ existing non-blocking `ICanopenTransport` contract. It is isolated in
 `include/mca/hardware/socketcan_transport.hpp`, is not included by the portable
 `mca/mca.hpp` umbrella, and is disabled by default. Linux CI enables
 `MCA_ENABLE_SOCKETCAN`; Windows builds the portable core with the option
-disabled. Linux CI now attempts to provision `vcan0` and, when permitted,
-runs a sender/receiver frame round-trip test plus the empty non-blocking receive
-test. If runner capabilities do not permit provisioning, the runtime test
-explicitly skips. Runtime details: [P12 SocketCAN](P12_SOCKETCAN.md).
+disabled. Linux CI provisions `vcan0` when runner permissions permit and
+executes sender/receiver round-trip and empty non-blocking receive tests.
 
-The runtime fixture validates virtual CAN socket binding and classic-frame
+Acceptance evidence:
+- Root CI [Run #1477](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41432214810)
+  passed on `main` SHA `bc8983ed90f3d2d4d8e9c962855532b21c5308a1`.
+  Both Linux and Windows Configure, Build, Test, and P8-39 through P8-46
+  regression steps completed successfully.
+- Linux ran the complete SocketCAN-enabled test suite: **662/662 passed**,
+  including
+  `SocketCanTransport.ExchangesClassicCanFramesOverVcanWhenProvisioned`.
+  The vcan round-trip test executed and passed; it was not skipped.
+- The Linux and Windows jobs in the preceding code-validation run
+  [Run #1474](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41431946941)
+  also completed successfully.
+
+The runtime fixture validates Linux virtual-CAN socket binding and classic-frame
 transport only. It does not prove physical CAN controller Bus-Off/restart
 notifications, arbitration under load, cycle timing, vendor interoperability,
-physical hardware or HIL. P12-05c.1 remains open until the latest Linux/Windows
-root CI validates this fixture and the CANopen protocol/transport acceptance
-evidence is reviewed; physical controller fault injection remains a later
-hardware validation item.
+physical hardware or HIL. Those remain explicit hardware validation items.
+See [P12 SocketCAN](P12_SOCKETCAN.md).
+

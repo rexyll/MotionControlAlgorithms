@@ -93,7 +93,7 @@
       </ros2_control>
 
       <plugin filename="libgz_ros2_control-system.so" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
-        <parameters>ros2/mca_gz_ros2_control_adapter/test/closed_loop_controller.yaml</parameters>
+        <parameters>$(find mca_gz_ros2_control_adapter)/test/closed_loop_controller.yaml</parameters>
         <hold_joints>false</hold_joints>
       </plugin>
     </model>

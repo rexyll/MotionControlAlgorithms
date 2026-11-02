@@ -15,6 +15,7 @@
 #include <string_view>
 
 #include <linux/can.h>
+#include <linux/can/error.h>
 #include <linux/can/raw.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
@@ -29,7 +30,7 @@ class SocketCanTransport final : public ICanopenTransport {
  public:
   explicit SocketCanTransport(std::string_view interface_name) noexcept {
     if (interface_name.empty() || interface_name.size() >= IFNAMSIZ ||
-        interface_name.find('\\0') != std::string_view::npos) {
+        interface_name.find('\0') != std::string_view::npos) {
       status_ = {core::StatusCode::InvalidArgument};
       return;
     }

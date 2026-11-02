@@ -573,8 +573,9 @@ license. SOEM 2.0.0 also requires CMake 3.28 (MCA root remains 3.20) and its
 Windows build links WinPcap libraries, so the adapter must be separately built
 and opt-in rather than injected into the default root build.
 
-IgH/EtherLab 1.6.8 (`stable-1.6`) is the preferred candidate for a Linux-only
-deployment path; resolve the tag to an immutable SHA before implementation.
+IgH/EtherLab 1.6.13 (`stable-1.6`, commit
+`61cc654f5b721ddd54df0f58bdd34106d91c5359`) is the preferred candidate for a
+Linux-only deployment path; pin this immutable SHA before implementation.
 Official EtherLab documentation recommends `stable-1.6` for production and
 documents a GPLv2 master/kernel component plus an LGPLv2.1 userspace
 `libethercat`. The manual also documents userspace SDO requests/handlers,

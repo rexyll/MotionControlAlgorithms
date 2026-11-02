@@ -231,12 +231,18 @@ GazeboSystem::on_export_state_interfaces() {
 std::vector<hardware_interface::CommandInterface::SharedPtr>
 GazeboSystem::on_export_command_interfaces() {
   auto handles = hardware_interface::SystemInterface::on_export_command_interfaces();
-  try {
-    for (std::size_t i = 0; i < joint_names_.size(); ++i) {
-      effort_command_handles_[i] = get_command_interface_handle(effort_command_names_[i]);
+  for (std::size_t i = 0; i < joint_names_.size(); ++i) {
+    auto handle = get_command_interface_handle(effort_command_names_[i]);
+    // ros2_control initializes an unspecified double command interface to NaN.
+    // Seed effort commands with a safe zero before the first controller update.
+    if (!handle || !set_command(handle, 0.0, true)) {
+      RCLCPP_ERROR(get_logger(),
+                   "GazeboSystem could not initialize zero command for '%s'",
+                   effort_command_names_[i].c_str());
+      effort_command_handles_ = {};
+      return {};
     }
-  } catch (...) {
-    effort_command_handles_ = {};
+    effort_command_handles_[i] = std::move(handle);
   }
   return handles;
 }

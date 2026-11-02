@@ -123,6 +123,7 @@ TEST(EthercatTopology, RejectsEmptyDuplicateAndOverCapacitySnapshots) {
 TEST(EthercatPdoLayout, AcceptsBitPreciseMappingsAndRejectsInvalidRanges) {
   auto layout = make_valid_layout();
   EXPECT_TRUE(layout.valid(1U));
+  layout.entries[1].direction = EthercatPdoDirection::Input;
   layout.entries[1].bit_offset = 1U;
   layout.entries[1].bit_length = 8U;
   EXPECT_FALSE(layout.valid(1U));
@@ -169,7 +170,7 @@ TEST(EthercatWorkingCounter, ClassifiesExpectedAndObservedValues) {
 TEST(EthercatMasterContract, FakeMasterExercisesLifecycleAndCyclicExchange) {
   FakeEthercatMaster master;
   EXPECT_EQ(master.state(), EthercatMasterState::Offline);
-  EXPECT_EQ(master.activate().code, core::StatusCode::RuntimeError);
+  EXPECT_EQ(master.activate().code, mca::core::StatusCode::RuntimeError);
 
   TestMaster::Topology topology;
   ASSERT_TRUE(master.discover(topology).ok());

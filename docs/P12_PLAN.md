@@ -509,16 +509,20 @@ and transmission-type semantics, CiA 402 virtual PDS progression, and explicit
 Bus-Off fault/recovery behavior. The protocol model remains separate from the
 physical transport.
 
-An optional Linux-only `mca::hardware::SocketCanTransport` now implements the
+An optional Linux-only `mca::hardware::SocketCanTransport` implements the
 existing non-blocking `ICanopenTransport` contract. It is isolated in
 `include/mca/hardware/socketcan_transport.hpp`, is not included by the portable
 `mca/mca.hpp` umbrella, and is disabled by default. Linux CI enables
-`MCA_ENABLE_SOCKETCAN` to compile the adapter and run a focused invalid-interface
-construction regression; Windows continues to build the portable core with the
-option disabled. Runtime documentation: [P12 SocketCAN](P12_SOCKETCAN.md).
+`MCA_ENABLE_SOCKETCAN`; Windows builds the portable core with the option
+disabled. Linux CI now attempts to provision `vcan0` and, when permitted,
+runs a sender/receiver frame round-trip test plus the empty non-blocking receive
+test. If runner capabilities do not permit provisioning, the runtime test
+explicitly skips. Runtime details: [P12 SocketCAN](P12_SOCKETCAN.md).
 
-This is compile/contract validation only. The CI does not create a privileged
-`vcan` interface or exercise live CAN traffic, bus-off controller recovery,
-cycle timing, vendor interoperability, physical hardware or HIL. P12-05c.1
-remains open until the full Linux/Windows root CI result for this change is
-successful and a privileged SocketCAN runtime fixture is evaluated separately.
+The runtime fixture validates virtual CAN socket binding and classic-frame
+transport only. It does not prove physical CAN controller Bus-Off/restart
+notifications, arbitration under load, cycle timing, vendor interoperability,
+physical hardware or HIL. P12-05c.1 remains open until the latest Linux/Windows
+root CI validates this fixture and the CANopen protocol/transport acceptance
+evidence is reviewed; physical controller fault injection remains a later
+hardware validation item.

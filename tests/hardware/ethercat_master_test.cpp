@@ -348,6 +348,41 @@ TEST(EthercatDcContract, RejectsImpossibleHealthTransitions) {
                                                EthercatDcState::Degraded));
 }
 
+TEST(EthercatMailboxContract, ValidatesBoundedReadWriteRequestsAndResults) {
+  EthercatSdoRequest<8U> request;
+  EXPECT_FALSE(request.valid());
+  request.request_id = 1U;
+  request.slave_position = 0U;
+  request.index = 0x6041U;
+  request.operation = EthercatSdoOperation::Read;
+  request.max_response_size = 2U;
+  request.deadline_timestamp_ns = 1000U;
+  EXPECT_TRUE(request.valid());
+  request.payload_size = 1U;
+  EXPECT_FALSE(request.valid());
+  request.payload_size = 0U;
+  request.operation = EthercatSdoOperation::Write;
+  request.payload_size = 2U;
+  request.max_response_size = 0U;
+  EXPECT_TRUE(request.valid());
+  request.payload_size = 9U;
+  EXPECT_FALSE(request.valid());
+
+  EthercatSdoResult<8U> result;
+  EXPECT_FALSE(result.valid());
+  result.request_id = 1U;
+  result.state = EthercatMailboxResultState::Pending;
+  EXPECT_TRUE(result.valid());
+  result.state = EthercatMailboxResultState::Completed;
+  result.payload_size = 2U;
+  EXPECT_TRUE(result.valid());
+  result.abort_code = 0x06020000U;
+  EXPECT_FALSE(result.valid());
+  result.state = EthercatMailboxResultState::Aborted;
+  result.payload_size = 0U;
+  EXPECT_TRUE(result.valid());
+}
+
 TEST(EthercatMasterContract, FakeMasterExercisesLifecycleAndCyclicExchange) {
   FakeEthercatMaster master;
   EXPECT_EQ(master.state(), EthercatMasterState::Offline);

@@ -248,6 +248,7 @@ TEST(CanopenSdo, SegmentedEightByteUploadDownloadAndToggleValidation) {
   EXPECT_EQ(response.data[0], 0x30U);
 
   ASSERT_TRUE(node.process(initiate_upload, response, has_response).ok());
+  upload_segment.data[0] = 0x60U;
   ASSERT_TRUE(node.process(upload_segment, response, has_response).ok());
   EXPECT_EQ(response.data[1], 0x01U);
   EXPECT_EQ(response.data[7], 0x07U);
@@ -268,6 +269,7 @@ TEST(CanopenSdo, SegmentedEightByteUploadDownloadAndToggleValidation) {
   EXPECT_EQ(response.data[6], 0x03U);
   EXPECT_EQ(response.data[7], 0x05U);
   ASSERT_TRUE(node.process(initiate_upload, response, has_response).ok());
+  upload_segment.data[0] = 0x60U;
   ASSERT_TRUE(node.process(upload_segment, response, has_response).ok());
   EXPECT_EQ(response.data[1], 0x01U);
   EXPECT_EQ(response.data[7], 0x07U);

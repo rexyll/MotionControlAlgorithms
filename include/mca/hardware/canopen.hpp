@@ -21,10 +21,10 @@ struct CanopenCanFrame {
 };
 
 enum class CanopenNmtState : std::uint8_t {
-  Initialising,
-  PreOperational,
-  Operational,
-  Stopped
+  Initialising = 0x00U,
+  Stopped = 0x04U,
+  Operational = 0x05U,
+  PreOperational = 0x7FU
 };
 
 enum class CanopenTransportState : std::uint8_t {
@@ -159,6 +159,10 @@ class CanopenVirtualNode {
 
   [[nodiscard]] constexpr std::uint8_t node_id() const noexcept {
     return node_id_;
+  }
+  void complete_initialization() noexcept {
+    if (nmt_state_ == CanopenNmtState::Initialising)
+      nmt_state_ = CanopenNmtState::PreOperational;
   }
   [[nodiscard]] constexpr CanopenNmtState nmt_state() const noexcept {
     return nmt_state_;

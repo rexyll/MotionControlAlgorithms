@@ -264,6 +264,9 @@ TEST(CanopenSdo, SegmentedEightByteUploadDownloadAndToggleValidation) {
   download_segment.data[0] = 0x00U;
   ASSERT_TRUE(node.process(download_segment, response, has_response).ok());
   EXPECT_EQ(response.data[0], 0x80U);
+  EXPECT_EQ(response.data[1], 0x02U);
+  EXPECT_EQ(response.data[2], 0x20U);
+  EXPECT_EQ(response.data[3], 0x00U);
   EXPECT_EQ(response.data[4], 0x00U);
   EXPECT_EQ(response.data[5], 0x00U);
   EXPECT_EQ(response.data[6], 0x03U);

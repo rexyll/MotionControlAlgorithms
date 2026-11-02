@@ -557,11 +557,7 @@ serial identity invalidates the old mapping; a lost/faulted slave must pass
 through Recovering before returning to Present. Aggregate WKC alone does not
 identify a missing slave.
 
-The recovery/topology tests and fixed-capacity asynchronous SDO request/
-result plus mailbox enqueue/poll seam are implemented. Deterministic fake-mailbox tests now cover bounded queue-full backpressure,
-request-ID lookup and Pending/Completed polling. Concrete adapter queue
-scheduling, duplicate-live-ID enforcement and deadline expiry remain adapter
-implementation obligations; Linux/Windows root CI review remains open.
+The recovery/topology tests and fixed-capacity asynchronous SDO request/result plus mailbox enqueue/poll seam are implemented. `EthercatMailboxQueue<QueueCapacity, MaxBytes>` now provides a reusable, allocation-free bounded lifecycle primitive with duplicate-live-ID rejection, caller-supplied monotonic-time deadline checks, terminal-result retention/retirement and queue-full backpressure. Deterministic tests cover duplicate IDs, saturation, Pending/Completed polling, deadline equality, late-completion rejection and capacity reuse. Root CI Run #1519 passed Linux and Windows Configure/Build/Test plus P8-39 through P8-46 regressions. This primitive does not perform CoE/SDO wire transfers or schedule a backend; SOEM/IgH adapters must integrate it with their own nonblocking mailbox progression and protocol error handling.
 This is fake-master contract validation only. It is not EtherCAT wire protocol
 simulation, SOEM/IgH adapter validation, physical bus testing, real-time timing
 evidence or HIL. SOEM and IgH remain optional follow-on adapters; production

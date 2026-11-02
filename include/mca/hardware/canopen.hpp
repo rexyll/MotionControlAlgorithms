@@ -37,8 +37,10 @@ class ICanopenTransport {
  public:
   virtual ~ICanopenTransport() = default;
   virtual core::Status send(const CanopenCanFrame& frame) noexcept = 0;
-  // A non-blocking receive returns NotConfigured when no frame is available.
-  virtual core::Status receive(CanopenCanFrame& frame) noexcept = 0;
+  // Non-blocking receive reports an empty queue separately from transport
+  // errors; callers never need to overload a status code for "no frame".
+  virtual core::Status receive(CanopenCanFrame& frame,
+                               bool& has_frame) noexcept = 0;
   [[nodiscard]] virtual CanopenTransportState state() const noexcept = 0;
 };
 

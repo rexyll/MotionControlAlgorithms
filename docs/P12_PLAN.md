@@ -558,10 +558,10 @@ through Recovering before returning to Present. Aggregate WKC alone does not
 identify a missing slave.
 
 The recovery/topology tests and fixed-capacity asynchronous SDO request/
-result plus mailbox enqueue/poll seam are implemented. Backend bounded-queue
-behavior, duplicate-live-ID rejection, deadline enforcement, queue-full
-backpressure and deterministic fake-mailbox tests still need completion, as
-does Linux/Windows root CI review, before Gate 1 acceptance.
+result plus mailbox enqueue/poll seam are implemented. Deterministic fake-mailbox tests now cover bounded queue-full backpressure,
+request-ID lookup and Pending/Completed polling. Concrete adapter queue
+scheduling, duplicate-live-ID enforcement and deadline expiry remain adapter
+implementation obligations; Linux/Windows root CI review remains open.
 This is fake-master contract validation only. It is not EtherCAT wire protocol
 simulation, SOEM/IgH adapter validation, physical bus testing, real-time timing
 evidence or HIL. SOEM and IgH remain optional follow-on adapters; production

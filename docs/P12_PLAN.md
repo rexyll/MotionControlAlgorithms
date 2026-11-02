@@ -442,5 +442,24 @@ normalized current capability and are explicitly not represented as a
 standardized CiA 402 PDS operation mode; adapters may expose them only when
 the vendor/device advertises that capability. A deterministic transactional fake sink
 checks that rejected batches do not partially commit or advance the accepted
-sequence. Linux/Windows CI acceptance is pending. No physical backend or HIL
-acceptance is claimed at this stage.
+sequence. Direct vendor-specific current support is tested independently from
+CiA 402 operation modes, including rejection when the selected axis does not
+advertise current capability.
+
+Acceptance evidence (2026-11-02):
+- Root CI [Run #1420](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41404931269)
+  on code SHA `e28bdca31f34d43ea09fbd7efde417863883ff53` passed Linux and
+  Windows Configure, Build, Test, and the dedicated P8-39 through P8-46
+  regression configure/build/test steps. Both platform jobs completed
+  successfully.
+- ROS 2 Jazzy [Run #38](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41400629990)
+  and Gazebo/ros2_control [Run #32](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41400629973)
+  passed on SHA `20da29677dcc971640b1493ced3611aa3085b780`. Subsequent
+  commits through the accepted root-CI SHA changed only focused core tests and
+  documentation; the production adapter and simulator integration sources
+  were unchanged.
+
+This accepts the dependency-free mode-aware command and transactional batch
+contract plus the existing optional ROS 2/Gazebo integration compatibility.
+It does not claim a physical drive backend, vendor SDK integration, fieldbus
+transport, safety certification or HIL acceptance.

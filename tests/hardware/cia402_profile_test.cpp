@@ -35,7 +35,9 @@ TEST(Cia402PdsState, RejectsUnknownPatternsAndDecodesStatusFlags) {
   EXPECT_TRUE(status.target_reached);
   EXPECT_TRUE(status.internal_limit_active);
   EXPECT_TRUE(status.voltage_enabled);
-  EXPECT_TRUE(status.quick_stop);
+  EXPECT_FALSE(status.quick_stop_not_active);
+  const auto quick_stop_released = decode_cia402_status(0x0EF7U);
+  EXPECT_TRUE(quick_stop_released.quick_stop_not_active);
   EXPECT_TRUE(status.switch_on_disabled);
 }
 

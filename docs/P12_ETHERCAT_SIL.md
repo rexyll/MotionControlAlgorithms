@@ -165,7 +165,7 @@ After license, dependency packaging and mailbox/cycle isolation are cleared, sta
 
 ### Gate 3 — IgH optional adapter
 
-**Current candidate:** official EtherLab EtherCAT Master **1.6.8** release (tag `1.6.8` on `stable-1.6`); upstream recommends `stable-1.6` for production systems. The 1.6.8 release is documented as available in the official 1.6 manual. Before implementation, resolve the tag to its immutable Git commit SHA and record that SHA plus the tested Linux kernel/NIC matrix. This is a Linux-only kernel-module/userspace-library architecture, not a Windows alternative.
+**Current candidate:** official EtherLab EtherCAT Master **1.6.13** release, immutable commit `61cc654f5b721ddd54df0f58bdd34106d91c5359` (tag `1.6.13`, dated 2026-09-15) on `stable-1.6`. The official project recommends `stable-1.6` for production systems; 1.6.13 is newer than the earlier 1.6.8 candidate. Pin the full commit SHA, not the moving branch. This is a Linux-only kernel-module/userspace-library architecture, not a Windows alternative.
 
 **License split (must be reviewed for the actual distribution model):** the master/kernel-side code is GPLv2; the official manual states the userspace application library `libethercat` is LGPLv2.1 to permit static linking of userspace applications. This is materially different from SOEM 2.0's GPLv3/commercial dual license, and makes IgH worth evaluating for a Linux robot controller with a proprietary userspace application. Do not infer that the complete deployment is automatically cleared: kernel module packaging/modification, static vs dynamic linking, notices/source obligations, and any EtherCAT technology/trademark requirements need project/legal review.
 

@@ -12,6 +12,7 @@ namespace mca::hardware {
 
 struct DriveSetpoint {
   std::size_t axis{0};
+  DriveControlMode control_mode{DriveControlMode::Position};
   DriveOperationMode operation_mode{DriveOperationMode::ProfilePosition};
   double position_rad{0.0};
   double velocity_rad_s{0.0};
@@ -19,17 +20,20 @@ struct DriveSetpoint {
   double current_a{0.0};
 
   [[nodiscard]] bool valid() const noexcept {
-    switch (operation_mode) {
-      case DriveOperationMode::ProfilePosition:
-      case DriveOperationMode::CyclicSynchronousPosition:
-      case DriveOperationMode::Homing:
-        return std::isfinite(position_rad);
-      case DriveOperationMode::ProfileVelocity:
-      case DriveOperationMode::CyclicSynchronousVelocity:
-        return std::isfinite(velocity_rad_s);
-      case DriveOperationMode::ProfileTorque:
-      case DriveOperationMode::CyclicSynchronousTorque:
-        return std::isfinite(torque_nm);
+    switch (control_mode) {
+      case DriveControlMode::Position:
+        return normalized_control_mode(operation_mode) == control_mode &&
+               std::isfinite(position_rad);
+      case DriveControlMode::Velocity:
+        return normalized_control_mode(operation_mode) == control_mode &&
+               std::isfinite(velocity_rad_s);
+      case DriveControlMode::Torque:
+        return normalized_control_mode(operation_mode) == control_mode &&
+               std::isfinite(torque_nm);
+      case DriveControlMode::Current:
+        // Direct current control is a vendor-specific capability, not a
+        // standardized CiA 402 PDS operation mode.
+        return std::isfinite(current_a);
     }
     return false;
   }
@@ -75,8 +79,16 @@ core::Status validate_drive_command_batch(
   }
   for (std::size_t i = 0; i < batch.count; ++i) {
     const auto& setpoint = batch.setpoints[i];
-    if (setpoint.axis >= capabilities.axis_count ||
-        !capabilities.axes[setpoint.axis].supports(setpoint.operation_mode)) {
+    if (setpoint.axis >= capabilities.axis_count) {
+      return {core::StatusCode::ConstraintViolation};
+    }
+    const auto& axis = capabilities.axes[setpoint.axis];
+    if (setpoint.control_mode == DriveControlMode::Current) {
+      if (!axis.supports(DriveControlMode::Current)) {
+        return {core::StatusCode::ConstraintViolation};
+      }
+    } else if (!axis.supports(setpoint.operation_mode) ||
+               !axis.supports(setpoint.control_mode)) {
       return {core::StatusCode::ConstraintViolation};
     }
   }

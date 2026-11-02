@@ -299,18 +299,35 @@ bool GazeboSystem::initSim(
 
 GazeboSystem::CallbackReturn GazeboSystem::on_configure(
     const rclcpp_lifecycle::State&) {
-  return backend_ && backend_->initialize().ok()
-             ? CallbackReturn::SUCCESS
-             : CallbackReturn::FAILURE;
+  if (!backend_) {
+    RCLCPP_ERROR(get_logger(), "GazeboSystem on_configure failed: backend is null");
+    return CallbackReturn::FAILURE;
+  }
+  if (!backend_->initialize().ok()) {
+    RCLCPP_ERROR(get_logger(),
+                 "GazeboSystem on_configure failed: backend initialize rejected lifecycle state");
+    return CallbackReturn::FAILURE;
+  }
+  RCLCPP_INFO(get_logger(), "GazeboSystem on_configure succeeded");
+  return CallbackReturn::SUCCESS;
 }
 
 GazeboSystem::CallbackReturn GazeboSystem::on_activate(
     const rclcpp_lifecycle::State&) {
-  if (!backend_ || !backend_->activate().ok()) return CallbackReturn::ERROR;
+  if (!backend_) {
+    RCLCPP_ERROR(get_logger(), "GazeboSystem on_activate failed: backend is null");
+    return CallbackReturn::ERROR;
+  }
+  if (!backend_->activate().ok()) {
+    RCLCPP_ERROR(get_logger(),
+                 "GazeboSystem on_activate failed: backend rejected activation");
+    return CallbackReturn::ERROR;
+  }
   active_.store(true);
   has_last_state_sequence_ = false;
   last_state_sequence_ = 0;
   next_command_sequence_ = 0;
+  RCLCPP_INFO(get_logger(), "GazeboSystem on_activate succeeded");
   return CallbackReturn::SUCCESS;
 }
 
@@ -338,12 +355,30 @@ GazeboSystem::CallbackReturn GazeboSystem::on_error(
 
 hardware_interface::return_type GazeboSystem::read(
     const rclcpp::Time&, const rclcpp::Duration&) {
-  if (!backend_) return hardware_interface::return_type::ERROR;
+  static std::atomic<bool> read_error_reported{false};
+  if (!backend_) {
+    if (!read_error_reported.exchange(true)) {
+      RCLCPP_ERROR(get_logger(), "GazeboSystem read failed: backend is null");
+    }
+    return hardware_interface::return_type::ERROR;
+  }
   DualJointState sample;
-  if (!backend_->read_state(sample).ok() || !sample.valid() ||
+  const auto read_status = backend_->read_state(sample);
+  if (!read_status.ok() || !sample.valid() ||
       !sample.has(mca::hardware::JointStateField::Position) ||
       !sample.has(mca::hardware::JointStateField::Velocity) ||
       (has_last_state_sequence_ && sample.sequence <= last_state_sequence_)) {
+    if (!read_error_reported.exchange(true)) {
+      RCLCPP_ERROR(get_logger(),
+                   "GazeboSystem read failed: backend_status_ok=%s sample_valid=%s "
+                   "position_valid=%s velocity_valid=%s sequence=%lu previous_sequence=%lu",
+                   read_status.ok() ? "true" : "false",
+                   sample.valid() ? "true" : "false",
+                   sample.has(mca::hardware::JointStateField::Position) ? "true" : "false",
+                   sample.has(mca::hardware::JointStateField::Velocity) ? "true" : "false",
+                   static_cast<unsigned long>(sample.sequence),
+                   static_cast<unsigned long>(last_state_sequence_));
+    }
     return hardware_interface::return_type::ERROR;
   }
   try {
@@ -380,7 +415,15 @@ hardware_interface::return_type GazeboSystem::write(
   } catch (...) {
     return hardware_interface::return_type::ERROR;
   }
-  if (!command.valid() || !backend_->write_effort(command).ok()) {
+  const auto write_status = backend_->write_effort(command);
+  if (!command.valid() || !write_status.ok()) {
+    static std::atomic<bool> write_error_reported{false};
+    if (!write_error_reported.exchange(true)) {
+      RCLCPP_ERROR(get_logger(),
+                   "GazeboSystem write failed: command_valid=%s backend_status_ok=%s",
+                   command.valid() ? "true" : "false",
+                   write_status.ok() ? "true" : "false");
+    }
     return hardware_interface::return_type::ERROR;
   }
   ++next_command_sequence_;

@@ -304,8 +304,12 @@ jobs:
           # starting state and command each joint toward the center of its
           # travel so this acceptance test is independent of startup pose.
           initial_state_log="$GITHUB_WORKSPACE/initial-joint-state.log"
-          timeout 5s ros2 topic echo /joint_states sensor_msgs/msg/JointState \
-            --qos-reliability best_effort --once >"$initial_state_log" 2>&1
+          # The first read can be the backend's seeded zero sample, emitted
+          # before Gazebo's first physics update. Let the simulator settle,
+          # then use a fresh stream and select its final valid state.
+          sleep 2
+          timeout 3s ros2 topic echo /joint_states sensor_msgs/msg/JointState \
+            --qos-reliability best_effort >"$initial_state_log" 2>&1 || test "$?" -eq 124
           read -r effort_a effort_b < <(python3 - "$initial_state_log" <<'PY'
           import math
           import sys
@@ -343,6 +347,8 @@ jobs:
             std_msgs/msg/Float64MultiArray "{data: [$effort_a, $effort_b]}" > command-publisher.log 2>&1 &
           publisher_pid=$!
           wait "$publisher_pid" || true
+          echo "=== Effort command publisher output ==="
+          cat command-publisher.log
           sleep 1
 
           python3 - "$state_log" <<'PY'

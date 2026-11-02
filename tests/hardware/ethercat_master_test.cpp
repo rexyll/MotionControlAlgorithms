@@ -213,6 +213,38 @@ TEST(EthercatAlContract, RejectsIllegalTransitionsAndUnknownRecoveryTargets) {
                                                EthercatAlState::Operational));
 }
 
+TEST(EthercatDcContract, AcceptsHealthProgressionAndRecovery) {
+  EXPECT_TRUE(ethercat_dc_transition_allowed(EthercatDcState::Unsupported,
+                                              EthercatDcState::Unsupported));
+  EXPECT_TRUE(ethercat_dc_transition_allowed(EthercatDcState::NotConfigured,
+                                              EthercatDcState::Synchronizing));
+  EXPECT_TRUE(ethercat_dc_transition_allowed(EthercatDcState::Synchronizing,
+                                              EthercatDcState::Locked));
+  EXPECT_TRUE(ethercat_dc_transition_allowed(EthercatDcState::Locked,
+                                              EthercatDcState::Degraded));
+  EXPECT_TRUE(ethercat_dc_transition_allowed(EthercatDcState::Degraded,
+                                              EthercatDcState::Locked));
+  EXPECT_TRUE(ethercat_dc_transition_allowed(EthercatDcState::Locked,
+                                              EthercatDcState::Lost));
+  EXPECT_TRUE(ethercat_dc_transition_allowed(EthercatDcState::Lost,
+                                              EthercatDcState::Synchronizing));
+  EXPECT_TRUE(ethercat_dc_transition_allowed(EthercatDcState::Synchronizing,
+                                              EthercatDcState::NotConfigured));
+}
+
+TEST(EthercatDcContract, RejectsImpossibleHealthTransitions) {
+  EXPECT_FALSE(ethercat_dc_transition_allowed(EthercatDcState::Unsupported,
+                                               EthercatDcState::NotConfigured));
+  EXPECT_FALSE(ethercat_dc_transition_allowed(EthercatDcState::NotConfigured,
+                                               EthercatDcState::Locked));
+  EXPECT_FALSE(ethercat_dc_transition_allowed(EthercatDcState::NotConfigured,
+                                               EthercatDcState::Lost));
+  EXPECT_FALSE(ethercat_dc_transition_allowed(EthercatDcState::Lost,
+                                               EthercatDcState::Locked));
+  EXPECT_FALSE(ethercat_dc_transition_allowed(EthercatDcState::Lost,
+                                               EthercatDcState::Degraded));
+}
+
 TEST(EthercatMasterContract, FakeMasterExercisesLifecycleAndCyclicExchange) {
   FakeEthercatMaster master;
   EXPECT_EQ(master.state(), EthercatMasterState::Offline);

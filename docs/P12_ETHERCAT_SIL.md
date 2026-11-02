@@ -165,7 +165,7 @@ After license, dependency packaging and mailbox/cycle isolation are cleared, sta
 
 ### Gate 3 — IgH optional adapter
 
-**Current candidate:** official EtherLab EtherCAT Master 1.6 series; upstream recommends the `stable-1.6` branch for production systems. This is a Linux-only kernel-module/userspace-library architecture, not a Windows alternative.
+**Current candidate:** official EtherLab EtherCAT Master **1.6.8** release (tag `1.6.8` on `stable-1.6`); upstream recommends `stable-1.6` for production systems. The 1.6.8 release is documented as available in the official 1.6 manual. Before implementation, resolve the tag to its immutable Git commit SHA and record that SHA plus the tested Linux kernel/NIC matrix. This is a Linux-only kernel-module/userspace-library architecture, not a Windows alternative.
 
 **License split (must be reviewed for the actual distribution model):** the master/kernel-side code is GPLv2; the official manual states the userspace application library `libethercat` is LGPLv2.1 to permit static linking of userspace applications. This is materially different from SOEM 2.0's GPLv3/commercial dual license, and makes IgH worth evaluating for a Linux robot controller with a proprietary userspace application. Do not infer that the complete deployment is automatically cleared: kernel module packaging/modification, static vs dynamic linking, notices/source obligations, and any EtherCAT technology/trademark requirements need project/legal review.
 
@@ -187,10 +187,11 @@ fake master or a simulator-only CI job.
    interface under `include/mca/hardware`; export only those portable types.
 2. [x] Add deterministic fake master + tests for Gate 1, including negative
    mapping/lifecycle cases. Root CI acceptance is still pending.
-3. Add an optional SOEM adapter behind a separate CMake option/package; keep
-   root CI unaffected.
-4. Add an optional IgH adapter only after its Linux build/runtime environment
-   can be pinned reproducibly.
+3. Add an optional IgH 1.6.8 userspace adapter behind a separate Linux
+   package/CI job after resolving the immutable source SHA and target
+   kernel/NIC matrix; keep root CI unaffected.
+4. Evaluate SOEM 2.0 only if its GPLv3/commercial license path and
+   Windows WinPcap deployment requirements are explicitly cleared.
 5. Compare both adapters against the same contract and fixture before choosing
    a production deployment path.
 

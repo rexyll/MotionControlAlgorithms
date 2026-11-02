@@ -52,8 +52,8 @@ class FakeEthercatMaster final : public TestMaster {
   }
 
   mca::core::Status exchange(std::uint16_t domain_id, const ProcessImage& output,
-                        ProcessImage& input,
-                        EthercatDomainCycleStatus& cycle_status) noexcept override {
+                             ProcessImage& input,
+                             EthercatDomainCycleStatus& cycle_status) noexcept override {
     if (state_ != EthercatMasterState::Active || !output.valid() ||
         domain_id != layout_.domains[0].id)
       return {mca::core::StatusCode::RuntimeError};
@@ -67,6 +67,10 @@ class FakeEthercatMaster final : public TestMaster {
     next_status.working_counter_state = EthercatWorkingCounterState::Complete;
     next_status.cycle_sequence = ++cycle_;
     next_status.timestamp_ns = 1000U + cycle_;
+    next_status.deadline_timestamp_ns = 2000U + cycle_;
+    next_status.completion_timestamp_ns = 1999U + cycle_;
+    next_status.missed_cycles_since_previous_exchange = 0U;
+    next_status.timing_state = EthercatCycleTimingState::OnTime;
     input = next_input;
     cycle_status = next_status;
     return {};
@@ -165,6 +169,42 @@ TEST(EthercatWorkingCounter, ClassifiesExpectedAndObservedValues) {
             EthercatWorkingCounterState::Complete);
   EXPECT_EQ(classify_ethercat_working_counter(3U, 4U),
             EthercatWorkingCounterState::Unexpected);
+}
+
+TEST(EthercatCycleTiming, ClassifiesDeadlineBoundaryAndMissedCycles) {
+  EXPECT_EQ(classify_ethercat_cycle_timing(100U, 0U, 0U),
+            EthercatCycleTimingState::Unknown);
+  EXPECT_EQ(classify_ethercat_cycle_timing(100U, 100U, 0U),
+            EthercatCycleTimingState::OnTime);
+  EXPECT_EQ(classify_ethercat_cycle_timing(100U, 99U, 0U),
+            EthercatCycleTimingState::OnTime);
+  EXPECT_EQ(classify_ethercat_cycle_timing(100U, 101U, 0U),
+            EthercatCycleTimingState::Late);
+  EXPECT_EQ(classify_ethercat_cycle_timing(100U, 90U, 1U),
+            EthercatCycleTimingState::Missed);
+}
+
+TEST(EthercatCycleTiming, StatusValidatesTimingClassification) {
+  EthercatDomainCycleStatus status;
+  status.domain_id = 7U;
+  status.expected_working_counter = 3U;
+  status.observed_working_counter = 3U;
+  status.working_counter_state = EthercatWorkingCounterState::Complete;
+  status.cycle_sequence = 1U;
+  status.timestamp_ns = 1000U;
+  status.deadline_timestamp_ns = 2000U;
+  status.completion_timestamp_ns = 1999U;
+  status.timing_state = EthercatCycleTimingState::OnTime;
+  EXPECT_TRUE(status.valid());
+
+  status.timing_state = EthercatCycleTimingState::Late;
+  EXPECT_FALSE(status.valid());
+  status.completion_timestamp_ns = 2001U;
+  EXPECT_TRUE(status.valid());
+
+  status.missed_cycles_since_previous_exchange = 1U;
+  status.timing_state = EthercatCycleTimingState::Missed;
+  EXPECT_TRUE(status.valid());
 }
 
 TEST(EthercatAlContract, AcceptsLegalProgressionFallbackAndErrorRecovery) {
@@ -270,6 +310,7 @@ TEST(EthercatMasterContract, FakeMasterExercisesLifecycleAndCyclicExchange) {
   EXPECT_TRUE(cycle.valid());
   EXPECT_EQ(cycle.working_counter_state,
             EthercatWorkingCounterState::Complete);
+  EXPECT_EQ(cycle.timing_state, EthercatCycleTimingState::OnTime);
 
   EthercatClockStatus clock;
   ASSERT_TRUE(master.clock_status(clock).ok());
@@ -299,6 +340,10 @@ TEST(EthercatMasterContract, FailedOperationsPreserveCallerOutputs) {
   cycle.working_counter_state = EthercatWorkingCounterState::Incomplete;
   cycle.cycle_sequence = 42U;
   cycle.timestamp_ns = 123456U;
+  cycle.deadline_timestamp_ns = 234567U;
+  cycle.completion_timestamp_ns = 234568U;
+  cycle.missed_cycles_since_previous_exchange = 2U;
+  cycle.timing_state = EthercatCycleTimingState::Missed;
   const auto cycle_before = cycle;
 
   TestMaster::ProcessImage output;
@@ -317,6 +362,11 @@ TEST(EthercatMasterContract, FailedOperationsPreserveCallerOutputs) {
   EXPECT_EQ(cycle.working_counter_state, cycle_before.working_counter_state);
   EXPECT_EQ(cycle.cycle_sequence, cycle_before.cycle_sequence);
   EXPECT_EQ(cycle.timestamp_ns, cycle_before.timestamp_ns);
+  EXPECT_EQ(cycle.deadline_timestamp_ns, cycle_before.deadline_timestamp_ns);
+  EXPECT_EQ(cycle.completion_timestamp_ns, cycle_before.completion_timestamp_ns);
+  EXPECT_EQ(cycle.missed_cycles_since_previous_exchange,
+            cycle_before.missed_cycles_since_previous_exchange);
+  EXPECT_EQ(cycle.timing_state, cycle_before.timing_state);
 
   EXPECT_EQ(master.deactivate().ok(), true);
   EXPECT_EQ(master.deactivate().code, mca::core::StatusCode::RuntimeError);

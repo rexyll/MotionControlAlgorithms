@@ -422,6 +422,22 @@ Acceptance gates:
   tests; no proprietary binaries or credentials in the repository.
 - Gate E: physical HIL only after a real target and safe test fixture exist.
 
-The immediate next implementation is P12-05b.1: capability and timing metadata
-types, retaining source compatibility for current lifecycle/state/effort ports.
-No physical backend or HIL acceptance is claimed at this stage.
+P12-05b.1 acceptance (2026-11-02): fixed-capacity device identity and axis
+names, vendor/product/revision identifiers, separate CiA 402 profile/cyclic
+operation-mode masks, normalized MCA control-mode mapping, constant-time axis
+capability lookup, sample sequence/timestamp metadata, and command deadline
+metadata are implemented in `device_metadata.hpp`. Regressions cover malformed
+identity strings/topology, duplicate axis names, unknown mode bits, incompatible
+normalized modes, clock mismatch and deadline expiry. Root CI [Run #1407](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41398999089)
+passed Linux and Windows Configure/Build/Test; ROS 2 Jazzy [Run #36](https://github.com/rexyll/MotionControlAlgorithms/actions/runs/41398975522)
+passed optional adapter build/test. This accepts dependency-free metadata only;
+no physical driver or HIL evidence is claimed.
+
+P12-05b.2 implements fixed-capacity mode-aware position/velocity/torque
+setpoints, preserves Profile versus Cyclic Synchronous semantics, validates
+per-axis operation-mode capability, rejects stale sequences and expired or
+clock-incompatible deadlines, and provides a batch sink contract requiring
+full validation before transport I/O. A deterministic transactional fake sink
+checks that rejected batches do not partially commit or advance the accepted
+sequence. Linux/Windows CI acceptance is pending. No physical backend or HIL
+acceptance is claimed at this stage.

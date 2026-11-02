@@ -34,7 +34,7 @@ CanopenCanFrame sdo(std::uint8_t command, std::uint16_t index,
 class FakeCanopenTransport final : public ICanopenTransport {
  public:
   mca::core::Status send(const CanopenCanFrame& frame) noexcept override {
-    if (!frame.valid()) return {core::StatusCode::InvalidArgument};
+    if (!frame.valid()) return {mca::core::StatusCode::InvalidArgument};
     last_sent_ = frame;
     sent_ = true;
     return {};

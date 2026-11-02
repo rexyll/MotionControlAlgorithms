@@ -1,7 +1,8 @@
 <?xml version="1.0"?>
 <sdf version="1.9">
   <world name="mca_ros2_control_closed_loop">
-    <gravity>0 0 -9.81</gravity>
+    <!-- Zero gravity isolates actuator / controller integration from gravity-induced joint-limit saturation. -->
+    <gravity>0 0 0</gravity>
     <physics name="default" type="ode">
       <max_step_size>0.001</max_step_size>
       <real_time_factor>0</real_time_factor>

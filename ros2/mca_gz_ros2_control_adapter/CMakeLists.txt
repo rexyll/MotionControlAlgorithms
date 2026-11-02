@@ -29,6 +29,7 @@ pluginlib_export_plugin_description_file(
   gz_ros2_control mca_gz_ros2_control_adapter.xml)
 
 install(DIRECTORY include/ DESTINATION include)
+install(DIRECTORY test/ DESTINATION share/${PROJECT_NAME}/test)
 install(TARGETS mca_gz_ros2_control_adapter
   EXPORT export_mca_gz_ros2_control_adapter
   ARCHIVE DESTINATION lib

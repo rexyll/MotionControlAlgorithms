@@ -312,26 +312,32 @@ jobs:
           sleep 1
 
           python3 - "$state_log" <<'PY'
-          import re
+          import math
           import sys
           from pathlib import Path
+          import yaml
 
           text = Path(sys.argv[1]).read_text(errors="replace")
           positions = []
-          for match in re.finditer(r"position:\s*\[([^\]]+)\]", text):
-              values = []
-              for token in match.group(1).split(','):
-                  try:
-                      values.append(float(token.strip()))
-                  except ValueError:
-                      pass
-              if len(values) >= 2:
-                  positions.append(values[:2])
+          for message in yaml.safe_load_all(text):
+              if not isinstance(message, dict):
+                  continue
+              names = message.get("name", [])
+              values = message.get("position", [])
+              if not isinstance(names, list) or not isinstance(values, list):
+                  continue
+              if len(names) != len(values) or not {"joint_a", "joint_b"}.issubset(names):
+                  continue
+              by_name = dict(zip(names, values))
+              sample = [float(by_name["joint_a"]), float(by_name["joint_b"])]
+              if all(math.isfinite(value) for value in sample):
+                  positions.append(sample)
           if len(positions) < 5:
-              raise SystemExit(f"insufficient joint state samples: {len(positions)}")
+              raise SystemExit(f"insufficient valid joint state samples: {len(positions)}")
           first = positions[0]
           last = positions[-1]
           delta = [abs(last[i] - first[i]) for i in range(2)]
+          print(f"valid_joint_state_samples={len(positions)}")
           print(f"first_position={first}")
           print(f"last_position={last}")
           print(f"absolute_delta={delta}")

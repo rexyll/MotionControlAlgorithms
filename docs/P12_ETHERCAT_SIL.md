@@ -146,10 +146,10 @@ fake master or a simulator-only CI job.
 
 ## Initial implementation sequence
 
-1. Add dependency-free fixed-capacity EtherCAT value types and the master
+1. [x] Add dependency-free fixed-capacity EtherCAT value types and the master
    interface under `include/mca/hardware`; export only those portable types.
-2. Add deterministic fake master + tests for Gate 1, including negative and
-   failure-atomicity cases.
+2. [x] Add deterministic fake master + tests for Gate 1, including negative
+   mapping/lifecycle cases. Root CI acceptance is still pending.
 3. Add an optional SOEM adapter behind a separate CMake option/package; keep
    root CI unaffected.
 4. Add an optional IgH adapter only after its Linux build/runtime environment

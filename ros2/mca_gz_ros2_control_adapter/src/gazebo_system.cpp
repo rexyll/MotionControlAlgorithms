@@ -35,14 +35,27 @@ class GazeboEcmBackend final : public IDualJointBackend {
     joints_ = joints;
     ecm_ = &ecm;
     for (const auto joint : joints_) {
-      if (!ecm_->Component<gz::sim::components::JointPosition>(joint)) {
-        ecm_->CreateComponent(joint, gz::sim::components::JointPosition());
-      }
-      if (!ecm_->Component<gz::sim::components::JointVelocity>(joint)) {
-        ecm_->CreateComponent(joint, gz::sim::components::JointVelocity());
-      }
-      if (!ecm_->Component<gz::sim::components::JointForceCmd>(joint)) {
-        ecm_->CreateComponent(joint, gz::sim::components::JointForceCmd());
+      // These Gazebo components wrap one value per joint axis. Creating them
+      // with their default constructor leaves an empty vector until the first
+      // physics update; ros2_control may call read() before that update and
+      // immediately transition the hardware to ERROR. Seed the single-axis
+      // components with a valid zero sample/command instead.
+      const auto ensure_single_axis_component = [this, joint](auto component_tag) {
+        using Component = decltype(component_tag);
+        const auto* existing = ecm_->Component<Component>(joint);
+        if (!existing) {
+          ecm_->CreateComponent(joint, Component({0.0}));
+        } else if (existing->Data().empty()) {
+          if (!ecm_->SetComponentData<Component>(joint, {0.0})) return false;
+        }
+        const auto* initialized = ecm_->Component<Component>(joint);
+        return initialized && initialized->Data().size() == 1U;
+      };
+
+      if (!ensure_single_axis_component(gz::sim::components::JointPosition()) ||
+          !ensure_single_axis_component(gz::sim::components::JointVelocity()) ||
+          !ensure_single_axis_component(gz::sim::components::JointForceCmd())) {
+        return false;
       }
     }
     bound_ = true;

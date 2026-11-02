@@ -563,3 +563,12 @@ simulation, SOEM/IgH adapter validation, physical bus testing, real-time timing
 evidence or HIL. SOEM and IgH remain optional follow-on adapters; production
 master selection is deferred until deployment hardware and target OS/NIC
 requirements are known.
+
+SOEM integration reconnaissance pinned upstream candidate commit
+`49fc34923b973c17700592319159af22157350c9` (SOEM 2.0.0). Its upstream
+`LICENSE.md` is GPLv3/commercial dual-license; because this repository has no
+root license declaration, redistribution/integration is blocked pending
+project-owner and legal confirmation of a compatible GPL path or a commercial
+license. SOEM 2.0.0 also requires CMake 3.28 (MCA root remains 3.20) and its
+Windows build links WinPcap libraries, so the adapter must be separately built
+and opt-in rather than injected into the default root build.

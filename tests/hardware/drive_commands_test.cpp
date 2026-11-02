@@ -153,6 +153,7 @@ TEST(DriveCommandBatch, KeepsVendorCurrentControlSeparateFromCiA402Modes) {
   const auto caps = make_capabilities();
   auto batch = make_batch(1);
   batch.count = 1;
+  batch.setpoints[0].axis = 1;
   batch.setpoints[0].control_mode = DriveControlMode::Current;
   batch.setpoints[0].current_a = 2.5;
   EXPECT_TRUE(validate_drive_command_batch(
@@ -162,7 +163,6 @@ TEST(DriveCommandBatch, KeepsVendorCurrentControlSeparateFromCiA402Modes) {
   auto no_current = caps;
   no_current.axes[1].supported_modes =
       control_mode_bit(DriveControlMode::Torque);
-  batch.setpoints[0].axis = 1;
   EXPECT_EQ(validate_drive_command_batch(
                 no_current, batch, 100U, HardwareClockDomain::HostMonotonic,
                 0U).code,

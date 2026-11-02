@@ -168,6 +168,38 @@ constexpr EthercatWorkingCounterState classify_ethercat_working_counter(
   return EthercatWorkingCounterState::Unexpected;
 }
 
+// EtherCAT AL state is independent from the CiA 402 PDS state. This helper
+// describes the master-neutral state-transition contract; adapters remain
+// responsible for issuing the protocol-specific state requests and observing
+// the resulting AL status/error information.
+constexpr bool ethercat_al_transition_allowed(EthercatAlState from,
+                                               EthercatAlState to) noexcept {
+  if (from == to) return true;
+  switch (from) {
+    case EthercatAlState::Init:
+      return to == EthercatAlState::PreOperational ||
+             to == EthercatAlState::Bootstrap || to == EthercatAlState::Error;
+    case EthercatAlState::PreOperational:
+      return to == EthercatAlState::SafeOperational ||
+             to == EthercatAlState::Init || to == EthercatAlState::Error;
+    case EthercatAlState::SafeOperational:
+      return to == EthercatAlState::Operational ||
+             to == EthercatAlState::PreOperational ||
+             to == EthercatAlState::Init || to == EthercatAlState::Error;
+    case EthercatAlState::Operational:
+      return to == EthercatAlState::SafeOperational ||
+             to == EthercatAlState::PreOperational ||
+             to == EthercatAlState::Init || to == EthercatAlState::Error;
+    case EthercatAlState::Bootstrap:
+      return to == EthercatAlState::Init || to == EthercatAlState::Error;
+    case EthercatAlState::Error:
+      return to == EthercatAlState::Init;
+    case EthercatAlState::Unknown:
+      return false;
+  }
+  return false;
+}
+
 struct EthercatDomainCycleStatus {
   std::uint16_t domain_id{0U};
   std::uint16_t expected_working_counter{0U};

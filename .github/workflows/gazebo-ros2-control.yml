@@ -137,8 +137,7 @@ jobs:
           gz sim -s -r -v 4 "$world" >"$gazebo_log" 2>&1 &
           gz_pid=$!
           clock_bridge_log="$GITHUB_WORKSPACE/clock-bridge.log"
-          ros2 run ros_gz_bridge parameter_bridge /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock >"$clock_bridge_log" 2>&1 &
-          clock_bridge_pid=$!
+          clock_bridge_config="$RUNNER_TEMP/clock_bridge.yaml"
 
           cleanup() {
             if [ -n "${rsp_pid:-}" ]; then
@@ -169,16 +168,46 @@ jobs:
           }
           trap cleanup EXIT
 
-          echo "=== Waiting for Gazebo ROS clock bridge ==="
-          clock_ready=false
+          echo "=== Waiting for Gazebo world clock transport topic ==="
+          gz_clock_topic="/world/mca_ros2_control_closed_loop/clock"
+          gz_clock_ready=false
           for _ in $(seq 1 30); do
             if ! kill -0 "$gz_pid" 2>/dev/null; then
-              echo "Gazebo exited before publishing its clock"
+              echo "Gazebo exited before creating its world clock topic"
               cat "$gazebo_log" || true
               exit 1
             fi
+            if timeout 3s gz topic -l 2>/dev/null | grep -Fxq "$gz_clock_topic"; then
+              gz_clock_ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$gz_clock_ready" != true ]; then
+            echo "Gazebo world clock topic '$gz_clock_topic' was not found"
+            timeout 5s gz topic -l || true
+            cat "$gazebo_log" || true
+            exit 1
+          fi
+
+          # Gazebo Harmonic publishes the advancing clock on the fully
+          # qualified world topic. Bridge that source onto ROS /clock.
+          cat >"$clock_bridge_config" <<'YAML'
+          - ros_topic_name: "/clock"
+            gz_topic_name: "/world/mca_ros2_control_closed_loop/clock"
+            ros_type_name: "rosgraph_msgs/msg/Clock"
+            gz_type_name: "gz.msgs.Clock"
+            direction: GZ_TO_ROS
+            lazy: false
+          YAML
+          ros2 run ros_gz_bridge parameter_bridge --ros-args -p config_file:="$clock_bridge_config" >"$clock_bridge_log" 2>&1 &
+          clock_bridge_pid=$!
+
+          echo "=== Waiting for Gazebo ROS clock bridge ==="
+          clock_ready=false
+          for _ in $(seq 1 30); do
             if ! kill -0 "$clock_bridge_pid" 2>/dev/null; then
-              echo "ros_gz_bridge exited before bridging /clock"
+              echo "ros_gz_bridge exited before bridging the world clock"
               cat "$clock_bridge_log" || true
               exit 1
             fi
@@ -189,7 +218,7 @@ jobs:
             sleep 1
           done
           if [ "$clock_ready" != true ]; then
-            echo "ROS /clock did not receive a Gazebo clock sample"
+            echo "ROS /clock did not receive a Gazebo world clock sample"
             cat "$clock_bridge_log" || true
             cat "$gazebo_log" || true
             exit 1

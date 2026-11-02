@@ -29,7 +29,7 @@ struct Cia402Status {
   bool target_reached{false};
   bool internal_limit_active{false};
   bool voltage_enabled{false};
-  bool quick_stop{false};
+  bool quick_stop_not_active{false};
   bool switch_on_disabled{false};
 };
 
@@ -94,6 +94,33 @@ constexpr std::uint16_t cia402_controlword(
     case Cia402ControlAction::FaultReset: return 0x0080U;
   }
   return 0U;
+}
+
+// State-aware guard for common PDS transitions. Device-specific interlocks,
+// quick-stop option codes and fault-reset timing remain profile responsibilities.
+constexpr bool cia402_control_action_allowed(
+    Cia402PdsState state, Cia402ControlAction action) noexcept {
+  switch (action) {
+    case Cia402ControlAction::DisableVoltage:
+      return state != Cia402PdsState::Unknown;
+    case Cia402ControlAction::Shutdown:
+      return state == Cia402PdsState::SwitchOnDisabled ||
+             state == Cia402PdsState::ReadyToSwitchOn ||
+             state == Cia402PdsState::SwitchedOn ||
+             state == Cia402PdsState::OperationEnabled ||
+             state == Cia402PdsState::QuickStopActive;
+    case Cia402ControlAction::SwitchOn:
+      return state == Cia402PdsState::ReadyToSwitchOn;
+    case Cia402ControlAction::EnableOperation:
+      return state == Cia402PdsState::SwitchedOn;
+    case Cia402ControlAction::DisableOperation:
+      return state == Cia402PdsState::OperationEnabled;
+    case Cia402ControlAction::QuickStop:
+      return state == Cia402PdsState::OperationEnabled;
+    case Cia402ControlAction::FaultReset:
+      return state == Cia402PdsState::Fault;
+  }
+  return false;
 }
 
 // Standard CiA 402 Modes of Operation values (object 0x6060/0x6061).

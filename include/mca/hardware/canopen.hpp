@@ -82,7 +82,9 @@ class CanopenHeartbeatMonitor {
   bool observe(const CanopenCanFrame& frame, std::uint64_t now_ms) noexcept {
     if (!valid() || !frame.valid() ||
         frame.cob_id != static_cast<std::uint16_t>(0x700U + node_id_) ||
-        frame.dlc != 1U ||\n        (frame.data[0] != 0x00U && frame.data[0] != 0x04U &&\n         frame.data[0] != 0x05U && frame.data[0] != 0x7FU)) {
+        frame.dlc != 1U ||
+        (frame.data[0] != 0x00U && frame.data[0] != 0x04U &&
+         frame.data[0] != 0x05U && frame.data[0] != 0x7FU)) {
       return false;
     }
     last_state_ = frame.data[0];

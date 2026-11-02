@@ -217,6 +217,9 @@ class CanopenVirtualNode {
     if (!valid() || !request.valid()) {
       return {core::StatusCode::InvalidArgument};
     }
+    if (communication_faulted_) {
+      return {core::StatusCode::RuntimeError};
+    }
     if (request.cob_id == 0x000U) {
       return process_nmt(request);
     }

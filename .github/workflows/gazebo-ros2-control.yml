@@ -192,9 +192,19 @@ jobs:
             exit 1
           fi
 
-          echo "=== Hardware before controller activation ==="
+          echo "=== Hardware before explicit lifecycle activation ==="
           ros2 control list_hardware_components --verbose
           ros2 control list_hardware_interfaces --verbose
+
+          # Use ros2_control's supported hardware_spawner helper to drive the
+          # component through configure -> activate. This makes the lifecycle
+          # transition explicit and independently observable in the acceptance.
+          echo "=== Configuring and activating McaGazeboSystem ==="
+          ros2 run controller_manager hardware_spawner \
+            --controller-manager /controller_manager \
+            --controller-manager-timeout 30 \
+            --activate McaGazeboSystem
+          ros2 control list_hardware_components --verbose
           ros2 control list_hardware_components --verbose | grep -A8 -F 'name: McaGazeboSystem' | grep -F 'label=active'
 
           echo "=== Loading controllers ==="

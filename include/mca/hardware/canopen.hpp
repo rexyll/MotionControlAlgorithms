@@ -133,7 +133,7 @@ struct CanopenPdoMapping {
       const auto& entry = entries[i];
       if (entry.index == 0U || entry.bit_length == 0U ||
           (entry.bit_length != 8U && entry.bit_length != 16U &&
-           entry.bit_length != 32U)) {
+           entry.bit_length != 32U && entry.bit_length != 64U)) {
         return false;
       }
       total_bits += entry.bit_length;
@@ -150,7 +150,7 @@ class CanopenVirtualNode {
   struct Object {
     std::uint16_t index{0};
     std::uint8_t subindex{0};
-    std::uint32_t value{0};
+    std::uint64_t value{0};
     std::uint8_t size_bytes{4};
     bool readable{true};
     bool writable{true};
@@ -180,7 +180,7 @@ class CanopenVirtualNode {
   core::Status add_object(const Object& object) noexcept {
     if (!valid() || object.index == 0U ||
         (object.size_bytes != 1U && object.size_bytes != 2U &&
-         object.size_bytes != 4U) || object_count_ >= MaxObjects ||
+         object.size_bytes != 4U && object.size_bytes != 8U) || object_count_ >= MaxObjects ||
         find_object(object.index, object.subindex) != nullptr) {
       return {core::StatusCode::InvalidArgument};
     }
@@ -189,11 +189,11 @@ class CanopenVirtualNode {
   }
 
   core::Status set_object_value(std::uint16_t index, std::uint8_t subindex,
-                                std::uint32_t value) noexcept {
+                                std::uint64_t value) noexcept {
     auto* object = find_object(index, subindex);
     if (object == nullptr ||
-        (object->size_bytes < 4U &&
-         value >= (static_cast<std::uint32_t>(1U) <<
+        (object->size_bytes < 8U &&
+         value >= (static_cast<std::uint64_t>(1U) <<
                    (8U * object->size_bytes)))) {
       return {core::StatusCode::ConstraintViolation};
     }
@@ -400,6 +400,89 @@ class CanopenVirtualNode {
   CanopenCanFrame process_sdo(const CanopenCanFrame& request) noexcept {
     if (request.dlc != 8U) return abort_sdo(request, 0x05040001U);
     const auto command = request.data[0];
+
+    // Client abort terminates either direction without modifying the object.
+    if (command == 0x80U) {
+      reset_sdo_transfer();
+      return abort_sdo(request, 0x05040000U);
+    }
+
+    // Download segment: toggle, unused-byte count and last-segment flag are
+    // checked before accepting bytes into the staged value.
+    if ((command & 0xE0U) == 0U) {
+      if (!sdo_download_active_ ||
+          ((command >> 4U) & 0x01U) != sdo_toggle_) {
+        reset_sdo_transfer();
+        return abort_sdo(request, 0x05030000U);
+      }
+      const bool last = (command & 0x01U) != 0U;
+      const auto unused = static_cast<std::uint8_t>((command >> 1U) & 0x07U);
+      if ((!last && unused != 0U) || (last && unused > 6U)) {
+        reset_sdo_transfer();
+        return abort_sdo(request, 0x05040001U);
+      }
+      const auto bytes = static_cast<std::uint8_t>(7U - unused);
+      if (sdo_bytes_received_ + bytes > sdo_expected_size_ ||
+          (!last && bytes != 7U) ||
+          (last && sdo_bytes_received_ + bytes != sdo_expected_size_)) {
+        reset_sdo_transfer();
+        return abort_sdo(request, 0x06070010U);
+      }
+      for (std::size_t i = 0; i < bytes; ++i) {
+        sdo_staged_value_ |=
+            static_cast<std::uint64_t>(request.data[1U + i])
+            << (8U * (sdo_bytes_received_ + i));
+      }
+      sdo_bytes_received_ = static_cast<std::uint8_t>(
+          sdo_bytes_received_ + bytes);
+      CanopenCanFrame response;
+      response.cob_id = static_cast<std::uint16_t>(0x580U + node_id_);
+      response.dlc = 8U;
+      response.data[0] = static_cast<std::uint8_t>(0x20U | (sdo_toggle_ << 4U));
+      if (last) {
+        auto* target = find_object(sdo_index_, sdo_subindex_);
+        if (target == nullptr || !target->writable) {
+          reset_sdo_transfer();
+          return abort_sdo(request, 0x06010002U);
+        }
+        target->value = sdo_staged_value_;
+        reset_sdo_transfer();
+        advance_virtual_cia402();
+      } else {
+        sdo_toggle_ ^= 0x01U;
+      }
+      return response;
+    }
+
+    // Upload segment request. Server returns up to seven bytes and toggles
+    // only after a non-final segment has been acknowledged by the client.
+    if (command == 0x60U || command == 0x70U) {
+      const auto toggle = static_cast<std::uint8_t>((command >> 4U) & 0x01U);
+      if (!sdo_upload_active_ || toggle != sdo_toggle_) {
+        reset_sdo_transfer();
+        return abort_sdo(request, 0x05030000U);
+      }
+      const auto remaining = static_cast<std::uint8_t>(
+          sdo_expected_size_ - sdo_bytes_sent_);
+      const auto bytes = static_cast<std::uint8_t>(
+          remaining > 7U ? 7U : remaining);
+      const bool last = bytes == remaining;
+      CanopenCanFrame response;
+      response.cob_id = static_cast<std::uint16_t>(0x580U + node_id_);
+      response.dlc = 8U;
+      const auto unused = static_cast<std::uint8_t>(7U - bytes);
+      response.data[0] = static_cast<std::uint8_t>(
+          (sdo_toggle_ << 4U) | (unused << 1U) | (last ? 0x01U : 0U));
+      for (std::size_t i = 0; i < bytes; ++i) {
+        response.data[1U + i] = static_cast<std::uint8_t>(
+            (sdo_staged_value_ >> (8U * (sdo_bytes_sent_ + i))) & 0xFFU);
+      }
+      sdo_bytes_sent_ = static_cast<std::uint8_t>(sdo_bytes_sent_ + bytes);
+      if (last) reset_sdo_transfer();
+      else sdo_toggle_ ^= 0x01U;
+      return response;
+    }
+
     const auto index = static_cast<std::uint16_t>(
         static_cast<std::uint32_t>(request.data[1]) |
         (static_cast<std::uint32_t>(request.data[2]) << 8U));
@@ -407,20 +490,62 @@ class CanopenVirtualNode {
     auto* object = find_object(index, subindex);
     if (object == nullptr) return abort_sdo(request, 0x06020000U);
 
-    CanopenCanFrame response;
-    response.cob_id = static_cast<std::uint16_t>(0x580U + node_id_);
-    response.dlc = 8U;
-    response.data[1] = request.data[1];
-    response.data[2] = request.data[2];
-    response.data[3] = subindex;
-
     if (command == 0x40U) {
       if (!object->readable) return abort_sdo(request, 0x06010001U);
-      response.data[0] = object->size_bytes == 4U ? 0x43U :
-                         object->size_bytes == 2U ? 0x4BU : 0x4FU;
-      for (std::size_t i = 0; i < object->size_bytes; ++i)
-        response.data[4U + i] =
-            static_cast<std::uint8_t>((object->value >> (8U * i)) & 0xFFU);
+      if (object->size_bytes <= 4U) {
+        CanopenCanFrame response;
+        response.cob_id = static_cast<std::uint16_t>(0x580U + node_id_);
+        response.dlc = 8U;
+        response.data[1] = request.data[1];
+        response.data[2] = request.data[2];
+        response.data[3] = subindex;
+        response.data[0] = object->size_bytes == 4U ? 0x43U :
+                           object->size_bytes == 2U ? 0x4BU : 0x4FU;
+        for (std::size_t i = 0; i < object->size_bytes; ++i)
+          response.data[4U + i] =
+              static_cast<std::uint8_t>((object->value >> (8U * i)) & 0xFFU);
+        return response;
+      }
+      sdo_upload_active_ = true;
+      sdo_download_active_ = false;
+      sdo_index_ = index;
+      sdo_subindex_ = subindex;
+      sdo_expected_size_ = object->size_bytes;
+      sdo_bytes_sent_ = 0U;
+      sdo_toggle_ = 0U;
+      sdo_staged_value_ = object->value;
+      CanopenCanFrame response;
+      response.cob_id = static_cast<std::uint16_t>(0x580U + node_id_);
+      response.dlc = 8U;
+      response.data[0] = 0x41U;
+      response.data[1] = request.data[1];
+      response.data[2] = request.data[2];
+      response.data[3] = subindex;
+      response.data[4] = object->size_bytes;
+      return response;
+    }
+
+    if (command == 0x21U) {
+      if (!object->writable) return abort_sdo(request, 0x06010002U);
+      const auto size = static_cast<std::uint8_t>(request.data[4]);
+      if (size != object->size_bytes || size <= 4U || size > 8U) {
+        return abort_sdo(request, 0x06070010U);
+      }
+      sdo_download_active_ = true;
+      sdo_upload_active_ = false;
+      sdo_index_ = index;
+      sdo_subindex_ = subindex;
+      sdo_expected_size_ = size;
+      sdo_bytes_received_ = 0U;
+      sdo_toggle_ = 0U;
+      sdo_staged_value_ = 0U;
+      CanopenCanFrame response;
+      response.cob_id = static_cast<std::uint16_t>(0x580U + node_id_);
+      response.dlc = 8U;
+      response.data[0] = 0x60U;
+      response.data[1] = request.data[1];
+      response.data[2] = request.data[2];
+      response.data[3] = subindex;
       return response;
     }
 
@@ -431,13 +556,31 @@ class CanopenVirtualNode {
     else return abort_sdo(request, 0x05040001U);
     if (!object->writable) return abort_sdo(request, 0x06010002U);
     if (size != object->size_bytes) return abort_sdo(request, 0x06070010U);
-    std::uint32_t value = 0U;
+    std::uint64_t value = 0U;
     for (std::size_t i = 0; i < size; ++i)
-      value |= static_cast<std::uint32_t>(request.data[4U + i]) << (8U * i);
+      value |= static_cast<std::uint64_t>(request.data[4U + i]) << (8U * i);
     object->value = value;
     advance_virtual_cia402();
+    CanopenCanFrame response;
+    response.cob_id = static_cast<std::uint16_t>(0x580U + node_id_);
+    response.dlc = 8U;
     response.data[0] = 0x60U;
+    response.data[1] = request.data[1];
+    response.data[2] = request.data[2];
+    response.data[3] = subindex;
     return response;
+  }
+
+  void reset_sdo_transfer() noexcept {
+    sdo_upload_active_ = false;
+    sdo_download_active_ = false;
+    sdo_index_ = 0U;
+    sdo_subindex_ = 0U;
+    sdo_expected_size_ = 0U;
+    sdo_bytes_received_ = 0U;
+    sdo_bytes_sent_ = 0U;
+    sdo_toggle_ = 0U;
+    sdo_staged_value_ = 0U;
   }
 
   core::Status apply_pdo(const CanopenPdoMapping<4U>& mapping,
@@ -458,9 +601,9 @@ class CanopenVirtualNode {
     if (offset != frame.dlc) return {core::StatusCode::InvalidArgument};
     offset = 0U;
     for (std::size_t i = 0; i < mapping.count; ++i) {
-      std::uint32_t value = 0U;
+      std::uint64_t value = 0U;
       for (std::size_t b = 0; b < targets[i]->size_bytes; ++b)
-        value |= static_cast<std::uint32_t>(frame.data[offset++]) << (8U * b);
+        value |= static_cast<std::uint64_t>(frame.data[offset++]) << (8U * b);
       targets[i]->value = value;
     }
     advance_virtual_cia402();
@@ -473,6 +616,15 @@ class CanopenVirtualNode {
   std::size_t object_count_{0U};
   CanopenPdoMapping<4U> rpdo1_mapping_{};
   CanopenPdoMapping<4U> tpdo1_mapping_{};
+  bool sdo_upload_active_{false};
+  bool sdo_download_active_{false};
+  std::uint16_t sdo_index_{0U};
+  std::uint8_t sdo_subindex_{0U};
+  std::uint8_t sdo_expected_size_{0U};
+  std::uint8_t sdo_bytes_received_{0U};
+  std::uint8_t sdo_bytes_sent_{0U};
+  std::uint8_t sdo_toggle_{0U};
+  std::uint64_t sdo_staged_value_{0U};
   bool communication_faulted_{false};
 };
 

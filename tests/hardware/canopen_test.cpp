@@ -113,6 +113,12 @@ TEST(CanopenNmt, HandlesStartStopPreOperationalAndResetCommands) {
   EXPECT_EQ(node.nmt_state(), CanopenNmtState::PreOperational);
   EXPECT_TRUE(node.process(nmt(0x81U), response, has_response).ok());
   EXPECT_EQ(node.nmt_state(), CanopenNmtState::Initialising);
+  EXPECT_EQ(node.heartbeat().data[0], 0x00U);
+  EXPECT_EQ(node.process(nmt(0x01U), response, has_response).code,
+            mca::core::StatusCode::RuntimeError);
+  node.complete_initialization();
+  EXPECT_EQ(node.nmt_state(), CanopenNmtState::PreOperational);
+  EXPECT_EQ(node.heartbeat().data[0], 0x7FU);
   EXPECT_EQ(node.process(nmt(0x03U), response, has_response).code,
             mca::core::StatusCode::InvalidArgument);
   EXPECT_EQ(node.process(nmt(0x01U, 2U), response, has_response).code,

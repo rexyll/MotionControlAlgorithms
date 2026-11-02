@@ -572,3 +572,13 @@ project-owner and legal confirmation of a compatible GPL path or a commercial
 license. SOEM 2.0.0 also requires CMake 3.28 (MCA root remains 3.20) and its
 Windows build links WinPcap libraries, so the adapter must be separately built
 and opt-in rather than injected into the default root build.
+
+IgH/EtherLab is a stronger candidate for a Linux-only deployment path: official
+EtherLab documentation recommends the `stable-1.6` branch for production and
+documents a GPLv2 master/kernel component plus an LGPLv2.1 userspace
+`libethercat`. The manual also documents userspace SDO requests/handlers,
+domain WKC, AL-state and DC APIs. This license split is not a legal clearance;
+the exact 1.6.x pin, kernel-module distribution obligations, static/dynamic
+linking model, NIC/RT-kernel compatibility and SDO cancellation semantics must
+be reviewed before implementation. IgH is Linux-only and does not solve the
+Windows adapter requirement.

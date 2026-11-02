@@ -167,6 +167,52 @@ TEST(EthercatWorkingCounter, ClassifiesExpectedAndObservedValues) {
             EthercatWorkingCounterState::Unexpected);
 }
 
+TEST(EthercatAlContract, AcceptsLegalProgressionFallbackAndErrorRecovery) {
+  EXPECT_TRUE(ethercat_al_transition_allowed(EthercatAlState::Init,
+                                              EthercatAlState::Init));
+  EXPECT_TRUE(ethercat_al_transition_allowed(EthercatAlState::Init,
+                                              EthercatAlState::PreOperational));
+  EXPECT_TRUE(ethercat_al_transition_allowed(EthercatAlState::Init,
+                                              EthercatAlState::Bootstrap));
+  EXPECT_TRUE(ethercat_al_transition_allowed(
+      EthercatAlState::PreOperational, EthercatAlState::SafeOperational));
+  EXPECT_TRUE(ethercat_al_transition_allowed(
+      EthercatAlState::SafeOperational, EthercatAlState::Operational));
+  EXPECT_TRUE(ethercat_al_transition_allowed(
+      EthercatAlState::Operational, EthercatAlState::SafeOperational));
+  EXPECT_TRUE(ethercat_al_transition_allowed(EthercatAlState::SafeOperational,
+                                              EthercatAlState::PreOperational));
+  EXPECT_TRUE(ethercat_al_transition_allowed(EthercatAlState::PreOperational,
+                                              EthercatAlState::Init));
+  EXPECT_TRUE(ethercat_al_transition_allowed(EthercatAlState::Operational,
+                                              EthercatAlState::Init));
+  EXPECT_TRUE(ethercat_al_transition_allowed(EthercatAlState::Bootstrap,
+                                              EthercatAlState::Init));
+  EXPECT_TRUE(ethercat_al_transition_allowed(EthercatAlState::Error,
+                                              EthercatAlState::Init));
+  EXPECT_TRUE(ethercat_al_transition_allowed(EthercatAlState::Operational,
+                                              EthercatAlState::Error));
+}
+
+TEST(EthercatAlContract, RejectsIllegalTransitionsAndUnknownRecoveryTargets) {
+  EXPECT_FALSE(ethercat_al_transition_allowed(EthercatAlState::Unknown,
+                                               EthercatAlState::Init));
+  EXPECT_FALSE(ethercat_al_transition_allowed(EthercatAlState::Init,
+                                               EthercatAlState::SafeOperational));
+  EXPECT_FALSE(ethercat_al_transition_allowed(EthercatAlState::Init,
+                                               EthercatAlState::Operational));
+  EXPECT_FALSE(ethercat_al_transition_allowed(EthercatAlState::PreOperational,
+                                               EthercatAlState::Operational));
+  EXPECT_FALSE(ethercat_al_transition_allowed(EthercatAlState::Operational,
+                                               EthercatAlState::Bootstrap));
+  EXPECT_FALSE(ethercat_al_transition_allowed(EthercatAlState::Bootstrap,
+                                               EthercatAlState::PreOperational));
+  EXPECT_FALSE(ethercat_al_transition_allowed(EthercatAlState::Error,
+                                               EthercatAlState::PreOperational));
+  EXPECT_FALSE(ethercat_al_transition_allowed(EthercatAlState::Error,
+                                               EthercatAlState::Operational));
+}
+
 TEST(EthercatMasterContract, FakeMasterExercisesLifecycleAndCyclicExchange) {
   FakeEthercatMaster master;
   EXPECT_EQ(master.state(), EthercatMasterState::Offline);

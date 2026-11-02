@@ -344,6 +344,84 @@ constexpr EthercatCycleTimingState classify_ethercat_cycle_timing(
   return EthercatCycleTimingState::Late;
 }
 
+enum class EthercatSdoOperation : std::uint8_t { Read, Write };
+
+enum class EthercatMailboxResultState : std::uint8_t {
+  Pending,
+  Completed,
+  Aborted,
+  TimedOut,
+  Failed
+};
+
+template <std::size_t MaxBytes>
+struct EthercatSdoRequest {
+  static_assert(MaxBytes > 0U, "EtherCAT SDO capacity must be positive");
+
+  std::uint64_t request_id{0U};
+  std::uint16_t slave_position{0U};
+  std::uint16_t index{0U};
+  std::uint8_t subindex{0U};
+  EthercatSdoOperation operation{EthercatSdoOperation::Read};
+  std::array<std::uint8_t, MaxBytes> payload{};
+  std::size_t payload_size{0U};
+  std::size_t max_response_size{0U};
+  std::uint64_t deadline_timestamp_ns{0U};
+
+  [[nodiscard]] bool valid() const noexcept {
+    if (request_id == 0U || index == 0U || deadline_timestamp_ns == 0U ||
+        payload_size > MaxBytes || max_response_size > MaxBytes)
+      return false;
+    if (operation == EthercatSdoOperation::Write)
+      return payload_size > 0U && max_response_size == 0U;
+    if (operation == EthercatSdoOperation::Read)
+      return payload_size == 0U && max_response_size > 0U;
+    return false;
+  }
+};
+
+template <std::size_t MaxBytes>
+struct EthercatSdoResult {
+  static_assert(MaxBytes > 0U, "EtherCAT SDO capacity must be positive");
+
+  std::uint64_t request_id{0U};
+  EthercatMailboxResultState state{EthercatMailboxResultState::Pending};
+  std::array<std::uint8_t, MaxBytes> payload{};
+  std::size_t payload_size{0U};
+  std::uint32_t abort_code{0U};
+
+  [[nodiscard]] bool valid() const noexcept {
+    if (request_id == 0U || payload_size > MaxBytes) return false;
+    if (state == EthercatMailboxResultState::Completed)
+      return abort_code == 0U;
+    if (state == EthercatMailboxResultState::Aborted)
+      return abort_code != 0U && payload_size == 0U;
+    if (state == EthercatMailboxResultState::Pending ||
+        state == EthercatMailboxResultState::TimedOut ||
+        state == EthercatMailboxResultState::Failed)
+      return payload_size == 0U;
+    return false;
+  }
+};
+
+// Mailbox work is submitted/polled independently from the cyclic master.
+// Implementations must use a fixed-capacity queue, reject duplicate live
+// request IDs, enforce deadlines, and return promptly when the queue is full.
+// No mailbox operation may be called from or awaited by exchange().
+template <std::size_t MaxBytes>
+class IEthercatMailbox {
+ public:
+  using Request = EthercatSdoRequest<MaxBytes>;
+  using Result = EthercatSdoResult<MaxBytes>;
+
+  virtual ~IEthercatMailbox() = default;
+  virtual core::Status enqueue(const Request& request) noexcept = 0;
+  // A successful poll may report Pending. A missing/unknown request ID is an
+  // InvalidArgument; output is unchanged on failure.
+  virtual core::Status poll(std::uint64_t request_id,
+                            Result& output) noexcept = 0;
+};
+
 struct EthercatDomainCycleStatus {
   std::uint16_t domain_id{0U};
   std::uint16_t expected_working_counter{0U};

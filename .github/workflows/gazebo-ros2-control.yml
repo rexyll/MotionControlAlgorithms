@@ -53,7 +53,7 @@ jobs:
           printf '%s\n' "$package_list"
           printf '%s\n' "$package_list" | awk '{print $1}' | grep -Fxq mca_gz_ros2_control_adapter
           colcon build --base-paths ros2 --packages-select mca_gz_ros2_control_adapter --merge-install
-          test -f install/mca_gz_ros2_control_adapter/lib/libmca_gz_ros2_control_adapter.so
+          test -f install/lib/libmca_gz_ros2_control_adapter.so
           set +u
           source install/setup.bash
           set -u
@@ -70,7 +70,7 @@ jobs:
 
           export ROS_DOMAIN_ID=47
           export GZ_PARTITION="mca-ros2-control-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
-          export GZ_SIM_SYSTEM_PLUGIN_PATH="$GITHUB_WORKSPACE/install/mca_gz_ros2_control_adapter/lib:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
+          export GZ_SIM_SYSTEM_PLUGIN_PATH="$GITHUB_WORKSPACE/install/lib:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
           world_source="$GITHUB_WORKSPACE/ros2/mca_gz_ros2_control_adapter/test/worlds/closed_loop.sdf"
           config="$GITHUB_WORKSPACE/ros2/mca_gz_ros2_control_adapter/test/closed_loop_controller.yaml"
           urdf="$GITHUB_WORKSPACE/ros2/mca_gz_ros2_control_adapter/test/closed_loop_robot.urdf"

@@ -114,6 +114,20 @@ std::size_t EthercatIghAdapter<S, D, E>::domain_index(std::uint16_t domain_id) c
 }
 
 template <std::size_t S, std::size_t D, std::size_t E>
+std::uint16_t EthercatIghAdapter<S, D, E>::domain_working_counter(
+    std::uint16_t domain_id) const noexcept {
+  const std::size_t index = domain_index(domain_id);
+  return index < domain_count_ ? domain_wkc_[index] : 0U;
+}
+
+template <std::size_t S, std::size_t D, std::size_t E>
+bool EthercatIghAdapter<S, D, E>::domain_working_counter_complete(
+    std::uint16_t domain_id) const noexcept {
+  const std::size_t index = domain_index(domain_id);
+  return index < domain_count_ && domain_wc_complete_[index];
+}
+
+template <std::size_t S, std::size_t D, std::size_t E>
 mca::core::Status EthercatIghAdapter<S, D, E>::activate() noexcept {
   if (master_ == nullptr || state_.state() != EthercatMasterState::Configured)
     return {mca::core::StatusCode::RuntimeError};
@@ -149,18 +163,38 @@ template <std::size_t S, std::size_t D, std::size_t E>
 mca::core::Status EthercatIghAdapter<S, D, E>::exchange() noexcept {
   if (!activated_ || master_ == nullptr || state_.state() != EthercatMasterState::Active)
     return {mca::core::StatusCode::RuntimeError};
-  if (ecrt_master_receive(master_) != 0) return {mca::core::StatusCode::RuntimeError};
+
+  // Keep the cyclic datagram pipeline moving even when a domain reports an
+  // incomplete WC. Stopping before queue/send can prevent the bus from
+  // recovering and turns a transient slave fault into a stalled cycle.
+  bool cycle_ok = (ecrt_master_receive(master_) == 0);
+  std::uint32_t total_wkc = 0U;
+  bool all_domains_complete = true;
+
   for (std::size_t d = 0; d < domain_count_; ++d) {
-    if (ecrt_domain_process(domains_[d]) != 0) return {mca::core::StatusCode::RuntimeError};
+    if (ecrt_domain_process(domains_[d]) != 0) cycle_ok = false;
     ec_domain_state_t s{};
-    if (ecrt_domain_state(domains_[d], &s) != 0) return {mca::core::StatusCode::RuntimeError};
+    if (ecrt_domain_state(domains_[d], &s) != 0) {
+      cycle_ok = false;
+      domain_wkc_[d] = 0U;
+      domain_wc_complete_[d] = false;
+      all_domains_complete = false;
+      continue;
+    }
     domain_wkc_[d] = static_cast<std::uint16_t>(std::min(s.working_counter, 0xFFFFU));
-    observed_wkc_ = domain_wkc_[d];
-    if (s.wc_state != EC_WC_COMPLETE) return {mca::core::StatusCode::RuntimeError};
+    domain_wc_complete_[d] = (s.wc_state == EC_WC_COMPLETE);
+    total_wkc += domain_wkc_[d];
+    if (!domain_wc_complete_[d]) all_domains_complete = false;
   }
-  for (std::size_t d = 0; d < domain_count_; ++d) if (ecrt_domain_queue(domains_[d]) != 0) return {mca::core::StatusCode::RuntimeError};
-  if (ecrt_master_send(master_) != 0) return {mca::core::StatusCode::RuntimeError};
-  ++cycle_sequence_;
+
+  observed_wkc_ = static_cast<std::uint16_t>(std::min(total_wkc, 0xFFFFU));
+  for (std::size_t d = 0; d < domain_count_; ++d)
+    if (ecrt_domain_queue(domains_[d]) != 0) cycle_ok = false;
+  if (ecrt_master_send(master_) != 0) cycle_ok = false;
+  else ++cycle_sequence_;
+
+  if (!all_domains_complete || !cycle_ok)
+    return {mca::core::StatusCode::RuntimeError};
   return {};
 }
 
@@ -211,10 +245,10 @@ mca::core::Status EthercatIghAdapter<S, D, E>::shutdown() noexcept {
   master_ = nullptr;
   domain_count_ = 0U;
   binding_count_ = 0U;
-  expected_wkc_ = 0U;
   observed_wkc_ = 0U;
   cycle_sequence_ = 0U;
   domain_wkc_.fill(0U);
+  domain_wc_complete_.fill(false);
   return state_.on_shutdown();
 }
 

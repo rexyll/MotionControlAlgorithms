@@ -163,6 +163,29 @@ The adapter must therefore never cache that pointer across cycles. It must
 copy terminal data into the fixed-capacity `EthercatSdoResult` and then retire
 the MCA request.
 
+### Fixed-size request-object constraint
+
+The `size` argument to `ecrt_slave_config_create_sdo_request()` reserves the
+request object's data buffer. `ecrt_sdo_request_data_size()` is a getter, not a
+public setter. Consequently, one IgH request object cannot safely represent
+arbitrary variable-length writes by merely changing the MCA payload length.
+The adapter must use a configuration-time SDO profile that declares the
+station, object index/subindex and exact transfer capacity for each request
+slot. A write must match that configured transfer size; a read may return no
+more than the reserved capacity. Concurrent requests require distinct IgH
+request objects, each owned by the corresponding slave configuration.
+
+### Error and Abort-code observability
+
+The realtime request API exposes only `EC_REQUEST_UNUSED`,
+`EC_REQUEST_BUSY`, `EC_REQUEST_SUCCESS` and `EC_REQUEST_ERROR`. It does not
+expose a CoE SDO abort code for a failed realtime request. The IgH adapter must
+therefore map `EC_REQUEST_ERROR` to MCA `Failed` with `abort_code == 0`; it
+must not claim `Aborted` or invent an abort code. The MCA `Aborted` result is
+reserved for backends that provide an observable abort code. The synchronous
+master SDO upload/download functions have a separate abort-code output, but
+they are not a substitute for the non-blocking realtime request path.
+
 ### Timeout/cancellation rule
 
 `ecrt_sdo_request_timeout()` causes an uncompleted request to become failed
@@ -270,6 +293,8 @@ The following remain intentionally open until evidence exists:
 
 - exact target Linux kernel/NIC/IgH compatibility matrix;
 - source-level confirmation of safe busy-request timeout/reuse semantics;
+- a configuration-time fixed-size SDO profile and an explicit policy for
+  realtime IgH errors that do not expose CoE abort codes;
 - compile/link validation against the pinned 1.6.13 headers/library;
 - simulator or virtual fixture protocol validation;
 - physical slave validation;

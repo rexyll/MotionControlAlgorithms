@@ -51,6 +51,16 @@ class EthercatAdapterState final {
     return {};
   }
 
+  mca::core::Status on_shutdown() noexcept {
+    if (state_ == EthercatMasterState::Active ||
+        state_ == EthercatMasterState::Recovering)
+      return {mca::core::StatusCode::RuntimeError};
+    state_ = EthercatMasterState::Offline;
+    topology_ = Topology{};
+    layout_ = Layout{};
+    return {};
+  }
+
   mca::core::Status begin_recovery() noexcept {
     if (state_ != EthercatMasterState::Active)
       return {mca::core::StatusCode::RuntimeError};

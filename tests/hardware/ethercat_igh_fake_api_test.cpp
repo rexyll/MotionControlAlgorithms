@@ -5,6 +5,7 @@
 
 #include "fake_igh_api.hpp"
 #include "mca/hardware/ethercat_igh_adapter.hpp"
+#include "mca/hardware/ethercat_igh_health_monitor.hpp"
 
 namespace {
 using Adapter = mca::hardware::EthercatIghAdapter<16U, 4U, 128U>;
@@ -498,4 +499,53 @@ TEST(EthercatIghFakeApi, ShutdownDeactivatesAndReleasesMasterExactlyOnce) {
   EXPECT_TRUE(adapter.shutdown().ok());
   EXPECT_EQ(fake_igh::deactivate_calls(), 1U);
   EXPECT_EQ(fake_igh::release_calls(), 1U);
+}
+
+
+TEST(EthercatIghFakeApi, IgHHealthBridgeConfirmsHealthyAfterConsecutiveCompleteCycles) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slots(adapter));
+
+  mca::hardware::EthercatIghHealthMonitor<16U, 4U, 128U> health;
+  for (std::uint64_t i = 0U; i < 5U; ++i) {
+    ASSERT_TRUE(adapter.exchange().ok());
+    ASSERT_TRUE(health.update(adapter).ok());
+  }
+  EXPECT_EQ(health.snapshot().state,
+            mca::hardware::EthercatBusHealthState::Healthy);
+  EXPECT_EQ(health.snapshot().consecutive_good_cycles, 5U);
+}
+
+TEST(EthercatIghFakeApi, IgHHealthBridgeDebouncesLinkLossAndTreatsReadFailureAsUnknown) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slots(adapter));
+
+  mca::hardware::EthercatIghHealthMonitor<16U, 4U, 128U> health;
+  for (int i = 0; i < 5; ++i) {
+    ASSERT_TRUE(adapter.exchange().ok());
+    ASSERT_TRUE(health.update(adapter).ok());
+  }
+  ASSERT_EQ(health.snapshot().state,
+            mca::hardware::EthercatBusHealthState::Healthy);
+
+  fake_igh::set_master_state(false, 0U, EC_AL_STATE_SAFEOP);
+  for (int i = 0; i < 3; ++i) {
+    ASSERT_TRUE(adapter.exchange().ok());
+    ASSERT_TRUE(health.update(adapter).ok());
+  }
+  EXPECT_EQ(health.snapshot().state,
+            mca::hardware::EthercatBusHealthState::Lost);
+
+  fake_igh::fail_master_state(true);
+  EXPECT_FALSE(adapter.exchange().ok());
+  ASSERT_TRUE(health.update(adapter).ok());
+  EXPECT_EQ(health.snapshot().state,
+            mca::hardware::EthercatBusHealthState::Unknown);
+  EXPECT_EQ(health.snapshot().consecutive_bad_cycles, 0U);
 }

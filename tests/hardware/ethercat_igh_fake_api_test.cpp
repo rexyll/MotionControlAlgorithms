@@ -270,19 +270,20 @@ TEST(EthercatIghFakeApi, RollsBackCreatedRequestsWhenTimeoutConfigurationFails) 
 }
 
 
-TEST(EthercatIghFakeApi, ActivationFailureKeepsConfiguredMasterRetryable) {
+TEST(EthercatIghFakeApi, ActivationFailureDiscardsConfiguredMaster) {
   fake_igh::reset();
   Adapter::Config config{}; config.cycle_time_ns = 1'000'000U;
   Adapter adapter(config);
   ASSERT_TRUE(configure_without_sdo(adapter));
   fake_igh::fail_activate(true);
   EXPECT_FALSE(adapter.activate().ok());
-  EXPECT_EQ(adapter.state().state(), mca::hardware::EthercatMasterState::Configured);
-  EXPECT_EQ(fake_igh::release_calls(), 0U);
+  EXPECT_EQ(adapter.state().state(), mca::hardware::EthercatMasterState::Offline);
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
   fake_igh::fail_activate(false);
-  EXPECT_TRUE(adapter.activate().ok());
-  EXPECT_EQ(fake_igh::activate_calls(), 2U);
+  EXPECT_FALSE(adapter.activate().ok());
+  EXPECT_EQ(fake_igh::activate_calls(), 1U);
   EXPECT_TRUE(adapter.shutdown().ok());
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
 }
 
 TEST(EthercatIghFakeApi, NullDomainDataDeactivatesAndAllowsRetry) {

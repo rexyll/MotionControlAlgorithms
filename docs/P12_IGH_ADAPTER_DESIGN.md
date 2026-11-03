@@ -420,3 +420,34 @@ The following remain intentionally open until evidence exists:
 
 These gates prevent the adapter from being marked production-ready based only
 on an API-compatible compile.
+
+
+## Bounded PDO mapping profile (2026-11-03)
+
+The first implementation slice adds
+`include/mca/hardware/ethercat_pdo_mapping_profile.hpp`. It is a fixed-capacity,
+allocation-free declaration/validator for the intended mapping. The profile
+records station position, vendor/product identity, Sync Manager index, PDO
+index, object index/subindex, bit length and direction.
+
+The validator rejects:
+- duplicate object entries for one station;
+- zero PDO/object indices and bit lengths outside 1..64;
+- decreasing station or Sync Manager order;
+- a direction change inside one Sync Manager;
+- a PDO group that reappears after a later PDO group in the same SM.
+
+The profile must be supplied in station/SM/PDO/entry order. It deliberately
+does not call the IgH API and does not claim to discover the physical slave's
+current mapping. This separates deterministic application intent from
+backend application and from independent on-wire verification.
+
+Portable GTest coverage is in
+`tests/hardware/ethercat_pdo_mapping_profile_test.cpp`; a dependency-light
+smoke test is also run by `ethercat-pdo-image`. The next implementation slice
+must translate a validated profile into IgH `ec_sync_info_t`,
+`ec_pdo_info_t` and `ec_pdo_entry_info_t` arrays, call
+`ecrt_slave_config_pdos()` before PDO registration/master activation, and
+test those calls through the fake IgH API. The KickCAT test must then read back
+the mapping via CoE object 0x1C12/0x1C13 and 0x1600+/0x1A00+ where supported;
+the configured profile alone is not proof of the slave's actual mapping.

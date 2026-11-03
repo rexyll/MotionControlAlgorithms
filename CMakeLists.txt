@@ -41,6 +41,23 @@ if(MCA_BUILD_TESTS)
   target_link_libraries(mca_core_tests PRIVATE mca_benchmark GTest::gtest_main)
   include(GoogleTest)
   gtest_discover_tests(mca_core_tests)
+
+  # Compile the real IgH adapter against a deliberately small fake C API.
+  # This exercises the adapter state machine without an IgH installation,
+  # kernel module, privileged NIC, or physical EtherCAT slave.
+  add_executable(mca_ethercat_igh_fake_tests
+    src/hardware/ethercat_igh_adapter.cpp
+    tests/hardware/fake_igh_api.cpp
+    tests/hardware/ethercat_igh_fake_api_test.cpp)
+  target_include_directories(mca_ethercat_igh_fake_tests BEFORE PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/fakes/igh
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/hardware)
+  target_compile_definitions(mca_ethercat_igh_fake_tests PRIVATE MCA_ENABLE_IGH=1)
+  target_link_libraries(mca_ethercat_igh_fake_tests PRIVATE mca_core GTest::gtest_main)
+  target_compile_options(mca_ethercat_igh_fake_tests PRIVATE
+    $<$<CXX_COMPILER_ID:MSVC>:/W4 /permissive->
+    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -Wconversion -Wshadow>)
+  gtest_discover_tests(mca_ethercat_igh_fake_tests)
 endif()
 if(MCA_BUILD_BENCHMARKS)
   find_package(benchmark QUIET)

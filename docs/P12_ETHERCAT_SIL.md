@@ -418,67 +418,62 @@ round-trip before enabling the DS402 controlword sequence.
 
 
 
-### IgH PDO mapping semantics and adapter gap (2026-11-03)
+### IgH PDO mapping semantics and adapter implementation (2026-11-03)
 
-The current `EthercatIghAdapter::configure()` registers each requested object
-with `ecrt_slave_config_reg_pdo_entry()`. This API **does not create or
-repair a PDO mapping**: it searches the slave configuration's already-assigned
-PDOs and fails when the requested object is not mapped. The returned byte
-offset and bit position locate the entry, but the API does not return that
-entry's mapped bit length or an MCA-level direction declaration. Consequently,
-the current `PdoBinding::bit_length` and `direction` are caller assertions,
-not values independently verified by IgH. The current adapter is therefore a
-registration/binding adapter for a mapping established elsewhere; it is not
-yet a complete PDO configuration or mapping-verification implementation.
+The adapter now supports two deliberately distinct configuration paths:
 
-IgH 1.6 provides two distinct mechanisms which must not be conflated:
+1. `configure(bindings, count)` preserves the legacy **use existing slave
+   mapping** behavior. It calls `ecrt_slave_config_reg_pdo_entry()` to register
+   the requested objects, but does not configure or independently inspect the
+   complete PDO map.
+2. `configure(bindings, count, mapping)` applies an explicit bounded mapping
+   profile. It translates station/SM/PDO/entry order into
+   `ec_sync_info_t`, `ec_pdo_info_t` and `ec_pdo_entry_info_t`, calls
+   `ecrt_slave_config_pdos()` for each profile slave, and only then registers
+   process-image entries.
 
-1. `ecrt_slave_config_pdos()` configures SyncManagers, PDO assignment and
-   PDO entry mapping in non-realtime context before master activation. Its
-   `ec_sync_info_t`, `ec_pdo_info_t` and `ec_pdo_entry_info_t` descriptors
-   explicitly carry SM index/direction, PDO index and entry index/subindex/
-   bit length. This is the appropriate API when MCA owns an explicit,
-   reviewed mapping profile.
-2. `ecrt_master_get_sync_manager()`, `ecrt_master_get_pdo()` and
-   `ecrt_master_get_pdo_entry()` expose the currently proposed/assigned
-   configuration for inspection. These are the appropriate discovery-side
-   inputs when MCA must verify a device's existing mapping before accepting
-   bindings. The returned data must be copied into bounded MCA-owned values;
-   do not retain pointers into backend-owned structures.
+The mapping profile records station position, vendor/product identity, SM
+index/direction, PDO index, object index/subindex and bit length. It must be
+ordered by station/SM/PDO/entry. Every process-image binding must match exactly
+one declared profile entry in identity, object, width and direction. The
+profile may include mapped entries not consumed by the process image; these
+are still passed to IgH so the declared PDO layout remains complete. Slaves
+appearing only in the profile are also identity-checked and configured.
 
-The next implementation must make mapping ownership explicit rather than
-silently mixing these modes. Add a bounded mapping profile containing ordered
-SyncManager, PDO and entry descriptors, plus an explicit policy:
-`UseDiscoveredMapping` (inspect and require exact agreement) or
-`ApplyConfiguredMapping` (call `ecrt_slave_config_pdos()` before registering
-entries). Validate capacities, duplicate SM/PDO/object declarations,
-directions, bit lengths, and exact correspondence between every
-`PdoBinding` and its mapping descriptor before any irreversible IgH setup.
-The profile must preserve PDO order because process-image offsets depend on
-the effective mapping order. A profile must never be inferred from object
-dictionary presence alone.
+The profile-to-IgH translation uses fixed-capacity arrays and does not allocate
+memory. A failed `ecrt_slave_config_pdos()` call releases the partially
+configured inactive master; no PDO entry registration or activation follows.
+The old overload remains source-compatible and does not silently switch to
+explicit mapping ownership.
 
-For `UseDiscoveredMapping`, compare actual SM direction, PDO assignment order,
-PDO indices, entry indices/subindices and bit lengths against the profile.
-For `ApplyConfiguredMapping`, submit the explicit descriptor and still
-validate registration results and the activated process-image bounds. A
-successful `ecrt_slave_config_pdos()` call is a configuration acceptance
-result, not proof that a physical slave applied it; runtime AL state and
-readback/diagnostic evidence remain separate gates.
+Fake IgH tests inspect SM direction, PDO index, entry index/width and the
+configuration-before-registration order. They cover unconsumed entries in a
+complete map, binding/profile mismatch rejection, and injected PDO
+configuration failure with master rollback. The opt-in IgH 1.6.13 compile job
+also compiles the adapter against the pinned upstream API. These results prove
+API compatibility and the adapter's configuration-call contract, not that a
+physical slave accepted or activated the mapping.
 
-Required tests before enabling this path:
-- discovered mapping exact match and mismatch (SM direction, PDO order,
-  object identity and bit length);
-- configured mapping API call ordering and failure rollback;
-- missing/offline slave behavior and unsupported mapping rejection;
-- multiple slaves with different mappings and sparse station positions;
-- non-byte-aligned entries and exact bit-offset/bit-length bounds;
-- no PDO registration or activation after profile validation fails.
+### Remaining mapping and protocol gates
 
-Until these tests and the IgH API compile/fake coverage exist, do not describe
-the current adapter as configuring PDOs or verifying the slave's active PDO
-mapping. The KickCAT veth discovery harness remains an earlier transport gate;
-it does not satisfy any PDO mapping acceptance item.
+The following are not yet implemented or proven:
+
+- `UseDiscoveredMapping`: read the existing configured SM/PDO/entry layout
+  through the relevant IgH inspection API and compare SM direction, PDO order,
+  object identity and bit length before accepting bindings;
+- independent CoE readback of assignment objects 0x1C12/0x1C13 and mapping
+  objects 0x1600+/0x1A00+ where supported;
+- multi-slave profile tests with sparse station positions and different
+  mappings;
+- protocol-level SAFEOP/OP progression, PDO cyclic exchange and WKC assertions
+  against KickCAT;
+- CiA402 state transitions, fault recovery, DC timing/jitter and real-slave
+  HIL.
+
+A successful `ecrt_slave_config_pdos()` call is only the master's acceptance
+of a configuration request. It is not proof that a physical slave applied
+that map. PREOP discovery and the earlier veth frame-exchange test remain
+transport/discovery evidence only.
 
 Official IgH 1.6 API references:
 - Application interface, PDO configuration and registration:

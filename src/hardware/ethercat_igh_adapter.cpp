@@ -453,10 +453,45 @@ mca::core::Status EthercatIghAdapter<S, D, E>::exchange() noexcept {
   if (!activated_ || master_ == nullptr || state_.state() != EthercatMasterState::Active)
     return {mca::core::StatusCode::RuntimeError};
 
-  // Keep the cyclic datagram pipeline moving even when a domain reports an
-  // incomplete WC. Stopping before queue/send can prevent the bus from
-  // recovering and turns a transient slave fault into a stalled cycle.
+  // Keep the cyclic datagram pipeline moving even when health diagnostics
+  // or a domain report a fault. These IgH state APIs are realtime-safe and
+  // expose link/master and per-configured-slave state independently of WKC.
   bool cycle_ok = (ecrt_master_receive(master_) == 0);
+
+  ec_master_state_t master_state{};
+  const int master_state_result = ecrt_master_state(master_, &master_state);
+  runtime_health_.master_state_valid = (master_state_result == 0);
+  runtime_health_.master_state_error = master_state_result;
+  if (master_state_result == 0) {
+    runtime_health_.link_up = (master_state.link_up != 0U);
+    runtime_health_.slaves_responding = master_state.slaves_responding;
+    runtime_health_.al_states = static_cast<std::uint8_t>(master_state.al_states);
+  } else {
+    cycle_ok = false;
+  }
+
+  runtime_health_.slave_count = state_.topology().slave_count;
+  for (std::size_t i = 0; i < runtime_health_.slave_count; ++i) {
+    auto& health = runtime_health_.slaves[i];
+    health = {};
+    health.station_position = state_.topology().slaves[i].station_position;
+    health.configured = (slave_configs_[i] != nullptr);
+    if (!health.configured) continue;
+
+    ec_slave_config_state_t slave_state{};
+    const int slave_state_result =
+        ecrt_slave_config_state(slave_configs_[i], &slave_state);
+    health.state_error = slave_state_result;
+    health.state_valid = (slave_state_result == 0);
+    if (slave_state_result == 0) {
+      health.online = (slave_state.online != 0U);
+      health.operational = (slave_state.operational != 0U);
+      health.al_state = static_cast<std::uint8_t>(slave_state.al_state);
+    } else {
+      cycle_ok = false;
+    }
+  }
+
   std::uint32_t total_wkc = 0U;
   bool all_domains_complete = true;
 
@@ -481,6 +516,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::exchange() noexcept {
     if (ecrt_domain_queue(domains_[d]) != 0) cycle_ok = false;
   if (ecrt_master_send(master_) != 0) cycle_ok = false;
   else ++cycle_sequence_;
+  runtime_health_.sequence = cycle_sequence_;
 
   if (!all_domains_complete || !cycle_ok)
     return {mca::core::StatusCode::RuntimeError};
@@ -551,6 +587,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::shutdown() noexcept {
   sdo_profile_ = {};
   observed_wkc_ = 0U;
   cycle_sequence_ = 0U;
+  runtime_health_ = {};
   domain_wkc_.fill(0U);
   domain_wc_complete_.fill(false);
   const auto shutdown_status = state_.on_shutdown();

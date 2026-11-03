@@ -63,7 +63,10 @@ MCA output image
     -> ecrt_master_send()
     -> ecrt_master_receive()
     -> ecrt_domain_process()
-    -> read mapped PDO entries
+    -> capture each domain's WKC and completeness
+    -> ecrt_domain_queue() for every domain
+    -> ecrt_master_send()
+    -> read mapped input PDO entries
     -> publish observed WKC/domain health
 ```
 
@@ -72,11 +75,25 @@ formatting, topology rediscovery or recovery transaction inside `exchange()`.
 
 For each domain retain:
 
-- expected working counter;
+- expected working counter when the backend exposes it (otherwise mark it unavailable);
 - last observed working counter;
 - complete/incomplete/zero state;
 - cycle sequence;
 - last successful exchange timestamp;
+
+IgH 1.6.13 exposes `working_counter` and `wc_state` through
+`ecrt_domain_state()`, but does not expose the configured expected counter as a
+public `ec_domain_state_t` field. The IgH adapter therefore reports the
+per-domain observed counter and `EC_WC_COMPLETE` result; it does not invent an
+expected value. A zero expected-counter accessor means unavailable, not an
+expected WKC of zero. The aggregate observed counter is a saturating sum, while
+per-domain values remain authoritative.
+
+An incomplete WKC is a health fault, not a reason to stop the cyclic datagram
+pipeline. The adapter must still attempt to queue every domain and send the
+next frame, then report the degraded cycle to its caller. Returning before
+`ecrt_domain_queue()`/`ecrt_master_send()` can prevent transient communication
+faults from recovering.
 - missed/deadline count.
 
 IgH exposes domain state including working-counter information, and its

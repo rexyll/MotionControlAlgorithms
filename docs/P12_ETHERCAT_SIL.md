@@ -410,8 +410,8 @@ round-trip before enabling the DS402 controlword sequence.
 - [x] IgH generic driver source/documentation confirms packet-socket-based
   operation on registered Linux Ethernet interfaces.
 - [x] Add an opt-in harness for IgH generic/veth/KickCAT one-slave discovery and bidirectional frame capture.
-- [ ] Execute the harness on a Linux host and prove IgH `ec_generic` binds the veth endpoint.
-- [ ] Prove bidirectional EtherCAT frame exchange with KickCAT over veth.
+- [x] Execute the harness on a Linux host and prove IgH `ec_generic` binds the veth endpoint (Ubuntu 24.04 VMware guest, Linux 7.0.0-42-generic).
+- [x] Prove bidirectional EtherCAT frame exchange with KickCAT over veth (one captured outbound and one captured inbound 0x88A4 frame).
 - [ ] Complete AL/CoE/PDO/WKC/DS402/fault-recovery acceptance.
 - [ ] Add an opt-in Linux SIL workflow only after the local proof is stable;
   keep it separate from dependency-free root CI.
@@ -487,3 +487,50 @@ Official IgH 1.6 API references:
   https://docs.etherlab.org/ethercat/1.6/doxygen/structec__sync__info__t.html
 - `ecrt.h` declarations and related API:
   https://docs.etherlab.org/ethercat/1.6/doxygen/ecrt_8h.html
+
+
+### Local IgH/KickCAT veth discovery evidence (2026-11-03)
+
+Executed `scripts/ethercat_sil/run_kickcat_igh_veth_discovery.sh` on the
+Ubuntu 24.04 VMware guest. The harness completed with exit status 0 and
+reported:
+
+```text
+PASS: IgH ec_generic <-> veth <-> KickCAT raw-socket slave discovery and bidirectional EtherCAT frame exchange.
+NOTE: This is transport/discovery SIL only; it does not validate PDO, WKC, CoE SDO, CiA402 motion, DC timing or HIL.
+```
+
+Recorded environment:
+- Kernel: `Linux 7.0.0-42-generic x86_64`
+- Master veth: `mcaecat0`, MAC `02:4d:43:41:45:01`
+- Simulator veth: `mcaecat1`, MAC `02:4d:43:41:45:02`
+- KickCAT simulator: one slave, raw-socket backend
+- Artifact directory: `/tmp/mca-ethercat-sil-20261103-212526`
+
+IgH discovered exactly one slave in PREOP with:
+- Vendor ID: `0x0000029c`
+- Product code: `0x03b11002`
+- Revision: `0x00050005`
+- Device/order name: `EVS-NET-01`
+- Supported mailbox protocols: EoE, CoE and FoE
+- Distributed clocks capability: 64-bit
+
+The slave reported port 0 link up and port 1 link down, as expected for this
+single-link fixture. The simulator log reported 1,000 frames processed over
+approximately one second, with a reported processing interval of 1–4,111 us
+and average 763 us. This is simulator-side processing telemetry, not a master
+cycle-jitter or DC synchronization measurement.
+
+The TX and RX tcpdump logs each contain one captured EtherCAT frame. The
+capture filters reported 1,404 packets received by the filter and zero
+kernel drops; because the harness uses `-c 1`, these logs are intentionally
+single-frame samples, not complete packet captures. The incoming frame differs
+from the outgoing frame in EtherCAT datagram fields, consistent with slave
+processing. A full PCAP with datagram-by-datagram correlation and WKC
+assertions is still required for protocol-level acceptance.
+
+This evidence closes only the local veth/module-binding and one-slave
+discovery transport gate. It does not close AL state progression, CoE SDO,
+PDO mapping, cyclic process data, WKC completeness, CiA402, DC timing,
+fault/recovery, or HIL gates. In particular, PREOP discovery is not SAFEOP
+or OP acceptance.

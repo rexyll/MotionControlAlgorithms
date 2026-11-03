@@ -39,6 +39,18 @@ TEST(EthercatPdoMappingProfile, RejectsZeroAndOversizedEntryWidth) {
   EXPECT_FALSE(profile.add({5U, 0x29cU, 0x03b11002U, 2U, 0x1600U, 0x6040U, 0U, 65U, Direction::Output}));
 }
 
+TEST(EthercatPdoMappingProfile, AcceptsMultipleOrderedPdosWithinOneSyncManager) {
+  Profile profile;
+  ASSERT_TRUE(profile.add({0U, 0x2U, 0x1234U, 2U, 0x1600U,
+      0x6040U, 0U, 16U, Direction::Output}));
+  ASSERT_TRUE(profile.add({0U, 0x2U, 0x1234U, 2U, 0x1600U,
+      0x607AU, 0U, 32U, Direction::Output}));
+  ASSERT_TRUE(profile.add({0U, 0x2U, 0x1234U, 2U, 0x1601U,
+      0x60FFU, 0U, 32U, Direction::Output}));
+  EXPECT_TRUE(profile.valid());
+  EXPECT_EQ(profile.size(), 3U);
+}
+
 TEST(EthercatPdoMappingProfile, RejectsReappearingClosedPdoGroup) {
   Profile profile{};
   ASSERT_TRUE(profile.add({5U, 0x29cU, 0x03b11002U, 2U, 0x1600U, 0x6040U, 0U, 16U, Direction::Output}));

@@ -98,12 +98,21 @@ TEST(EthercatIghFakeApi, VerifiesDiscoveredSmPdoAndEntryTreeWithoutApplyingConfi
   Adapter adapter(config);
   ASSERT_TRUE(adapter.request_master().ok());
   ASSERT_TRUE(adapter.discover().ok());
+  Adapter::PdoMappingProfile discovered{};
+  ASSERT_TRUE(adapter.discover_pdo_mapping(discovered).ok());
+  ASSERT_EQ(discovered.size(), 3U);
+  EXPECT_EQ(discovered[0].ring_position, 0U);
+  EXPECT_EQ(discovered[0].sync_manager, 2U);
+  EXPECT_EQ(discovered[0].pdo_index, 0x1A00U);
+  EXPECT_EQ(discovered[0].index, 0x6041U);
+  EXPECT_EQ(discovered[1].index, 0x6064U);
+  EXPECT_EQ(discovered[2].sync_manager, 3U);
   std::array<Adapter::PdoBinding, 128U> bindings{};
   bindings[0] = {0U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
                  mca::hardware::EthercatPdoDirection::Input};
   bindings[1] = {0U, 0x2U, 0x1234U, 0x6040U, 0U, 16U, 7U,
                  mca::hardware::EthercatPdoDirection::Output};
-  ASSERT_TRUE(adapter.configure(bindings, 2U, two_sm_mapping(),
+  ASSERT_TRUE(adapter.configure(bindings, 2U, discovered,
       mca::hardware::EthercatPdoMappingPolicy::UseDiscoveredMapping).ok());
   EXPECT_EQ(fake_igh::pdo_configuration_calls(), 0U);
   EXPECT_EQ(fake_igh::pdo_registration_calls(), 2U);

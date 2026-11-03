@@ -193,9 +193,16 @@ returns `TimedOut` but keeps the backend slot quarantined until IgH reaches a
 terminal state. Since IgH exposes no completion timestamp, a result first
 observed after the MCA deadline is conservatively reported as timed out.
 
+The adapter methods are a single-owner API: callers must serialize
+`configure_sdo_profile()`, `enqueue_sdo()`, `poll_sdo()`, `exchange()` and
+`shutdown()` on one control/RT execution context. The adapter does not add
+locks, and concurrent calls from independent threads are unsupported. The
+enqueue path also checks the live IgH request state before submission rather
+than trusting only MCA slot bookkeeping. Shutdown is idempotent and clears
+adapter-owned handles/bookkeeping even if the master pointer was already null.
+
 This is an initial direct adapter implementation, not yet a fully tested
 mailbox queue or a claim of safe behavior under every IgH runtime failure.
-
 ### Error and Abort-code observability
 
 The realtime request API exposes only `EC_REQUEST_UNUSED`,

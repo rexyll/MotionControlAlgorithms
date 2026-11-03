@@ -222,3 +222,152 @@ fake master or a simulator-only CI job.
   licensing path are mandatory before adapter integration or redistribution.
 - Real WKC/DC/recovery quality requires a real slave or a validated EtherCAT
   simulator; fake-master results must be labeled separately.
+
+## Gate 2A — IgH ↔ KickCAT wire-level SIL feasibility
+
+### Finding (2026-11-03)
+
+KickCAT is technically suitable for a first external-slave SIL experiment with
+the existing IgH adapter, without linking KickCAT into MCA:
+
+- KickCAT's `network_simulator` is a separate process and its Linux
+  `Socket` implementation opens `PF_PACKET/SOCK_RAW`, binds EtherCAT
+  EtherType `0x88A4` to a named network interface, and reads/writes raw
+  Ethernet frames.
+- IgH's `ec_generic` driver also uses a kernel `PF_PACKET/SOCK_RAW` socket
+  bound to its selected Linux interface. The IgH generic driver documentation
+  describes it as operating on ordinary registered Ethernet interfaces.
+- Therefore a Linux `veth` pair is a plausible transport bridge:
+  IgH master + `ec_generic` on one endpoint, KickCAT
+  `network_simulator` on the peer endpoint. This is a real EtherCAT frame
+  exchange between two independent processes, not an in-process fake API.
+- KickCAT's simulator can build its slave EEPROM and CoE dictionary from ESI
+  XML, has an optional CiA-402 motor device application, and supports SDO,
+  PDO, AL state transitions and network wire-break/heal injection.
+- KickCAT's current feature matrix still lists DC synchronization as
+  experimental and does not emulate interrupts. This SIL must not be used to
+  claim DC timing accuracy, interrupt behavior, hard-real-time performance or
+  conformance certification.
+
+Upstream references (re-check pinned revisions before automation):
+- KickCAT: https://github.com/leducp/KickCAT
+- Simulation guide: https://github.com/leducp/KickCAT/blob/master/docs/SIMULATION.md
+- Feature matrix: https://github.com/leducp/KickCAT/blob/master/docs/FEATURES.md
+- Linux raw socket: `lib/src/OS/Linux/Socket.cc`
+- IgH generic driver: https://gitlab.com/etherlab.org/ethercat/-/blob/stable-1.6/devices/generic.c
+- IgH device driver documentation: https://docs.etherlab.org/ethercat/1.6/pdf/ethercat_doc.pdf
+
+### Proposed isolated topology
+
+```text
+MCA IgH adapter
+      |
+IgH userspace API (ecrt)
+      |
+IgH ec_master + ec_generic
+      |
+veth-mca (AF_PACKET / EtherCAT 0x88A4)
+      |
+Linux veth peer
+      |
+veth-kickcat (AF_PACKET / EtherCAT 0x88A4)
+      |
+KickCAT network_simulator
+      |
+EmulatedNetwork + EmulatedESC + CoE/CiA402 device app
+```
+
+The two endpoints must be dedicated to this test and must not carry host IP
+traffic. The test harness must record interface names and MAC addresses,
+configure the IgH master to select only the MCA endpoint, and verify that
+KickCAT is bound only to the peer. Never point IgH at a host management NIC.
+The test requires Linux root/CAP_NET_RAW/CAP_NET_ADMIN and permission to load
+the IgH kernel modules; it is not a normal unprivileged root-CI test.
+
+### First fixture
+
+Use KickCAT's existing `simulation/slave_configs/ecat402-drive.json`
+configuration and its matching `ecat402-drive.xml` ESI fixture. The JSON
+enables the built-in `ds402_motor` behavior. The ESI currently identifies
+Vendor ID `0x0000029c`, ProductCode `61935618`, RevisionNo `327685`.
+These are simulator fixture identity values, not a claim that this is an
+available physical drive or a vendor-approved ESI for a real product.
+
+Start with exactly one slave and one PDO domain. Bind the minimum DS402
+objects required for a controlled CSP smoke test:
+- RxPDO: Controlword `0x6040:00`, Modes of operation `0x6060:00`,
+  Target position `0x607A:00`.
+- TxPDO: Statusword `0x6041:00`, Modes display `0x6061:00`,
+  Position actual value `0x6064:00`.
+
+Before configuring the MCA binding, parse the selected ESI and verify the
+actual PDO assignment/mapping entries and bit lengths. Do not assume object
+presence in the CoE dictionary means it is mapped into the active PDO. If the
+ESI's default mapping differs, explicitly configure it through CoE in PRE-OP
+or create a dedicated, reviewed fixture; do not silently hard-code guessed
+offsets. Start with SDO identity reads (0x1018) and a non-motion read-only
+round-trip before enabling the DS402 controlword sequence.
+
+### Acceptance ladder
+
+1. **Transport smoke:** verify EtherCAT frames cross the veth pair in both
+   directions; capture EtherType 0x88A4 and correlate master send/receive
+   counters. A successful process start is not acceptance.
+2. **Discovery/identity:** IgH discovers exactly one slave and MCA validates
+   station position, vendor ID, product code and revision against the ESI.
+3. **AL lifecycle:** INIT → PRE-OP → SAFE-OP → OP succeeds; inject a simulator
+   link break and verify loss is detected; heal the link and require explicit
+   revalidation before returning Active.
+4. **CoE SDO:** read 0x1018 identity and selected CiA-402 objects; test a
+   bounded write/readback and a deliberate abort/timeout. Ensure SDO work
+   does not block cyclic exchange.
+5. **PDO/WKC:** exchange mapped RxPDO/TxPDO data for a bounded cycle count;
+   require expected WKC to be derived from the configured mapping/topology,
+   every observed WKC complete, monotonic cycle sequence, and no stale input
+   publication on failed exchange.
+6. **CiA-402 behavior:** perform Shutdown → Switch On → Enable Operation,
+   verify statusword transitions, set CSP mode, issue a small bounded target
+   change, and verify actual position follows with finite lag. Disable voltage
+   and verify the simulator returns to Switch-on-disabled.
+7. **Fault/recovery:** break/heal the simulated wire while cycling; prove
+   WKC loss, AL/online state change, no motion command during recovery,
+   topology identity re-check and PDO revalidation after recovery.
+8. **Evidence:** preserve KickCAT commit SHA, IgH commit/version, kernel
+   version, veth configuration, ESI hash, simulator config, logs, packet
+   capture, test report and all thresholds.
+
+### Known limitations and stop conditions
+
+- The existing MCA IgH adapter is behind `MCA_ENABLE_IGH` and calls
+  `ecrt_request_master()`; the adapter does not itself create veth devices,
+  load kernel modules, bind a NIC or configure `ec_generic`. Those belong in
+  a dedicated opt-in Linux harness.
+- The present adapter API compile workflow is not a kernel-module/runtime
+  test. The fake IgH API tests do not prove packet transmission.
+- IgH generic-driver support for a veth endpoint is a testable hypothesis,
+  not yet an observed result. First prove module binding and bidirectional
+  EtherCAT frames on a disposable Linux host/VM. If `ec_generic` refuses or
+  cannot bind veth, stop; do not substitute KickCAT's in-process loopback and
+  label it IgH wire-level SIL.
+- KickCAT's simulator uses raw packet sockets; its TAP socket is a separate
+  shared-memory transport used only when the master is also a KickCAT process.
+  MCA IgH cannot connect to KickCAT's private TAP queue directly.
+- KickCAT's built-in DS402 motor app is useful for functional protocol
+  interaction, but its plant is not a validated model of a particular drive.
+- KickCAT's CeCILL-C license requires a separate distribution/compliance
+  review before bundling or redistributing it. The proposed first use is an
+  external test dependency downloaded at a pinned revision; no KickCAT source,
+  binary or headers enter the MCA root build.
+
+### Status
+
+- [x] Upstream source inspection confirms a raw-Ethernet simulator transport
+  and a DS402 ESI/device fixture.
+- [x] IgH generic driver source/documentation confirms packet-socket-based
+  operation on registered Linux Ethernet interfaces.
+- [ ] Prove IgH `ec_generic` binds a veth endpoint on the target Linux kernel.
+- [ ] Prove bidirectional EtherCAT frame exchange with KickCAT over veth.
+- [ ] Complete AL/CoE/PDO/WKC/DS402/fault-recovery acceptance.
+- [ ] Add an opt-in Linux SIL workflow only after the local proof is stable;
+  keep it separate from dependency-free root CI.
+

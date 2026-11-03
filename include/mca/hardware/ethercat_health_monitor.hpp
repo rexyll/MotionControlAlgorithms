@@ -72,6 +72,10 @@ class EthercatBusHealthMonitor final {
     snapshot_.sequence = sample.sequence;
     snapshot_.sample_valid = sample.diagnostics_valid;
     if (!sample.diagnostics_valid) {
+      // An invalid sample breaks both debounce streaks. Recovery must be
+      // confirmed from fresh consecutive samples after diagnostics return.
+      snapshot_.consecutive_bad_cycles = 0U;
+      snapshot_.consecutive_good_cycles = 0U;
       snapshot_.state = EthercatBusHealthState::Unknown;
       return {};
     }

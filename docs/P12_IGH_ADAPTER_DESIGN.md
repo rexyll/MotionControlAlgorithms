@@ -175,6 +175,16 @@ slot. A write must match that configured transfer size; a read may return no
 more than the reserved capacity. Concurrent requests require distinct IgH
 request objects, each owned by the corresponding slave configuration.
 
+The portable contract now represents this profile as
+`EthercatSdoProfile<MaxSlots, MaxBytes>` with one
+`EthercatSdoSlotConfig` per preallocated backend request object. Repeated
+station/index/subindex tuples are permitted only when their capacity and
+timeout agree; they represent independent concurrency slots. The profile
+rejects writes whose payload length is not exactly the configured capacity,
+reads whose response bound exceeds it, and requests for unconfigured objects.
+This validates the portable dispatch contract only; it does not yet create or
+schedule IgH request objects.
+
 ### Error and Abort-code observability
 
 The realtime request API exposes only `EC_REQUEST_UNUSED`,
@@ -293,8 +303,9 @@ The following remain intentionally open until evidence exists:
 
 - exact target Linux kernel/NIC/IgH compatibility matrix;
 - source-level confirmation of safe busy-request timeout/reuse semantics;
-- a configuration-time fixed-size SDO profile and an explicit policy for
-  realtime IgH errors that do not expose CoE abort codes;
+- IgH-side creation/dispatch of the validated fixed-size SDO profile, including
+  slot reservation, busy-state quarantine and terminal-state reuse tests;
+- an explicit policy for realtime IgH errors that do not expose CoE abort codes;
 - compile/link validation against the pinned 1.6.13 headers/library;
 - simulator or virtual fixture protocol validation;
 - physical slave validation;

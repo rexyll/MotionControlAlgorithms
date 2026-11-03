@@ -116,8 +116,8 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
   };
 
   // Validate the complete caller description before making any irreversible
-  // IgH registration calls. Topology order is not assumed to equal station
-  // position; locate each slave by its explicit station address.
+  // IgH registration calls. Topology slot order is not assumed to be an external identifier;
+  // locate each slave by its explicit IgH ring position.
   for (std::size_t i = 0; i < count; ++i) {
     const auto& binding = bindings[i];
     if (binding.index == 0U || binding.bit_length == 0U ||
@@ -254,11 +254,11 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
       // Compare the complete SM/PDO/entry hierarchy before any registration.
       std::size_t profile_begin = 0U;
       while (profile_begin < mapping->size()) {
-        const auto station = (*mapping)[profile_begin].ring_position;
+        const auto ring_position = (*mapping)[profile_begin].ring_position;
         std::size_t cursor = profile_begin;
         std::size_t expected_sync_count = 0U;
         while (cursor < mapping->size() &&
-               (*mapping)[cursor].ring_position == station) {
+               (*mapping)[cursor].ring_position == ring_position) {
           const auto sync_index = (*mapping)[cursor].sync_manager;
           const auto direction = (*mapping)[cursor].direction;
           const std::size_t sync_begin = cursor;
@@ -268,7 +268,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
           const std::size_t sync_end = cursor;
 
           ec_sync_info_t actual_sync{};
-          if (ecrt_master_get_sync_manager(master_, station, sync_index,
+          if (ecrt_master_get_sync_manager(master_, ring_position, sync_index,
                                            &actual_sync) != 0 ||
               actual_sync.index != sync_index ||
               actual_sync.dir != (direction == EthercatPdoDirection::Input
@@ -423,7 +423,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
     const auto& binding = bindings[i];
     auto& entry = layout.entries[i];
     // EthercatPdoEntry::slave_position is a bounded topology slot, not the
-    // EtherCAT station address. The latter may be sparse/non-zero-based.
+    // IgH ring position carried by the adapter binding.
     entry.slave_position = static_cast<std::uint16_t>(topology_indices[i]);
     entry.domain_id = binding.domain_id;
     entry.index = binding.index;

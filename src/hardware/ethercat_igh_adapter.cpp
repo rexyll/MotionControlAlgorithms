@@ -303,6 +303,8 @@ mca::core::Status EthercatIghAdapter<S, D, E>::enqueue_sdo(
         return {mca::core::StatusCode::RuntimeError};
     }
     slot.request_id = request.request_id;
+    slot_deadlines_[static_cast<std::size_t>(&slot - sdo_slots_.data())] =
+        request.deadline_timestamp_ns;
     slot.operation = request.operation;
     slot.max_response_size = request.max_response_size;
     slot.timed_out = false;
@@ -367,7 +369,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::poll_sdo(
             (size != 0U && data == nullptr)) {
           result.state = EthercatMailboxResultState::Failed;
         } else {
-          std::copy_n(data, size, result.payload.begin());
+          if (size != 0U) std::copy_n(data, size, result.payload.begin());
           result.payload_size = size;
         }
       }
@@ -503,6 +505,10 @@ mca::core::Status EthercatIghAdapter<S, D, E>::shutdown() noexcept {
   master_ = nullptr;
   domain_count_ = 0U;
   binding_count_ = 0U;
+  sdo_slots_.fill({});
+  slot_deadlines_.fill(0U);
+  sdo_slot_count_ = 0U;
+  sdo_profile_ = {};
   observed_wkc_ = 0U;
   cycle_sequence_ = 0U;
   domain_wkc_.fill(0U);

@@ -83,7 +83,7 @@ TEST(EthercatBusHealthMonitor, LatchesExplicitFaultUntilSupervisoryClear) {
   fault.latched_fault = true;
   ASSERT_TRUE(monitor.update(fault).ok());
   EXPECT_EQ(monitor.snapshot().state, EthercatBusHealthState::Fault);
-  EXPECT_EQ(monitor.clear_latched_fault().code, core::StatusCode::Ok);
+  EXPECT_EQ(monitor.clear_latched_fault().code, mca::core::StatusCode::Ok);
   ASSERT_TRUE(monitor.update(healthy_sample(2U)).ok());
   EXPECT_EQ(monitor.snapshot().state, EthercatBusHealthState::Recovering);
 }
@@ -92,14 +92,14 @@ TEST(EthercatBusHealthMonitor, RejectsInvalidConfigAndRepeatedSequences) {
   EthercatBusHealthMonitor invalid({0U, 2U});
   EXPECT_FALSE(invalid.configured());
   EXPECT_EQ(invalid.update(healthy_sample(1U)).code,
-            core::StatusCode::InvalidArgument);
+            mca::core::StatusCode::InvalidArgument);
 
   EthercatBusHealthMonitor monitor;
-  EXPECT_EQ(monitor.update(healthy_sample(1U)).code, core::StatusCode::Ok);
+  EXPECT_EQ(monitor.update(healthy_sample(1U)).code, mca::core::StatusCode::Ok);
   EXPECT_EQ(monitor.update(healthy_sample(1U)).code,
-            core::StatusCode::InvalidArgument);
+            mca::core::StatusCode::InvalidArgument);
   EXPECT_EQ(monitor.update(healthy_sample(0U)).code,
-            core::StatusCode::InvalidArgument);
+            mca::core::StatusCode::InvalidArgument);
 }
 
 }  // namespace

@@ -238,7 +238,7 @@ int ecrt_master_get_sync_manager(ec_master_t*, uint16_t station,
   if (station != 0U || sync == nullptr) return -1;
   *sync = {};
   if (sync_index == 2U) {
-    sync->index = 2U; sync->dir = EC_DIR_INPUT; sync->n_pdos = 1U;
+    sync->index = 2U; sync->dir = EC_DIR_INPUT; sync->n_pdos = 2U;
     return 0;
   }
   if (sync_index == 3U) {
@@ -251,19 +251,28 @@ int ecrt_master_get_pdo(ec_master_t*, uint16_t station, uint8_t sync_index,
                         uint16_t pdo_pos, ec_pdo_info_t* pdo) {
   if (station != 0U || pdo_pos != 0U || pdo == nullptr) return -1;
   *pdo = {};
-  if (sync_index == 2U) { pdo->index = 0x1A00U; pdo->n_entries = 2U; return 0; }
-  if (sync_index == 3U) { pdo->index = 0x1600U; pdo->n_entries = 1U; return 0; }
+  if (sync_index == 2U && pdo_pos == 0U) {
+    pdo->index = 0x1A00U; pdo->n_entries = 2U; return 0;
+  }
+  if (sync_index == 2U && pdo_pos == 1U) {
+    pdo->index = 0x1A01U; pdo->n_entries = 1U; return 0;
+  }
+  if (sync_index == 3U && pdo_pos == 0U) {
+    pdo->index = 0x1600U; pdo->n_entries = 1U; return 0;
+  }
   return -1;
 }
 int ecrt_master_get_pdo_entry(ec_master_t*, uint16_t station, uint8_t sync_index,
                               uint16_t pdo_pos, uint16_t entry_pos,
                               ec_pdo_entry_info_t* entry) {
-  if (station != 0U || pdo_pos != 0U || entry == nullptr) return -1;
-  if (sync_index == 2U && entry_pos == 0U)
+  if (station != 0U || entry == nullptr) return -1;
+  if (sync_index == 2U && pdo_pos == 0U && entry_pos == 0U)
     *entry = {0x6041U, 0U, 16U};
-  else if (sync_index == 2U && entry_pos == 1U)
+  else if (sync_index == 2U && pdo_pos == 0U && entry_pos == 1U)
     *entry = {0x6064U, 0U, 32U};
-  else if (sync_index == 3U && entry_pos == 0U)
+  else if (sync_index == 2U && pdo_pos == 1U && entry_pos == 0U)
+    *entry = {0x606CU, 0U, 32U};
+  else if (sync_index == 3U && pdo_pos == 0U && entry_pos == 0U)
     *entry = {0x6040U, 0U, 16U};
   else
     return -1;

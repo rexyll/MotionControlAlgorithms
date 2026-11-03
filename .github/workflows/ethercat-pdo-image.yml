@@ -1,0 +1,20 @@
+name: ethercat-pdo-image
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pdo-image-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile PDO image smoke test
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow \
+            -Iinclude tests/hardware/ethercat_pdo_image_smoke.cpp \
+            -o /tmp/ethercat_pdo_image_smoke
+      - name: Run PDO image smoke test
+        run: /tmp/ethercat_pdo_image_smoke

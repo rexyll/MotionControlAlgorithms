@@ -101,6 +101,8 @@ class EthercatIghAdapter final {
 
   mca::core::Status request_master() noexcept;
   mca::core::Status discover() noexcept;
+  // Snapshot the connected slave PDO hierarchy from IgH before configure().
+  mca::core::Status discover_pdo_mapping(PdoMappingProfile& output) noexcept;
   mca::core::Status configure(const std::array<PdoBinding, MaxEntries>& bindings,
                               std::size_t binding_count) noexcept;
   // Applies the declared SyncManager/PDO mapping through ecrt_slave_config_pdos

@@ -40,6 +40,81 @@ Request read_request(std::uint64_t id, std::uint64_t deadline,
 }
 }  // namespace
 
+TEST(EthercatIghFakeApi, CollectsMasterAndSlaveRuntimeHealth) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slots(adapter));
+
+  ASSERT_TRUE(adapter.exchange().ok());
+  const auto& health = adapter.runtime_health();
+  ASSERT_TRUE(health.valid());
+  EXPECT_TRUE(health.master_state_valid);
+  EXPECT_TRUE(health.link_up);
+  EXPECT_EQ(health.slaves_responding, 1U);
+  EXPECT_EQ(health.al_states, EC_AL_STATE_OP);
+  ASSERT_EQ(health.slave_count, 1U);
+  EXPECT_EQ(health.slaves[0].station_position, 5U);
+  EXPECT_TRUE(health.slaves[0].configured);
+  EXPECT_TRUE(health.slaves[0].state_valid);
+  EXPECT_TRUE(health.slaves[0].online);
+  EXPECT_TRUE(health.slaves[0].operational);
+  EXPECT_EQ(health.slaves[0].al_state, EC_AL_STATE_OP);
+  EXPECT_EQ(health.sequence, adapter.cycle_sequence());
+}
+
+TEST(EthercatIghFakeApi, ReportsMasterLinkLossIndependentlyFromCompleteDomainWkc) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slots(adapter));
+  fake_igh::set_master_state(false, 0U, EC_AL_STATE_SAFEOP);
+
+  ASSERT_TRUE(adapter.exchange().ok());
+  const auto& health = adapter.runtime_health();
+  ASSERT_TRUE(health.valid());
+  EXPECT_FALSE(health.link_up);
+  EXPECT_EQ(health.slaves_responding, 0U);
+  EXPECT_EQ(adapter.domain_working_counter_complete(7U), true);
+}
+
+TEST(EthercatIghFakeApi, ReportsSlaveOfflineAndSafeOperationalIndependentlyFromMaster) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slots(adapter));
+  fake_igh::set_slave_state(false, false, EC_AL_STATE_SAFEOP);
+
+  ASSERT_TRUE(adapter.exchange().ok());
+  const auto& health = adapter.runtime_health();
+  ASSERT_TRUE(health.valid());
+  EXPECT_TRUE(health.link_up);
+  ASSERT_EQ(health.slave_count, 1U);
+  EXPECT_FALSE(health.slaves[0].online);
+  EXPECT_FALSE(health.slaves[0].operational);
+  EXPECT_EQ(health.slaves[0].al_state, EC_AL_STATE_SAFEOP);
+  EXPECT_TRUE(adapter.domain_working_counter_complete(7U));
+}
+
+TEST(EthercatIghFakeApi, DiagnosticReadFailureKeepsCyclicQueueAndSendMoving) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slots(adapter));
+  fake_igh::fail_master_state(true);
+
+  EXPECT_FALSE(adapter.exchange().ok());
+  const auto& health = adapter.runtime_health();
+  EXPECT_FALSE(health.master_state_valid);
+  EXPECT_EQ(health.master_state_error, -1);
+  EXPECT_EQ(fake_igh::queue_calls(), 1U);
+  EXPECT_EQ(fake_igh::send_calls(), 1U);
+}
+
 TEST(EthercatIghFakeApi, ReadsOnlyAfterSuccessAndCopiesTerminalBuffer) {
   fake_igh::reset();
   Adapter::Config config{};

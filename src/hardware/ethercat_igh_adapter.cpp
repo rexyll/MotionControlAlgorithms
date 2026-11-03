@@ -335,7 +335,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::poll_sdo(
     result.request_id = request_id;
     const auto state = ecrt_sdo_request_state(slot.request);
     if (slot.timed_out) {
-      if (state != EC_REQUEST_BUSY) {
+      if (state != EC_REQUEST_BUSY && state != EC_REQUEST_UNUSED) {
         slot.occupied = false;
         slot.request_id = 0U;
       }
@@ -344,11 +344,16 @@ mca::core::Status EthercatIghAdapter<S, D, E>::poll_sdo(
       return {};
     }
 
-    const std::uint64_t deadline =
-        // Deadlines are stored per submitted request in the slot runtime.
-        slot_deadlines_[i];
-    if (now_timestamp_ns >= deadline && state == EC_REQUEST_BUSY) {
+    // IgH does not expose a completion timestamp. The adapter therefore uses
+    // observation-time deadline semantics: a terminal result first observed
+    // after the MCA deadline is reported TimedOut, not retroactively on-time.
+    const std::uint64_t deadline = slot_deadlines_[i];
+    if (now_timestamp_ns >= deadline) {
       slot.timed_out = true;
+      if (state != EC_REQUEST_BUSY && state != EC_REQUEST_UNUSED) {
+        slot.occupied = false;
+        slot.request_id = 0U;
+      }
       result.state = EthercatMailboxResultState::TimedOut;
       output = result;
       return {};

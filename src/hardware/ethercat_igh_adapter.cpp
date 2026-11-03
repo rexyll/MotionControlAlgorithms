@@ -10,9 +10,9 @@ EthercatAlState EthercatIghAdapter<S, D, E>::map_al_state(std::uint8_t state) no
   switch (state & 0x0FU) {
     case EC_AL_STATE_INIT: return EthercatAlState::Init;
     case EC_AL_STATE_PREOP: return EthercatAlState::PreOperational;
+    case 0x03U: return EthercatAlState::Bootstrap;
     case EC_AL_STATE_SAFEOP: return EthercatAlState::SafeOperational;
     case EC_AL_STATE_OP: return EthercatAlState::Operational;
-    case EC_AL_STATE_BOOT: return EthercatAlState::Bootstrap;
     default: return EthercatAlState::Unknown;
   }
 }

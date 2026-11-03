@@ -239,6 +239,153 @@ bool EthercatIghAdapter<S, D, E>::domain_working_counter_complete(
 }
 
 template <std::size_t S, std::size_t D, std::size_t E>
+mca::core::Status EthercatIghAdapter<S, D, E>::configure_sdo_profile(
+    const SdoProfile& profile) noexcept {
+  if (master_ == nullptr || activated_ ||
+      state_.state() != EthercatMasterState::Configured ||
+      !profile.valid() || profile.slot_count > E || sdo_slot_count_ != 0U)
+    return {mca::core::StatusCode::InvalidArgument};
+
+  sdo_profile_ = profile;
+  for (std::size_t i = 0; i < profile.slot_count; ++i) {
+    const auto& slot = profile.slots[i];
+    std::size_t topology_index = state_.topology().slave_count;
+    for (std::size_t s = 0; s < state_.topology().slave_count; ++s) {
+      if (state_.topology().slaves[s].station_position == slot.slave_position) {
+        topology_index = s;
+        break;
+      }
+    }
+    if (topology_index >= state_.topology().slave_count ||
+        slave_configs_[topology_index] == nullptr) {
+      (void)shutdown();
+      return {mca::core::StatusCode::ConstraintViolation};
+    }
+
+    auto* request = ecrt_slave_config_create_sdo_request(
+        slave_configs_[topology_index], slot.index, slot.subindex,
+        slot.transfer_capacity);
+    if (request == nullptr ||
+        ecrt_sdo_request_timeout(request, slot.timeout_ms) != 0) {
+      (void)shutdown();
+      return {mca::core::StatusCode::RuntimeError};
+    }
+    sdo_slots_[i].request = request;
+    ++sdo_slot_count_;
+  }
+  return {};
+}
+
+template <std::size_t S, std::size_t D, std::size_t E>
+mca::core::Status EthercatIghAdapter<S, D, E>::enqueue_sdo(
+    const SdoRequest& request) noexcept {
+  if (!activated_ || master_ == nullptr ||
+      state_.state() != EthercatMasterState::Active ||
+      !sdo_profile_.supports(request))
+    return {mca::core::StatusCode::InvalidArgument};
+
+  for (std::size_t i = 0; i < sdo_slot_count_; ++i) {
+    auto& slot = sdo_slots_[i];
+    if (slot.occupied || slot.request == nullptr) continue;
+    const auto& config = sdo_profile_.slots[i];
+    if (config.slave_position != request.slave_position ||
+        config.index != request.index || config.subindex != request.subindex)
+      continue;
+
+    if (request.operation == EthercatSdoOperation::Write) {
+      auto* data = ecrt_sdo_request_data(slot.request);
+      if (data == nullptr) return {mca::core::StatusCode::RuntimeError};
+      std::copy_n(request.payload.begin(), request.payload_size, data);
+      if (ecrt_sdo_request_write(slot.request) != 0)
+        return {mca::core::StatusCode::RuntimeError};
+    } else {
+      if (ecrt_sdo_request_read(slot.request) != 0)
+        return {mca::core::StatusCode::RuntimeError};
+    }
+    slot.request_id = request.request_id;
+    slot.operation = request.operation;
+    slot.max_response_size = request.max_response_size;
+    slot.timed_out = false;
+    slot.occupied = true;
+    return {};
+  }
+  return {mca::core::StatusCode::RuntimeError};
+}
+
+template <std::size_t S, std::size_t D, std::size_t E>
+mca::core::Status EthercatIghAdapter<S, D, E>::poll_sdo(
+    std::uint64_t request_id, std::uint64_t now_timestamp_ns,
+    SdoResult& output) noexcept {
+  if (!activated_ || request_id == 0U || now_timestamp_ns == 0U)
+    return {mca::core::StatusCode::InvalidArgument};
+
+  for (std::size_t i = 0; i < sdo_slot_count_; ++i) {
+    auto& slot = sdo_slots_[i];
+    if (!slot.occupied || slot.request_id != request_id) continue;
+
+    SdoResult result{};
+    result.request_id = request_id;
+    const auto state = ecrt_sdo_request_state(slot.request);
+    if (slot.timed_out) {
+      if (state != EC_REQUEST_BUSY) {
+        slot.occupied = false;
+        slot.request_id = 0U;
+      }
+      result.state = EthercatMailboxResultState::TimedOut;
+      output = result;
+      return {};
+    }
+
+    const std::uint64_t deadline =
+        // Deadlines are stored per submitted request in the slot runtime.
+        slot_deadlines_[i];
+    if (now_timestamp_ns >= deadline && state == EC_REQUEST_BUSY) {
+      slot.timed_out = true;
+      result.state = EthercatMailboxResultState::TimedOut;
+      output = result;
+      return {};
+    }
+
+    if (state == EC_REQUEST_BUSY || state == EC_REQUEST_UNUSED) {
+      result.state = EthercatMailboxResultState::Pending;
+      output = result;
+      return {};
+    }
+    if (state == EC_REQUEST_ERROR) {
+      result.state = EthercatMailboxResultState::Failed;
+      slot.occupied = false;
+      slot.request_id = 0U;
+      output = result;
+      return {};
+    }
+    if (state == EC_REQUEST_SUCCESS) {
+      result.state = EthercatMailboxResultState::Completed;
+      if (slot.operation == EthercatSdoOperation::Read) {
+        const std::size_t size = ecrt_sdo_request_data_size(slot.request);
+        const auto* data = ecrt_sdo_request_data(slot.request);
+        if (size > slot.max_response_size || size > kMaxSdoBytes ||
+            (size != 0U && data == nullptr)) {
+          result.state = EthercatMailboxResultState::Failed;
+        } else {
+          std::copy_n(data, size, result.payload.begin());
+          result.payload_size = size;
+        }
+      }
+      slot.occupied = false;
+      slot.request_id = 0U;
+      output = result;
+      return {};
+    }
+    result.state = EthercatMailboxResultState::Failed;
+    slot.occupied = false;
+    slot.request_id = 0U;
+    output = result;
+    return {};
+  }
+  return {mca::core::StatusCode::InvalidArgument};
+}
+
+template <std::size_t S, std::size_t D, std::size_t E>
 mca::core::Status EthercatIghAdapter<S, D, E>::activate() noexcept {
   if (master_ == nullptr || state_.state() != EthercatMasterState::Configured)
     return {mca::core::StatusCode::RuntimeError};

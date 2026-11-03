@@ -63,7 +63,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::discover_pdo_mapping(
   for (std::size_t slave_index = 0; slave_index < topology.slave_count;
        ++slave_index) {
     const auto& slave = topology.slaves[slave_index];
-    for (std::uint8_t sm = 0U; sm < 16U; ++sm) {
+    for (std::uint8_t sm = 0U; sm < EC_MAX_SYNC_MANAGERS; ++sm) {
       ec_sync_info_t sync{};
       if (ecrt_master_get_sync_manager(master_, slave.ring_position, sm,
                                        &sync) != 0)
@@ -364,7 +364,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
 
         // Detect additional PDO-bearing SMs not declared by the profile.
         std::size_t discovered_sync_count = 0U;
-        for (std::uint8_t sm = 0U; sm < 16U; ++sm) {
+        for (std::uint8_t sm = 0U; sm < EC_MAX_SYNC_MANAGERS; ++sm) {
           ec_sync_info_t actual_sync{};
           if (ecrt_master_get_sync_manager(master_, ring_position, sm,
                                            &actual_sync) == 0 &&

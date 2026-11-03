@@ -293,15 +293,14 @@ mca::core::Status EthercatIghAdapter<S, D, E>::enqueue_sdo(
   for (std::size_t i = 0; i < sdo_slot_count_; ++i) {
     auto& slot = sdo_slots_[i];
     if (slot.occupied || slot.request == nullptr) continue;
-    // Never rely only on the MCA bookkeeping flag when crossing the C API
-    // boundary. A failed submission or future cancellation path must not
-    // accidentally issue a second operation while IgH still owns the request.
-    if (ecrt_sdo_request_state(slot.request) == EC_REQUEST_BUSY)
-      return {mca::core::StatusCode::RuntimeError};
     const auto& config = sdo_profile_.slots[i];
     if (config.slave_position != request.slave_position ||
         config.index != request.index || config.subindex != request.subindex)
       continue;
+    // Check only the matching backend object. A failed prior submission may
+    // leave one slot BUSY; it must not prevent dispatch to an unrelated slot.
+    if (ecrt_sdo_request_state(slot.request) == EC_REQUEST_BUSY)
+      return {mca::core::StatusCode::RuntimeError};
 
     if (request.operation == EthercatSdoOperation::Write) {
       auto* data = ecrt_sdo_request_data(slot.request);

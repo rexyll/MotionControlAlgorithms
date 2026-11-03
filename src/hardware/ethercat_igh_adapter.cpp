@@ -55,8 +55,23 @@ mca::core::Status EthercatIghAdapter<S, D, E>::discover() noexcept {
 template <std::size_t S, std::size_t D, std::size_t E>
 mca::core::Status EthercatIghAdapter<S, D, E>::configure(
     const std::array<PdoBinding, E>& bindings, std::size_t count) noexcept {
+  return configure_impl(bindings, count, nullptr);
+}
+
+template <std::size_t S, std::size_t D, std::size_t E>
+mca::core::Status EthercatIghAdapter<S, D, E>::configure(
+    const std::array<PdoBinding, E>& bindings, std::size_t count,
+    const PdoMappingProfile& mapping) noexcept {
+  return configure_impl(bindings, count, &mapping);
+}
+
+template <std::size_t S, std::size_t D, std::size_t E>
+mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
+    const std::array<PdoBinding, E>& bindings, std::size_t count,
+    const PdoMappingProfile* mapping) noexcept {
   if (master_ == nullptr || state_.state() != EthercatMasterState::Discovered ||
-      count == 0U || count > E || config_.cycle_time_ns == 0U)
+      count == 0U || count > E || config_.cycle_time_ns == 0U ||
+      (mapping != nullptr && (!mapping->valid() || mapping->size() != count)))
     return {mca::core::StatusCode::InvalidArgument};
 
   // IgH has no public per-domain destroy operation. Once a domain or slave
@@ -121,6 +136,28 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure(
     }
   }
 
+  if (mapping != nullptr) {
+    // A configured mapping must describe exactly the same objects, widths,
+    // directions and slave identities as the domain registration list.
+    for (std::size_t i = 0; i < mapping->size(); ++i) {
+      const auto& entry = (*mapping)[i];
+      std::size_t matches = 0U;
+      for (std::size_t j = 0; j < count; ++j) {
+        const auto& binding = bindings[j];
+        if (binding.station_position == entry.station_position &&
+            binding.vendor_id == entry.vendor_id &&
+            binding.product_code == entry.product_code &&
+            binding.index == entry.index &&
+            binding.subindex == entry.subindex &&
+            binding.bit_length == entry.bit_length &&
+            binding.direction == entry.direction)
+          ++matches;
+      }
+      if (matches != 1U)
+        return {mca::core::StatusCode::ConstraintViolation};
+    }
+  }
+
   std::array<std::uint16_t, D> ids{};
   std::array<std::size_t, E> topology_indices{};
   domain_count_ = 0U;
@@ -168,6 +205,84 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure(
       return fail_configuration(
           {mca::core::StatusCode::RuntimeError});
 
+  }
+
+  if (mapping != nullptr) {
+    // Translate the bounded profile into IgH's SyncManager -> PDO -> entry
+    // tree per slave. The IgH call consumes the arrays synchronously.
+    std::size_t profile_begin = 0U;
+    while (profile_begin < mapping->size()) {
+      const auto station = (*mapping)[profile_begin].station_position;
+      std::size_t topology_index = state_.topology().slave_count;
+      for (std::size_t s = 0; s < state_.topology().slave_count; ++s) {
+        if (state_.topology().slaves[s].station_position == station) {
+          topology_index = s;
+          break;
+        }
+      }
+      if (topology_index >= state_.topology().slave_count ||
+          slave_configs_[topology_index] == nullptr)
+        return fail_configuration({mca::core::StatusCode::ConstraintViolation});
+
+      std::array<ec_pdo_entry_info_t, E> pdo_entries{};
+      std::array<ec_pdo_info_t, E> pdos{};
+      std::array<ec_sync_info_t, E> syncs{};
+      std::size_t entry_count = 0U;
+      std::size_t pdo_count = 0U;
+      std::size_t sync_count = 0U;
+      std::size_t cursor = profile_begin;
+
+      while (cursor < mapping->size() &&
+             (*mapping)[cursor].station_position == station) {
+        const auto sync_index = (*mapping)[cursor].sync_manager;
+        const auto direction = (*mapping)[cursor].direction;
+        const std::size_t sync_pdo_begin = pdo_count;
+        while (cursor < mapping->size() &&
+               (*mapping)[cursor].station_position == station &&
+               (*mapping)[cursor].sync_manager == sync_index) {
+          const auto pdo_index = (*mapping)[cursor].pdo_index;
+          const std::size_t pdo_entry_begin = entry_count;
+          while (cursor < mapping->size() &&
+                 (*mapping)[cursor].station_position == station &&
+                 (*mapping)[cursor].sync_manager == sync_index &&
+                 (*mapping)[cursor].pdo_index == pdo_index) {
+            const auto& item = (*mapping)[cursor];
+            pdo_entries[entry_count++] = {
+                item.index, item.subindex, item.bit_length};
+            ++cursor;
+          }
+          pdos[pdo_count++] = {
+              pdo_index,
+              static_cast<unsigned int>(entry_count - pdo_entry_begin),
+              pdo_entries.data() + pdo_entry_begin};
+        }
+        if (pdo_count - sync_pdo_begin > 255U)
+          return fail_configuration({mca::core::StatusCode::ConstraintViolation});
+        syncs[sync_count++] = {
+            sync_index,
+            direction == EthercatPdoDirection::Input ? EC_DIR_INPUT : EC_DIR_OUTPUT,
+            static_cast<std::uint8_t>(pdo_count - sync_pdo_begin),
+            pdos.data() + sync_pdo_begin,
+            EC_WD_DEFAULT};
+      }
+
+      if (ecrt_slave_config_pdos(
+              slave_configs_[topology_index],
+              static_cast<unsigned int>(sync_count), syncs.data()) != 0)
+        return fail_configuration({mca::core::StatusCode::RuntimeError});
+      profile_begin = cursor;
+    }
+  }
+
+  // PDO mapping is applied before registration; legacy calls retain the
+  // existing-slave-mapping behavior and skip ecrt_slave_config_pdos().
+  for (std::size_t i = 0; i < count; ++i) {
+    const auto& binding = bindings[i];
+    std::size_t domain = 0U;
+    while (domain < domain_count_ && ids[domain] != binding.domain_id) ++domain;
+    if (domain >= domain_count_)
+      return fail_configuration({mca::core::StatusCode::ConstraintViolation});
+    const auto topology_index = topology_indices[i];
     unsigned int bit = 0U;
     const int offset = ecrt_slave_config_reg_pdo_entry(
         slave_configs_[topology_index], binding.index,

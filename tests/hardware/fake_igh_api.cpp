@@ -252,7 +252,7 @@ int ecrt_master_get_pdo(ec_master_t*, uint16_t station, uint8_t sync_index,
   if (station != 0U || pdo == nullptr) return -1;
   *pdo = {};
   if (sync_index == 2U && pdo_pos == 0U) {
-    pdo->index = 0x1A00U; pdo->n_entries = 2U; return 0;
+    pdo->index = 0x1A00U; pdo->n_entries = 3U; return 0;
   }
   if (sync_index == 2U && pdo_pos == 1U) {
     pdo->index = 0x1A01U; pdo->n_entries = 1U; return 0;
@@ -270,6 +270,8 @@ int ecrt_master_get_pdo_entry(ec_master_t*, uint16_t station, uint8_t sync_index
     *entry = {0x6041U, 0U, 16U};
   else if (sync_index == 2U && pdo_pos == 0U && entry_pos == 1U)
     *entry = {0x6064U, 0U, 32U};
+  else if (sync_index == 2U && pdo_pos == 0U && entry_pos == 2U)
+    *entry = {0x0000U, 0U, 8U};
   else if (sync_index == 2U && pdo_pos == 1U && entry_pos == 0U)
     *entry = {0x606CU, 0U, 32U};
   else if (sync_index == 3U && pdo_pos == 0U && entry_pos == 0U)

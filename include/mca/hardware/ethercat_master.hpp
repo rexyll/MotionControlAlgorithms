@@ -356,6 +356,32 @@ enum class EthercatMailboxResultState : std::uint8_t {
   Failed
 };
 
+template <std::size_t MaxBytes>
+struct EthercatSdoRequest {
+  static_assert(MaxBytes > 0U, "EtherCAT SDO capacity must be positive");
+
+  std::uint64_t request_id{0U};
+  std::uint16_t slave_position{0U};
+  std::uint16_t index{0U};
+  std::uint8_t subindex{0U};
+  EthercatSdoOperation operation{EthercatSdoOperation::Read};
+  std::array<std::uint8_t, MaxBytes> payload{};
+  std::size_t payload_size{0U};
+  std::size_t max_response_size{0U};
+  std::uint64_t deadline_timestamp_ns{0U};
+
+  [[nodiscard]] bool valid() const noexcept {
+    if (request_id == 0U || index == 0U || deadline_timestamp_ns == 0U ||
+        payload_size > MaxBytes || max_response_size > MaxBytes)
+      return false;
+    if (operation == EthercatSdoOperation::Write)
+      return payload_size > 0U && max_response_size == 0U;
+    if (operation == EthercatSdoOperation::Read)
+      return payload_size == 0U && max_response_size > 0U;
+    return false;
+  }
+};
+
 // One preallocated IgH realtime SDO request object. Multiple identical
 // entries intentionally represent independent concurrency slots for the same
 // object; each slot owns a distinct backend request object.
@@ -428,32 +454,6 @@ struct EthercatSdoProfile {
         ++count;
     }
     return count;
-  }
-};
-
-template <std::size_t MaxBytes>
-struct EthercatSdoRequest {
-  static_assert(MaxBytes > 0U, "EtherCAT SDO capacity must be positive");
-
-  std::uint64_t request_id{0U};
-  std::uint16_t slave_position{0U};
-  std::uint16_t index{0U};
-  std::uint8_t subindex{0U};
-  EthercatSdoOperation operation{EthercatSdoOperation::Read};
-  std::array<std::uint8_t, MaxBytes> payload{};
-  std::size_t payload_size{0U};
-  std::size_t max_response_size{0U};
-  std::uint64_t deadline_timestamp_ns{0U};
-
-  [[nodiscard]] bool valid() const noexcept {
-    if (request_id == 0U || index == 0U || deadline_timestamp_ns == 0U ||
-        payload_size > MaxBytes || max_response_size > MaxBytes)
-      return false;
-    if (operation == EthercatSdoOperation::Write)
-      return payload_size > 0U && max_response_size == 0U;
-    if (operation == EthercatSdoOperation::Read)
-      return payload_size == 0U && max_response_size > 0U;
-    return false;
   }
 };
 

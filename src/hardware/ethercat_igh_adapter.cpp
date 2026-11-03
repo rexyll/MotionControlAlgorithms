@@ -69,24 +69,28 @@ mca::core::Status EthercatIghAdapter<S, D, E>::discover_pdo_mapping(
                                        &sync) != 0)
         continue;
       if (sync.n_pdos == 0U) continue;
-      if (sync.n_pdos > E || sync.index != sm ||
+      if (sync.n_pdos > E || sync.n_pdos > 65535U ||
+          sync.index != sm ||
           (sync.dir != EC_DIR_INPUT && sync.dir != EC_DIR_OUTPUT))
         return {mca::core::StatusCode::ConstraintViolation};
 
       const auto direction = sync.dir == EC_DIR_INPUT
           ? EthercatPdoDirection::Input : EthercatPdoDirection::Output;
-      for (std::uint16_t pdo_pos = 0U; pdo_pos < sync.n_pdos; ++pdo_pos) {
+      for (std::size_t pdo_pos = 0U; pdo_pos < sync.n_pdos; ++pdo_pos) {
+        const auto pdo_position = static_cast<std::uint16_t>(pdo_pos);
         ec_pdo_info_t pdo{};
-        if (ecrt_master_get_pdo(master_, slave.ring_position, sm, pdo_pos,
+        if (ecrt_master_get_pdo(master_, slave.ring_position, sm, pdo_position,
                                 &pdo) != 0 ||
-            pdo.index == 0U || pdo.n_entries == 0U || pdo.n_entries > E)
+            pdo.index == 0U || pdo.n_entries == 0U ||
+            pdo.n_entries > E || pdo.n_entries > 65535U)
           return {mca::core::StatusCode::ConstraintViolation};
 
-        for (std::uint16_t entry_pos = 0U;
+        for (std::size_t entry_pos = 0U;
              entry_pos < pdo.n_entries; ++entry_pos) {
+          const auto entry_position = static_cast<std::uint16_t>(entry_pos);
           ec_pdo_entry_info_t entry{};
           if (ecrt_master_get_pdo_entry(master_, slave.ring_position, sm,
-                                        pdo_pos, entry_pos, &entry) != 0)
+                                        pdo_position, entry_position, &entry) != 0)
             return {mca::core::StatusCode::RuntimeError};
           const typename PdoMappingProfile::Entry item{
               slave.ring_position, slave.vendor_id, slave.product_code, sm,

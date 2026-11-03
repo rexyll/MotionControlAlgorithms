@@ -84,10 +84,19 @@ jobs:
           # assertion fails; otherwise the redirected Gazebo log is lost.
           dump_failure_diagnostics() {
             status=$?
+            failed_command="${1:-unknown}"
+            failed_line="${2:-unknown}"
+            trap - ERR
+            echo "=== Acceptance failure location ==="
+            printf 'exit_status=%s\nfailed_line=%s\nfailed_command=%s\n' "$status" "$failed_line" "$failed_command"
             echo "=== Gazebo / robot_state_publisher logs after acceptance failure ==="
             if [ -f "$gazebo_log" ]; then tail -n 300 "$gazebo_log"; fi
             if [ -f "$robot_state_publisher_log" ]; then
               tail -n 100 "$robot_state_publisher_log"
+            fi
+            if [ -n "${initial_state_log:-}" ] && [ -f "$initial_state_log" ]; then
+              echo "=== Initial joint state subscriber output ==="
+              tail -n 100 "$initial_state_log"
             fi
             if [ -f "$state_log" ]; then
               echo "=== Joint state subscriber output ==="
@@ -99,7 +108,7 @@ jobs:
             fi
             exit "$status"
           }
-          trap dump_failure_diagnostics ERR
+          trap 'dump_failure_diagnostics "$BASH_COMMAND" "${BASH_LINENO[0]:-unknown}"' ERR
 
           echo "=== Closed-loop fixture paths ==="
           printf 'world_source=%s\nconfig=%s\nworld_runtime=%s\n' "$world_source" "$config" "$world"

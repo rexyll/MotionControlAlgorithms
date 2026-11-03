@@ -293,6 +293,11 @@ mca::core::Status EthercatIghAdapter<S, D, E>::enqueue_sdo(
   for (std::size_t i = 0; i < sdo_slot_count_; ++i) {
     auto& slot = sdo_slots_[i];
     if (slot.occupied || slot.request == nullptr) continue;
+    // Never rely only on the MCA bookkeeping flag when crossing the C API
+    // boundary. A failed submission or future cancellation path must not
+    // accidentally issue a second operation while IgH still owns the request.
+    if (ecrt_sdo_request_state(slot.request) == EC_REQUEST_BUSY)
+      return {mca::core::StatusCode::RuntimeError};
     const auto& config = sdo_profile_.slots[i];
     if (config.slave_position != request.slave_position ||
         config.index != request.index || config.subindex != request.subindex)
@@ -309,8 +314,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::enqueue_sdo(
         return {mca::core::StatusCode::RuntimeError};
     }
     slot.request_id = request.request_id;
-    slot_deadlines_[static_cast<std::size_t>(&slot - sdo_slots_.data())] =
-        request.deadline_timestamp_ns;
+    slot_deadlines_[i] = request.deadline_timestamp_ns;
     slot.operation = request.operation;
     slot.max_response_size = request.max_response_size;
     slot.timed_out = false;
@@ -503,17 +507,23 @@ mca::core::Status EthercatIghAdapter<S, D, E>::write_pdo(
 
 template <std::size_t S, std::size_t D, std::size_t E>
 mca::core::Status EthercatIghAdapter<S, D, E>::shutdown() noexcept {
-  if (master_ == nullptr) return state_.on_shutdown();
-  if (activated_) {
-    ecrt_master_deactivate(master_);
-    activated_ = false;
+  // Keep cleanup idempotent even if the master pointer was already cleared by
+  // a partial initialization/rollback path. Adapter-owned handles and SDO
+  // bookkeeping must never survive a logical shutdown.
+  if (master_ != nullptr) {
+    if (activated_) {
+      ecrt_master_deactivate(master_);
+      activated_ = false;
+    }
+    ecrt_release_master(master_);
+    master_ = nullptr;
   }
-  for (std::size_t d = 0; d < domain_count_; ++d) {
-    domain_data_[d] = nullptr;
-    domain_size_[d] = 0U;
-  }
-  ecrt_release_master(master_);
-  master_ = nullptr;
+  domains_.fill(nullptr);
+  slave_configs_.fill(nullptr);
+  domain_data_.fill(nullptr);
+  domain_size_.fill(0U);
+  offsets_.fill(0U);
+  bit_positions_.fill(0U);
   domain_count_ = 0U;
   binding_count_ = 0U;
   sdo_slots_.fill({});

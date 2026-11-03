@@ -19,7 +19,7 @@ class FakeEthercatMaster final : public TestMaster {
     Topology discovered;
     discovered.slave_count = 1U;
     discovered.sequence = 1U;
-    discovered.slaves[0].station_position = 0U;
+    discovered.slaves[0].ring_position = 0U;
     discovered.slaves[0].vendor_id = 0x00000002U;
     discovered.slaves[0].product_code = 0x1234U;
     discovered.slaves[0].al_state = EthercatAlState::PreOperational;
@@ -148,10 +148,10 @@ TEST(EthercatTopology, RejectsEmptyDuplicateAndOverCapacitySnapshots) {
   EXPECT_FALSE(topology.valid());
   topology.slave_count = 2U;
   topology.sequence = 1U;
-  topology.slaves[0].station_position = 0U;
-  topology.slaves[1].station_position = 0U;
+  topology.slaves[0].ring_position = 0U;
+  topology.slaves[1].ring_position = 0U;
   EXPECT_FALSE(topology.valid());
-  topology.slaves[1].station_position = 1U;
+  topology.slaves[1].ring_position = 1U;
   EXPECT_TRUE(topology.valid());
   topology.slave_count = 3U;
   EXPECT_FALSE(topology.valid());
@@ -178,7 +178,7 @@ TEST(EthercatTopologyRecovery, RequiresExactIdentityBeforeLayoutReuse) {
   rediscovered.slave_count = 1U;
   EXPECT_FALSE(ethercat_topology_identity_matches(configured, rediscovered));
   rediscovered = configured;
-  rediscovered.slaves[0].station_position = 2U;
+  rediscovered.slaves[0].ring_position = 2U;
   EXPECT_FALSE(ethercat_topology_identity_matches(configured, rediscovered));
   rediscovered = configured;
   rediscovered.slaves[0].revision++;
@@ -212,7 +212,7 @@ TEST(EthercatSlaveRecovery, ValidatesBoundedUniqueHealthSnapshots) {
   health.slaves[0] = {0U, EthercatSlaveHealthState::Present};
   health.slaves[1] = {1U, EthercatSlaveHealthState::Lost};
   EXPECT_TRUE(health.valid());
-  health.slaves[1].station_position = 0U;
+  health.slaves[1].ring_position = 0U;
   EXPECT_FALSE(health.valid());
   health.slaves[1] = {1U, EthercatSlaveHealthState::Unknown};
   EXPECT_FALSE(health.valid());

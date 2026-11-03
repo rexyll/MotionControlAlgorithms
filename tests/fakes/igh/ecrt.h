@@ -44,6 +44,8 @@ ec_master_t* ecrt_request_master(unsigned int);
 void ecrt_release_master(ec_master_t*);
 int ecrt_master(ec_master_t*, ec_master_info_t*);
 int ecrt_master_get_slave(ec_master_t*, uint16_t, ec_slave_info_t*);
+int ecrt_master_state(const ec_master_t*, ec_master_state_t*);
+int ecrt_slave_config_state(const ec_slave_config_t*, ec_slave_config_state_t*);
 ec_domain_t* ecrt_master_create_domain(ec_master_t*);
 ec_slave_config_t* ecrt_master_slave_config(ec_master_t*, uint16_t, uint16_t, uint32_t, uint32_t);
 int ecrt_slave_config_reg_pdo_entry(ec_slave_config_t*, uint16_t, uint8_t, ec_domain_t*, unsigned int*);

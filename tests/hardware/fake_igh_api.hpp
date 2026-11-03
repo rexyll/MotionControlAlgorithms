@@ -6,7 +6,7 @@
 namespace fake_igh {
 void reset() noexcept;
 void fail_create_at(std::size_t attempt) noexcept;
-void fail_timeout_at(std::size_t request_index) noexcept;
+void fail_timeout_at(std::size_t request_index) noexcept;\nvoid fail_activate(bool enabled) noexcept;\nvoid fail_domain_data(bool enabled) noexcept;\nvoid zero_domain_size(bool enabled) noexcept;\nvoid fail_deactivate(bool enabled) noexcept;\nstd::size_t activate_calls() noexcept;
 std::size_t release_calls() noexcept;
 std::size_t deactivate_calls() noexcept;
 std::size_t request_count() noexcept;

@@ -48,7 +48,8 @@ if(MCA_BUILD_TESTS)
   add_executable(mca_ethercat_igh_fake_tests
     src/hardware/ethercat_igh_adapter.cpp
     tests/hardware/fake_igh_api.cpp
-    tests/hardware/ethercat_igh_fake_api_test.cpp)
+    tests/hardware/ethercat_igh_fake_api_test.cpp
+    tests/hardware/ethercat_pdo_mapping_profile_test.cpp)
   target_include_directories(mca_ethercat_igh_fake_tests BEFORE PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/fakes/igh
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/hardware)

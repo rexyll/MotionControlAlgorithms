@@ -324,6 +324,16 @@ Vendor ID `0x0000029c`, ProductCode `0x03b11002`, Revision `0x00050005`.
 It records logs under `/tmp/mca-ethercat-sil-*` and removes only resources
 created by this invocation.
 
+For an additional CoE PDO readback pass, rerun the same harness with
+`MCA_ECAT_COE_READBACK=1` in the environment. The script uses the IgH CLI's
+typed SDO upload operation to read assignment objects 0x1C12/0x1C13, then
+follows each assigned PDO index to read its mapping count and 32-bit entry
+descriptors. It decodes object index, subindex and bit length into
+`coe-pdo-readback.txt`, while preserving raw CLI output in
+`coe-sdo-raw.log`. This is an independent CoE readback artifact; it is not
+yet compared with a device-specific golden profile and does not validate
+cyclic PDO exchange or WKC.
+
 The harness syntax is checked in the IgH API compile workflow. A green GitHub
 Actions run validates shell syntax only; actual veth/module/frame acceptance
 requires executing the harness on a Linux machine with IgH kernel modules.

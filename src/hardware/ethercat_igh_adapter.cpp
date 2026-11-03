@@ -121,6 +121,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure(
   }
 
   std::array<std::uint16_t, D> ids{};
+  std::array<std::size_t, E> topology_indices{};
   domain_count_ = 0U;
   binding_count_ = count;
   for (std::size_t i = 0; i < count; ++i) {
@@ -155,6 +156,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure(
     if (topology_index == topology.slave_count)
       return fail_configuration(
           {mca::core::StatusCode::ConstraintViolation});
+    topology_indices[i] = topology_index;
 
     if (slave_configs_[topology_index] == nullptr) {
       slave_configs_[topology_index] = ecrt_master_slave_config(
@@ -186,7 +188,9 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure(
   for (std::size_t i = 0; i < count; ++i) {
     const auto& binding = bindings[i];
     auto& entry = layout.entries[i];
-    entry.slave_position = binding.station_position;
+    // EthercatPdoEntry::slave_position is a bounded topology slot, not the
+    // EtherCAT station address. The latter may be sparse/non-zero-based.
+    entry.slave_position = static_cast<std::uint16_t>(topology_indices[i]);
     entry.domain_id = binding.domain_id;
     entry.index = binding.index;
     entry.subindex = binding.subindex;

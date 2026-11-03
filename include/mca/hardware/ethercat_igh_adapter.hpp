@@ -33,6 +33,37 @@ class EthercatIghAdapter final {
   using SdoRequest = EthercatSdoRequest<kMaxSdoBytes>;
   using SdoResult = EthercatSdoResult<kMaxSdoBytes>;
 
+  struct SlaveRuntimeHealth {
+    std::uint16_t station_position{0U};
+    bool configured{false};
+    bool state_valid{false};
+    bool online{false};
+    bool operational{false};
+    std::uint8_t al_state{0U};
+    int state_error{0};
+  };
+
+  struct RuntimeHealth {
+    bool master_state_valid{false};
+    int master_state_error{0};
+    bool link_up{false};
+    std::uint32_t slaves_responding{0U};
+    std::uint8_t al_states{0U};
+    std::array<SlaveRuntimeHealth, MaxSlaves> slaves{};
+    std::size_t slave_count{0U};
+    std::uint64_t sequence{0U};
+
+    [[nodiscard]] bool valid() const noexcept {
+      if (!master_state_valid || slave_count == 0U ||
+          slave_count > MaxSlaves || sequence == 0U)
+        return false;
+      for (std::size_t i = 0; i < slave_count; ++i) {
+        if (slaves[i].configured && !slaves[i].state_valid) return false;
+      }
+      return true;
+    }
+  };
+
   struct PdoBinding {
     std::uint16_t station_position{0U};
     std::uint32_t vendor_id{0U};
@@ -55,6 +86,7 @@ class EthercatIghAdapter final {
   [[nodiscard]] const Topology& topology() const noexcept { return state_.topology(); }
   [[nodiscard]] const Layout& layout() const noexcept { return state_.layout(); }
   [[nodiscard]] std::uint64_t cycle_sequence() const noexcept { return cycle_sequence_; }
+  [[nodiscard]] const RuntimeHealth& runtime_health() const noexcept { return runtime_health_; }
   [[nodiscard]] std::uint16_t observed_wkc() const noexcept { return observed_wkc_; }
   // IgH exposes WC completeness but not the configured expected counter value.
   // A zero expected value therefore means 'not exposed', never 'zero expected'.
@@ -109,6 +141,7 @@ class EthercatIghAdapter final {
   std::size_t domain_count_{0U};
   std::size_t binding_count_{0U};
   std::uint16_t observed_wkc_{0U};
+  RuntimeHealth runtime_health_{};
   std::uint64_t cycle_sequence_{0U};
   bool activated_{false};
 };

@@ -423,12 +423,11 @@ mca::core::Status EthercatIghAdapter<S, D, E>::activate() noexcept {
         domain_data_[i] = nullptr;
         domain_size_[i] = 0U;
       }
-      if (deactivate_result != 0) {
-        // A failed rollback leaves the master's activation state uncertain.
-        // Release the complete inactive configuration rather than permitting
-        // a retry against a potentially active master.
-        (void)shutdown();
-      }
+      // IgH deactivation destroys domains, slave configurations and SDO
+      // request objects even when it succeeds. The configured backend cannot
+      // be reused, so release the master and return to Offline in both cases.
+      (void)deactivate_result;
+      (void)shutdown();
       return {mca::core::StatusCode::RuntimeError};
     }
   }
@@ -441,11 +440,10 @@ mca::core::Status EthercatIghAdapter<S, D, E>::activate() noexcept {
       domain_data_[i] = nullptr;
       domain_size_[i] = 0U;
     }
-    if (deactivate_result != 0) {
-      // The state machine did not enter Active, but the backend rollback
-      // failed. Discard the uncertain master instead of allowing a retry.
-      (void)shutdown();
-    }
+    // A successful IgH deactivation also destroys the configuration
+    // objects, so this master is never retryable after this rollback path.
+    (void)deactivate_result;
+    (void)shutdown();
   }
   return status;
 }

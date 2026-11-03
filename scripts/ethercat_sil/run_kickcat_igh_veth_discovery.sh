@@ -33,8 +33,10 @@ fail() {
 read_sdo_value() {
   local index="$1" subindex="$2" type="$3" output token value
   local command_status=0
-  if ! output=$(timeout "$TIMEOUT_SEC" "$ETHERCAT_CLI" upload --position 0 \
+  if output=$(timeout "$TIMEOUT_SEC" "$ETHERCAT_CLI" upload --position 0 \
       --type "$type" "$index" "$subindex" 2>&1); then
+    command_status=0
+  else
     command_status=$?
   fi
   {

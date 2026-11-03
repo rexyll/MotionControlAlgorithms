@@ -301,7 +301,7 @@ Build KickCAT at the pinned revision in an isolated checkout, then run:
 git clone https://github.com/leducp/KickCAT.git /opt/KickCAT
 git -C /opt/KickCAT checkout cb2e1a192ac11ffaa58f08945053b8129abf94cb
 cd /opt/KickCAT
-./scripts/configure.sh build
+./scripts/configure.sh build --reset
 ./scripts/setup_build.sh build
 cmake --build build --target network_simulator -j"$(nproc)"
 

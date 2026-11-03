@@ -84,6 +84,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure(
     binding_count_ = 0U;
     observed_wkc_ = 0U;
     cycle_sequence_ = 0U;
+    runtime_health_ = {};
     (void)state_.on_shutdown();
     return status;
   };
@@ -462,6 +463,9 @@ mca::core::Status EthercatIghAdapter<S, D, E>::exchange() noexcept {
   const int master_state_result = ecrt_master_state(master_, &master_state);
   runtime_health_.master_state_valid = (master_state_result == 0);
   runtime_health_.master_state_error = master_state_result;
+  runtime_health_.link_up = false;
+  runtime_health_.slaves_responding = 0U;
+  runtime_health_.al_states = 0U;
   if (master_state_result == 0) {
     runtime_health_.link_up = (master_state.link_up != 0U);
     runtime_health_.slaves_responding = master_state.slaves_responding;
@@ -516,7 +520,11 @@ mca::core::Status EthercatIghAdapter<S, D, E>::exchange() noexcept {
     if (ecrt_domain_queue(domains_[d]) != 0) cycle_ok = false;
   if (ecrt_master_send(master_) != 0) cycle_ok = false;
   else ++cycle_sequence_;
-  runtime_health_.sequence = cycle_sequence_;
+  // Health sequence counts diagnostic samples, independently of successful
+  // PDO sends, so a failed send cannot make a fresh snapshot look stale.
+  runtime_health_.sequence = runtime_health_.sequence == UINT64_MAX
+                                 ? 1U
+                                 : runtime_health_.sequence + 1U;
 
   if (!all_domains_complete || !cycle_ok)
     return {mca::core::StatusCode::RuntimeError};

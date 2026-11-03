@@ -218,3 +218,70 @@ TEST(EthercatIghFakeApi, CopiesFixedSizeWritePayloadBeforeSubmission) {
   EXPECT_EQ(ecrt_sdo_request_data(fake_igh::request(0U))[0], 1U);
   EXPECT_EQ(ecrt_sdo_request_data(fake_igh::request(0U))[3], 4U);
 }
+
+namespace {
+Adapter::SdoProfile two_slot_profile() {
+  Adapter::SdoProfile profile{};
+  profile.slot_count = 2U;
+  profile.slots[0] = {5U, 0x2000U, 1U, 4U, 50U};
+  profile.slots[1] = profile.slots[0];
+  return profile;
+}
+
+bool configure_without_sdo(Adapter& adapter) {
+  if (!adapter.request_master().ok() || !adapter.discover().ok()) return false;
+  std::array<Adapter::PdoBinding, 128U> bindings{};
+  bindings[0] = {5U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  return adapter.configure(bindings, 1U).ok();
+}
+}  // namespace
+
+TEST(EthercatIghFakeApi, RollsBackAllRequestsWhenSecondSdoRequestCreationFails) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(configure_without_sdo(adapter));
+  fake_igh::fail_create_at(1U);
+
+  EXPECT_FALSE(adapter.configure_sdo_profile(two_slot_profile()).ok());
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+  EXPECT_EQ(fake_igh::live_request_count(), 0U);
+  EXPECT_EQ(adapter.state().state(), mca::hardware::EthercatMasterState::Offline);
+  EXPECT_TRUE(adapter.shutdown().ok());
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+}
+
+TEST(EthercatIghFakeApi, RollsBackCreatedRequestsWhenTimeoutConfigurationFails) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(configure_without_sdo(adapter));
+  fake_igh::fail_timeout_at(1U);
+
+  EXPECT_FALSE(adapter.configure_sdo_profile(two_slot_profile()).ok());
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+  EXPECT_EQ(fake_igh::live_request_count(), 0U);
+  EXPECT_EQ(adapter.state().state(), mca::hardware::EthercatMasterState::Offline);
+  EXPECT_TRUE(adapter.shutdown().ok());
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+}
+
+TEST(EthercatIghFakeApi, ShutdownDeactivatesAndReleasesMasterExactlyOnce) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slots(adapter));
+  ASSERT_TRUE(adapter.enqueue_sdo(read_request(60U, 500U)).ok());
+
+  EXPECT_TRUE(adapter.shutdown().ok());
+  EXPECT_EQ(fake_igh::deactivate_calls(), 1U);
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+  EXPECT_EQ(fake_igh::live_request_count(), 0U);
+  EXPECT_TRUE(adapter.shutdown().ok());
+  EXPECT_EQ(fake_igh::deactivate_calls(), 1U);
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+}

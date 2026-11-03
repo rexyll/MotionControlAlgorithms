@@ -42,7 +42,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::discover() noexcept {
     if (ecrt_master_get_slave(master_, static_cast<std::uint16_t>(i), &src) != 0)
       return {mca::core::StatusCode::RuntimeError};
     auto& dst = t.slaves[i];
-    dst.station_position = src.position;
+    dst.ring_position = src.position;
     dst.vendor_id = src.vendor_id;
     dst.product_code = src.product_code;
     dst.revision = src.revision_number;
@@ -128,8 +128,8 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
 
     const EthercatSlaveInfo* slave = nullptr;
     for (std::size_t s = 0; s < state_.topology().slave_count; ++s) {
-      if (state_.topology().slaves[s].station_position ==
-          binding.station_position) {
+      if (state_.topology().slaves[s].ring_position ==
+          binding.ring_position) {
         slave = &state_.topology().slaves[s];
         break;
       }
@@ -140,7 +140,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
 
     for (std::size_t j = 0; j < i; ++j) {
       const auto& prior = bindings[j];
-      if (prior.station_position == binding.station_position &&
+      if (prior.ring_position == binding.ring_position &&
           prior.index == binding.index &&
           prior.subindex == binding.subindex)
         return {mca::core::StatusCode::InvalidArgument};
@@ -158,7 +158,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
       std::size_t matches = 0U;
       for (std::size_t j = 0; j < mapping->size(); ++j) {
         const auto& entry = (*mapping)[j];
-        if (binding.station_position == entry.station_position &&
+        if (binding.ring_position == entry.ring_position &&
             binding.vendor_id == entry.vendor_id &&
             binding.product_code == entry.product_code &&
             binding.index == entry.index &&
@@ -200,7 +200,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
     const auto& topology = state_.topology();
     std::size_t topology_index = topology.slave_count;
     for (std::size_t s = 0; s < topology.slave_count; ++s) {
-      if (topology.slaves[s].station_position == binding.station_position) {
+      if (topology.slaves[s].ring_position == binding.ring_position) {
         topology_index = s;
         break;
       }
@@ -212,7 +212,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
 
     if (slave_configs_[topology_index] == nullptr) {
       slave_configs_[topology_index] = ecrt_master_slave_config(
-          master_, 0U, binding.station_position, binding.vendor_id,
+          master_, 0U, binding.ring_position, binding.vendor_id,
           binding.product_code);
     }
     if (slave_configs_[topology_index] == nullptr)
@@ -230,7 +230,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
       std::size_t topology_index = state_.topology().slave_count;
       for (std::size_t t = 0; t < state_.topology().slave_count; ++t) {
         const auto& slave = state_.topology().slaves[t];
-        if (slave.station_position == entry.station_position) {
+        if (slave.ring_position == entry.ring_position) {
           if (slave.vendor_id != entry.vendor_id ||
               slave.product_code != entry.product_code)
             return fail_configuration({mca::core::StatusCode::ConstraintViolation});
@@ -242,7 +242,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
         return fail_configuration({mca::core::StatusCode::ConstraintViolation});
       if (slave_configs_[topology_index] == nullptr) {
         slave_configs_[topology_index] = ecrt_master_slave_config(
-            master_, 0U, entry.station_position, entry.vendor_id,
+            master_, 0U, entry.ring_position, entry.vendor_id,
             entry.product_code);
       }
       if (slave_configs_[topology_index] == nullptr)
@@ -254,16 +254,16 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
       // Compare the complete SM/PDO/entry hierarchy before any registration.
       std::size_t profile_begin = 0U;
       while (profile_begin < mapping->size()) {
-        const auto station = (*mapping)[profile_begin].station_position;
+        const auto station = (*mapping)[profile_begin].ring_position;
         std::size_t cursor = profile_begin;
         std::size_t expected_sync_count = 0U;
         while (cursor < mapping->size() &&
-               (*mapping)[cursor].station_position == station) {
+               (*mapping)[cursor].ring_position == station) {
           const auto sync_index = (*mapping)[cursor].sync_manager;
           const auto direction = (*mapping)[cursor].direction;
           const std::size_t sync_begin = cursor;
           while (cursor < mapping->size() &&
-                 (*mapping)[cursor].station_position == station &&
+                 (*mapping)[cursor].ring_position == station &&
                  (*mapping)[cursor].sync_manager == sync_index) ++cursor;
           const std::size_t sync_end = cursor;
 
@@ -330,10 +330,10 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
     std::size_t profile_begin = 0U;
     if (policy == EthercatPdoMappingPolicy::ApplyConfiguredMapping)
     while (profile_begin < mapping->size()) {
-      const auto station = (*mapping)[profile_begin].station_position;
+      const auto station = (*mapping)[profile_begin].ring_position;
       std::size_t topology_index = state_.topology().slave_count;
       for (std::size_t s = 0; s < state_.topology().slave_count; ++s) {
-        if (state_.topology().slaves[s].station_position == station) {
+        if (state_.topology().slaves[s].ring_position == station) {
           topology_index = s;
           break;
         }
@@ -351,17 +351,17 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
       std::size_t cursor = profile_begin;
 
       while (cursor < mapping->size() &&
-             (*mapping)[cursor].station_position == station) {
+             (*mapping)[cursor].ring_position == station) {
         const auto sync_index = (*mapping)[cursor].sync_manager;
         const auto direction = (*mapping)[cursor].direction;
         const std::size_t sync_pdo_begin = pdo_count;
         while (cursor < mapping->size() &&
-               (*mapping)[cursor].station_position == station &&
+               (*mapping)[cursor].ring_position == station &&
                (*mapping)[cursor].sync_manager == sync_index) {
           const auto pdo_index = (*mapping)[cursor].pdo_index;
           const std::size_t pdo_entry_begin = entry_count;
           while (cursor < mapping->size() &&
-                 (*mapping)[cursor].station_position == station &&
+                 (*mapping)[cursor].ring_position == station &&
                  (*mapping)[cursor].sync_manager == sync_index &&
                  (*mapping)[cursor].pdo_index == pdo_index) {
             const auto& item = (*mapping)[cursor];
@@ -485,7 +485,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_sdo_profile(
     const auto& slot = profile.slots[i];
     std::size_t topology_index = state_.topology().slave_count;
     for (std::size_t s = 0; s < state_.topology().slave_count; ++s) {
-      if (state_.topology().slaves[s].station_position == slot.slave_position) {
+      if (state_.topology().slaves[s].ring_position == slot.slave_position) {
         topology_index = s;
         break;
       }
@@ -711,7 +711,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::exchange() noexcept {
   for (std::size_t i = 0; i < runtime_health_.slave_count; ++i) {
     auto& health = runtime_health_.slaves[i];
     health = {};
-    health.station_position = state_.topology().slaves[i].station_position;
+    health.ring_position = state_.topology().slaves[i].ring_position;
     health.configured = (slave_configs_[i] != nullptr);
     if (!health.configured) continue;
 

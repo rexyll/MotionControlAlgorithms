@@ -64,11 +64,7 @@ bool activation_fails() noexcept { return activate_failure; }
 bool domain_data_fails() noexcept { return domain_data_failure; }
 bool domain_size_is_zero() noexcept { return zero_size; }
 bool deactivation_fails() noexcept { return deactivate_failure; }
-void record_activate() noexcept { ++activations; }
-bool activation_fails() noexcept { return activate_failure; }
-bool domain_data_fails() noexcept { return domain_data_failure; }
-bool domain_size_is_zero() noexcept { return zero_size; }
-bool deactivation_fails() noexcept { return deactivate_failure; }
+
 std::size_t release_calls() noexcept { return releases; }
 std::size_t deactivate_calls() noexcept { return deactivations; }
 ec_sdo_request_t* request(std::size_t index) noexcept {

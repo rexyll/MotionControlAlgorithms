@@ -75,6 +75,16 @@ TEST(EthercatIghFakeApi, SupportsIndependentConcurrentSlotsAndRejectsDuplicateId
   EXPECT_EQ(fake_igh::read_calls(1U), 1U);
 }
 
+TEST(EthercatIghFakeApi, SkipsUnownedBackendSlotThatIsAlreadyBusy) {
+  fake_igh::reset();
+  Adapter adapter;
+  ASSERT_TRUE(activate_with_two_slots(adapter));
+  fake_igh::set_busy(0U);
+  ASSERT_TRUE(adapter.enqueue_sdo(read_request(15U, 500U)).ok());
+  EXPECT_EQ(fake_igh::read_calls(0U), 0U);
+  EXPECT_EQ(fake_igh::read_calls(1U), 1U);
+}
+
 TEST(EthercatIghFakeApi, QuarantinesTimedOutBusySlotUntilTerminalObservation) {
   fake_igh::reset();
   Adapter adapter;

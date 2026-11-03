@@ -59,16 +59,21 @@ class EthercatIghAdapter final {
                               std::size_t binding_count) noexcept;
   mca::core::Status activate() noexcept;
   mca::core::Status exchange() noexcept;
+  mca::core::Status read_pdo(std::size_t binding_index, std::uint64_t& value) const noexcept;
+  mca::core::Status write_pdo(std::size_t binding_index, std::uint64_t value) noexcept;
   mca::core::Status shutdown() noexcept;
 
  private:
   static EthercatAlState map_al_state(std::uint8_t state) noexcept;
+  [[nodiscard]] std::size_t domain_index(std::uint16_t domain_id) const noexcept;
 
   Config config_{};
   State state_{};
   ec_master_t* master_{nullptr};
   std::array<ec_domain_t*, MaxDomains> domains_{};
   std::array<ec_slave_config_t*, MaxSlaves> slave_configs_{};
+  std::array<std::uint8_t*, MaxDomains> domain_data_{};
+  std::array<std::size_t, MaxDomains> domain_size_{};
   std::array<unsigned int, MaxEntries> offsets_{};
   std::array<unsigned int, MaxEntries> bit_positions_{};
   std::array<std::uint16_t, MaxDomains> domain_wkc_{};

@@ -63,11 +63,13 @@ completed activation work is rolled back into a retryable configuration.
 Releasing the master is the conservative cleanup boundary.
 
 After successful backend activation, if domain process-data access is
-invalid, the adapter attempts `ecrt_master_deactivate()`. A successful
-deactivation leaves the configured master retryable. If deactivation fails,
-the adapter releases the uncertain master and returns to `Offline`. The same
-fail-closed rule applies if the MCA state transition to `Active` unexpectedly
-fails and backend deactivation also fails.
+invalid, the adapter attempts `ecrt_master_deactivate()` and then releases the
+master regardless of the deactivation result. This is required because IgH
+deactivation destroys the domain, slave-configuration and SDO-request objects;
+the previous `Configured` state cannot be reused after that operation. The
+same fail-closed rule applies if the MCA state transition to `Active`
+unexpectedly fails: deactivate, clear backend references and release the
+master.
 
 
 ## 2. Cyclic process-data path
@@ -365,8 +367,8 @@ behaviors against the real adapter implementation:
   occur once and repeated shutdown is idempotent.
 - activation failure discards the configured master instead of retrying an
   IgH instance whose partial activation rollback is not guaranteed;
-- invalid domain data/size rolls back to Configured when deactivation succeeds,
-  and releases the master to Offline when rollback fails.
+- invalid domain data/size always releases the deactivated master to Offline,
+  because IgH deactivation destroys the backend configuration objects.
 
 The fake models API state and memory ownership boundaries only. It does not
 emulate EtherCAT frames, CoE mailbox timing, slave firmware, distributed clocks,

@@ -416,3 +416,74 @@ round-trip before enabling the DS402 controlword sequence.
 - [ ] Add an opt-in Linux SIL workflow only after the local proof is stable;
   keep it separate from dependency-free root CI.
 
+
+
+### IgH PDO mapping semantics and adapter gap (2026-11-03)
+
+The current `EthercatIghAdapter::configure()` registers each requested object
+with `ecrt_slave_config_reg_pdo_entry()`. This API **does not create or
+repair a PDO mapping**: it searches the slave configuration's already-assigned
+PDOs and fails when the requested object is not mapped. The returned byte
+offset and bit position locate the entry, but the API does not return that
+entry's mapped bit length or an MCA-level direction declaration. Consequently,
+the current `PdoBinding::bit_length` and `direction` are caller assertions,
+not values independently verified by IgH. The current adapter is therefore a
+registration/binding adapter for a mapping established elsewhere; it is not
+yet a complete PDO configuration or mapping-verification implementation.
+
+IgH 1.6 provides two distinct mechanisms which must not be conflated:
+
+1. `ecrt_slave_config_pdos()` configures SyncManagers, PDO assignment and
+   PDO entry mapping in non-realtime context before master activation. Its
+   `ec_sync_info_t`, `ec_pdo_info_t` and `ec_pdo_entry_info_t` descriptors
+   explicitly carry SM index/direction, PDO index and entry index/subindex/
+   bit length. This is the appropriate API when MCA owns an explicit,
+   reviewed mapping profile.
+2. `ecrt_master_get_sync_manager()`, `ecrt_master_get_pdo()` and
+   `ecrt_master_get_pdo_entry()` expose the currently proposed/assigned
+   configuration for inspection. These are the appropriate discovery-side
+   inputs when MCA must verify a device's existing mapping before accepting
+   bindings. The returned data must be copied into bounded MCA-owned values;
+   do not retain pointers into backend-owned structures.
+
+The next implementation must make mapping ownership explicit rather than
+silently mixing these modes. Add a bounded mapping profile containing ordered
+SyncManager, PDO and entry descriptors, plus an explicit policy:
+`UseDiscoveredMapping` (inspect and require exact agreement) or
+`ApplyConfiguredMapping` (call `ecrt_slave_config_pdos()` before registering
+entries). Validate capacities, duplicate SM/PDO/object declarations,
+directions, bit lengths, and exact correspondence between every
+`PdoBinding` and its mapping descriptor before any irreversible IgH setup.
+The profile must preserve PDO order because process-image offsets depend on
+the effective mapping order. A profile must never be inferred from object
+dictionary presence alone.
+
+For `UseDiscoveredMapping`, compare actual SM direction, PDO assignment order,
+PDO indices, entry indices/subindices and bit lengths against the profile.
+For `ApplyConfiguredMapping`, submit the explicit descriptor and still
+validate registration results and the activated process-image bounds. A
+successful `ecrt_slave_config_pdos()` call is a configuration acceptance
+result, not proof that a physical slave applied it; runtime AL state and
+readback/diagnostic evidence remain separate gates.
+
+Required tests before enabling this path:
+- discovered mapping exact match and mismatch (SM direction, PDO order,
+  object identity and bit length);
+- configured mapping API call ordering and failure rollback;
+- missing/offline slave behavior and unsupported mapping rejection;
+- multiple slaves with different mappings and sparse station positions;
+- non-byte-aligned entries and exact bit-offset/bit-length bounds;
+- no PDO registration or activation after profile validation fails.
+
+Until these tests and the IgH API compile/fake coverage exist, do not describe
+the current adapter as configuring PDOs or verifying the slave's active PDO
+mapping. The KickCAT veth discovery harness remains an earlier transport gate;
+it does not satisfy any PDO mapping acceptance item.
+
+Official IgH 1.6 API references:
+- Application interface, PDO configuration and registration:
+  https://docs.etherlab.org/ethercat/1.6/doxygen/group__ApplicationInterface.html
+- `ec_sync_info_t` descriptor semantics:
+  https://docs.etherlab.org/ethercat/1.6/doxygen/structec__sync__info__t.html
+- `ecrt.h` declarations and related API:
+  https://docs.etherlab.org/ethercat/1.6/doxygen/ecrt_8h.html

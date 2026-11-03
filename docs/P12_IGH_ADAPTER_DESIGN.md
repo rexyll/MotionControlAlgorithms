@@ -247,13 +247,27 @@ they are not a substitute for the non-blocking realtime request path.
 
 ### Timeout/cancellation rule
 
-`ecrt_sdo_request_timeout()` causes an uncompleted request to become failed
-when the configured timeout expires. The public API does not provide enough
-information to assume that an arbitrary busy request can be synchronously
-cancelled and immediately reused. Therefore the first implementation must
-keep a timed-out IgH request quarantined until source-level behavior and a
-focused regression test establish a safe reuse rule. A timeout must never
-cause immediate object reuse merely because the MCA deadline expired.
+The configured `ecrt_sdo_request_timeout()` value is **not an end-to-end
+cancellation guarantee for an in-flight mailbox transfer**. In the pinned
+IgH 1.6.13 source, `ec_fsm_master_action_process_int_request()` checks
+`ec_sdo_request_timed_out()` while the request is still
+`EC_INT_REQUEST_QUEUED`; once dispatched, the CoE state machine owns
+completion/failure and applies its own datagram/retry behavior. A configured
+IgH issue timeout can therefore reject a request that waited too long in the
+queue, but must not be treated as a hard upper bound on a request already in
+`EC_REQUEST_BUSY`.
+
+The MCA deadline remains the caller-visible deadline. If it expires while
+IgH is BUSY, report `TimedOut` to the caller but quarantine the backend slot.
+Do not infer cancellation and do not reuse the request object until IgH
+reports a terminal `SUCCESS` or `ERROR`. In the pinned source, an SDO FSM
+failure marks the internal request `EC_INT_REQUEST_FAILURE` and restarts the
+master FSM; the public state maps that terminal failure to `EC_REQUEST_ERROR`.
+That establishes the source-level basis for reusing a slot after observed
+`ERROR`, but does not replace simulator/fixture testing of real mailbox
+behavior. If a request remains BUSY indefinitely due to an unresolved backend
+fault, the safe policy is to keep the slot quarantined and escalate recovery,
+not to force-reuse it.
 
 ## 5. Distributed clocks
 

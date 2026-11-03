@@ -41,6 +41,91 @@ Request read_request(std::uint64_t id, std::uint64_t deadline,
 }
 }  // namespace
 
+namespace {
+Adapter::PdoMappingProfile two_sm_mapping() {
+  Adapter::PdoMappingProfile mapping{};
+  const bool first = mapping.add({5U, 0x2U, 0x1234U, 2U, 0x1A00U,
+      0x6041U, 0U, 16U, mca::hardware::EthercatPdoDirection::Input});
+  const bool second = mapping.add({5U, 0x2U, 0x1234U, 3U, 0x1600U,
+      0x6040U, 0U, 16U, mca::hardware::EthercatPdoDirection::Output});
+  return first && second ? mapping : Adapter::PdoMappingProfile{};
+}
+
+bool configure_with_mapping(Adapter& adapter) {
+  if (!adapter.request_master().ok() || !adapter.discover().ok()) return false;
+  std::array<Adapter::PdoBinding, 128U> bindings{};
+  bindings[0] = {5U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  bindings[1] = {5U, 0x2U, 0x1234U, 0x6040U, 0U, 16U, 7U,
+                 mca::hardware::EthercatPdoDirection::Output};
+  return adapter.configure(bindings, 2U, two_sm_mapping()).ok();
+}
+}  // namespace
+
+TEST(EthercatIghFakeApi, AppliesSyncManagerPdoAndEntryTreeBeforeRegistration) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(configure_with_mapping(adapter));
+
+  EXPECT_EQ(fake_igh::pdo_configuration_calls(), 1U);
+  EXPECT_EQ(fake_igh::configured_sync_count(), 2U);
+  EXPECT_EQ(fake_igh::configured_sync_index(0U), 2U);
+  EXPECT_EQ(fake_igh::configured_sync_direction(0U), EC_DIR_INPUT);
+  EXPECT_EQ(fake_igh::configured_pdo_count(0U), 1U);
+  EXPECT_EQ(fake_igh::configured_pdo_index(0U, 0U), 0x1A00U);
+  EXPECT_EQ(fake_igh::configured_entry_count(0U, 0U), 1U);
+  EXPECT_EQ(fake_igh::configured_entry_index(0U, 0U, 0U), 0x6041U);
+  EXPECT_EQ(fake_igh::configured_entry_width(0U, 0U, 0U), 16U);
+  EXPECT_EQ(fake_igh::configured_sync_index(1U), 3U);
+  EXPECT_EQ(fake_igh::configured_sync_direction(1U), EC_DIR_OUTPUT);
+  EXPECT_EQ(fake_igh::configured_pdo_index(1U, 0U), 0x1600U);
+  EXPECT_EQ(fake_igh::configured_entry_index(1U, 0U, 0U), 0x6040U);
+  EXPECT_EQ(fake_igh::pdo_registration_calls(), 2U);
+  EXPECT_TRUE(fake_igh::pdo_configuration_preceded_registration());
+  EXPECT_TRUE(adapter.activate().ok());
+}
+
+TEST(EthercatIghFakeApi, PdoConfigurationFailureReleasesPartialMasterBeforeRegistration) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(adapter.request_master().ok());
+  ASSERT_TRUE(adapter.discover().ok());
+  fake_igh::fail_pdo_configuration(true);
+  std::array<Adapter::PdoBinding, 128U> bindings{};
+  bindings[0] = {5U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  ASSERT_FALSE(adapter.configure(bindings, 1U, [] {
+    Adapter::PdoMappingProfile mapping{};
+    (void)mapping.add({5U, 0x2U, 0x1234U, 2U, 0x1A00U, 0x6041U, 0U,
+        16U, mca::hardware::EthercatPdoDirection::Input});
+    return mapping;
+  }()).ok());
+  EXPECT_EQ(fake_igh::pdo_configuration_calls(), 1U);
+  EXPECT_EQ(fake_igh::pdo_registration_calls(), 0U);
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+  EXPECT_EQ(adapter.state().state(), mca::hardware::EthercatMasterState::Offline);
+}
+
+TEST(EthercatIghFakeApi, MappingProfileMustMatchRegisteredBindingSet) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(adapter.request_master().ok());
+  ASSERT_TRUE(adapter.discover().ok());
+  std::array<Adapter::PdoBinding, 128U> bindings{};
+  bindings[0] = {5U, 0x2U, 0x1234U, 0x6041U, 0U, 32U, 7U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  auto mapping = two_sm_mapping();
+  EXPECT_FALSE(adapter.configure(bindings, 1U, mapping).ok());
+  EXPECT_EQ(fake_igh::pdo_configuration_calls(), 0U);
+  EXPECT_EQ(fake_igh::pdo_registration_calls(), 0U);
+}
+
 TEST(EthercatIghFakeApi, CollectsMasterAndSlaveRuntimeHealth) {
   fake_igh::reset();
   Adapter::Config config{};

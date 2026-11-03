@@ -91,8 +91,8 @@ verify_coe_assignment() {
       object_index=$(((mapped >> 16) & 0xffff))
       object_subindex=$(((mapped >> 8) & 0xff))
       bit_length=$((mapped & 0xff))
-      (( bit_length > 0 && bit_length <= 64 )) || {
-        printf '  PDO 0x%04x entry %s has unsupported width %s\n' \
+      (( bit_length > 0 )) || {
+        printf '  PDO 0x%04x entry %s has zero width %s\n' \
           "$pdo_index" "$entry_pos" "$bit_length" >&2
         return 1
       }

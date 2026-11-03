@@ -87,6 +87,8 @@ class EthercatIghAdapter final {
     std::uint64_t request_id{0U};
     bool occupied{false};
     bool timed_out{false};
+    EthercatSdoOperation operation{EthercatSdoOperation::Read};
+    std::size_t max_response_size{0U};
   };
 
   Config config_{};

@@ -51,6 +51,25 @@ The public IgH documentation states that realtime SDO request objects are
 created before `ecrt_master_activate()` and are automatically freed when the
 master is released. citeturn694293search0
 
+### Activation failure policy
+
+A non-zero return from `ecrt_master_activate()` is treated as a terminal
+configuration failure for this adapter instance. The adapter releases the
+master and returns to `Offline`; it does not retry activation on the same
+master. In the IgH 1.6 implementation, activation finalizes domains in order
+and can fail while finalizing a domain or starting the operation thread. The
+public API documents an error return but does not promise that all partially
+completed activation work is rolled back into a retryable configuration.
+Releasing the master is the conservative cleanup boundary.
+
+After successful backend activation, if domain process-data access is
+invalid, the adapter attempts `ecrt_master_deactivate()`. A successful
+deactivation leaves the configured master retryable. If deactivation fails,
+the adapter releases the uncertain master and returns to `Offline`. The same
+fail-closed rule applies if the MCA state transition to `Active` unexpectedly
+fails and backend deactivation also fails.
+
+
 ## 2. Cyclic process-data path
 
 The cyclic path must be bounded and allocation-free:
@@ -344,6 +363,10 @@ behaviors against the real adapter implementation:
   previously created backend request objects;
 - shutdown with an outstanding SDO operation, verifying deactivate/release
   occur once and repeated shutdown is idempotent.
+- activation failure discards the configured master instead of retrying an
+  IgH instance whose partial activation rollback is not guaranteed;
+- invalid domain data/size rolls back to Configured when deactivation succeeds,
+  and releases the master to Offline when rollback fails.
 
 The fake models API state and memory ownership boundaries only. It does not
 emulate EtherCAT frames, CoE mailbox timing, slave firmware, distributed clocks,

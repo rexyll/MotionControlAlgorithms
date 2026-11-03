@@ -41,6 +41,8 @@ constexpr bool ethercat_write_pdo_bits(std::uint8_t* data,
   const std::uint64_t end = static_cast<std::uint64_t>(bit_offset) + bit_length;
   if (end > static_cast<std::uint64_t>(byte_size) * 8U)
     return false;
+  if (bit_length < 64U && (value >> bit_length) != 0U)
+    return false;
 
   for (std::uint8_t bit = 0U; bit < bit_length; ++bit) {
     const std::uint32_t absolute = bit_offset + bit;

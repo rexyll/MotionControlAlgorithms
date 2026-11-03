@@ -8,8 +8,7 @@
 namespace mca::hardware {
 
 // Bridges the IgH-specific runtime snapshot into the protocol-neutral bus
-// monitor. This is intentionally called by the supervisory loop, not from
-// inside EthercatIghAdapter::exchange().
+// monitor. Invoke from the supervisory loop, outside the cyclic exchange.
 template <std::size_t MaxSlaves, std::size_t MaxDomains, std::size_t MaxEntries>
 class EthercatIghHealthMonitor final {
  public:
@@ -35,8 +34,11 @@ class EthercatIghHealthMonitor final {
 
     EthercatBusHealthSample sample{};
     sample.sequence = runtime.sequence;
+    // A complete master/slave read is insufficient if the adapter's
+    // configured topology and the sampled slave set disagree.
     sample.diagnostics_valid =
         runtime.valid() && topology.valid() &&
+        runtime.slave_count == topology.slave_count &&
         layout.valid(topology.slave_count);
     sample.link_up = runtime.link_up;
     sample.expected_slaves =

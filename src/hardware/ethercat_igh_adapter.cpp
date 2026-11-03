@@ -407,7 +407,13 @@ mca::core::Status EthercatIghAdapter<S, D, E>::activate() noexcept {
     return {mca::core::StatusCode::RuntimeError};
   if (config_.send_interval_us != 0U && ecrt_master_set_send_interval(master_, config_.send_interval_us) != 0)
     return {mca::core::StatusCode::RuntimeError};
-  if (ecrt_master_activate(master_) != 0) return {mca::core::StatusCode::RuntimeError};
+  if (ecrt_master_activate(master_) != 0) {
+    // IgH may fail while finalizing one of several domains or while starting
+    // its operation thread. The public API does not promise rollback to a
+    // reusable configuration, so discard the master instead of retrying it.
+    (void)shutdown();
+    return {mca::core::StatusCode::RuntimeError};
+  }
   for (std::size_t d = 0; d < domain_count_; ++d) {
     domain_data_[d] = ecrt_domain_data(domains_[d]);
     domain_size_[d] = ecrt_domain_size(domains_[d]);

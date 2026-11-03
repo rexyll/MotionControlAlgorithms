@@ -104,6 +104,7 @@ class EthercatIghAdapter final {
   std::array<bool, MaxDomains> domain_wc_complete_{};
   SdoProfile sdo_profile_{};
   std::array<SdoSlotRuntime, MaxEntries> sdo_slots_{};
+  std::array<std::uint64_t, MaxEntries> slot_deadlines_{};
   std::size_t sdo_slot_count_{0U};
   std::size_t domain_count_{0U};
   std::size_t binding_count_{0U};

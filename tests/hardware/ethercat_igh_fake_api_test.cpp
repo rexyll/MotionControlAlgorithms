@@ -269,7 +269,64 @@ TEST(EthercatIghFakeApi, RollsBackCreatedRequestsWhenTimeoutConfigurationFails) 
   EXPECT_EQ(fake_igh::release_calls(), 1U);
 }
 
-TEST(EthercatIghFakeApi, ShutdownDeactivatesAndReleasesMasterExactlyOnce) {
+
+TEST(EthercatIghFakeApi, ActivationFailureKeepsConfiguredMasterRetryable) {
+  fake_igh::reset();
+  Adapter::Config config{}; config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(configure_without_sdo(adapter));
+  fake_igh::fail_activate(true);
+  EXPECT_FALSE(adapter.activate().ok());
+  EXPECT_EQ(adapter.state().state(), mca::hardware::EthercatMasterState::Configured);
+  EXPECT_EQ(fake_igh::release_calls(), 0U);
+  fake_igh::fail_activate(false);
+  EXPECT_TRUE(adapter.activate().ok());
+  EXPECT_EQ(fake_igh::activate_calls(), 2U);
+  EXPECT_TRUE(adapter.shutdown().ok());
+}
+
+TEST(EthercatIghFakeApi, NullDomainDataDeactivatesAndAllowsRetry) {
+  fake_igh::reset();
+  Adapter::Config config{}; config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(configure_without_sdo(adapter));
+  fake_igh::fail_domain_data(true);
+  EXPECT_FALSE(adapter.activate().ok());
+  EXPECT_EQ(fake_igh::deactivate_calls(), 1U);
+  EXPECT_EQ(adapter.state().state(), mca::hardware::EthercatMasterState::Configured);
+  fake_igh::fail_domain_data(false);
+  EXPECT_TRUE(adapter.activate().ok());
+  EXPECT_TRUE(adapter.shutdown().ok());
+}
+
+TEST(EthercatIghFakeApi, ZeroDomainSizeDeactivatesAndAllowsRetry) {
+  fake_igh::reset();
+  Adapter::Config config{}; config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(configure_without_sdo(adapter));
+  fake_igh::zero_domain_size(true);
+  EXPECT_FALSE(adapter.activate().ok());
+  EXPECT_EQ(fake_igh::deactivate_calls(), 1U);
+  EXPECT_EQ(adapter.state().state(), mca::hardware::EthercatMasterState::Configured);
+  fake_igh::zero_domain_size(false);
+  EXPECT_TRUE(adapter.activate().ok());
+  EXPECT_TRUE(adapter.shutdown().ok());
+}
+
+TEST(EthercatIghFakeApi, FailedActivationRollbackReleasesUncertainMaster) {
+  fake_igh::reset();
+  Adapter::Config config{}; config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(configure_without_sdo(adapter));
+  fake_igh::fail_domain_data(true);
+  fake_igh::fail_deactivate(true);
+  EXPECT_FALSE(adapter.activate().ok());
+  EXPECT_EQ(fake_igh::deactivate_calls(), 1U);
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+  EXPECT_EQ(adapter.state().state(), mca::hardware::EthercatMasterState::Offline);
+  EXPECT_FALSE(adapter.activate().ok());
+}
+\nTEST(EthercatIghFakeApi, ShutdownDeactivatesAndReleasesMasterExactlyOnce) {
   fake_igh::reset();
   Adapter::Config config{};
   config.cycle_time_ns = 1'000'000U;

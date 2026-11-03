@@ -22,13 +22,13 @@ struct CapturedEntry { std::uint16_t index{0U}; std::uint8_t width{0U}; };
 struct CapturedPdo {
   std::uint16_t index{0U};
   std::size_t entry_count{0U};
-  std::array<CapturedEntry, 256U> entries{};
+  std::array<CapturedEntry, 128U> entries{};
 };
 struct CapturedSync {
   std::uint8_t index{0U};
   ec_direction_t direction{EC_DIR_INVALID};
   std::size_t pdo_count{0U};
-  std::array<CapturedPdo, 256U> pdos{};
+  std::array<CapturedPdo, 32U> pdos{};
 };
 ec_master master;
 ec_domain domain;
@@ -47,7 +47,7 @@ bool pdo_order_valid = true;
 std::size_t pdo_configurations = 0U;
 std::size_t pdo_registrations = 0U;
 std::size_t captured_syncs = 0U;
-std::array<CapturedSync, 256U> captured{};
+std::array<CapturedSync, 16U> captured{};
 bool domain_data_failure = false;
 bool zero_size = false;
 bool deactivate_failure = false;
@@ -77,7 +77,7 @@ void reset() noexcept {
   activate_failure = false; pdo_configuration_failure = false;
   registration_seen = false; pdo_order_valid = true;
   pdo_configurations = 0U; pdo_registrations = 0U;
-  captured_syncs = 0U; captured = {};
+  captured_syncs = 0U;
   domain_data_failure = false;
   zero_size = false; deactivate_failure = false;
   master_state_failure = false; slave_state_failure = false;

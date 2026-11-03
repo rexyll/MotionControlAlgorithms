@@ -1,4 +1,5 @@
 #pragma once
+#define EC_MAX_SYNC_MANAGERS 16
 #include <stddef.h>
 #include <stdint.h>
 
@@ -91,6 +92,9 @@ int ecrt_slave_config_state(const ec_slave_config_t*, ec_slave_config_state_t*);
 ec_domain_t* ecrt_master_create_domain(ec_master_t*);
 ec_slave_config_t* ecrt_master_slave_config(ec_master_t*, uint16_t, uint16_t, uint32_t, uint32_t);
 int ecrt_slave_config_pdos(ec_slave_config_t*, unsigned int, const ec_sync_info_t*);
+int ecrt_master_get_sync_manager(ec_master_t*, uint16_t, uint8_t, ec_sync_info_t*);
+int ecrt_master_get_pdo(ec_master_t*, uint16_t, uint8_t, uint16_t, ec_pdo_info_t*);
+int ecrt_master_get_pdo_entry(ec_master_t*, uint16_t, uint8_t, uint16_t, uint16_t, ec_pdo_entry_info_t*);
 int ecrt_slave_config_reg_pdo_entry(ec_slave_config_t*, uint16_t, uint8_t, ec_domain_t*, unsigned int*);
 ec_sdo_request_t* ecrt_slave_config_create_sdo_request(ec_slave_config_t*, uint16_t, uint8_t, size_t);
 int ecrt_sdo_request_timeout(ec_sdo_request_t*, uint32_t);

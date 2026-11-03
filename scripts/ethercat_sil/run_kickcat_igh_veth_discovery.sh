@@ -32,16 +32,21 @@ fail() {
 # --position and --type options; parse the first numeric token from its output.
 read_sdo_value() {
   local index="$1" subindex="$2" type="$3" output token value
-  output=$(timeout "$TIMEOUT_SEC" "$ETHERCAT_CLI" upload --position 0 \
-    --type "$type" "$index" "$subindex" 2>&1) || {
-      printf 'SDO read failed: %s:%s (%s)\n%s\n' \
-        "$index" "$subindex" "$type" "$output" >&2
-      return 1
-    }
+  local command_status=0
+  if ! output=$(timeout "$TIMEOUT_SEC" "$ETHERCAT_CLI" upload --position 0 \
+      --type "$type" "$index" "$subindex" 2>&1); then
+    command_status=$?
+  fi
   {
-    printf 'READ %s:%s type=%s\n' "$index" "$subindex" "$type"
+    printf 'READ %s:%s type=%s exit=%s\n' \
+      "$index" "$subindex" "$type" "$command_status"
     printf '%s\n' "$output"
   } >>"$ARTIFACT_DIR/coe-sdo-raw.log"
+  if (( command_status != 0 )); then
+    printf 'SDO read failed: %s:%s (%s)\n%s\n' \
+      "$index" "$subindex" "$type" "$output" >&2
+    return 1
+  fi
   token=$(printf '%s\n' "$output" | awk '
     NF {
       for (i = 1; i <= NF; ++i) {

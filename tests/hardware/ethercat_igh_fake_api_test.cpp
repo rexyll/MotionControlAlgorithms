@@ -26,14 +26,15 @@ bool activate_with_two_slots(Adapter& adapter) {
   return adapter.activate().ok();
 }
 
-Request read_request(std::uint64_t id, std::uint64_t deadline) {
+Request read_request(std::uint64_t id, std::uint64_t deadline,
+                     std::size_t max_response_size = 4U) {
   Request r{};
   r.request_id = id;
   r.slave_position = 5U;
   r.index = 0x2000U;
   r.subindex = 1U;
   r.operation = mca::hardware::EthercatSdoOperation::Read;
-  r.max_response_size = 4U;
+  r.max_response_size = max_response_size;
   r.deadline_timestamp_ns = deadline;
   return r;
 }
@@ -64,6 +65,36 @@ TEST(EthercatIghFakeApi, ReadsOnlyAfterSuccessAndCopiesTerminalBuffer) {
   EXPECT_EQ(result.payload[0], 0x12U);
   EXPECT_EQ(result.payload[1], 0x34U);
   EXPECT_EQ(result.payload[2], 0x56U);
+}
+
+TEST(EthercatIghFakeApi, ReadsFromRelocatedBufferOnlyAfterTerminalSuccess) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slots(adapter));
+  ASSERT_TRUE(adapter.enqueue_sdo(read_request(2U, 500U)).ok());
+  ASSERT_NE(fake_igh::request(0U), nullptr);
+
+  auto* busy_buffer = ecrt_sdo_request_data(fake_igh::request(0U));
+  ASSERT_NE(busy_buffer, nullptr);
+  busy_buffer[0] = 0xAAU;
+
+  Result result{};
+  ASSERT_TRUE(adapter.poll_sdo(2U, 100U, result).ok());
+  EXPECT_EQ(result.state, mca::hardware::EthercatMailboxResultState::Pending);
+
+  const std::array<std::uint8_t, 3U> bytes{{0x21U, 0x43U, 0x65U}};
+  fake_igh::relocate_and_complete(0U, bytes.data(), bytes.size());
+  auto* terminal_buffer = ecrt_sdo_request_data(fake_igh::request(0U));
+  ASSERT_NE(terminal_buffer, busy_buffer);
+
+  ASSERT_TRUE(adapter.poll_sdo(2U, 101U, result).ok());
+  EXPECT_EQ(result.state, mca::hardware::EthercatMailboxResultState::Completed);
+  ASSERT_EQ(result.payload_size, bytes.size());
+  EXPECT_EQ(result.payload[0], 0x21U);
+  EXPECT_EQ(result.payload[1], 0x43U);
+  EXPECT_EQ(result.payload[2], 0x65U);
 }
 
 TEST(EthercatIghFakeApi, SupportsIndependentConcurrentSlotsAndRejectsDuplicateIds) {
@@ -112,7 +143,7 @@ TEST(EthercatIghFakeApi, QuarantinesTimedOutBusySlotUntilTerminalObservation) {
   EXPECT_TRUE(adapter.enqueue_sdo(read_request(22U, 300U)).ok());
 }
 
-TEST(EthercatIghFakeApi, MapsIgHErrorToFailedWithoutInventingAbortCode) {
+TEST(EthercatIghFakeApi, MapsIgHErrorToFailedWithoutInventingAbortCodeAndReusesSlot) {
   fake_igh::reset();
   Adapter::Config config{};
   config.cycle_time_ns = 1'000'000U;
@@ -125,6 +156,45 @@ TEST(EthercatIghFakeApi, MapsIgHErrorToFailedWithoutInventingAbortCode) {
   ASSERT_TRUE(adapter.poll_sdo(30U, 100U, result).ok());
   EXPECT_EQ(result.state, mca::hardware::EthercatMailboxResultState::Failed);
   EXPECT_EQ(result.abort_code, 0U);
+  ASSERT_TRUE(adapter.enqueue_sdo(read_request(31U, 500U)).ok());
+  EXPECT_EQ(fake_igh::read_calls(0U), 2U);
+}
+
+TEST(EthercatIghFakeApi, RejectsReadResponseAboveAdapterCapacity) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slots(adapter));
+  EXPECT_FALSE(adapter.enqueue_sdo(read_request(32U, 500U, 257U)).ok());
+  EXPECT_EQ(fake_igh::read_calls(0U), 0U);
+  EXPECT_EQ(fake_igh::read_calls(1U), 0U);
+}
+
+TEST(EthercatIghFakeApi, AcceptsWriteAtExactTransferCapacityAndRejectsOverflow) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slots(adapter));
+
+  Request exact{};
+  exact.request_id = 40U;
+  exact.slave_position = 5U;
+  exact.index = 0x2000U;
+  exact.subindex = 1U;
+  exact.operation = mca::hardware::EthercatSdoOperation::Write;
+  exact.payload = {{1U, 2U, 3U, 4U}};
+  exact.payload_size = 4U;
+  exact.deadline_timestamp_ns = 500U;
+  ASSERT_TRUE(adapter.enqueue_sdo(exact).ok());
+  EXPECT_EQ(fake_igh::write_calls(0U), 1U);
+
+  Request overflow = exact;
+  overflow.request_id = 41U;
+  overflow.payload_size = 5U;
+  EXPECT_FALSE(adapter.enqueue_sdo(overflow).ok());
+  EXPECT_EQ(fake_igh::write_calls(1U), 0U);
 }
 
 TEST(EthercatIghFakeApi, CopiesFixedSizeWritePayloadBeforeSubmission) {
@@ -134,7 +204,7 @@ TEST(EthercatIghFakeApi, CopiesFixedSizeWritePayloadBeforeSubmission) {
   Adapter adapter(config);
   ASSERT_TRUE(activate_with_two_slots(adapter));
   Request request{};
-  request.request_id = 40U;
+  request.request_id = 50U;
   request.slave_position = 5U;
   request.index = 0x2000U;
   request.subindex = 1U;

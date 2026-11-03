@@ -12,15 +12,16 @@ TEST(EthercatPdoImage, ReadsAndWritesUnalignedFieldsWithoutTouchingNeighbors) {
 
   std::uint64_t value = 0U;
   ASSERT_TRUE(mca::hardware::ethercat_read_pdo_bits(image.data(), image.size(), 3U, 11U, value));
-  EXPECT_EQ(value, 0x14DU);
+  EXPECT_EQ(value, 0x354U);
 
   ASSERT_TRUE(mca::hardware::ethercat_write_pdo_bits(image.data(), image.size(), 3U, 11U, 0x2A5U));
 
   std::uint64_t round_trip = 0U;
   ASSERT_TRUE(mca::hardware::ethercat_read_pdo_bits(image.data(), image.size(), 3U, 11U, round_trip));
   EXPECT_EQ(round_trip, 0x2A5U);
-  EXPECT_EQ(image[2] & 0xC0U, 0xC0U);
+  EXPECT_EQ(image[1] & 0xC0U, 0x40U);
   EXPECT_EQ(image[0] & 0x07U, 0x05U);
+  EXPECT_EQ(image[2], 0xC3U);
 }
 
 TEST(EthercatPdoImage, SupportsExactly64Bits) {

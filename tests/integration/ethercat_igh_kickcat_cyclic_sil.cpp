@@ -92,8 +92,10 @@ int main() {
     const auto& health = adapter.runtime_health();
     bool all_operational = health.valid() && health.link_up &&
         health.slaves_responding == topology.slave_count;
-    for (std::size_t i = 0; i < health.slave_count; ++i)
-      all_operational = all_operational && health.slaves[i].operational;
+    for (std::size_t i = 0; i < health.slave_count; ++i) {
+      if (health.slaves[i].configured)
+        all_operational = all_operational && health.slaves[i].operational;
+    }
 
     bool inputs_readable = true;
     for (std::size_t i = 0; i < binding_count; ++i) {

@@ -316,9 +316,11 @@ jobs:
           # The first read can be the backend's seeded zero sample, emitted
           # before Gazebo's first physics update. Let the simulator settle,
           # then use a fresh stream and select its final valid state.
-          sleep 2
-          timeout 3s ros2 topic echo /joint_states sensor_msgs/msg/JointState \
-            --qos-reliability best_effort >"$initial_state_log" 2>&1 || test "$?" -eq 124
+          # The first broadcaster update can arrive later than a fixed
+          # short sleep on a loaded CI runner. Wait for one actual sample
+          # instead of treating an empty 3-second capture as a robot failure.
+          timeout 12s ros2 topic echo /joint_states sensor_msgs/msg/JointState \
+            --qos-reliability best_effort --once >"$initial_state_log" 2>&1
           read -r effort_a effort_b < <(python3 - "$initial_state_log" <<'PY'
           import math
           import sys

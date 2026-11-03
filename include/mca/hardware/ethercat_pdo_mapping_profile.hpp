@@ -8,6 +8,11 @@
 
 namespace mca::hardware {
 
+enum class EthercatPdoMappingPolicy : std::uint8_t {
+  UseDiscoveredMapping,
+  ApplyConfiguredMapping
+};
+
 // A bounded, allocation-free declaration of the complete PDO mapping expected
 // by the application. Entries must be supplied in wire order: slave, Sync
 // Manager, PDO, then PDO entry. This is a configuration profile, not a claim

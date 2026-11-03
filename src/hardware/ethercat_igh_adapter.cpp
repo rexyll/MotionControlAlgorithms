@@ -509,10 +509,15 @@ mca::core::Status EthercatIghAdapter<S, D, E>::shutdown() noexcept {
   // Keep cleanup idempotent even if the master pointer was already cleared by
   // a partial initialization/rollback path. Adapter-owned handles and SDO
   // bookkeeping must never survive a logical shutdown.
+  int deactivate_result = 0;
   if (master_ != nullptr) {
     if (activated_) {
-      ecrt_master_deactivate(master_);
+      deactivate_result = ecrt_master_deactivate(master_);
       activated_ = false;
+      // The state machine rejects shutdown while Active. Once the IgH master
+      // has been deactivated (and will be released below), mirror that
+      // lifecycle transition before asking the state machine to go Offline.
+      (void)state_.on_deactivated();
     }
     ecrt_release_master(master_);
     master_ = nullptr;
@@ -533,7 +538,10 @@ mca::core::Status EthercatIghAdapter<S, D, E>::shutdown() noexcept {
   cycle_sequence_ = 0U;
   domain_wkc_.fill(0U);
   domain_wc_complete_.fill(false);
-  return state_.on_shutdown();
+  const auto shutdown_status = state_.on_shutdown();
+  if (deactivate_result != 0)
+    return {mca::core::StatusCode::RuntimeError};
+  return shutdown_status;
 }
 
 template class EthercatIghAdapter<16, 4, 128>;

@@ -27,7 +27,7 @@ std::size_t create_attempts = 0U;
 std::size_t create_failure = static_cast<std::size_t>(-1);
 std::size_t timeout_failure = static_cast<std::size_t>(-1);
 std::size_t releases = 0U;
-std::size_t deactivations = 0U;
+std::size_t deactivations = 0U;\nbool activate_failure = false;\nbool domain_data_failure = false;\nbool zero_size = false;\nbool deactivate_failure = false;\nstd::size_t activations = 0U;
 }
 
 namespace fake_igh {
@@ -46,7 +46,7 @@ void reset() noexcept {
 std::size_t request_count() noexcept { return created; }
 std::size_t live_request_count() noexcept { return created; }
 void fail_create_at(std::size_t attempt) noexcept { create_failure = attempt; }
-void fail_timeout_at(std::size_t index) noexcept { timeout_failure = index; }
+void fail_timeout_at(std::size_t index) noexcept { timeout_failure = index; }\nvoid fail_activate(bool enabled) noexcept { activate_failure = enabled; }\nvoid fail_domain_data(bool enabled) noexcept { domain_data_failure = enabled; }\nvoid zero_domain_size(bool enabled) noexcept { zero_size = enabled; }\nvoid fail_deactivate(bool enabled) noexcept { deactivate_failure = enabled; }\nstd::size_t activate_calls() noexcept { return activations; }
 std::size_t release_calls() noexcept { return releases; }
 std::size_t deactivate_calls() noexcept { return deactivations; }
 ec_sdo_request_t* request(std::size_t index) noexcept {

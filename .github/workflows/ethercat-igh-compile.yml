@@ -24,3 +24,8 @@ jobs:
           g++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow \
             -DMCA_ENABLE_IGH=1 -Iinclude -I/usr/include/eigen3 -I/tmp/ethercat/include \
             -c src/hardware/ethercat_igh_adapter.cpp -o /tmp/ethercat_igh_adapter.o
+      - name: Compile cyclic KickCAT SIL harness against pinned API
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow \
+            -DMCA_ENABLE_IGH=1 -Iinclude -I/usr/include/eigen3 -I/tmp/ethercat/include \
+            -fsyntax-only tests/integration/ethercat_igh_kickcat_cyclic_sil.cpp

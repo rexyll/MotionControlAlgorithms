@@ -470,11 +470,12 @@ The adapter now supports both mapping ownership policies:
 
 - `ApplyConfiguredMapping`: apply the explicit profile with
   `ecrt_slave_config_pdos()`, then register process-image entries;
-- `UseDiscoveredMapping`: inspect the connected slave's SM/PDO/entry
-  hierarchy through `ecrt_master_get_sync_manager()`,
-  `ecrt_master_get_pdo()` and `ecrt_master_get_pdo_entry()`, compare SM
-  direction, PDO order, object index/subindex and bit length, detect additional
-  PDO-bearing SyncManagers, then register only after an exact match.
+- `UseDiscoveredMapping`: `discover_pdo_mapping()` snapshots the connected
+  slave's bounded SM/PDO/entry hierarchy through
+  `ecrt_master_get_sync_manager()`, `ecrt_master_get_pdo()` and
+  `ecrt_master_get_pdo_entry()`. The configure path then compares SM
+  direction, PDO order, object index/subindex and bit length, detects additional
+  PDO-bearing SyncManagers, and registers only after an exact match.
 
 The discovered-map path is covered by fake-API tests for matching hierarchy
 and bit-width mismatch rejection. The IgH inspection API is a master's view of

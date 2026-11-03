@@ -131,17 +131,17 @@ The adapter translates the validated MCA map into `ec_pdo_entry_reg_t`
 registrations and stores the resulting byte/bit offsets privately.
 
 `EthercatPdoEntry::slave_position` is a bounded topology-array slot (0 to
-`slave_count - 1`), not the EtherCAT station address. IgH adapter bindings
-carry the actual station address separately. The adapter must resolve each
-binding's station address to a topology slot before constructing the portable
-layout; sparse station addresses must never be used as array indices or copied
+`slave_count - 1`), not the EtherCAT ring position. IgH adapter bindings
+carry the actual ring position separately. The adapter must resolve each
+binding's ring position to a topology slot before constructing the portable
+layout; sparse ring positiones must never be used as array indices or copied
 into this bounded field.
 
 Before activation:
 
 - reject missing expected slaves;
 - reject vendor/product/revision/serial identity changes;
-- reject duplicate station positions;
+- reject duplicate ring positions;
 - reject unsupported bit widths and offset overflow;
 - reject overlapping MCA entries;
 - reject insufficient caller-owned input/output image capacity;
@@ -427,7 +427,7 @@ on an API-compatible compile.
 The first implementation slice adds
 `include/mca/hardware/ethercat_pdo_mapping_profile.hpp`. It is a fixed-capacity,
 allocation-free declaration/validator for the intended mapping. The profile
-records station position, vendor/product identity, Sync Manager index, PDO
+records ring position, vendor/product identity, Sync Manager index, PDO
 index, object index/subindex, bit length and direction.
 
 The validator rejects:

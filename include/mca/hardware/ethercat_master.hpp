@@ -356,6 +356,81 @@ enum class EthercatMailboxResultState : std::uint8_t {
   Failed
 };
 
+// One preallocated IgH realtime SDO request object. Multiple identical
+// entries intentionally represent independent concurrency slots for the same
+// object; each slot owns a distinct backend request object.
+struct EthercatSdoSlotConfig {
+  std::uint16_t slave_position{0U};
+  std::uint16_t index{0U};
+  std::uint8_t subindex{0U};
+  std::uint16_t transfer_capacity{0U};
+  std::uint32_t timeout_ms{0U};
+};
+
+template <std::size_t MaxSlots, std::size_t MaxBytes>
+struct EthercatSdoProfile {
+  static_assert(MaxSlots > 0U, "EtherCAT SDO slot capacity must be positive");
+  static_assert(MaxBytes > 0U, "EtherCAT SDO byte capacity must be positive");
+
+  std::array<EthercatSdoSlotConfig, MaxSlots> slots{};
+  std::size_t slot_count{0U};
+
+  [[nodiscard]] bool valid() const noexcept {
+    if (slot_count == 0U || slot_count > MaxSlots) return false;
+    for (std::size_t i = 0; i < slot_count; ++i) {
+      const auto& slot = slots[i];
+      if (slot.index == 0U || slot.transfer_capacity == 0U ||
+          slot.transfer_capacity > MaxBytes || slot.timeout_ms == 0U)
+        return false;
+      // Duplicate object tuples are allowed only as equivalent concurrency
+      // slots; inconsistent capacities/timeouts make dispatch ambiguous.
+      for (std::size_t j = 0; j < i; ++j) {
+        const auto& prior = slots[j];
+        if (prior.slave_position == slot.slave_position &&
+            prior.index == slot.index && prior.subindex == slot.subindex &&
+            (prior.transfer_capacity != slot.transfer_capacity ||
+             prior.timeout_ms != slot.timeout_ms))
+          return false;
+      }
+    }
+    return true;
+  }
+
+  [[nodiscard]] bool supports(
+      const EthercatSdoRequest<MaxBytes>& request) const noexcept {
+    if (!valid() || !request.valid()) return false;
+    std::size_t matching_slots = 0U;
+    std::size_t capacity = 0U;
+    for (std::size_t i = 0; i < slot_count; ++i) {
+      const auto& slot = slots[i];
+      if (slot.slave_position == request.slave_position &&
+          slot.index == request.index && slot.subindex == request.subindex) {
+        ++matching_slots;
+        capacity = slot.transfer_capacity;
+      }
+    }
+    if (matching_slots == 0U) return false;
+    if (request.operation == EthercatSdoOperation::Write)
+      return request.payload_size == capacity;
+    return request.operation == EthercatSdoOperation::Read &&
+           request.max_response_size <= capacity;
+  }
+
+  [[nodiscard]] std::size_t concurrency(
+      std::uint16_t slave_position, std::uint16_t index,
+      std::uint8_t subindex) const noexcept {
+    if (!valid()) return 0U;
+    std::size_t count = 0U;
+    for (std::size_t i = 0; i < slot_count; ++i) {
+      const auto& slot = slots[i];
+      if (slot.slave_position == slave_position && slot.index == index &&
+          slot.subindex == subindex)
+        ++count;
+    }
+    return count;
+  }
+};
+
 template <std::size_t MaxBytes>
 struct EthercatSdoRequest {
   static_assert(MaxBytes > 0U, "EtherCAT SDO capacity must be positive");

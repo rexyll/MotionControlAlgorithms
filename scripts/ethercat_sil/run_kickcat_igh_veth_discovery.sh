@@ -268,8 +268,12 @@ fi
 
 cat "$ARTIFACT_DIR/slaves-verbose.log"
 printf '\nPASS: IgH ec_generic <-> veth <-> KickCAT raw-socket slave discovery and bidirectional EtherCAT frame exchange.\n'
-if [[ "$COE_READBACK" == "1" ]]; then
-  printf 'NOTE: CoE PDO objects were read independently; this still does not validate cyclic PDO/WKC, CiA402 motion, DC timing or HIL.\n'
+if [[ "$CYCLIC_SIL" == "1" && "$COE_READBACK" == "1" ]]; then
+  printf 'NOTE: CoE mapping readback and cyclic PDO/WKC/AL-OP passed; CiA402 motion, DC timing and real-slave HIL remain unvalidated.\n'
+elif [[ "$CYCLIC_SIL" == "1" ]]; then
+  printf 'NOTE: Cyclic PDO/WKC/AL-OP passed; independent CoE SDO readback, CiA402 motion, DC timing and real-slave HIL remain unvalidated.\n'
+elif [[ "$COE_READBACK" == "1" ]]; then
+  printf 'NOTE: CoE PDO objects were read independently; cyclic PDO/WKC, CiA402 motion, DC timing and HIL remain unvalidated.\n'
 else
-  printf 'NOTE: Transport/discovery only. Set MCA_ECAT_COE_READBACK=1 to read CoE PDO assignment/mapping objects; cyclic PDO/WKC, CiA402 motion, DC timing and HIL remain unvalidated.\n'
+  printf 'NOTE: Transport/discovery only. Set MCA_ECAT_COE_READBACK=1 for CoE readback and MCA_ECAT_CYCLIC_SIL=1 for cyclic PDO/WKC/AL-OP validation.\n'
 fi

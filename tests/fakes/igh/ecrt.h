@@ -12,6 +12,38 @@ typedef struct ec_slave_config ec_slave_config_t;
 typedef struct ec_sdo_request ec_sdo_request_t;
 
 typedef enum {
+  EC_DIR_INVALID = 0,
+  EC_DIR_OUTPUT = 1,
+  EC_DIR_INPUT = 2
+} ec_direction_t;
+
+typedef enum {
+  EC_WD_DEFAULT = 0,
+  EC_WD_ENABLE = 1,
+  EC_WD_DISABLE = 2
+} ec_watchdog_mode_t;
+
+typedef struct {
+  uint16_t index;
+  uint8_t subindex;
+  uint8_t bit_length;
+} ec_pdo_entry_info_t;
+
+typedef struct {
+  uint16_t index;
+  unsigned int n_entries;
+  ec_pdo_entry_info_t* entries;
+} ec_pdo_info_t;
+
+typedef struct {
+  uint8_t index;
+  ec_direction_t dir;
+  uint8_t n_pdos;
+  ec_pdo_info_t* pdos;
+  ec_watchdog_mode_t watchdog_mode;
+} ec_sync_info_t;
+
+typedef enum {
   EC_REQUEST_UNUSED = 0,
   EC_REQUEST_BUSY = 1,
   EC_REQUEST_SUCCESS = 2,
@@ -58,6 +90,7 @@ int ecrt_master_state(const ec_master_t*, ec_master_state_t*);
 int ecrt_slave_config_state(const ec_slave_config_t*, ec_slave_config_state_t*);
 ec_domain_t* ecrt_master_create_domain(ec_master_t*);
 ec_slave_config_t* ecrt_master_slave_config(ec_master_t*, uint16_t, uint16_t, uint32_t, uint32_t);
+int ecrt_slave_config_pdos(ec_slave_config_t*, unsigned int, const ec_sync_info_t*);
 int ecrt_slave_config_reg_pdo_entry(ec_slave_config_t*, uint16_t, uint8_t, ec_domain_t*, unsigned int*);
 ec_sdo_request_t* ecrt_slave_config_create_sdo_request(ec_slave_config_t*, uint16_t, uint8_t, size_t);
 int ecrt_sdo_request_timeout(ec_sdo_request_t*, uint32_t);

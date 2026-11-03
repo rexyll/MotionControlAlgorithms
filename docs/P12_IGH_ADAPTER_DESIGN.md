@@ -175,15 +175,26 @@ slot. A write must match that configured transfer size; a read may return no
 more than the reserved capacity. Concurrent requests require distinct IgH
 request objects, each owned by the corresponding slave configuration.
 
-The portable contract now represents this profile as
+The portable contract represents this profile as
 `EthercatSdoProfile<MaxSlots, MaxBytes>` with one
 `EthercatSdoSlotConfig` per preallocated backend request object. Repeated
 station/index/subindex tuples are permitted only when their capacity and
 timeout agree; they represent independent concurrency slots. The profile
 rejects writes whose payload length is not exactly the configured capacity,
 reads whose response bound exceeds it, and requests for unconfigured objects.
-This validates the portable dispatch contract only; it does not yet create or
-schedule IgH request objects.
+
+The IgH adapter now exposes `configure_sdo_profile()`,
+`enqueue_sdo()` and `poll_sdo()`. The profile is materialized into distinct
+IgH request objects after PDO configuration and before activation. Enqueue
+copies fixed-size write data into the reserved buffer and schedules a read or
+write; polling copies read data only after `EC_REQUEST_SUCCESS`. Duplicate
+live request IDs are rejected. An MCA deadline observed while IgH is BUSY
+returns `TimedOut` but keeps the backend slot quarantined until IgH reaches a
+terminal state. Since IgH exposes no completion timestamp, a result first
+observed after the MCA deadline is conservatively reported as timed out.
+
+This is an initial direct adapter implementation, not yet a fully tested
+mailbox queue or a claim of safe behavior under every IgH runtime failure.
 
 ### Error and Abort-code observability
 
@@ -303,9 +314,12 @@ The following remain intentionally open until evidence exists:
 
 - exact target Linux kernel/NIC/IgH compatibility matrix;
 - source-level confirmation of safe busy-request timeout/reuse semantics;
-- IgH-side creation/dispatch of the validated fixed-size SDO profile, including
-  slot reservation, busy-state quarantine and terminal-state reuse tests;
-- an explicit policy for realtime IgH errors that do not expose CoE abort codes;
+- fake-C-API tests for SDO slot creation, queue dispatch, BUSY quarantine,
+  terminal completion, read-buffer relocation and timeout/reuse behavior;
+- runtime validation of whether an IgH request that reaches `EC_REQUEST_ERROR`
+  can be safely rescheduled without recreating the master;
+- an explicit production policy for realtime IgH errors that do not expose CoE
+  abort codes;
 - compile/link validation against the pinned 1.6.13 headers/library;
 - simulator or virtual fixture protocol validation;
 - physical slave validation;

@@ -40,7 +40,7 @@ class EthercatPdoMappingProfile final {
           prior.index == entry.index && prior.subindex == entry.subindex)
         return false;
     }
-    if (count_ != 0U && !ordered_after(entries_[count_ - 1U], entry))
+    if (count_ != 0U && !ordered_after(entries_[count_ - 1U], entry, count_))
       return false;
     entries_[count_++] = entry;
     return true;
@@ -56,7 +56,7 @@ class EthercatPdoMappingProfile final {
             entries_[j].subindex == entries_[i].subindex)
           return false;
       }
-      if (i != 0U && !ordered_after(entries_[i - 1U], entries_[i]))
+      if (i != 0U && !ordered_after(entries_[i - 1U], entries_[i], i))
         return false;
     }
     return true;
@@ -77,7 +77,8 @@ class EthercatPdoMappingProfile final {
 
   // Enforce monotonic group order and one direction per Sync Manager. A
   // previously closed SM/PDO group may not reappear later in the profile.
-  bool ordered_after(const Entry& previous, const Entry& next) const noexcept {
+  bool ordered_after(const Entry& previous, const Entry& next,
+                     std::size_t prior_count) const noexcept {
     if (next.ring_position < previous.ring_position) return false;
     if (next.ring_position > previous.ring_position) return true;
     if (next.vendor_id != previous.vendor_id ||
@@ -88,7 +89,7 @@ class EthercatPdoMappingProfile final {
     if (next.direction != previous.direction) return false;
 
     if (next.pdo_index == previous.pdo_index) return true;
-    for (std::size_t i = 0; i + 1U < count_; ++i) {
+    for (std::size_t i = 0; i + 1U < prior_count; ++i) {
       const auto& seen = entries_[i];
       if (seen.ring_position == next.ring_position &&
           seen.sync_manager == next.sync_manager &&

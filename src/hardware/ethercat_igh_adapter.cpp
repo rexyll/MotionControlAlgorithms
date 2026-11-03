@@ -300,7 +300,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::enqueue_sdo(
     // Check only the matching backend object. A failed prior submission may
     // leave one slot BUSY; it must not prevent dispatch to an unrelated slot.
     if (ecrt_sdo_request_state(slot.request) == EC_REQUEST_BUSY)
-      return {mca::core::StatusCode::RuntimeError};
+      continue;
 
     if (request.operation == EthercatSdoOperation::Write) {
       auto* data = ecrt_sdo_request_data(slot.request);

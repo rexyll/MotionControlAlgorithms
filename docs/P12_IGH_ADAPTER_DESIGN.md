@@ -315,16 +315,40 @@ small fake C API shim with the same subset of declarations to exercise the
 adapter state machine. This fake is a unit-test double, not an EtherCAT
 protocol simulator.
 
+### Fake IgH regression coverage (main)
+
+The portable fake-C-API suite now exercises the following SDO and lifecycle
+behaviors against the real adapter implementation:
+
+- read completion copies data only after `EC_REQUEST_SUCCESS`;
+- the fake can relocate the backend data buffer between BUSY and SUCCESS, and
+  the adapter observes/copies the terminal buffer rather than a cached pointer;
+- the 256-byte adapter response ceiling and profile transfer-capacity bounds;
+- exact-capacity writes, overflow rejection and payload copying before submit;
+- independent concurrent slots, duplicate live request-ID rejection and
+  dispatch around an unrelated backend BUSY slot;
+- timeout quarantine until terminal observation, ERROR mapping and subsequent
+  slot reuse;
+- injected failure on the second request-object creation and on the second
+  timeout configuration, each requiring master release to discard all
+  previously created backend request objects;
+- shutdown with an outstanding SDO operation, verifying deactivate/release
+  occur once and repeated shutdown is idempotent.
+
+The fake models API state and memory ownership boundaries only. It does not
+emulate EtherCAT frames, CoE mailbox timing, slave firmware, distributed clocks,
+NIC DMA, kernel scheduling or electrical bus faults. These tests are portable
+unit regressions, not protocol simulation and not hardware-in-the-loop evidence.
+
 ## 10. Open gates
 
 The following remain intentionally open until evidence exists:
 
 - exact target Linux kernel/NIC/IgH compatibility matrix;
 - source-level confirmation of safe busy-request timeout/reuse semantics;
-- fake-C-API tests for SDO slot creation, queue dispatch, BUSY quarantine,
-  terminal completion, read-buffer relocation and timeout/reuse behavior;
+- broader protocol-level validation of SDO timing and recovery beyond the fake C-API state-machine coverage;
 - runtime validation of whether an IgH request that reaches `EC_REQUEST_ERROR`
-  can be safely rescheduled without recreating the master;
+  can be safely rescheduled under real master/slave timing without recreating the master;
 - an explicit production policy for realtime IgH errors that do not expose CoE
   abort codes;
 - compile/link validation against the pinned 1.6.13 headers/library;

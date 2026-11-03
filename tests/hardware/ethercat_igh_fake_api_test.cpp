@@ -15,13 +15,13 @@ using Result = Adapter::SdoResult;
 bool activate_with_two_slots(Adapter& adapter) {
   if (!adapter.request_master().ok() || !adapter.discover().ok()) return false;
   std::array<Adapter::PdoBinding, 128U> bindings{};
-  bindings[0] = {5U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
                  mca::hardware::EthercatPdoDirection::Input};
   if (!adapter.configure(bindings, 1U).ok()) return false;
 
   Adapter::SdoProfile profile{};
   profile.slot_count = 2U;
-  profile.slots[0] = {5U, 0x2000U, 1U, 4U, 50U};
+  profile.slots[0] = {0U, 0x2000U, 1U, 4U, 50U};
   profile.slots[1] = profile.slots[0];
   if (!adapter.configure_sdo_profile(profile).ok()) return false;
   return adapter.activate().ok();
@@ -31,7 +31,7 @@ Request read_request(std::uint64_t id, std::uint64_t deadline,
                      std::size_t max_response_size = 4U) {
   Request r{};
   r.request_id = id;
-  r.slave_position = 5U;
+  r.slave_position = 0U;
   r.index = 0x2000U;
   r.subindex = 1U;
   r.operation = mca::hardware::EthercatSdoOperation::Read;
@@ -44,11 +44,11 @@ Request read_request(std::uint64_t id, std::uint64_t deadline,
 namespace {
 Adapter::PdoMappingProfile two_sm_mapping() {
   Adapter::PdoMappingProfile mapping{};
-  const bool first = mapping.add({5U, 0x2U, 0x1234U, 2U, 0x1A00U,
+  const bool first = mapping.add({0U, 0x2U, 0x1234U, 2U, 0x1A00U,
       0x6041U, 0U, 16U, mca::hardware::EthercatPdoDirection::Input});
-  const bool second = mapping.add({5U, 0x2U, 0x1234U, 2U, 0x1A00U,
+  const bool second = mapping.add({0U, 0x2U, 0x1234U, 2U, 0x1A00U,
       0x6064U, 0U, 32U, mca::hardware::EthercatPdoDirection::Input});
-  const bool third = mapping.add({5U, 0x2U, 0x1234U, 3U, 0x1600U,
+  const bool third = mapping.add({0U, 0x2U, 0x1234U, 3U, 0x1600U,
       0x6040U, 0U, 16U, mca::hardware::EthercatPdoDirection::Output});
   return first && second && third ? mapping : Adapter::PdoMappingProfile{};
 }
@@ -56,9 +56,9 @@ Adapter::PdoMappingProfile two_sm_mapping() {
 bool configure_with_mapping(Adapter& adapter) {
   if (!adapter.request_master().ok() || !adapter.discover().ok()) return false;
   std::array<Adapter::PdoBinding, 128U> bindings{};
-  bindings[0] = {5U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
                  mca::hardware::EthercatPdoDirection::Input};
-  bindings[1] = {5U, 0x2U, 0x1234U, 0x6040U, 0U, 16U, 7U,
+  bindings[1] = {0U, 0x2U, 0x1234U, 0x6040U, 0U, 16U, 7U,
                  mca::hardware::EthercatPdoDirection::Output};
   return adapter.configure(bindings, 2U, two_sm_mapping()).ok();
 }
@@ -99,9 +99,9 @@ TEST(EthercatIghFakeApi, VerifiesDiscoveredSmPdoAndEntryTreeWithoutApplyingConfi
   ASSERT_TRUE(adapter.request_master().ok());
   ASSERT_TRUE(adapter.discover().ok());
   std::array<Adapter::PdoBinding, 128U> bindings{};
-  bindings[0] = {5U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
                  mca::hardware::EthercatPdoDirection::Input};
-  bindings[1] = {5U, 0x2U, 0x1234U, 0x6040U, 0U, 16U, 7U,
+  bindings[1] = {0U, 0x2U, 0x1234U, 0x6040U, 0U, 16U, 7U,
                  mca::hardware::EthercatPdoDirection::Output};
   ASSERT_TRUE(adapter.configure(bindings, 2U, two_sm_mapping(),
       mca::hardware::EthercatPdoMappingPolicy::UseDiscoveredMapping).ok());
@@ -118,16 +118,16 @@ TEST(EthercatIghFakeApi, RejectsDiscoveredMappingBitWidthMismatchBeforeRegistrat
   ASSERT_TRUE(adapter.request_master().ok());
   ASSERT_TRUE(adapter.discover().ok());
   std::array<Adapter::PdoBinding, 128U> bindings{};
-  bindings[0] = {5U, 0x2U, 0x1234U, 0x6041U, 0U, 32U, 7U,
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6041U, 0U, 32U, 7U,
                  mca::hardware::EthercatPdoDirection::Input};
-  bindings[1] = {5U, 0x2U, 0x1234U, 0x6040U, 0U, 16U, 7U,
+  bindings[1] = {0U, 0x2U, 0x1234U, 0x6040U, 0U, 16U, 7U,
                  mca::hardware::EthercatPdoDirection::Output};
   Adapter::PdoMappingProfile mapping{};
-  ASSERT_TRUE(mapping.add({5U, 0x2U, 0x1234U, 2U, 0x1A00U,
+  ASSERT_TRUE(mapping.add({0U, 0x2U, 0x1234U, 2U, 0x1A00U,
       0x6041U, 0U, 32U, mca::hardware::EthercatPdoDirection::Input}));
-  ASSERT_TRUE(mapping.add({5U, 0x2U, 0x1234U, 2U, 0x1A00U,
+  ASSERT_TRUE(mapping.add({0U, 0x2U, 0x1234U, 2U, 0x1A00U,
       0x6064U, 0U, 32U, mca::hardware::EthercatPdoDirection::Input}));
-  ASSERT_TRUE(mapping.add({5U, 0x2U, 0x1234U, 3U, 0x1600U,
+  ASSERT_TRUE(mapping.add({0U, 0x2U, 0x1234U, 3U, 0x1600U,
       0x6040U, 0U, 16U, mca::hardware::EthercatPdoDirection::Output}));
   EXPECT_FALSE(adapter.configure(bindings, 2U, mapping,
       mca::hardware::EthercatPdoMappingPolicy::UseDiscoveredMapping).ok());
@@ -144,12 +144,12 @@ TEST(EthercatIghFakeApi, RejectsUndeclaredDiscoveredPdoSyncManager) {
   ASSERT_TRUE(adapter.request_master().ok());
   ASSERT_TRUE(adapter.discover().ok());
   std::array<Adapter::PdoBinding, 128U> bindings{};
-  bindings[0] = {5U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
                  mca::hardware::EthercatPdoDirection::Input};
   Adapter::PdoMappingProfile mapping{};
-  ASSERT_TRUE(mapping.add({5U, 0x2U, 0x1234U, 2U, 0x1A00U,
+  ASSERT_TRUE(mapping.add({0U, 0x2U, 0x1234U, 2U, 0x1A00U,
       0x6041U, 0U, 16U, mca::hardware::EthercatPdoDirection::Input}));
-  ASSERT_TRUE(mapping.add({5U, 0x2U, 0x1234U, 2U, 0x1A00U,
+  ASSERT_TRUE(mapping.add({0U, 0x2U, 0x1234U, 2U, 0x1A00U,
       0x6064U, 0U, 32U, mca::hardware::EthercatPdoDirection::Input}));
   EXPECT_FALSE(adapter.configure(bindings, 1U, mapping,
       mca::hardware::EthercatPdoMappingPolicy::UseDiscoveredMapping).ok());
@@ -166,11 +166,11 @@ TEST(EthercatIghFakeApi, PdoConfigurationFailureReleasesPartialMasterBeforeRegis
   ASSERT_TRUE(adapter.discover().ok());
   fake_igh::fail_pdo_configuration(true);
   std::array<Adapter::PdoBinding, 128U> bindings{};
-  bindings[0] = {5U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
                  mca::hardware::EthercatPdoDirection::Input};
   ASSERT_FALSE(adapter.configure(bindings, 1U, [] {
     Adapter::PdoMappingProfile mapping{};
-    (void)mapping.add({5U, 0x2U, 0x1234U, 2U, 0x1A00U, 0x6041U, 0U,
+    (void)mapping.add({0U, 0x2U, 0x1234U, 2U, 0x1A00U, 0x6041U, 0U,
         16U, mca::hardware::EthercatPdoDirection::Input});
     return mapping;
   }()).ok());
@@ -188,7 +188,7 @@ TEST(EthercatIghFakeApi, MappingProfileMustMatchRegisteredBindingSet) {
   ASSERT_TRUE(adapter.request_master().ok());
   ASSERT_TRUE(adapter.discover().ok());
   std::array<Adapter::PdoBinding, 128U> bindings{};
-  bindings[0] = {5U, 0x2U, 0x1234U, 0x6041U, 0U, 32U, 7U,
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6041U, 0U, 32U, 7U,
                  mca::hardware::EthercatPdoDirection::Input};
   auto mapping = two_sm_mapping();
   EXPECT_FALSE(adapter.configure(bindings, 1U, mapping).ok());
@@ -211,7 +211,7 @@ TEST(EthercatIghFakeApi, CollectsMasterAndSlaveRuntimeHealth) {
   EXPECT_EQ(health.slaves_responding, 1U);
   EXPECT_EQ(health.al_states, EC_AL_STATE_OP);
   ASSERT_EQ(health.slave_count, 1U);
-  EXPECT_EQ(health.slaves[0].station_position, 5U);
+  EXPECT_EQ(health.slaves[0].ring_position, 0U);
   EXPECT_TRUE(health.slaves[0].configured);
   EXPECT_TRUE(health.slaves[0].state_valid);
   EXPECT_TRUE(health.slaves[0].online);
@@ -470,7 +470,7 @@ TEST(EthercatIghFakeApi, AcceptsWriteAtExactTransferCapacityAndRejectsOverflow) 
 
   Request exact{};
   exact.request_id = 40U;
-  exact.slave_position = 5U;
+  exact.slave_position = 0U;
   exact.index = 0x2000U;
   exact.subindex = 1U;
   exact.operation = mca::hardware::EthercatSdoOperation::Write;
@@ -495,7 +495,7 @@ TEST(EthercatIghFakeApi, CopiesFixedSizeWritePayloadBeforeSubmission) {
   ASSERT_TRUE(activate_with_two_slots(adapter));
   Request request{};
   request.request_id = 50U;
-  request.slave_position = 5U;
+  request.slave_position = 0U;
   request.index = 0x2000U;
   request.subindex = 1U;
   request.operation = mca::hardware::EthercatSdoOperation::Write;
@@ -513,7 +513,7 @@ namespace {
 Adapter::SdoProfile two_slot_profile() {
   Adapter::SdoProfile profile{};
   profile.slot_count = 2U;
-  profile.slots[0] = {5U, 0x2000U, 1U, 4U, 50U};
+  profile.slots[0] = {0U, 0x2000U, 1U, 4U, 50U};
   profile.slots[1] = profile.slots[0];
   return profile;
 }
@@ -521,7 +521,7 @@ Adapter::SdoProfile two_slot_profile() {
 bool configure_without_sdo(Adapter& adapter) {
   if (!adapter.request_master().ok() || !adapter.discover().ok()) return false;
   std::array<Adapter::PdoBinding, 128U> bindings{};
-  bindings[0] = {5U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
                  mca::hardware::EthercatPdoDirection::Input};
   return adapter.configure(bindings, 1U).ok();
 }

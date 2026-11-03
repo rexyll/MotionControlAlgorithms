@@ -18,6 +18,18 @@ struct ec_sdo_request {
 };
 
 namespace {
+struct CapturedEntry { std::uint16_t index{0U}; std::uint8_t width{0U}; };
+struct CapturedPdo {
+  std::uint16_t index{0U};
+  std::size_t entry_count{0U};
+  std::array<CapturedEntry, 256U> entries{};
+};
+struct CapturedSync {
+  std::uint8_t index{0U};
+  ec_direction_t direction{EC_DIR_INVALID};
+  std::size_t pdo_count{0U};
+  std::array<CapturedPdo, 256U> pdos{};
+};
 ec_master master;
 ec_domain domain;
 ec_slave_config slave;
@@ -29,6 +41,13 @@ std::size_t timeout_failure = static_cast<std::size_t>(-1);
 std::size_t releases = 0U;
 std::size_t deactivations = 0U;
 bool activate_failure = false;
+bool pdo_configuration_failure = false;
+bool registration_seen = false;
+bool pdo_order_valid = true;
+std::size_t pdo_configurations = 0U;
+std::size_t pdo_registrations = 0U;
+std::size_t captured_syncs = 0U;
+std::array<CapturedSync, 256U> captured{};
 bool domain_data_failure = false;
 bool zero_size = false;
 bool deactivate_failure = false;
@@ -55,7 +74,11 @@ void reset() noexcept {
   timeout_failure = static_cast<std::size_t>(-1);
   releases = 0U;
   deactivations = 0U;
-  activate_failure = false; domain_data_failure = false;
+  activate_failure = false; pdo_configuration_failure = false;
+  registration_seen = false; pdo_order_valid = true;
+  pdo_configurations = 0U; pdo_registrations = 0U;
+  captured_syncs = 0U; captured = {};
+  domain_data_failure = false;
   zero_size = false; deactivate_failure = false;
   master_state_failure = false; slave_state_failure = false;
   master_link_up = true; master_responding = 1U; master_al_states = EC_AL_STATE_OP;
@@ -69,6 +92,34 @@ std::size_t live_request_count() noexcept { return created; }
 void fail_create_at(std::size_t attempt) noexcept { create_failure = attempt; }
 void fail_timeout_at(std::size_t index) noexcept { timeout_failure = index; }
 void fail_activate(bool enabled) noexcept { activate_failure = enabled; }
+void fail_pdo_configuration(bool enabled) noexcept { pdo_configuration_failure = enabled; }
+std::size_t pdo_configuration_calls() noexcept { return pdo_configurations; }
+std::size_t pdo_registration_calls() noexcept { return pdo_registrations; }
+bool pdo_configuration_preceded_registration() noexcept { return pdo_order_valid; }
+std::size_t configured_sync_count() noexcept { return captured_syncs; }
+std::uint8_t configured_sync_index(std::size_t i) noexcept {
+  return i < captured_syncs ? captured[i].index : 0U;
+}
+ec_direction_t configured_sync_direction(std::size_t i) noexcept {
+  return i < captured_syncs ? captured[i].direction : EC_DIR_INVALID;
+}
+std::size_t configured_pdo_count(std::size_t i) noexcept {
+  return i < captured_syncs ? captured[i].pdo_count : 0U;
+}
+std::uint16_t configured_pdo_index(std::size_t i, std::size_t p) noexcept {
+  return i < captured_syncs && p < captured[i].pdo_count ? captured[i].pdos[p].index : 0U;
+}
+std::size_t configured_entry_count(std::size_t i, std::size_t p) noexcept {
+  return i < captured_syncs && p < captured[i].pdo_count ? captured[i].pdos[p].entry_count : 0U;
+}
+std::uint16_t configured_entry_index(std::size_t i, std::size_t p, std::size_t e) noexcept {
+  return i < captured_syncs && p < captured[i].pdo_count &&
+      e < captured[i].pdos[p].entry_count ? captured[i].pdos[p].entries[e].index : 0U;
+}
+std::uint8_t configured_entry_width(std::size_t i, std::size_t p, std::size_t e) noexcept {
+  return i < captured_syncs && p < captured[i].pdo_count &&
+      e < captured[i].pdos[p].entry_count ? captured[i].pdos[p].entries[e].width : 0U;
+}
 void fail_domain_data(bool enabled) noexcept { domain_data_failure = enabled; }
 void zero_domain_size(bool enabled) noexcept { zero_size = enabled; }
 void fail_deactivate(bool enabled) noexcept { deactivate_failure = enabled; }
@@ -156,8 +207,36 @@ ec_slave_config_t* ecrt_master_slave_config(ec_master_t*, uint16_t, uint16_t pos
                                              uint32_t vendor, uint32_t product) {
   return position == 5U && vendor == 0x2U && product == 0x1234U ? &slave : nullptr;
 }
+int ecrt_slave_config_pdos(ec_slave_config_t*, unsigned int count,
+                            const ec_sync_info_t* syncs) {
+  ++pdo_configurations;
+  if (registration_seen) pdo_order_valid = false;
+  if (pdo_configuration_failure || syncs == nullptr || count > captured.size())
+    return -1;
+  captured_syncs = count;
+  for (std::size_t i = 0; i < captured_syncs; ++i) {
+    captured[i].index = syncs[i].index;
+    captured[i].direction = syncs[i].dir;
+    captured[i].pdo_count = syncs[i].n_pdos;
+    if (captured[i].pdo_count > captured[i].pdos.size()) return -1;
+    for (std::size_t p = 0; p < captured[i].pdo_count; ++p) {
+      const auto& source = syncs[i].pdos[p];
+      auto& target = captured[i].pdos[p];
+      target.index = source.index;
+      target.entry_count = source.n_entries;
+      if (target.entry_count > target.entries.size()) return -1;
+      for (std::size_t e = 0; e < target.entry_count; ++e) {
+        target.entries[e].index = source.entries[e].index;
+        target.entries[e].width = source.entries[e].bit_length;
+      }
+    }
+  }
+  return 0;
+}
 int ecrt_slave_config_reg_pdo_entry(ec_slave_config_t*, uint16_t, uint8_t,
                                      ec_domain_t*, unsigned int* bit) {
+  registration_seen = true;
+  ++pdo_registrations;
   *bit = 0U; return 0;
 }
 ec_sdo_request_t* ecrt_slave_config_create_sdo_request(ec_slave_config_t*, uint16_t,

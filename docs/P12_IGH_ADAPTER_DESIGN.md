@@ -465,13 +465,18 @@ inactive master; registration and activation are not attempted afterwards.
 
 The original two-argument `configure(bindings, count)` overload remains
 available and intentionally retains "use the slave's existing mapping"
-semantics. It does not claim to apply or verify a mapping.
+semantics without strict profile verification. The four-argument overload
+also supports `UseDiscoveredMapping`: it compares the profile against the
+connected slave's IgH-reported SyncManager direction, PDO assignment order,
+entry index/subindex and bit length, and rejects additional PDO-bearing
+SyncManagers before registering entries. This is a master-side inspection
+view, not an independent CoE SDO readback of active slave objects.
 
-Fake IgH tests now inspect the exact Sync Manager direction, PDO index, entry
+Fake IgH tests inspect the exact Sync Manager direction, PDO index, entry
 index/width and call ordering, cover a complete profile with an unconsumed
-mapped entry, verify mapping/binding mismatch rejection, and inject
-`ecrt_slave_config_pdos()` failure to check rollback. These are API-contract
-unit tests only.
+mapped entry, verify configured/discovered mapping mismatch rejection, and
+inject `ecrt_slave_config_pdos()` failure to check rollback. These are
+API-contract unit tests only.
 
 ### Remaining protocol verification
 

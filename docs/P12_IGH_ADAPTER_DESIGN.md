@@ -109,6 +109,13 @@ MCA owns the semantic PDO map. IgH owns the concrete domain registration.
 The adapter translates the validated MCA map into `ec_pdo_entry_reg_t`
 registrations and stores the resulting byte/bit offsets privately.
 
+`EthercatPdoEntry::slave_position` is a bounded topology-array slot (0 to
+`slave_count - 1`), not the EtherCAT station address. IgH adapter bindings
+carry the actual station address separately. The adapter must resolve each
+binding's station address to a topology slot before constructing the portable
+layout; sparse station addresses must never be used as array indices or copied
+into this bounded field.
+
 Before activation:
 
 - reject missing expected slaves;

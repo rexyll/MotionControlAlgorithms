@@ -29,5 +29,5 @@ int main() {
   if ((unaligned[1] & 0xC0U) != 0x40U || (unaligned[0] & 0x07U) != 0x05U || unaligned[2] != 0xC3U) return 12;
 
   std::cout << "EtherCAT PDO image smoke passed\n";
-  return 13;
+  return 0;
 }

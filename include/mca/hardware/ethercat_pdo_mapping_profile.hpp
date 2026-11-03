@@ -21,7 +21,7 @@ template <std::size_t MaxEntries>
 class EthercatPdoMappingProfile final {
  public:
   struct Entry {
-    std::uint16_t station_position{0U};
+    std::uint16_t ring_position{0U};
     std::uint32_t vendor_id{0U};
     std::uint32_t product_code{0U};
     std::uint8_t sync_manager{0U};
@@ -36,7 +36,7 @@ class EthercatPdoMappingProfile final {
     if (count_ >= MaxEntries || !entry_valid(entry)) return false;
     for (std::size_t i = 0; i < count_; ++i) {
       const auto& prior = entries_[i];
-      if (prior.station_position == entry.station_position &&
+      if (prior.ring_position == entry.ring_position &&
           prior.index == entry.index && prior.subindex == entry.subindex)
         return false;
     }
@@ -51,7 +51,7 @@ class EthercatPdoMappingProfile final {
     for (std::size_t i = 0; i < count_; ++i) {
       if (!entry_valid(entries_[i])) return false;
       for (std::size_t j = 0; j < i; ++j) {
-        if (entries_[j].station_position == entries_[i].station_position &&
+        if (entries_[j].ring_position == entries_[i].ring_position &&
             entries_[j].index == entries_[i].index &&
             entries_[j].subindex == entries_[i].subindex)
           return false;
@@ -78,8 +78,8 @@ class EthercatPdoMappingProfile final {
   // Enforce monotonic group order and one direction per Sync Manager. A
   // previously closed SM/PDO group may not reappear later in the profile.
   bool ordered_after(const Entry& previous, const Entry& next) const noexcept {
-    if (next.station_position < previous.station_position) return false;
-    if (next.station_position > previous.station_position) return true;
+    if (next.ring_position < previous.ring_position) return false;
+    if (next.ring_position > previous.ring_position) return true;
     if (next.vendor_id != previous.vendor_id ||
         next.product_code != previous.product_code) return false;
 
@@ -90,7 +90,7 @@ class EthercatPdoMappingProfile final {
     if (next.pdo_index == previous.pdo_index) return true;
     for (std::size_t i = 0; i + 1U < count_; ++i) {
       const auto& seen = entries_[i];
-      if (seen.station_position == next.station_position &&
+      if (seen.ring_position == next.ring_position &&
           seen.sync_manager == next.sync_manager &&
           seen.pdo_index == next.pdo_index)
         return false;

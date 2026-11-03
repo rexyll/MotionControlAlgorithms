@@ -13,6 +13,7 @@ readonly TIMEOUT_SEC="${MCA_ECAT_TIMEOUT_SEC:-20}"
 readonly KICKCAT_SIMULATOR="${KICKCAT_SIMULATOR:-}"
 readonly KICKCAT_SLAVE_CONFIG="${KICKCAT_SLAVE_CONFIG:-}"
 readonly ETHERCAT_CLI="${ETHERCAT_CLI:-ethercat}"
+readonly COE_READBACK="${MCA_ECAT_COE_READBACK:-0}"
 readonly ARTIFACT_DIR="${MCA_ECAT_ARTIFACT_DIR:-/tmp/mca-ethercat-sil-$(date +%Y%m%d-%H%M%S)}"
 
 SIM_PID=""
@@ -26,6 +27,81 @@ fail() {
   printf 'ERROR: %s\n' "$*" >&2
   exit 1
 }
+
+# Read a typed CoE object through the IgH CLI. The CLI supports explicit
+# --position and --type options; parse the first numeric token from its output.
+read_sdo_value() {
+  local index="$1" subindex="$2" type="$3" output token value
+  output=$(timeout "$TIMEOUT_SEC" "$ETHERCAT_CLI" upload --position 0 \
+    --type "$type" "$index" "$subindex" 2>&1) || {
+      printf 'SDO read failed: %s:%s (%s)\n%s\n' \
+        "$index" "$subindex" "$type" "$output" >&2
+      return 1
+    }
+  {
+    printf 'READ %s:%s type=%s\n' "$index" "$subindex" "$type"
+    printf '%s\n' "$output"
+  } >>"$ARTIFACT_DIR/coe-sdo-raw.log"
+  token=$(printf '%s\n' "$output" | awk '
+    NF {
+      for (i = 1; i <= NF; ++i) {
+        if ($i ~ /^0[xX][0-9a-fA-F]+$/ || $i ~ /^[0-9]+$/) {
+          print $i
+          exit
+        }
+      }
+    }')
+  [[ -n "$token" ]] || {
+    printf 'Could not parse SDO value for %s:%s\n%s\n' \
+      "$index" "$subindex" "$output" >&2
+    return 1
+  }
+  if [[ "$token" == 0x* || "$token" == 0X* ]]; then
+    value=$((token))
+  else
+    value=$((10#$token))
+  fi
+  printf '%s\n' "$value"
+}
+
+verify_coe_assignment() {
+  local assignment_index="$1" label="$2"
+  local pdo_count pdo_pos pdo_index entry_count entry_pos mapped
+  local object_index object_subindex bit_length
+  pdo_count=$(read_sdo_value "$assignment_index" 0 uint8) || return 1
+  (( pdo_count > 0 && pdo_count <= 16 )) || {
+    printf '%s assignment count out of range: %s\n' "$label" "$pdo_count" >&2
+    return 1
+  }
+  printf '%s assignment 0x%s: %s PDO(s)\n' "$label" "${assignment_index#0x}" "$pdo_count"
+  for ((pdo_pos = 1; pdo_pos <= pdo_count; ++pdo_pos)); do
+    pdo_index=$(read_sdo_value "$assignment_index" "$pdo_pos" uint16) || return 1
+    (( pdo_index > 0 )) || {
+      printf '%s assignment contains zero PDO index at subindex %s\n' "$label" "$pdo_pos" >&2
+      return 1
+    }
+    entry_count=$(read_sdo_value "$pdo_index" 0 uint8) || return 1
+    (( entry_count > 0 && entry_count <= 64 )) || {
+      printf 'PDO 0x%04x mapping entry count out of range: %s\n' "$pdo_index" "$entry_count" >&2
+      return 1
+    }
+    printf '  PDO 0x%04x: %s mapped entries\n' "$pdo_index" "$entry_count"
+    for ((entry_pos = 1; entry_pos <= entry_count; ++entry_pos)); do
+      mapped=$(read_sdo_value "$pdo_index" "$entry_pos" uint32) || return 1
+      object_index=$(((mapped >> 16) & 0xffff))
+      object_subindex=$(((mapped >> 8) & 0xff))
+      bit_length=$((mapped & 0xff))
+      (( bit_length > 0 && bit_length <= 64 )) || {
+        printf '  PDO 0x%04x entry %s has unsupported width %s\n' \
+          "$pdo_index" "$entry_pos" "$bit_length" >&2
+        return 1
+      }
+      printf '    %04x:%02x width=%u\n' \
+        "$object_index" "$object_subindex" "$bit_length"
+    done
+  done
+}
+
 
 cleanup() {
   local rc=$?
@@ -141,6 +217,22 @@ if ! wait "$RX_PID"; then
 fi
 RX_PID=""
 
+if [[ "$COE_READBACK" == "1" ]]; then
+  {
+    printf 'Slave ring position 0 CoE PDO mapping readback\n'
+    verify_coe_assignment 0x1C12 "RxPDO"
+    verify_coe_assignment 0x1C13 "TxPDO"
+  } >"$ARTIFACT_DIR/coe-pdo-readback.txt" || {
+    cat "$ARTIFACT_DIR/coe-pdo-readback.txt" >&2 || true
+    fail "CoE PDO assignment/mapping readback failed"
+  }
+  printf '\nPASS: CoE SDO readback of RxPDO/TxPDO assignments and PDO entries.\n'
+fi
+
 cat "$ARTIFACT_DIR/slaves-verbose.log"
 printf '\nPASS: IgH ec_generic <-> veth <-> KickCAT raw-socket slave discovery and bidirectional EtherCAT frame exchange.\n'
-printf 'NOTE: This is transport/discovery SIL only; it does not validate PDO, WKC, CoE SDO, CiA402 motion, DC timing or HIL.\n'
+if [[ "$COE_READBACK" == "1" ]]; then
+  printf 'NOTE: CoE PDO objects were read independently; this still does not validate cyclic PDO/WKC, CiA402 motion, DC timing or HIL.\n'
+else
+  printf 'NOTE: Transport/discovery only. Set MCA_ECAT_COE_READBACK=1 to read CoE PDO assignment/mapping objects; cyclic PDO/WKC, CiA402 motion, DC timing and HIL remain unvalidated.\n'
+fi

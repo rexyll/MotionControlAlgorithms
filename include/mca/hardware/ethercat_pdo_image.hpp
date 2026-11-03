@@ -8,6 +8,7 @@ namespace mca::hardware {
 // EtherCAT PDO bit offsets are LSB-first within each byte. The helpers are
 // deliberately allocation-free and bounded to 64 bits so an adapter can use
 // them directly on an activated process-data image from a cyclic path.
+// The bounds check is performed before any image byte is touched.
 constexpr bool ethercat_read_pdo_bits(const std::uint8_t* data,
                                       std::size_t byte_size,
                                       std::uint32_t bit_offset,

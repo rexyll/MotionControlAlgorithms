@@ -39,10 +39,13 @@ class EthercatIghAdapter final {
     bool state_valid{false};
     bool online{false};
     bool operational{false};
+    // IgH encodes AL state as a bit mask (INIT=1, PREOP=2, SAFEOP=4, OP=8).
     std::uint8_t al_state{0U};
     int state_error{0};
   };
 
+  // valid() reports whether all configured state reads succeeded; it does not
+  // mean the bus is healthy. link_up/online/operational carry health findings.
   struct RuntimeHealth {
     bool master_state_valid{false};
     int master_state_error{0};

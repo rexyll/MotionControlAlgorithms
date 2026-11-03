@@ -13,7 +13,7 @@ Adapter::Topology make_topology() {
   Adapter::Topology topology;
   topology.slave_count = 1U;
   topology.sequence = 1U;
-  topology.slaves[0].station_position = 0U;
+  topology.slaves[0].ring_position = 0U;
   topology.slaves[0].vendor_id = 0x00000002U;
   topology.slaves[0].product_code = 0x1234U;
   topology.slaves[0].revision = 3U;

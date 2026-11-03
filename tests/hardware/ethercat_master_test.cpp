@@ -528,4 +528,53 @@ TEST(EthercatMasterContract, FailedOperationsPreserveCallerOutputs) {
   EXPECT_EQ(master.deactivate().code, mca::core::StatusCode::RuntimeError);
 }
 
+TEST(EthercatSdoProfile, EnforcesFixedCapacityAndIndependentConcurrencySlots) {
+  EthercatSdoProfile<3U, 8U> profile;
+  EXPECT_FALSE(profile.valid());
+
+  profile.slot_count = 2U;
+  profile.slots[0] = {2U, 0x6041U, 0U, 4U, 250U};
+  profile.slots[1] = {2U, 0x6041U, 0U, 4U, 250U};
+  ASSERT_TRUE(profile.valid());
+  EXPECT_EQ(profile.concurrency(2U, 0x6041U, 0U), 2U);
+  EXPECT_EQ(profile.concurrency(2U, 0x6064U, 0U), 0U);
+
+  EthercatSdoRequest<8U> read;
+  read.request_id = 1U;
+  read.slave_position = 2U;
+  read.index = 0x6041U;
+  read.operation = EthercatSdoOperation::Read;
+  read.max_response_size = 4U;
+  read.deadline_timestamp_ns = 1000U;
+  EXPECT_TRUE(profile.supports(read));
+  read.max_response_size = 5U;
+  EXPECT_FALSE(profile.supports(read));
+
+  EthercatSdoRequest<8U> write;
+  write.request_id = 2U;
+  write.slave_position = 2U;
+  write.index = 0x6041U;
+  write.operation = EthercatSdoOperation::Write;
+  write.payload_size = 4U;
+  write.deadline_timestamp_ns = 1000U;
+  EXPECT_TRUE(profile.supports(write));
+  write.payload_size = 3U;
+  EXPECT_FALSE(profile.supports(write));
+  write.payload_size = 4U;
+  write.index = 0x6064U;
+  EXPECT_FALSE(profile.supports(write));
+}
+
+TEST(EthercatSdoProfile, RejectsInconsistentDuplicateSlotDefinitions) {
+  EthercatSdoProfile<2U, 8U> profile;
+  profile.slot_count = 2U;
+  profile.slots[0] = {0U, 0x6040U, 0U, 2U, 100U};
+  profile.slots[1] = {0U, 0x6040U, 0U, 4U, 100U};
+  EXPECT_FALSE(profile.valid());
+
+  profile.slots[1].transfer_capacity = 2U;
+  profile.slots[1].timeout_ms = 0U;
+  EXPECT_FALSE(profile.valid());
+}
+
 }  // namespace

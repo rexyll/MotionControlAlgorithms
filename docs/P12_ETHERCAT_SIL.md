@@ -66,7 +66,7 @@ structures. Those remain private to each adapter.
 
 Keep the first interface deliberately small and fixed-capacity:
 
-- **Topology snapshot:** bounded slave count; station position; vendor ID,
+- **Topology snapshot:** bounded slave count; ring position; vendor ID,
   product code, revision, serial where available; AL state and AL status code.
 - **Process-data layout:** bounded domains; each entry carries object index,
   subindex, bit length, direction, bit offset and mapping provenance. Reject
@@ -129,11 +129,11 @@ master lifecycle:
   Recovering -> Present/Lost/Fault, and Fault -> Recovering.
   Lost or Fault cannot jump directly to Present.
 - A health snapshot is fixed-capacity, sequence-tagged, non-empty and rejects
-  duplicate station positions or Unknown entries.
+  duplicate ring positions or Unknown entries.
 - A rediscovered topology is compared with the configured topology by
-  station position plus vendor ID, product code, revision and serial number.
+  ring position plus vendor ID, product code, revision and serial number.
   Snapshot sequence and current AL state/status are not identity fields.
-  Entry ordering in the returned snapshot is irrelevant; station positions
+  Entry ordering in the returned snapshot is irrelevant; ring positions
   are matched explicitly.
 - Any missing/extra station or identity-field change rejects reuse of the
   previous PDO layout. The adapter must leave cyclic operation inactive and
@@ -358,7 +358,7 @@ round-trip before enabling the DS402 controlword sequence.
    directions; capture EtherType 0x88A4 and correlate master send/receive
    counters. A successful process start is not acceptance.
 2. **Discovery/identity:** IgH discovers exactly one slave and MCA validates
-   station position, vendor ID, product code and revision against the ESI.
+   ring position, vendor ID, product code and revision against the ESI.
 3. **AL lifecycle:** INIT → PRE-OP → SAFE-OP → OP succeeds; inject a simulator
    link break and verify loss is detected; heal the link and require explicit
    revalidation before returning Active.
@@ -432,7 +432,7 @@ The adapter now supports two deliberately distinct configuration paths:
    `ecrt_slave_config_pdos()` for each profile slave, and only then registers
    process-image entries.
 
-The mapping profile records station position, vendor/product identity, SM
+The mapping profile records ring position, vendor/product identity, SM
 index/direction, PDO index, object index/subindex and bit length. It must be
 ordered by station/SM/PDO/entry. Every process-image binding must match exactly
 one declared profile entry in identity, object, width and direction. The
@@ -475,7 +475,7 @@ Still open:
 
 - independent CoE readback of assignment objects 0x1C12/0x1C13 and mapping
   objects 0x1600+/0x1A00+ where supported;
-- multi-slave profile tests with sparse station positions and different
+- multi-slave profile tests with sparse ring positions and different
   mappings;
 - protocol-level SAFEOP/OP progression, PDO cyclic exchange and WKC assertions
   against KickCAT;

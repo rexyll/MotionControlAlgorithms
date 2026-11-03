@@ -79,7 +79,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::discover_pdo_mapping(
         ec_pdo_info_t pdo{};
         if (ecrt_master_get_pdo(master_, slave.ring_position, sm, pdo_pos,
                                 &pdo) != 0 ||
-            pdo.index == 0U || pdo.n_entries == 0U)
+            pdo.index == 0U || pdo.n_entries == 0U || pdo.n_entries > E)
           return {mca::core::StatusCode::ConstraintViolation};
 
         for (std::uint16_t entry_pos = 0U;

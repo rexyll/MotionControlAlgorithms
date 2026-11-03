@@ -74,7 +74,7 @@ void complete(std::size_t index, const std::uint8_t* data, std::size_t size) noe
   if (index >= created) return;
   auto& r = requests[index];
   r.relocated = false;
-  r.size = std::min(size, r.capacity);
+  r.size = std::min(size, r.data.size());
   if (data != nullptr && r.size != 0U) std::copy_n(data, r.size, r.data.begin());
   r.state = EC_REQUEST_SUCCESS;
 }
@@ -82,7 +82,7 @@ void relocate_and_complete(std::size_t index, const std::uint8_t* data, std::siz
   if (index >= created) return;
   auto& r = requests[index];
   r.relocated = true;
-  r.size = std::min(size, r.capacity);
+  r.size = std::min(size, r.relocated_data.size());
   if (data != nullptr && r.size != 0U)
     std::copy_n(data, r.size, r.relocated_data.begin());
   r.state = EC_REQUEST_SUCCESS;
@@ -126,7 +126,7 @@ ec_sdo_request_t* ecrt_slave_config_create_sdo_request(ec_slave_config_t*, uint1
                                                         uint8_t, size_t capacity) {
   const std::size_t attempt = create_attempts++;
   if (attempt == create_failure || created >= requests.size()) return nullptr;
-  auto& r = requests[created++]; r.capacity = capacity; return &r;
+  auto& r = requests[created++]; r.capacity = capacity; r.size = capacity; return &r;
 }
 int ecrt_sdo_request_timeout(ec_sdo_request_t* r, uint32_t timeout) {
   const auto index = static_cast<std::size_t>(r - requests.data());

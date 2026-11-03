@@ -27,7 +27,12 @@ std::size_t create_attempts = 0U;
 std::size_t create_failure = static_cast<std::size_t>(-1);
 std::size_t timeout_failure = static_cast<std::size_t>(-1);
 std::size_t releases = 0U;
-std::size_t deactivations = 0U;\nbool activate_failure = false;\nbool domain_data_failure = false;\nbool zero_size = false;\nbool deactivate_failure = false;\nstd::size_t activations = 0U;
+std::size_t deactivations = 0U;
+bool activate_failure = false;
+bool domain_data_failure = false;
+bool zero_size = false;
+bool deactivate_failure = false;
+std::size_t activations = 0U;
 }
 
 namespace fake_igh {
@@ -48,7 +53,17 @@ void reset() noexcept {
 std::size_t request_count() noexcept { return created; }
 std::size_t live_request_count() noexcept { return created; }
 void fail_create_at(std::size_t attempt) noexcept { create_failure = attempt; }
-void fail_timeout_at(std::size_t index) noexcept { timeout_failure = index; }\nvoid fail_activate(bool enabled) noexcept { activate_failure = enabled; }\nvoid fail_domain_data(bool enabled) noexcept { domain_data_failure = enabled; }\nvoid zero_domain_size(bool enabled) noexcept { zero_size = enabled; }\nvoid fail_deactivate(bool enabled) noexcept { deactivate_failure = enabled; }\nstd::size_t activate_calls() noexcept { return activations; }
+void fail_timeout_at(std::size_t index) noexcept { timeout_failure = index; }
+void fail_activate(bool enabled) noexcept { activate_failure = enabled; }
+void fail_domain_data(bool enabled) noexcept { domain_data_failure = enabled; }
+void zero_domain_size(bool enabled) noexcept { zero_size = enabled; }
+void fail_deactivate(bool enabled) noexcept { deactivate_failure = enabled; }
+std::size_t activate_calls() noexcept { return activations; }
+void record_activate() noexcept { ++activations; }
+bool activation_fails() noexcept { return activate_failure; }
+bool domain_data_fails() noexcept { return domain_data_failure; }
+bool domain_size_is_zero() noexcept { return zero_size; }
+bool deactivation_fails() noexcept { return deactivate_failure; }
 void record_activate() noexcept { ++activations; }
 bool activation_fails() noexcept { return activate_failure; }
 bool domain_data_fails() noexcept { return domain_data_failure; }
@@ -135,10 +150,10 @@ int ecrt_sdo_request_write(ec_sdo_request_t* r) {
 }
 ec_request_state_t ecrt_sdo_request_state(const ec_sdo_request_t* r) { return r->state; }
 int ecrt_master_set_send_interval(ec_master_t*, size_t) { return 0; }
-int ecrt_master_activate(ec_master_t*) { return 0; }
-int ecrt_master_deactivate(ec_master_t*) { fake_igh::on_deactivate(); return 0; }
-uint8_t* ecrt_domain_data(ec_domain_t* d) { return d->data.data(); }
-size_t ecrt_domain_size(const ec_domain_t* d) { return d->data.size(); }
+int ecrt_master_activate(ec_master_t*) { fake_igh::record_activate(); return fake_igh::activation_fails() ? -1 : 0; }
+int ecrt_master_deactivate(ec_master_t*) { fake_igh::on_deactivate(); return fake_igh::deactivation_fails() ? -1 : 0; }
+uint8_t* ecrt_domain_data(ec_domain_t* d) { return fake_igh::domain_data_fails() ? nullptr : d->data.data(); }
+size_t ecrt_domain_size(const ec_domain_t* d) { return fake_igh::domain_size_is_zero() ? 0U : d->data.size(); }
 int ecrt_master_receive(ec_master_t*) { return 0; }
 int ecrt_domain_process(ec_domain_t*) { return 0; }
 int ecrt_domain_state(const ec_domain_t*, ec_domain_state_t* s) {

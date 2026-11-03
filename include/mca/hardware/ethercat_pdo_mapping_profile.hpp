@@ -36,7 +36,7 @@ class EthercatPdoMappingProfile final {
     if (count_ >= MaxEntries || !entry_valid(entry)) return false;
     for (std::size_t i = 0; i < count_; ++i) {
       const auto& prior = entries_[i];
-      if (prior.ring_position == entry.ring_position &&
+      if (entry.index != 0U && prior.ring_position == entry.ring_position &&
           prior.index == entry.index && prior.subindex == entry.subindex)
         return false;
     }
@@ -51,7 +51,8 @@ class EthercatPdoMappingProfile final {
     for (std::size_t i = 0; i < count_; ++i) {
       if (!entry_valid(entries_[i])) return false;
       for (std::size_t j = 0; j < i; ++j) {
-        if (entries_[j].ring_position == entries_[i].ring_position &&
+        if (entries_[i].index != 0U &&
+            entries_[j].ring_position == entries_[i].ring_position &&
             entries_[j].index == entries_[i].index &&
             entries_[j].subindex == entries_[i].subindex)
           return false;
@@ -69,8 +70,8 @@ class EthercatPdoMappingProfile final {
 
  private:
   static bool entry_valid(const Entry& e) noexcept {
-    return e.pdo_index != 0U && e.index != 0U && e.bit_length != 0U &&
-           e.bit_length <= 64U &&
+    return e.pdo_index != 0U && (e.index != 0U || e.subindex == 0U) &&
+           e.bit_length != 0U &&
            (e.direction == EthercatPdoDirection::Input ||
             e.direction == EthercatPdoDirection::Output);
   }

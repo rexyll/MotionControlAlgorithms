@@ -156,18 +156,18 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure(
       return fail_configuration(
           {mca::core::StatusCode::ConstraintViolation});
 
-    if (slave_configs_[binding.station_position] == nullptr) {
-      slave_configs_[binding.station_position] = ecrt_master_slave_config(
+    if (slave_configs_[topology_index] == nullptr) {
+      slave_configs_[topology_index] = ecrt_master_slave_config(
           master_, 0U, binding.station_position, binding.vendor_id,
           binding.product_code);
     }
-    if (slave_configs_[binding.station_position] == nullptr)
+    if (slave_configs_[topology_index] == nullptr)
       return fail_configuration(
           {mca::core::StatusCode::RuntimeError});
 
     unsigned int bit = 0U;
     const int offset = ecrt_slave_config_reg_pdo_entry(
-        slave_configs_[binding.station_position], binding.index,
+        slave_configs_[topology_index], binding.index,
         binding.subindex, domains_[domain], &bit);
     if (offset < 0)
       return fail_configuration(

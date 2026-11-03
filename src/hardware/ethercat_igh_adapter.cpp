@@ -53,6 +53,58 @@ mca::core::Status EthercatIghAdapter<S, D, E>::discover() noexcept {
 }
 
 template <std::size_t S, std::size_t D, std::size_t E>
+mca::core::Status EthercatIghAdapter<S, D, E>::discover_pdo_mapping(
+    PdoMappingProfile& output) noexcept {
+  if (master_ == nullptr || state_.state() != EthercatMasterState::Discovered)
+    return {mca::core::StatusCode::RuntimeError};
+
+  PdoMappingProfile discovered{};
+  const auto& topology = state_.topology();
+  for (std::size_t slave_index = 0; slave_index < topology.slave_count;
+       ++slave_index) {
+    const auto& slave = topology.slaves[slave_index];
+    for (std::uint8_t sm = 0U; sm < 16U; ++sm) {
+      ec_sync_info_t sync{};
+      if (ecrt_master_get_sync_manager(master_, slave.ring_position, sm,
+                                       &sync) != 0)
+        continue;
+      if (sync.n_pdos == 0U) continue;
+      if (sync.index != sm ||
+          (sync.dir != EC_DIR_INPUT && sync.dir != EC_DIR_OUTPUT))
+        return {mca::core::StatusCode::ConstraintViolation};
+
+      const auto direction = sync.dir == EC_DIR_INPUT
+          ? EthercatPdoDirection::Input : EthercatPdoDirection::Output;
+      for (std::uint16_t pdo_pos = 0U; pdo_pos < sync.n_pdos; ++pdo_pos) {
+        ec_pdo_info_t pdo{};
+        if (ecrt_master_get_pdo(master_, slave.ring_position, sm, pdo_pos,
+                                &pdo) != 0 ||
+            pdo.index == 0U || pdo.n_entries == 0U)
+          return {mca::core::StatusCode::ConstraintViolation};
+
+        for (std::uint16_t entry_pos = 0U;
+             entry_pos < pdo.n_entries; ++entry_pos) {
+          ec_pdo_entry_info_t entry{};
+          if (ecrt_master_get_pdo_entry(master_, slave.ring_position, sm,
+                                        pdo_pos, entry_pos, &entry) != 0)
+            return {mca::core::StatusCode::RuntimeError};
+          const typename PdoMappingProfile::Entry item{
+              slave.ring_position, slave.vendor_id, slave.product_code, sm,
+              pdo.index, entry.index, entry.subindex, entry.bit_length,
+              direction};
+          if (!discovered.add(item))
+            return {mca::core::StatusCode::ConstraintViolation};
+        }
+      }
+    }
+  }
+  if (!discovered.valid())
+    return {mca::core::StatusCode::ConstraintViolation};
+  output = discovered;
+  return {};
+}
+
+template <std::size_t S, std::size_t D, std::size_t E>
 mca::core::Status EthercatIghAdapter<S, D, E>::configure(
     const std::array<PdoBinding, E>& bindings, std::size_t count) noexcept {
   return configure_impl(bindings, count, nullptr,

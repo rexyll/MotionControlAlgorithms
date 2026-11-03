@@ -80,6 +80,16 @@ class CanopenHeartbeatMonitor {
     return node_id_ > 0U && node_id_ <= 127U && timeout_ms_ > 0U;
   }
 
+  // Arm the consumer timeout before the first heartbeat is received.
+  // This lets startup supervision detect a node that never comes online.
+  bool start(std::uint64_t now_ms) noexcept {
+    if (!valid()) return false;
+    started_ = true;
+    last_seen_ms_ = now_ms;
+    timed_out_ = false;
+    return true;
+  }
+
   bool observe(const CanopenCanFrame& frame, std::uint64_t now_ms) noexcept {
     if (!valid() || !frame.valid() ||
         frame.cob_id != static_cast<std::uint16_t>(0x700U + node_id_) ||
@@ -90,13 +100,14 @@ class CanopenHeartbeatMonitor {
     }
     last_state_ = frame.data[0];
     last_seen_ms_ = now_ms;
+    started_ = true;
     seen_ = true;
     timed_out_ = false;
     return true;
   }
 
   [[nodiscard]] bool poll(std::uint64_t now_ms) noexcept {
-    if (!seen_ || now_ms < last_seen_ms_) return false;
+    if (!started_ || now_ms < last_seen_ms_) return false;
     if (now_ms - last_seen_ms_ >= timeout_ms_) timed_out_ = true;
     return timed_out_;
   }
@@ -110,6 +121,7 @@ class CanopenHeartbeatMonitor {
   std::uint32_t timeout_ms_{1000U};
   std::uint64_t last_seen_ms_{0U};
   std::uint8_t last_state_{0U};
+  bool started_{false};
   bool seen_{false};
   bool timed_out_{false};
 };

@@ -27,7 +27,7 @@ if(MCA_BUILD_IGH_KICKCAT_SIL)
   if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(FATAL_ERROR "MCA_BUILD_IGH_KICKCAT_SIL is supported only on Linux")
   endif()
-  find_path(IGH_INCLUDE_DIR NAMES ecrt.h REQUIRED)
+  find_path(IGH_INCLUDE_DIR NAMES ecrt.h PATH_SUFFIXES ethercat REQUIRED)
   find_library(IGH_LIBRARY NAMES ethercat REQUIRED)
   find_package(Threads REQUIRED)
   add_executable(mca_ethercat_igh_kickcat_cyclic_sil

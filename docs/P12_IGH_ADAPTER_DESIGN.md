@@ -448,12 +448,14 @@ smoke test is also run by `ethercat-pdo-image`.
 
 ### IgH profile application
 
-The adapter now exposes an overload of `configure(bindings, count, mapping)`.
-It validates that every process-image binding resolves to exactly one profile
-entry with the same station/vendor/product identity, object index/subindex,
-bit width and direction. The profile may additionally contain mapped entries
-that the current process image does not consume; those entries are still
-included in the configured PDO layout.
+The adapter now exposes `discover_pdo_mapping(profile)`, which builds a
+fixed-capacity profile from the connected slave's IgH-reported SM/PDO/entry
+hierarchy. The overload `configure(bindings, count, mapping)` validates that
+every process-image binding resolves to exactly one profile entry with the
+same ring-position/vendor/product identity, object index/subindex, bit width
+and direction. The profile may additionally contain mapped entries that the
+current process image does not consume; those entries are still included in
+the configured PDO layout.
 
 For each slave, the adapter groups the profile into bounded
 `ec_sync_info_t` -> `ec_pdo_info_t` -> `ec_pdo_entry_info_t` arrays and calls

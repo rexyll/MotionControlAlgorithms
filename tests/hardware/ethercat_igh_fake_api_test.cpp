@@ -145,6 +145,8 @@ TEST(EthercatIghFakeApi, RejectsDiscoveredMappingBitWidthMismatchBeforeRegistrat
       0x6041U, 0U, 32U, mca::hardware::EthercatPdoDirection::Input}));
   ASSERT_TRUE(mapping.add({0U, 0x2U, 0x1234U, 2U, 0x1A00U,
       0x6064U, 0U, 32U, mca::hardware::EthercatPdoDirection::Input}));
+  ASSERT_TRUE(mapping.add({0U, 0x2U, 0x1234U, 2U, 0x1A01U,
+      0x606CU, 0U, 32U, mca::hardware::EthercatPdoDirection::Input}));
   ASSERT_TRUE(mapping.add({0U, 0x2U, 0x1234U, 3U, 0x1600U,
       0x6040U, 0U, 16U, mca::hardware::EthercatPdoDirection::Output}));
   EXPECT_FALSE(adapter.configure(bindings, 2U, mapping,
@@ -169,6 +171,8 @@ TEST(EthercatIghFakeApi, RejectsUndeclaredDiscoveredPdoSyncManager) {
       0x6041U, 0U, 16U, mca::hardware::EthercatPdoDirection::Input}));
   ASSERT_TRUE(mapping.add({0U, 0x2U, 0x1234U, 2U, 0x1A00U,
       0x6064U, 0U, 32U, mca::hardware::EthercatPdoDirection::Input}));
+  ASSERT_TRUE(mapping.add({0U, 0x2U, 0x1234U, 2U, 0x1A01U,
+      0x606CU, 0U, 32U, mca::hardware::EthercatPdoDirection::Input}));
   EXPECT_FALSE(adapter.configure(bindings, 1U, mapping,
       mca::hardware::EthercatPdoMappingPolicy::UseDiscoveredMapping).ok());
   EXPECT_EQ(fake_igh::pdo_registration_calls(), 0U);

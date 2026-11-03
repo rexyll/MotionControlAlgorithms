@@ -31,6 +31,16 @@ typedef struct {
   unsigned int working_counter;
   unsigned int wc_state;
 } ec_domain_state_t;
+typedef struct {
+  unsigned int slaves_responding;
+  unsigned int al_states : 4;
+  unsigned int link_up : 1;
+} ec_master_state_t;
+typedef struct {
+  unsigned int online : 1;
+  unsigned int operational : 1;
+  unsigned int al_state : 4;
+} ec_slave_config_state_t;
 
 enum {
   EC_AL_STATE_INIT = 1,

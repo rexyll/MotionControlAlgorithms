@@ -102,6 +102,11 @@ verify_coe_assignment() {
   done
 }
 
+run_coe_readback() {
+  printf 'Slave ring position 0 CoE PDO mapping readback\n'
+  verify_coe_assignment 0x1C12 "RxPDO" || return 1
+  verify_coe_assignment 0x1C13 "TxPDO" || return 1
+}
 
 cleanup() {
   local rc=$?
@@ -218,14 +223,10 @@ fi
 RX_PID=""
 
 if [[ "$COE_READBACK" == "1" ]]; then
-  {
-    printf 'Slave ring position 0 CoE PDO mapping readback\n'
-    verify_coe_assignment 0x1C12 "RxPDO"
-    verify_coe_assignment 0x1C13 "TxPDO"
-  } >"$ARTIFACT_DIR/coe-pdo-readback.txt" || {
+  if ! run_coe_readback >"$ARTIFACT_DIR/coe-pdo-readback.txt"; then
     cat "$ARTIFACT_DIR/coe-pdo-readback.txt" >&2 || true
     fail "CoE PDO assignment/mapping readback failed"
-  }
+  fi
   printf '\nPASS: CoE SDO readback of RxPDO/TxPDO assignments and PDO entries.\n'
 fi
 

@@ -55,20 +55,29 @@ mca::core::Status EthercatIghAdapter<S, D, E>::discover() noexcept {
 template <std::size_t S, std::size_t D, std::size_t E>
 mca::core::Status EthercatIghAdapter<S, D, E>::configure(
     const std::array<PdoBinding, E>& bindings, std::size_t count) noexcept {
-  return configure_impl(bindings, count, nullptr);
+  return configure_impl(bindings, count, nullptr,
+                        EthercatPdoMappingPolicy::ApplyConfiguredMapping);
 }
 
 template <std::size_t S, std::size_t D, std::size_t E>
 mca::core::Status EthercatIghAdapter<S, D, E>::configure(
     const std::array<PdoBinding, E>& bindings, std::size_t count,
     const PdoMappingProfile& mapping) noexcept {
-  return configure_impl(bindings, count, &mapping);
+  return configure(bindings, count, mapping,
+                   EthercatPdoMappingPolicy::ApplyConfiguredMapping);
+}
+
+template <std::size_t S, std::size_t D, std::size_t E>
+mca::core::Status EthercatIghAdapter<S, D, E>::configure(
+    const std::array<PdoBinding, E>& bindings, std::size_t count,
+    const PdoMappingProfile& mapping, EthercatPdoMappingPolicy policy) noexcept {
+  return configure_impl(bindings, count, &mapping, policy);
 }
 
 template <std::size_t S, std::size_t D, std::size_t E>
 mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
     const std::array<PdoBinding, E>& bindings, std::size_t count,
-    const PdoMappingProfile* mapping) noexcept {
+    const PdoMappingProfile* mapping, EthercatPdoMappingPolicy policy) noexcept {
   if (master_ == nullptr || state_.state() != EthercatMasterState::Discovered ||
       count == 0U || count > E || config_.cycle_time_ns == 0U ||
       (mapping != nullptr && !mapping->valid()))
@@ -238,9 +247,86 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
         return fail_configuration({mca::core::StatusCode::RuntimeError});
     }
 
+    if (policy == EthercatPdoMappingPolicy::UseDiscoveredMapping) {
+      // IgH's inspection API reports the connected slave's proposed mapping.
+      // Compare the complete SM/PDO/entry hierarchy before any registration.
+      std::size_t profile_begin = 0U;
+      while (profile_begin < mapping->size()) {
+        const auto station = (*mapping)[profile_begin].station_position;
+        std::size_t cursor = profile_begin;
+        std::size_t expected_sync_count = 0U;
+        while (cursor < mapping->size() &&
+               (*mapping)[cursor].station_position == station) {
+          const auto sync_index = (*mapping)[cursor].sync_manager;
+          const auto direction = (*mapping)[cursor].direction;
+          const std::size_t sync_begin = cursor;
+          while (cursor < mapping->size() &&
+                 (*mapping)[cursor].station_position == station &&
+                 (*mapping)[cursor].sync_manager == sync_index) ++cursor;
+          const std::size_t sync_end = cursor;
+
+          ec_sync_info_t actual_sync{};
+          if (ecrt_master_get_sync_manager(master_, station, sync_index,
+                                           &actual_sync) != 0 ||
+              actual_sync.index != sync_index ||
+              actual_sync.dir != (direction == EthercatPdoDirection::Input
+                                      ? EC_DIR_INPUT : EC_DIR_OUTPUT))
+            return fail_configuration({mca::core::StatusCode::ConstraintViolation});
+
+          std::size_t pdo_pos = 0U;
+          std::size_t pdo_cursor = sync_begin;
+          while (pdo_cursor < sync_end) {
+            const auto pdo_index = (*mapping)[pdo_cursor].pdo_index;
+            const std::size_t pdo_begin = pdo_cursor;
+            while (pdo_cursor < sync_end &&
+                   (*mapping)[pdo_cursor].pdo_index == pdo_index) ++pdo_cursor;
+            ec_pdo_info_t actual_pdo{};
+            if (ecrt_master_get_pdo(master_, station, sync_index,
+                                    static_cast<std::uint16_t>(pdo_pos),
+                                    &actual_pdo) != 0 ||
+                actual_pdo.index != pdo_index ||
+                actual_pdo.n_entries != pdo_cursor - pdo_begin)
+              return fail_configuration({mca::core::StatusCode::ConstraintViolation});
+            for (std::size_t entry_pos = 0; entry_pos < pdo_cursor - pdo_begin;
+                 ++entry_pos) {
+              const auto& expected = (*mapping)[pdo_begin + entry_pos];
+              ec_pdo_entry_info_t actual_entry{};
+              if (ecrt_master_get_pdo_entry(
+                      master_, station, sync_index,
+                      static_cast<std::uint16_t>(pdo_pos),
+                      static_cast<std::uint16_t>(entry_pos),
+                      &actual_entry) != 0 ||
+                  actual_entry.index != expected.index ||
+                  actual_entry.subindex != expected.subindex ||
+                  actual_entry.bit_length != expected.bit_length)
+                return fail_configuration({mca::core::StatusCode::ConstraintViolation});
+            }
+            ++pdo_pos;
+          }
+          if (actual_sync.n_pdos != pdo_pos)
+            return fail_configuration({mca::core::StatusCode::ConstraintViolation});
+          ++expected_sync_count;
+        }
+
+        // Detect additional PDO-bearing SMs not declared by the profile.
+        std::size_t discovered_sync_count = 0U;
+        for (std::uint8_t sm = 0U; sm < 16U; ++sm) {
+          ec_sync_info_t actual_sync{};
+          if (ecrt_master_get_sync_manager(master_, station, sm,
+                                           &actual_sync) == 0 &&
+              actual_sync.n_pdos != 0U)
+            ++discovered_sync_count;
+        }
+        if (discovered_sync_count != expected_sync_count)
+          return fail_configuration({mca::core::StatusCode::ConstraintViolation});
+        profile_begin = cursor;
+      }
+    }
+
     // Translate the bounded profile into IgH's SyncManager -> PDO -> entry
-    // tree per slave. The IgH call consumes the arrays synchronously.
+    // tree per slave only when MCA owns the configured mapping.
     std::size_t profile_begin = 0U;
+    if (policy == EthercatPdoMappingPolicy::ApplyConfiguredMapping)
     while (profile_begin < mapping->size()) {
       const auto station = (*mapping)[profile_begin].station_position;
       std::size_t topology_index = state_.topology().slave_count;

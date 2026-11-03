@@ -40,6 +40,8 @@ void reset() noexcept {
   timeout_failure = static_cast<std::size_t>(-1);
   releases = 0U;
   deactivations = 0U;
+  activate_failure = false; domain_data_failure = false;
+  zero_size = false; deactivate_failure = false; activations = 0U;
   domain = {};
   requests = {};
 }
@@ -47,6 +49,11 @@ std::size_t request_count() noexcept { return created; }
 std::size_t live_request_count() noexcept { return created; }
 void fail_create_at(std::size_t attempt) noexcept { create_failure = attempt; }
 void fail_timeout_at(std::size_t index) noexcept { timeout_failure = index; }\nvoid fail_activate(bool enabled) noexcept { activate_failure = enabled; }\nvoid fail_domain_data(bool enabled) noexcept { domain_data_failure = enabled; }\nvoid zero_domain_size(bool enabled) noexcept { zero_size = enabled; }\nvoid fail_deactivate(bool enabled) noexcept { deactivate_failure = enabled; }\nstd::size_t activate_calls() noexcept { return activations; }
+void record_activate() noexcept { ++activations; }
+bool activation_fails() noexcept { return activate_failure; }
+bool domain_data_fails() noexcept { return domain_data_failure; }
+bool domain_size_is_zero() noexcept { return zero_size; }
+bool deactivation_fails() noexcept { return deactivate_failure; }
 std::size_t release_calls() noexcept { return releases; }
 std::size_t deactivate_calls() noexcept { return deactivations; }
 ec_sdo_request_t* request(std::size_t index) noexcept {

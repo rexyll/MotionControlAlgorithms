@@ -55,54 +55,161 @@ mca::core::Status EthercatIghAdapter<S, D, E>::discover() noexcept {
 template <std::size_t S, std::size_t D, std::size_t E>
 mca::core::Status EthercatIghAdapter<S, D, E>::configure(
     const std::array<PdoBinding, E>& bindings, std::size_t count) noexcept {
-  if (master_ == nullptr || state_.state() != EthercatMasterState::Discovered || count == 0U || count > E)
+  if (master_ == nullptr || state_.state() != EthercatMasterState::Discovered ||
+      count == 0U || count > E || config_.cycle_time_ns == 0U)
     return {mca::core::StatusCode::InvalidArgument};
+
+  // IgH has no public per-domain destroy operation. Once a domain or slave
+  // configuration has been created, a later registration failure cannot be
+  // rolled back in place. Release the inactive master and return to Offline so
+  // callers cannot accidentally retry against partially configured objects.
+  const auto fail_configuration = [this](mca::core::Status status) noexcept {
+    if (activated_) {
+      (void)ecrt_master_deactivate(master_);
+      activated_ = false;
+    }
+    if (master_ != nullptr) {
+      ecrt_release_master(master_);
+      master_ = nullptr;
+    }
+    domains_.fill(nullptr);
+    slave_configs_.fill(nullptr);
+    domain_data_.fill(nullptr);
+    domain_size_.fill(0U);
+    offsets_.fill(0U);
+    bit_positions_.fill(0U);
+    domain_wkc_.fill(0U);
+    domain_wc_complete_.fill(false);
+    domain_count_ = 0U;
+    binding_count_ = 0U;
+    observed_wkc_ = 0U;
+    cycle_sequence_ = 0U;
+    (void)state_.on_shutdown();
+    return status;
+  };
+
+  // Validate the complete caller description before making any irreversible
+  // IgH registration calls. Topology order is not assumed to equal station
+  // position; locate each slave by its explicit station address.
+  for (std::size_t i = 0; i < count; ++i) {
+    const auto& binding = bindings[i];
+    if (binding.index == 0U || binding.bit_length == 0U ||
+        binding.bit_length > 64U ||
+        (binding.direction != EthercatPdoDirection::Input &&
+         binding.direction != EthercatPdoDirection::Output))
+      return {mca::core::StatusCode::InvalidArgument};
+
+    const EthercatSlaveInfo* slave = nullptr;
+    for (std::size_t s = 0; s < state_.topology().slave_count; ++s) {
+      if (state_.topology().slaves[s].station_position ==
+          binding.station_position) {
+        slave = &state_.topology().slaves[s];
+        break;
+      }
+    }
+    if (slave == nullptr || slave->vendor_id != binding.vendor_id ||
+        slave->product_code != binding.product_code)
+      return {mca::core::StatusCode::ConstraintViolation};
+
+    for (std::size_t j = 0; j < i; ++j) {
+      const auto& prior = bindings[j];
+      if (prior.station_position == binding.station_position &&
+          prior.index == binding.index &&
+          prior.subindex == binding.subindex)
+        return {mca::core::StatusCode::InvalidArgument};
+    }
+  }
+
   std::array<std::uint16_t, D> ids{};
   domain_count_ = 0U;
   binding_count_ = count;
   for (std::size_t i = 0; i < count; ++i) {
-    const auto& b = bindings[i];
-    if (b.station_position >= state_.topology().slave_count || b.index == 0U || b.bit_length == 0U || b.bit_length > 64U)
-      return {mca::core::StatusCode::InvalidArgument};
-    std::size_t di = domain_count_;
-    for (std::size_t d = 0; d < domain_count_; ++d) if (ids[d] == b.domain_id) { di = d; break; }
-    if (di == domain_count_) {
-      if (domain_count_ >= D) return {mca::core::StatusCode::ConstraintViolation};
-      ids[domain_count_] = b.domain_id;
+    const auto& binding = bindings[i];
+    std::size_t domain = domain_count_;
+    for (std::size_t d = 0; d < domain_count_; ++d) {
+      if (ids[d] == binding.domain_id) {
+        domain = d;
+        break;
+      }
+    }
+    if (domain == domain_count_) {
+      if (domain_count_ >= D)
+        return fail_configuration(
+            {mca::core::StatusCode::ConstraintViolation});
+      ids[domain_count_] = binding.domain_id;
       domains_[domain_count_] = ecrt_master_create_domain(master_);
-      if (domains_[domain_count_] == nullptr) return {mca::core::StatusCode::RuntimeError};
+      if (domains_[domain_count_] == nullptr)
+        return fail_configuration(
+            {mca::core::StatusCode::RuntimeError});
       ++domain_count_;
     }
-    const auto& slave = state_.topology().slaves[b.station_position];
-    if (slave.station_position != b.station_position || slave.vendor_id != b.vendor_id || slave.product_code != b.product_code)
-      return {mca::core::StatusCode::ConstraintViolation};
-    if (slave_configs_[b.station_position] == nullptr)
-      slave_configs_[b.station_position] = ecrt_master_slave_config(master_, 0U, b.station_position, b.vendor_id, b.product_code);
-    if (slave_configs_[b.station_position] == nullptr) return {mca::core::StatusCode::RuntimeError};
+
+    const auto& topology = state_.topology();
+    std::size_t topology_index = topology.slave_count;
+    for (std::size_t s = 0; s < topology.slave_count; ++s) {
+      if (topology.slaves[s].station_position == binding.station_position) {
+        topology_index = s;
+        break;
+      }
+    }
+    if (topology_index == topology.slave_count)
+      return fail_configuration(
+          {mca::core::StatusCode::ConstraintViolation});
+
+    if (slave_configs_[binding.station_position] == nullptr) {
+      slave_configs_[binding.station_position] = ecrt_master_slave_config(
+          master_, 0U, binding.station_position, binding.vendor_id,
+          binding.product_code);
+    }
+    if (slave_configs_[binding.station_position] == nullptr)
+      return fail_configuration(
+          {mca::core::StatusCode::RuntimeError});
+
     unsigned int bit = 0U;
-    const int off = ecrt_slave_config_reg_pdo_entry(slave_configs_[b.station_position], b.index, b.subindex, domains_[di], &bit);
-    if (off < 0) return {mca::core::StatusCode::RuntimeError};
-    offsets_[i] = static_cast<unsigned int>(off);
+    const int offset = ecrt_slave_config_reg_pdo_entry(
+        slave_configs_[binding.station_position], binding.index,
+        binding.subindex, domains_[domain], &bit);
+    if (offset < 0)
+      return fail_configuration(
+          {mca::core::StatusCode::RuntimeError});
+    offsets_[i] = static_cast<unsigned int>(offset);
     bit_positions_[i] = bit;
   }
-  Layout l{};
-  l.domain_count = domain_count_;
-  l.entry_count = count;
-  for (std::size_t d = 0; d < domain_count_; ++d) { l.domains[d].id = ids[d]; l.domains[d].cycle_time_ns = config_.cycle_time_ns; }
+
+  Layout layout{};
+  layout.domain_count = domain_count_;
+  layout.entry_count = count;
+  for (std::size_t d = 0; d < domain_count_; ++d) {
+    layout.domains[d].id = ids[d];
+    layout.domains[d].cycle_time_ns = config_.cycle_time_ns;
+  }
   for (std::size_t i = 0; i < count; ++i) {
-    const auto& b = bindings[i];
-    auto& e = l.entries[i];
-    e.slave_position = b.station_position; e.domain_id = b.domain_id; e.index = b.index; e.subindex = b.subindex;
-    e.bit_length = b.bit_length; e.direction = b.direction;
-    e.bit_offset = offsets_[i] * 8U + bit_positions_[i];
-    for (std::size_t d = 0; d < domain_count_; ++d) if (l.domains[d].id == b.domain_id) {
-      const std::uint32_t end = e.bit_offset + b.bit_length;
-      if (b.direction == EthercatPdoDirection::Input) l.domains[d].input_bit_size = std::max(l.domains[d].input_bit_size, end);
-      else l.domains[d].output_bit_size = std::max(l.domains[d].output_bit_size, end);
+    const auto& binding = bindings[i];
+    auto& entry = layout.entries[i];
+    entry.slave_position = binding.station_position;
+    entry.domain_id = binding.domain_id;
+    entry.index = binding.index;
+    entry.subindex = binding.subindex;
+    entry.bit_length = binding.bit_length;
+    entry.direction = binding.direction;
+    entry.bit_offset = offsets_[i] * 8U + bit_positions_[i];
+    for (std::size_t d = 0; d < domain_count_; ++d) {
+      if (layout.domains[d].id != binding.domain_id) continue;
+      const std::uint32_t bit_end =
+          entry.bit_offset + static_cast<std::uint32_t>(binding.bit_length);
+      if (binding.direction == EthercatPdoDirection::Input)
+        layout.domains[d].input_bit_size =
+            std::max(layout.domains[d].input_bit_size, bit_end);
+      else
+        layout.domains[d].output_bit_size =
+            std::max(layout.domains[d].output_bit_size, bit_end);
       break;
     }
   }
-  return state_.on_configured(l);
+
+  const auto status = state_.on_configured(layout);
+  if (!status.ok()) return fail_configuration(status);
+  return {};
 }
 
 template <std::size_t S, std::size_t D, std::size_t E>

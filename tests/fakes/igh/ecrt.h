@@ -33,14 +33,14 @@ typedef struct {
 typedef struct {
   uint16_t index;
   unsigned int n_entries;
-  ec_pdo_entry_info_t* entries;
+  const ec_pdo_entry_info_t* entries;
 } ec_pdo_info_t;
 
 typedef struct {
   uint8_t index;
   ec_direction_t dir;
-  uint8_t n_pdos;
-  ec_pdo_info_t* pdos;
+  unsigned int n_pdos;
+  const ec_pdo_info_t* pdos;
   ec_watchdog_mode_t watchdog_mode;
 } ec_sync_info_t;
 

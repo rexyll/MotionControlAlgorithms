@@ -18,3 +18,11 @@ jobs:
             -o /tmp/ethercat_pdo_image_smoke
       - name: Run PDO image smoke test
         run: /tmp/ethercat_pdo_image_smoke
+
+      - name: Compile PDO mapping profile smoke test
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow \
+            -Iinclude tests/hardware/ethercat_pdo_mapping_profile_smoke.cpp \
+            -o /tmp/ethercat_pdo_mapping_profile_smoke
+      - name: Run PDO mapping profile smoke test
+        run: /tmp/ethercat_pdo_mapping_profile_smoke

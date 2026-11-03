@@ -249,8 +249,10 @@ the existing IgH adapter, without linking KickCAT into MCA:
   claim DC timing accuracy, interrupt behavior, hard-real-time performance or
   conformance certification.
 
-Upstream references (re-check pinned revisions before automation):
-- KickCAT: https://github.com/leducp/KickCAT
+Evaluated KickCAT source snapshot: `leducp/KickCAT@cb2e1a192ac11ffaa58f08945053b8129abf94cb` (upstream master HEAD observed 2026-11-03; pin this immutable SHA in the harness, do not follow master at runtime).
+
+Upstream references:
+- KickCAT: https://github.com/leducp/KickCAT/tree/cb2e1a192ac11ffaa58f08945053b8129abf94cb
 - Simulation guide: https://github.com/leducp/KickCAT/blob/master/docs/SIMULATION.md
 - Feature matrix: https://github.com/leducp/KickCAT/blob/master/docs/FEATURES.md
 - Linux raw socket: `lib/src/OS/Linux/Socket.cc`
@@ -278,9 +280,11 @@ EmulatedNetwork + EmulatedESC + CoE/CiA402 device app
 ```
 
 The two endpoints must be dedicated to this test and must not carry host IP
-traffic. The test harness must record interface names and MAC addresses,
-configure the IgH master to select only the MCA endpoint, and verify that
-KickCAT is bound only to the peer. Never point IgH at a host management NIC.
+traffic. Create the pair directly with `ip link add mca-ecatA type veth peer
+name mca-ecatB` (KickCAT's helper script is not required by the harness), bring
+both endpoints up, and record their MAC addresses. Configure the IgH master to
+select only the MCA endpoint, and verify that KickCAT is bound only to the
+peer. The harness must clean up the pair in a trap even on failure. Never point IgH at a host management NIC.
 The test requires Linux root/CAP_NET_RAW/CAP_NET_ADMIN and permission to load
 the IgH kernel modules; it is not a normal unprivileged root-CI test.
 

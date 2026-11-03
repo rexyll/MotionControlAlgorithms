@@ -3,6 +3,8 @@
 #if defined(MCA_ENABLE_IGH)
 #include <algorithm>
 
+#include "mca/hardware/ethercat_pdo_image.hpp"
+
 namespace mca::hardware {
 
 template <std::size_t S, std::size_t D, std::size_t E>
@@ -104,15 +106,43 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure(
 }
 
 template <std::size_t S, std::size_t D, std::size_t E>
+std::size_t EthercatIghAdapter<S, D, E>::domain_index(std::uint16_t domain_id) const noexcept {
+  const auto& layout = state_.layout();
+  for (std::size_t d = 0; d < layout.domain_count; ++d)
+    if (layout.domains[d].id == domain_id) return d;
+  return D;
+}
+
+template <std::size_t S, std::size_t D, std::size_t E>
 mca::core::Status EthercatIghAdapter<S, D, E>::activate() noexcept {
   if (master_ == nullptr || state_.state() != EthercatMasterState::Configured)
     return {mca::core::StatusCode::RuntimeError};
   if (config_.send_interval_us != 0U && ecrt_master_set_send_interval(master_, config_.send_interval_us) != 0)
     return {mca::core::StatusCode::RuntimeError};
   if (ecrt_master_activate(master_) != 0) return {mca::core::StatusCode::RuntimeError};
-  for (std::size_t d = 0; d < domain_count_; ++d) if (ecrt_domain_data(domains_[d]) == nullptr) return {mca::core::StatusCode::RuntimeError};
+  for (std::size_t d = 0; d < domain_count_; ++d) {
+    domain_data_[d] = ecrt_domain_data(domains_[d]);
+    domain_size_[d] = ecrt_domain_size(domains_[d]);
+    if (domain_data_[d] == nullptr || domain_size_[d] == 0U) {
+      ecrt_master_deactivate(master_);
+      for (std::size_t i = 0; i < domain_count_; ++i) {
+        domain_data_[i] = nullptr;
+        domain_size_[i] = 0U;
+      }
+      return {mca::core::StatusCode::RuntimeError};
+    }
+  }
   activated_ = true;
-  return state_.on_activated();
+  const auto status = state_.on_activated();
+  if (!status.ok()) {
+    ecrt_master_deactivate(master_);
+    activated_ = false;
+    for (std::size_t i = 0; i < domain_count_; ++i) {
+      domain_data_[i] = nullptr;
+      domain_size_[i] = 0U;
+    }
+  }
+  return status;
 }
 
 template <std::size_t S, std::size_t D, std::size_t E>
@@ -124,7 +154,8 @@ mca::core::Status EthercatIghAdapter<S, D, E>::exchange() noexcept {
     if (ecrt_domain_process(domains_[d]) != 0) return {mca::core::StatusCode::RuntimeError};
     ec_domain_state_t s{};
     if (ecrt_domain_state(domains_[d], &s) != 0) return {mca::core::StatusCode::RuntimeError};
-    observed_wkc_ = static_cast<std::uint16_t>(std::min(s.working_counter, 0xFFFFU));
+    domain_wkc_[d] = static_cast<std::uint16_t>(std::min(s.working_counter, 0xFFFFU));
+    observed_wkc_ = domain_wkc_[d];
     if (s.wc_state != EC_WC_COMPLETE) return {mca::core::StatusCode::RuntimeError};
   }
   for (std::size_t d = 0; d < domain_count_; ++d) if (ecrt_domain_queue(domains_[d]) != 0) return {mca::core::StatusCode::RuntimeError};
@@ -134,11 +165,57 @@ mca::core::Status EthercatIghAdapter<S, D, E>::exchange() noexcept {
 }
 
 template <std::size_t S, std::size_t D, std::size_t E>
-mca::core::Status EthercatIghAdapter<S, D, E>::shutdown() noexcept {
-  if (master_ == nullptr) return {};
-  if (activated_) { ecrt_master_deactivate(master_); activated_ = false; }
-  ecrt_release_master(master_); master_ = nullptr; domain_count_ = 0U; binding_count_ = 0U;
+mca::core::Status EthercatIghAdapter<S, D, E>::read_pdo(
+    std::size_t binding_index, std::uint64_t& value) const noexcept {
+  if (!activated_ || state_.state() != EthercatMasterState::Active || binding_index >= binding_count_)
+    return {mca::core::StatusCode::RuntimeError};
+  const auto& entry = state_.layout().entries[binding_index];
+  if (entry.direction != EthercatPdoDirection::Input)
+    return {mca::core::StatusCode::InvalidArgument};
+  const std::size_t di = domain_index(entry.domain_id);
+  if (di >= domain_count_ || domain_data_[di] == nullptr)
+    return {mca::core::StatusCode::RuntimeError};
+  if (!ethercat_read_pdo_bits(domain_data_[di], domain_size_[di], entry.bit_offset, entry.bit_length, value))
+    return {mca::core::StatusCode::ConstraintViolation};
   return {};
+}
+
+template <std::size_t S, std::size_t D, std::size_t E>
+mca::core::Status EthercatIghAdapter<S, D, E>::write_pdo(
+    std::size_t binding_index, std::uint64_t value) noexcept {
+  if (!activated_ || state_.state() != EthercatMasterState::Active || binding_index >= binding_count_)
+    return {mca::core::StatusCode::RuntimeError};
+  const auto& entry = state_.layout().entries[binding_index];
+  if (entry.direction != EthercatPdoDirection::Output)
+    return {mca::core::StatusCode::InvalidArgument};
+  const std::size_t di = domain_index(entry.domain_id);
+  if (di >= domain_count_ || domain_data_[di] == nullptr)
+    return {mca::core::StatusCode::RuntimeError};
+  if (!ethercat_write_pdo_bits(domain_data_[di], domain_size_[di], entry.bit_offset, entry.bit_length, value))
+    return {mca::core::StatusCode::ConstraintViolation};
+  return {};
+}
+
+template <std::size_t S, std::size_t D, std::size_t E>
+mca::core::Status EthercatIghAdapter<S, D, E>::shutdown() noexcept {
+  if (master_ == nullptr) return state_.on_shutdown();
+  if (activated_) {
+    ecrt_master_deactivate(master_);
+    activated_ = false;
+  }
+  for (std::size_t d = 0; d < domain_count_; ++d) {
+    domain_data_[d] = nullptr;
+    domain_size_[d] = 0U;
+  }
+  ecrt_release_master(master_);
+  master_ = nullptr;
+  domain_count_ = 0U;
+  binding_count_ = 0U;
+  expected_wkc_ = 0U;
+  observed_wkc_ = 0U;
+  cycle_sequence_ = 0U;
+  domain_wkc_.fill(0U);
+  return state_.on_shutdown();
 }
 
 template class EthercatIghAdapter<16, 4, 128>;

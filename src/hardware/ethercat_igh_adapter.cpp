@@ -69,7 +69,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::discover_pdo_mapping(
                                        &sync) != 0)
         continue;
       if (sync.n_pdos == 0U) continue;
-      if (sync.index != sm ||
+      if (sync.n_pdos > E || sync.index != sm ||
           (sync.dir != EC_DIR_INPUT && sync.dir != EC_DIR_OUTPUT))
         return {mca::core::StatusCode::ConstraintViolation};
 

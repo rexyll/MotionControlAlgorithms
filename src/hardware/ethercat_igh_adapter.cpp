@@ -429,11 +429,16 @@ mca::core::Status EthercatIghAdapter<S, D, E>::activate() noexcept {
   activated_ = true;
   const auto status = state_.on_activated();
   if (!status.ok()) {
-    ecrt_master_deactivate(master_);
+    const int deactivate_result = ecrt_master_deactivate(master_);
     activated_ = false;
     for (std::size_t i = 0; i < domain_count_; ++i) {
       domain_data_[i] = nullptr;
       domain_size_[i] = 0U;
+    }
+    if (deactivate_result != 0) {
+      // The state machine did not enter Active, but the backend rollback
+      // failed. Discard the uncertain master instead of allowing a retry.
+      (void)shutdown();
     }
   }
   return status;

@@ -187,9 +187,8 @@ fake master or a simulator-only CI job.
    interface under `include/mca/hardware`; export only those portable types.
 2. [x] Add deterministic fake master + tests for Gate 1, including negative
    mapping/lifecycle cases. Root CI acceptance is still pending.
-3. Add an optional IgH 1.6.8 userspace adapter behind a separate Linux
-   package/CI job after resolving the immutable source SHA and target
-   kernel/NIC matrix; keep root CI unaffected.
+3. [x] Add the optional IgH 1.6.13 userspace adapter behind `MCA_ENABLE_IGH`,
+   with pinned API compile CI; runtime kernel/NIC acceptance remains separate.
 4. Evaluate SOEM 2.0 only if its GPLv3/commercial license path and
    Windows WinPcap deployment requirements are explicitly cleared.
 5. Compare both adapters against the same contract and fixture before choosing
@@ -288,6 +287,47 @@ peer. The harness must clean up the pair in a trap even on failure. Never point 
 The test requires Linux root/CAP_NET_RAW/CAP_NET_ADMIN and permission to load
 the IgH kernel modules; it is not a normal unprivileged root-CI test.
 
+### Executable transport/discovery harness
+
+An opt-in harness is now available at
+`scripts/ethercat_sil/run_kickcat_igh_veth_discovery.sh`. It deliberately
+stops at the first real wire-level gate: one-slave discovery plus captured
+master-to-slave and slave-to-master EtherCAT frames. It does not configure
+PDOs or claim an MCA cyclic adapter test.
+
+Build KickCAT at the pinned revision in an isolated checkout, then run:
+
+```bash
+git clone https://github.com/leducp/KickCAT.git /opt/KickCAT
+git -C /opt/KickCAT checkout cb2e1a192ac11ffaa58f08945053b8129abf94cb
+cd /opt/KickCAT
+./scripts/configure.sh build
+./scripts/setup_build.sh build
+cmake --build build --target network_simulator -j"$(nproc)"
+
+cd /path/to/MotionControlAlgorithms
+sudo -E env \
+  KICKCAT_SIMULATOR=/opt/KickCAT/build/simulation/network_simulator \
+  KICKCAT_SLAVE_CONFIG=/opt/KickCAT/simulation/slave_configs/ecat402-drive.json \
+  bash scripts/ethercat_sil/run_kickcat_igh_veth_discovery.sh
+```
+
+Prerequisites: IgH `ec_master` and `ec_generic` modules built for the
+running kernel, the matching `ethercat` CLI, `iproute2`, `tcpdump`,
+`kmod`, and root privileges. Run only on a disposable Linux VM/host where
+loading/unloading IgH modules is acceptable. The script refuses to run if
+either IgH module or either veth interface already exists; it does not unload
+or reconfigure an existing master. It selects the IgH master by the dedicated
+veth endpoint's MAC, starts KickCAT on the peer, captures one outbound and one
+inbound EtherCAT frame, and verifies the simulator ESI identity:
+Vendor ID `0x0000029c`, ProductCode `0x03b11002`, Revision `0x00050005`.
+It records logs under `/tmp/mca-ethercat-sil-*` and removes only resources
+created by this invocation.
+
+The harness syntax is checked in the IgH API compile workflow. A green GitHub
+Actions run validates shell syntax only; actual veth/module/frame acceptance
+requires executing the harness on a Linux machine with IgH kernel modules.
+
 ### First fixture
 
 Use KickCAT's existing `simulation/slave_configs/ecat402-drive.json`
@@ -369,7 +409,8 @@ round-trip before enabling the DS402 controlword sequence.
   and a DS402 ESI/device fixture.
 - [x] IgH generic driver source/documentation confirms packet-socket-based
   operation on registered Linux Ethernet interfaces.
-- [ ] Prove IgH `ec_generic` binds a veth endpoint on the target Linux kernel.
+- [x] Add an opt-in harness for IgH generic/veth/KickCAT one-slave discovery and bidirectional frame capture.
+- [ ] Execute the harness on a Linux host and prove IgH `ec_generic` binds the veth endpoint.
 - [ ] Prove bidirectional EtherCAT frame exchange with KickCAT over veth.
 - [ ] Complete AL/CoE/PDO/WKC/DS402/fault-recovery acceptance.
 - [ ] Add an opt-in Linux SIL workflow only after the local proof is stable;

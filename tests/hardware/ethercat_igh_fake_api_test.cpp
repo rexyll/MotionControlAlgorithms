@@ -46,9 +46,11 @@ Adapter::PdoMappingProfile two_sm_mapping() {
   Adapter::PdoMappingProfile mapping{};
   const bool first = mapping.add({5U, 0x2U, 0x1234U, 2U, 0x1A00U,
       0x6041U, 0U, 16U, mca::hardware::EthercatPdoDirection::Input});
-  const bool second = mapping.add({5U, 0x2U, 0x1234U, 3U, 0x1600U,
+  const bool second = mapping.add({5U, 0x2U, 0x1234U, 2U, 0x1A00U,
+      0x6064U, 0U, 32U, mca::hardware::EthercatPdoDirection::Input});
+  const bool third = mapping.add({5U, 0x2U, 0x1234U, 3U, 0x1600U,
       0x6040U, 0U, 16U, mca::hardware::EthercatPdoDirection::Output});
-  return first && second ? mapping : Adapter::PdoMappingProfile{};
+  return first && second && third ? mapping : Adapter::PdoMappingProfile{};
 }
 
 bool configure_with_mapping(Adapter& adapter) {
@@ -75,9 +77,11 @@ TEST(EthercatIghFakeApi, AppliesSyncManagerPdoAndEntryTreeBeforeRegistration) {
   EXPECT_EQ(fake_igh::configured_sync_direction(0U), EC_DIR_INPUT);
   EXPECT_EQ(fake_igh::configured_pdo_count(0U), 1U);
   EXPECT_EQ(fake_igh::configured_pdo_index(0U, 0U), 0x1A00U);
-  EXPECT_EQ(fake_igh::configured_entry_count(0U, 0U), 1U);
+  EXPECT_EQ(fake_igh::configured_entry_count(0U, 0U), 2U);
   EXPECT_EQ(fake_igh::configured_entry_index(0U, 0U, 0U), 0x6041U);
   EXPECT_EQ(fake_igh::configured_entry_width(0U, 0U, 0U), 16U);
+  EXPECT_EQ(fake_igh::configured_entry_index(0U, 0U, 1U), 0x6064U);
+  EXPECT_EQ(fake_igh::configured_entry_width(0U, 0U, 1U), 32U);
   EXPECT_EQ(fake_igh::configured_sync_index(1U), 3U);
   EXPECT_EQ(fake_igh::configured_sync_direction(1U), EC_DIR_OUTPUT);
   EXPECT_EQ(fake_igh::configured_pdo_index(1U, 0U), 0x1600U);

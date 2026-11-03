@@ -1,8 +1,89 @@
-# P12 continuation note (2026-11-03)
+# MotionControlAlgorithms Task Plan
 
-- P12-05c.2 remains **open** for full EtherCAT SIL/master acceptance.
-- The IgH 1.6.13 adapter implementation is now present behind `MCA_ENABLE_IGH` and has passed the pinned 1.6.13 API compile plus deterministic fake-API coverage for cyclic exchange, topology/health, PDO mapping and asynchronous SDO request/result lifecycle, including busy-slot isolation, timeout quarantine, terminal-buffer relocation and response-capacity enforcement.
-- This evidence is still **API/fake-master evidence**, not wire-level EtherCAT SIL, slave-simulator validation, NIC timing validation or HIL. Therefore P12-05c.2 must not be marked accepted yet.
-- SOEM remains blocked by the documented GPLv3/commercial licensing and packaging constraints; no SOEM dependency is being added to the root build.
-- The next technical gate is to close the remaining IgH adapter evidence without weakening the dependency-free root build: verify all adapter-side mailbox/cyclic ownership rules, expand deterministic failure/recovery coverage where a concrete gap is found, and only then consider an external slave simulator or real target environment.
+> 2026-11-03 continuation checkpoint. Historical acceptance details remain in the individual design/acceptance documents and Git history; this file records the active milestone state so the plan stays maintainable.
 
+## P8 — Advanced optimization/control
+
+- [x] P8-39 callback exception safety
+- [x] P8-40 projected-gradient underflow safety
+- [x] P8-41 callback exception phase coverage
+- [x] P8-42 representable finite differences
+- [x] P8-43 representable line-search updates
+- [x] P8-44 projected-gradient representability
+- [x] P8-45 boundary-aware finite differences
+- [x] P8-46 boundary evaluation efficiency
+- [x] P8-47 permanent representability/boundary regression coverage
+
+Acceptance evidence: Linux/Windows Configure/Build/Test and the dedicated P8-39 through P8-46 regression suites have remained green through the current main-line CI.
+
+## P9 — Controller robustness and simulation validation
+
+- [x] P9 controller/plant numerical transaction safety, checked diagnostics, power diagnostics and experiment rollback/status-propagation audits through P9-45.
+
+Acceptance evidence: deterministic Linux/Windows CI coverage for the controller, plant, experiment and diagnostic contracts. No physical-device or safety-certification claim is implied.
+
+## P10 — Simulation/runtime adapter contracts
+
+- [x] Dependency-free ROS 2/Gazebo adapter contracts and deterministic in-process closed-loop acceptance.
+
+## P11 — Concrete ROS 2 and Gazebo runtime integration
+
+- [x] ROS 2 Jazzy adapter integration.
+- [x] Gazebo Harmonic adapter and launch-level ROS 2 ↔ Gazebo integration.
+- [x] Runtime robustness/relaunch/watchdog/reset acceptance.
+
+Acceptance rule: root Configure/Build/Test remains independent of ROS 2 and Gazebo; middleware/simulator workflows are optional and version-pinned. Simulation is not HIL evidence.
+
+## P12 — Physical hardware abstraction and device integration
+
+- [x] P12-01 to P12-04b hardware boundary, dependency-free ports and ROS 2 control reference adapters.
+- [x] P12-05a virtual N-axis drive/device simulation and catalog-backed motor profile.
+- [x] P12-05a.4 live Gazebo Harmonic + ROS 2 Jazzy two-joint `ros2_control` simulation.
+- [x] P12-05b.0 vendor-neutral servo abstraction and technology evaluation design.
+- [x] P12-05b.1 fixed-capacity capability/timing metadata.
+- [x] P12-05b.2 mode-aware position/velocity/torque/current command contracts.
+- [x] P12-05b.3 CiA 402 PDS profile/state/controlword/mode model and independent EtherCAT AL state model.
+- [x] P12-05c.1 CANopen SIL: transport seam, virtual CiA 402 node, NMT, heartbeat, EMCY, expedited/segmented SDO, PDO and optional Linux SocketCAN/vcan0 coverage.
+
+### P12-05c.2 — EtherCAT SIL/master comparison
+
+- [ ] Full EtherCAT SIL/master acceptance remains open.
+- [x] Master-neutral fixed-capacity topology/PDO/WKC/DC/cycle-timing contracts and deterministic fake-master tests implemented.
+- [x] Bounded asynchronous SDO request/result and mailbox queue lifecycle implemented.
+- [x] IgH EtherCAT Master 1.6.13 adapter implemented behind `MCA_ENABLE_IGH`.
+- [x] IgH 1.6.13 API compile passed.
+- [x] Deterministic IgH fake-API coverage passed for cyclic exchange, topology/health, PDO mapping and asynchronous SDO lifecycle, including busy-slot isolation, timeout quarantine, terminal-buffer relocation and response-capacity checks.
+- [ ] Wire-level EtherCAT SIL, slave-simulator validation, target-NIC timing and physical-bus/HIL validation remain open.
+- [ ] SOEM 2.0 integration remains blocked pending licensing/redistribution approval and separate dependency packaging; no SOEM dependency enters the root build.
+
+### P12-05c.3 — Vendor SDK adapters
+
+- [ ] maxon EPOS Command Library is blocked pending written licensing clarification for development, CI, deployment and redistribution.
+- [ ] Until licensing is cleared, validate EPOS4, Synapticon SOMANET/ACTILINK, Elmo Gold and Beckhoff AX8000 through generic CiA 402/CoE plus official EDS/ESI/object dictionaries.
+- [ ] Do not commit proprietary SDK binaries, headers, credentials or license keys.
+
+### P12-05d — Concrete vendor device backend
+
+- [ ] Select the actual drive/motor/bus/safety fixture and implement the model-specific backend only after hardware is available.
+
+### P12-06 — Hardware-in-the-loop acceptance
+
+- [ ] Validate real sensor coherence, cycle jitter, command freshness, watchdog, fault propagation, stop behavior, startup/shutdown and reconnect on selected hardware.
+- [ ] Fake tests, API compilation and Gazebo simulation are not HIL substitutes.
+
+## Architecture rules
+
+1. Only `main` is used for development and acceptance.
+2. `include/mca/**` remains free of vendor SDK, ROS 2, EtherCAT-master and transport-specific dependencies.
+3. Cyclic control paths use fixed-capacity data and never block on SDO/mailbox work.
+4. CiA 402 PDS state, EtherCAT AL state, master health, distributed-clock health and transport health remain separate state machines/signals.
+5. SDO/mailbox operations are supervisory/asynchronous; cyclic PDO/process-data exchange remains the real-time path.
+6. Every acceptance result explicitly distinguishes dependency-free contract tests, adapter/API tests, simulation, protocol SIL and real-device HIL.
+7. CI failures must be diagnosed from the actual logs before any corrective change; no blind threshold lowering or skipped tests.
+
+## Current next gate
+
+1. Continue auditing the IgH adapter against the master-neutral contract and close only concrete deterministic gaps found in the fake API.
+2. Keep SOEM and proprietary vendor SDKs out of the root build until their licensing/package constraints are resolved.
+3. Complete generic CiA 402/CoE interoperability fixtures before selecting a physical drive.
+4. When a real drive is selected, add the model-specific EDS/ESI/scaling/fault mapping and then perform HIL with an independent STO/E-stop fixture.

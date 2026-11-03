@@ -51,7 +51,11 @@ class EthercatIghAdapter final {
   [[nodiscard]] const Layout& layout() const noexcept { return state_.layout(); }
   [[nodiscard]] std::uint64_t cycle_sequence() const noexcept { return cycle_sequence_; }
   [[nodiscard]] std::uint16_t observed_wkc() const noexcept { return observed_wkc_; }
-  [[nodiscard]] std::uint16_t expected_wkc() const noexcept { return expected_wkc_; }
+  // IgH exposes WC completeness but not the configured expected counter value.
+  // A zero expected value therefore means 'not exposed', never 'zero expected'.
+  [[nodiscard]] std::uint16_t expected_wkc() const noexcept { return 0U; }
+  [[nodiscard]] std::uint16_t domain_working_counter(std::uint16_t domain_id) const noexcept;
+  [[nodiscard]] bool domain_working_counter_complete(std::uint16_t domain_id) const noexcept;
 
   mca::core::Status request_master() noexcept;
   mca::core::Status discover() noexcept;
@@ -77,9 +81,9 @@ class EthercatIghAdapter final {
   std::array<unsigned int, MaxEntries> offsets_{};
   std::array<unsigned int, MaxEntries> bit_positions_{};
   std::array<std::uint16_t, MaxDomains> domain_wkc_{};
+  std::array<bool, MaxDomains> domain_wc_complete_{};
   std::size_t domain_count_{0U};
   std::size_t binding_count_{0U};
-  std::uint16_t expected_wkc_{0U};
   std::uint16_t observed_wkc_{0U};
   std::uint64_t cycle_sequence_{0U};
   bool activated_{false};

@@ -334,6 +334,18 @@ descriptors. It decodes object index, subindex and bit length into
 yet compared with a device-specific golden profile and does not validate
 cyclic PDO exchange or WKC.
 
+Set `MCA_ECAT_CYCLIC_SIL=1` to build and run the optional
+`mca_ethercat_igh_kickcat_cyclic_sil` executable against the installed IgH
+userspace library. It snapshots the live mapping, verifies it with
+`UseDiscoveredMapping`, registers scalar entries (padding and entries wider
+than 64 bits remain mapped but are not exposed as scalar values), writes zero
+to output entries, and runs cyclic exchange until all slaves report AL OP and
+the domain reports complete WKC for ten consecutive cycles. The pass proves
+cyclic PDO/WKC exchange and AL OP in this simulator setup; it does not enable
+CiA402 motion, validate drive dynamics, or measure DC synchronization timing.
+Build logs and the cyclic acceptance report are stored alongside the SDO
+artifacts.
+
 The harness syntax is checked in the IgH API compile workflow. A green GitHub
 Actions run validates shell syntax only; actual veth/module/frame acceptance
 requires executing the harness on a Linux machine with IgH kernel modules.

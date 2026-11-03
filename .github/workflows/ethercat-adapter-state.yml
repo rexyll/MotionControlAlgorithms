@@ -1,0 +1,21 @@
+name: ethercat-adapter-state
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  portable-state-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile adapter lifecycle smoke test
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow \
+            -Iinclude \
+            tests/hardware/ethercat_adapter_state_smoke.cpp \
+            -o ethercat_adapter_state_smoke
+      - name: Run adapter lifecycle smoke test
+        run: ./ethercat_adapter_state_smoke

@@ -99,6 +99,25 @@ TEST(EthercatIghFakeApi, ReportsSlaveOfflineAndSafeOperationalIndependentlyFromM
   EXPECT_TRUE(adapter.domain_working_counter_complete(7U));
 }
 
+TEST(EthercatIghFakeApi, SlaveDiagnosticReadFailureKeepsCyclicQueueAndSendMoving) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slots(adapter));
+  fake_igh::fail_slave_state(true);
+
+  EXPECT_FALSE(adapter.exchange().ok());
+  const auto& health = adapter.runtime_health();
+  EXPECT_TRUE(health.master_state_valid);
+  ASSERT_EQ(health.slave_count, 1U);
+  EXPECT_TRUE(health.slaves[0].configured);
+  EXPECT_FALSE(health.slaves[0].state_valid);
+  EXPECT_EQ(health.slaves[0].state_error, -1);
+  EXPECT_EQ(fake_igh::queue_calls(), 1U);
+  EXPECT_EQ(fake_igh::send_calls(), 1U);
+}
+
 TEST(EthercatIghFakeApi, DiagnosticReadFailureKeepsCyclicQueueAndSendMoving) {
   fake_igh::reset();
   Adapter::Config config{};

@@ -143,6 +143,25 @@ TEST(EthercatIghFakeApi, QuarantinesTimedOutBusySlotUntilTerminalObservation) {
   EXPECT_TRUE(adapter.enqueue_sdo(read_request(22U, 300U)).ok());
 }
 
+TEST(EthercatIghFakeApi, TimedOutBusySlotIsReleasedAfterTerminalError) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slots(adapter));
+  ASSERT_TRUE(adapter.enqueue_sdo(read_request(23U, 100U)).ok());
+
+  Result result{};
+  ASSERT_TRUE(adapter.poll_sdo(23U, 100U, result).ok());
+  EXPECT_EQ(result.state, mca::hardware::EthercatMailboxResultState::TimedOut);
+
+  fake_igh::fail(0U);
+  ASSERT_TRUE(adapter.poll_sdo(23U, 101U, result).ok());
+  EXPECT_EQ(result.state, mca::hardware::EthercatMailboxResultState::TimedOut);
+  ASSERT_TRUE(adapter.enqueue_sdo(read_request(24U, 300U)).ok());
+  EXPECT_EQ(fake_igh::read_calls(0U), 2U);
+}
+
 TEST(EthercatIghFakeApi, MapsIgHErrorToFailedWithoutInventingAbortCodeAndReusesSlot) {
   fake_igh::reset();
   Adapter::Config config{};

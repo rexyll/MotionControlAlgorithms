@@ -25,8 +25,6 @@ struct EthercatBusHealthConfig {
   }
 };
 
-// Normalized input to the bus-health monitor. Adapters translate their
-// protocol-specific snapshots into this fixed-size, allocation-free sample.
 struct EthercatBusHealthSample {
   std::uint64_t sequence{0U};
   bool diagnostics_valid{false};
@@ -48,8 +46,7 @@ struct EthercatBusHealthSnapshot {
   bool sample_valid{false};
 };
 
-// Stateful debounce is deliberately outside the cyclic adapter. update()
-// performs bounded integer work only and never allocates or blocks.
+// Stateful debounce is deliberately outside the cyclic adapter.
 class EthercatBusHealthMonitor final {
  public:
   explicit EthercatBusHealthMonitor(
@@ -71,24 +68,21 @@ class EthercatBusHealthMonitor final {
     last_sequence_ = sample.sequence;
     snapshot_.sequence = sample.sequence;
     snapshot_.sample_valid = sample.diagnostics_valid;
-    if (!sample.diagnostics_valid) {
-      // An invalid sample breaks both debounce streaks. Recovery must be
-      // confirmed from fresh consecutive samples after diagnostics return.
+
+    // A reported or previously latched safety fault dominates diagnostic
+    // availability: loss of telemetry must never hide a latched fault.
+    if (sample.latched_fault) fault_latched_ = true;
+    if (fault_latched_) {
+      snapshot_.state = EthercatBusHealthState::Fault;
       snapshot_.consecutive_bad_cycles = 0U;
       snapshot_.consecutive_good_cycles = 0U;
-      snapshot_.state = EthercatBusHealthState::Unknown;
       return {};
     }
 
-    if (sample.latched_fault) {
-      snapshot_.state = EthercatBusHealthState::Fault;
+    if (!sample.diagnostics_valid) {
       snapshot_.consecutive_bad_cycles = 0U;
       snapshot_.consecutive_good_cycles = 0U;
-      fault_latched_ = true;
-      return {};
-    }
-    if (fault_latched_) {
-      snapshot_.state = EthercatBusHealthState::Fault;
+      snapshot_.state = EthercatBusHealthState::Unknown;
       return {};
     }
 
@@ -112,8 +106,7 @@ class EthercatBusHealthMonitor final {
 
     snapshot_.consecutive_bad_cycles = 0U;
     if (snapshot_.state == EthercatBusHealthState::Healthy) {
-      snapshot_.consecutive_good_cycles =
-          config_.recovery_after_cycles;
+      snapshot_.consecutive_good_cycles = config_.recovery_after_cycles;
       return {};
     }
 
@@ -125,8 +118,6 @@ class EthercatBusHealthMonitor final {
     return {};
   }
 
-  // A latched safety/drive fault is cleared only by an explicit supervisory
-  // action after the underlying source has confirmed the fault is inactive.
   core::Status clear_latched_fault() noexcept {
     if (!fault_latched_) return {core::StatusCode::RuntimeError};
     fault_latched_ = false;

@@ -332,6 +332,23 @@ TEST(EthercatIghFakeApi, FailedActivationRollbackReleasesUncertainMaster) {
   EXPECT_FALSE(adapter.activate().ok());
 }
 
+TEST(EthercatIghFakeApi, FailedShutdownDeactivationStillReleasesMasterAndReportsError) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slots(adapter));
+  fake_igh::fail_deactivate(true);
+
+  EXPECT_FALSE(adapter.shutdown().ok());
+  EXPECT_EQ(fake_igh::deactivate_calls(), 1U);
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+  EXPECT_EQ(adapter.state().state(), mca::hardware::EthercatMasterState::Offline);
+  EXPECT_TRUE(adapter.shutdown().ok());
+  EXPECT_EQ(fake_igh::deactivate_calls(), 1U);
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+}
+
 TEST(EthercatIghFakeApi, ShutdownDeactivatesAndReleasesMasterExactlyOnce) {
   fake_igh::reset();
   Adapter::Config config{};

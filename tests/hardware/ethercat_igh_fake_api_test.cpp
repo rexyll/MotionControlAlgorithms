@@ -91,6 +91,51 @@ TEST(EthercatIghFakeApi, AppliesSyncManagerPdoAndEntryTreeBeforeRegistration) {
   EXPECT_TRUE(adapter.activate().ok());
 }
 
+TEST(EthercatIghFakeApi, VerifiesDiscoveredSmPdoAndEntryTreeWithoutApplyingConfiguration) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(adapter.request_master().ok());
+  ASSERT_TRUE(adapter.discover().ok());
+  std::array<Adapter::PdoBinding, 128U> bindings{};
+  bindings[0] = {5U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  bindings[1] = {5U, 0x2U, 0x1234U, 0x6040U, 0U, 16U, 7U,
+                 mca::hardware::EthercatPdoDirection::Output};
+  ASSERT_TRUE(adapter.configure(bindings, 2U, two_sm_mapping(),
+      mca::hardware::EthercatPdoMappingPolicy::UseDiscoveredMapping).ok());
+  EXPECT_EQ(fake_igh::pdo_configuration_calls(), 0U);
+  EXPECT_EQ(fake_igh::pdo_registration_calls(), 2U);
+  ASSERT_TRUE(adapter.activate().ok());
+}
+
+TEST(EthercatIghFakeApi, RejectsDiscoveredMappingBitWidthMismatchBeforeRegistration) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(adapter.request_master().ok());
+  ASSERT_TRUE(adapter.discover().ok());
+  std::array<Adapter::PdoBinding, 128U> bindings{};
+  bindings[0] = {5U, 0x2U, 0x1234U, 0x6041U, 0U, 32U, 7U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  bindings[1] = {5U, 0x2U, 0x1234U, 0x6040U, 0U, 16U, 7U,
+                 mca::hardware::EthercatPdoDirection::Output};
+  Adapter::PdoMappingProfile mapping{};
+  ASSERT_TRUE(mapping.add({5U, 0x2U, 0x1234U, 2U, 0x1A00U,
+      0x6041U, 0U, 32U, mca::hardware::EthercatPdoDirection::Input}));
+  ASSERT_TRUE(mapping.add({5U, 0x2U, 0x1234U, 2U, 0x1A00U,
+      0x6064U, 0U, 32U, mca::hardware::EthercatPdoDirection::Input}));
+  ASSERT_TRUE(mapping.add({5U, 0x2U, 0x1234U, 3U, 0x1600U,
+      0x6040U, 0U, 16U, mca::hardware::EthercatPdoDirection::Output}));
+  EXPECT_FALSE(adapter.configure(bindings, 2U, mapping,
+      mca::hardware::EthercatPdoMappingPolicy::UseDiscoveredMapping).ok());
+  EXPECT_EQ(fake_igh::pdo_configuration_calls(), 0U);
+  EXPECT_EQ(fake_igh::pdo_registration_calls(), 0U);
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+}
+
 TEST(EthercatIghFakeApi, PdoConfigurationFailureReleasesPartialMasterBeforeRegistration) {
   fake_igh::reset();
   Adapter::Config config{};

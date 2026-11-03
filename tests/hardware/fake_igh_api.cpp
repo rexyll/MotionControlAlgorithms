@@ -23,15 +23,32 @@ ec_domain domain;
 ec_slave_config slave;
 std::array<ec_sdo_request, 8> requests{};
 std::size_t created = 0U;
+std::size_t create_attempts = 0U;
+std::size_t create_failure = static_cast<std::size_t>(-1);
+std::size_t timeout_failure = static_cast<std::size_t>(-1);
+std::size_t releases = 0U;
+std::size_t deactivations = 0U;
 }
 
 namespace fake_igh {
+void on_release() noexcept { ++releases; created = 0U; }
+void on_deactivate() noexcept { ++deactivations; }
 void reset() noexcept {
   created = 0U;
+  create_attempts = 0U;
+  create_failure = static_cast<std::size_t>(-1);
+  timeout_failure = static_cast<std::size_t>(-1);
+  releases = 0U;
+  deactivations = 0U;
   domain = {};
   requests = {};
 }
 std::size_t request_count() noexcept { return created; }
+std::size_t live_request_count() noexcept { return created; }
+void fail_create_at(std::size_t attempt) noexcept { create_failure = attempt; }
+void fail_timeout_at(std::size_t index) noexcept { timeout_failure = index; }
+std::size_t release_calls() noexcept { return releases; }
+std::size_t deactivate_calls() noexcept { return deactivations; }
 ec_sdo_request_t* request(std::size_t index) noexcept {
   return index < created ? &requests[index] : nullptr;
 }
@@ -68,7 +85,7 @@ std::size_t write_calls(std::size_t index) noexcept {
 
 extern "C" {
 ec_master_t* ecrt_request_master(unsigned int) { return &master; }
-void ecrt_release_master(ec_master_t*) {}
+void ecrt_release_master(ec_master_t*) { fake_igh::on_release(); }
 int ecrt_master(ec_master_t*, ec_master_info_t* info) {
   info->slave_count = 1U; return 0;
 }
@@ -89,10 +106,14 @@ int ecrt_slave_config_reg_pdo_entry(ec_slave_config_t*, uint16_t, uint8_t,
 }
 ec_sdo_request_t* ecrt_slave_config_create_sdo_request(ec_slave_config_t*, uint16_t,
                                                         uint8_t, size_t capacity) {
-  if (created >= requests.size()) return nullptr;
+  const std::size_t attempt = create_attempts++;
+  if (attempt == create_failure || created >= requests.size()) return nullptr;
   auto& r = requests[created++]; r.capacity = capacity; return &r;
 }
-int ecrt_sdo_request_timeout(ec_sdo_request_t*, uint32_t timeout) { return timeout == 0U ? -1 : 0; }
+int ecrt_sdo_request_timeout(ec_sdo_request_t* r, uint32_t timeout) {
+  const auto index = static_cast<std::size_t>(r - requests.data());
+  return timeout == 0U || index == timeout_failure ? -1 : 0;
+}
 uint8_t* ecrt_sdo_request_data(ec_sdo_request_t* r) {
   return r->relocated ? r->relocated_data.data() : r->data.data();
 }
@@ -108,7 +129,7 @@ int ecrt_sdo_request_write(ec_sdo_request_t* r) {
 ec_request_state_t ecrt_sdo_request_state(const ec_sdo_request_t* r) { return r->state; }
 int ecrt_master_set_send_interval(ec_master_t*, size_t) { return 0; }
 int ecrt_master_activate(ec_master_t*) { return 0; }
-int ecrt_master_deactivate(ec_master_t*) { return 0; }
+int ecrt_master_deactivate(ec_master_t*) { fake_igh::on_deactivate(); return 0; }
 uint8_t* ecrt_domain_data(ec_domain_t* d) { return d->data.data(); }
 size_t ecrt_domain_size(const ec_domain_t* d) { return d->data.size(); }
 int ecrt_master_receive(ec_master_t*) { return 0; }

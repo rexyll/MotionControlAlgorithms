@@ -43,6 +43,9 @@ void complete(std::size_t index, const std::uint8_t* data, std::size_t size) noe
 void fail(std::size_t index) noexcept {
   if (index < created) requests[index].state = EC_REQUEST_ERROR;
 }
+void set_busy(std::size_t index) noexcept {
+  if (index < created) requests[index].state = EC_REQUEST_BUSY;
+}
 std::size_t read_calls(std::size_t index) noexcept {
   return index < created ? requests[index].reads : 0U;
 }

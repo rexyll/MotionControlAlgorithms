@@ -14,6 +14,10 @@ readonly KICKCAT_SIMULATOR="${KICKCAT_SIMULATOR:-}"
 readonly KICKCAT_SLAVE_CONFIG="${KICKCAT_SLAVE_CONFIG:-}"
 readonly ETHERCAT_CLI="${ETHERCAT_CLI:-ethercat}"
 readonly COE_READBACK="${MCA_ECAT_COE_READBACK:-0}"
+readonly CYCLIC_SIL="${MCA_ECAT_CYCLIC_SIL:-0}"
+readonly CYCLIC_TIMEOUT_SEC="${MCA_ECAT_CYCLIC_TIMEOUT_SEC:-20}"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 readonly ARTIFACT_DIR="${MCA_ECAT_ARTIFACT_DIR:-/tmp/mca-ethercat-sil-$(date +%Y%m%d-%H%M%S)}"
 
 SIM_PID=""
@@ -235,6 +239,31 @@ if [[ "$COE_READBACK" == "1" ]]; then
     fail "CoE PDO assignment/mapping readback failed"
   fi
   printf '\nPASS: CoE SDO readback of RxPDO/TxPDO assignments and PDO entries.\n'
+fi
+
+if [[ "$CYCLIC_SIL" == "1" ]]; then
+  command -v cmake >/dev/null || fail "cmake is required for cyclic PDO SIL"
+  command -v c++ >/dev/null || fail "a C++ compiler is required for cyclic PDO SIL"
+  readonly CYCLIC_BUILD_DIR="$ARTIFACT_DIR/build-igh-cyclic"
+  if ! cmake -S "$REPO_ROOT" -B "$CYCLIC_BUILD_DIR" \
+      -DMCA_BUILD_TESTS=OFF -DMCA_BUILD_IGH_KICKCAT_SIL=ON \
+      >"$ARTIFACT_DIR/cyclic-cmake-configure.log" 2>&1; then
+    cat "$ARTIFACT_DIR/cyclic-cmake-configure.log" >&2
+    fail "real-IgH cyclic SIL target configuration failed (check ecrt.h, libethercat and Eigen3)"
+  fi
+  if ! cmake --build "$CYCLIC_BUILD_DIR" --target \
+      mca_ethercat_igh_kickcat_cyclic_sil --parallel 2 \
+      >"$ARTIFACT_DIR/cyclic-cmake-build.log" 2>&1; then
+    cat "$ARTIFACT_DIR/cyclic-cmake-build.log" >&2
+    fail "real-IgH cyclic SIL target build failed"
+  fi
+  if ! timeout "$CYCLIC_TIMEOUT_SEC" \
+      "$CYCLIC_BUILD_DIR/mca_ethercat_igh_kickcat_cyclic_sil" \
+      >"$ARTIFACT_DIR/cyclic-pdo-wkc.log" 2>&1; then
+    cat "$ARTIFACT_DIR/cyclic-pdo-wkc.log" >&2
+    fail "cyclic PDO/WKC/OP SIL failed"
+  fi
+  cat "$ARTIFACT_DIR/cyclic-pdo-wkc.log"
 fi
 
 cat "$ARTIFACT_DIR/slaves-verbose.log"

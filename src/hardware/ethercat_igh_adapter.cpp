@@ -426,12 +426,10 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
               static_cast<unsigned int>(entry_count - pdo_entry_begin),
               pdo_entries.data() + pdo_entry_begin};
         }
-        if (pdo_count - sync_pdo_begin > 255U)
-          return fail_configuration({mca::core::StatusCode::ConstraintViolation});
         syncs[sync_count++] = {
             sync_index,
             direction == EthercatPdoDirection::Input ? EC_DIR_INPUT : EC_DIR_OUTPUT,
-            static_cast<std::uint8_t>(pdo_count - sync_pdo_begin),
+            static_cast<unsigned int>(pdo_count - sync_pdo_begin),
             pdos.data() + sync_pdo_begin,
             EC_WD_DEFAULT};
       }

@@ -257,6 +257,18 @@ IgH issue timeout can therefore reject a request that waited too long in the
 queue, but must not be treated as a hard upper bound on a request already in
 `EC_REQUEST_BUSY`.
 
+In IgH 1.6.13, the public request-state translation maps both internal
+`EC_INT_REQUEST_QUEUED` and `EC_INT_REQUEST_BUSY` to
+`EC_REQUEST_BUSY`; only `EC_INT_REQUEST_INIT` maps to
+`EC_REQUEST_UNUSED`. Since `ecrt_sdo_request_read/write()` changes the
+internal state to QUEUED before returning, a successfully enqueued request
+cannot be mistaken for UNUSED by the adapter. The CoE transfer FSM also has
+bounded retry/error transitions for missing or invalid datagrams, after
+which the request becomes terminal ERROR. These source-level guarantees
+support the adapter's terminal-state slot-reuse rule; they do not establish
+real-device recovery timing or guarantee recovery from every kernel/master
+failure mode.
+
 The MCA deadline remains the caller-visible deadline. If it expires while
 IgH is BUSY, report `TimedOut` to the caller but quarantine the backend slot.
 Do not infer cancellation and do not reuse the request object until IgH

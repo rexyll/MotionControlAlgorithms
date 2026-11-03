@@ -263,7 +263,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
           const auto direction = (*mapping)[cursor].direction;
           const std::size_t sync_begin = cursor;
           while (cursor < mapping->size() &&
-                 (*mapping)[cursor].ring_position == station &&
+                 (*mapping)[cursor].ring_position == ring_position &&
                  (*mapping)[cursor].sync_manager == sync_index) ++cursor;
           const std::size_t sync_end = cursor;
 
@@ -283,7 +283,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
             while (pdo_cursor < sync_end &&
                    (*mapping)[pdo_cursor].pdo_index == pdo_index) ++pdo_cursor;
             ec_pdo_info_t actual_pdo{};
-            if (ecrt_master_get_pdo(master_, station, sync_index,
+            if (ecrt_master_get_pdo(master_, ring_position, sync_index,
                                     static_cast<std::uint16_t>(pdo_pos),
                                     &actual_pdo) != 0 ||
                 actual_pdo.index != pdo_index ||
@@ -294,7 +294,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
               const auto& expected = (*mapping)[pdo_begin + entry_pos];
               ec_pdo_entry_info_t actual_entry{};
               if (ecrt_master_get_pdo_entry(
-                      master_, station, sync_index,
+                      master_, ring_position, sync_index,
                       static_cast<std::uint16_t>(pdo_pos),
                       static_cast<std::uint16_t>(entry_pos),
                       &actual_entry) != 0 ||
@@ -314,7 +314,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
         std::size_t discovered_sync_count = 0U;
         for (std::uint8_t sm = 0U; sm < 16U; ++sm) {
           ec_sync_info_t actual_sync{};
-          if (ecrt_master_get_sync_manager(master_, station, sm,
+          if (ecrt_master_get_sync_manager(master_, ring_position, sm,
                                            &actual_sync) == 0 &&
               actual_sync.n_pdos != 0U)
             ++discovered_sync_count;
@@ -330,10 +330,10 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
     std::size_t profile_begin = 0U;
     if (policy == EthercatPdoMappingPolicy::ApplyConfiguredMapping)
     while (profile_begin < mapping->size()) {
-      const auto station = (*mapping)[profile_begin].ring_position;
+      const auto ring_position = (*mapping)[profile_begin].ring_position;
       std::size_t topology_index = state_.topology().slave_count;
       for (std::size_t s = 0; s < state_.topology().slave_count; ++s) {
-        if (state_.topology().slaves[s].ring_position == station) {
+        if (state_.topology().slaves[s].ring_position == ring_position) {
           topology_index = s;
           break;
         }
@@ -351,17 +351,17 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
       std::size_t cursor = profile_begin;
 
       while (cursor < mapping->size() &&
-             (*mapping)[cursor].ring_position == station) {
+             (*mapping)[cursor].ring_position == ring_position) {
         const auto sync_index = (*mapping)[cursor].sync_manager;
         const auto direction = (*mapping)[cursor].direction;
         const std::size_t sync_pdo_begin = pdo_count;
         while (cursor < mapping->size() &&
-               (*mapping)[cursor].ring_position == station &&
+               (*mapping)[cursor].ring_position == ring_position &&
                (*mapping)[cursor].sync_manager == sync_index) {
           const auto pdo_index = (*mapping)[cursor].pdo_index;
           const std::size_t pdo_entry_begin = entry_count;
           while (cursor < mapping->size() &&
-                 (*mapping)[cursor].ring_position == station &&
+                 (*mapping)[cursor].ring_position == ring_position &&
                  (*mapping)[cursor].sync_manager == sync_index &&
                  (*mapping)[cursor].pdo_index == pdo_index) {
             const auto& item = (*mapping)[cursor];

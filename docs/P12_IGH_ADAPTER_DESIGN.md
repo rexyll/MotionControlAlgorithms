@@ -455,7 +455,11 @@ every process-image binding resolves to exactly one profile entry with the
 same ring-position/vendor/product identity, object index/subindex, bit width
 and direction. The profile may additionally contain mapped entries that the
 current process image does not consume; those entries are still included in
-the configured PDO layout.
+the configured PDO layout. Profile entries preserve the full 8-bit EtherCAT
+bit-length field (1..255) and allow standard padding entries (0x0000:00).
+The process-image binding API remains limited to 1..64 bits because its
+read/write value type is `uint64_t`; padding and wider unbound entries remain
+in the configured layout but are never registered as application values.
 
 For each slave, the adapter groups the profile into bounded
 `ec_sync_info_t` -> `ec_pdo_info_t` -> `ec_pdo_entry_info_t` arrays and calls

@@ -48,7 +48,7 @@ enum class EthercatCycleTimingState : std::uint8_t {
 };
 
 struct EthercatSlaveInfo {
-  std::uint16_t station_position{0};
+  std::uint16_t ring_position{0};
   std::uint32_t vendor_id{0};
   std::uint32_t product_code{0};
   std::uint32_t revision{0};
@@ -70,7 +70,7 @@ struct EthercatTopologySnapshot {
       return false;
     for (std::size_t i = 0; i < slave_count; ++i) {
       for (std::size_t j = 0; j < i; ++j) {
-        if (slaves[i].station_position == slaves[j].station_position)
+        if (slaves[i].ring_position == slaves[j].ring_position)
           return false;
       }
     }
@@ -87,7 +87,7 @@ enum class EthercatSlaveHealthState : std::uint8_t {
 };
 
 struct EthercatSlaveHealth {
-  std::uint16_t station_position{0U};
+  std::uint16_t ring_position{0U};
   EthercatSlaveHealthState state{EthercatSlaveHealthState::Unknown};
 };
 
@@ -106,7 +106,7 @@ struct EthercatSlaveHealthSnapshot {
       if (slaves[i].state == EthercatSlaveHealthState::Unknown)
         return false;
       for (std::size_t j = 0; j < i; ++j) {
-        if (slaves[i].station_position == slaves[j].station_position)
+        if (slaves[i].ring_position == slaves[j].ring_position)
           return false;
       }
     }
@@ -128,7 +128,7 @@ constexpr bool ethercat_topology_identity_matches(
     const auto& expected = configured.slaves[i];
     const EthercatSlaveInfo* actual = nullptr;
     for (std::size_t j = 0; j < rediscovered.slave_count; ++j) {
-      if (rediscovered.slaves[j].station_position == expected.station_position) {
+      if (rediscovered.slaves[j].ring_position == expected.ring_position) {
         actual = &rediscovered.slaves[j];
         break;
       }

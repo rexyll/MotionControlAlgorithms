@@ -9,6 +9,8 @@ struct ec_slave_config {};
 struct ec_sdo_request {
   ec_request_state_t state{EC_REQUEST_UNUSED};
   std::array<std::uint8_t, 256> data{};
+  std::array<std::uint8_t, 256> relocated_data{};
+  bool relocated{false};
   std::size_t size{0U};
   std::size_t capacity{0U};
   std::size_t reads{0U};
@@ -36,8 +38,18 @@ ec_sdo_request_t* request(std::size_t index) noexcept {
 void complete(std::size_t index, const std::uint8_t* data, std::size_t size) noexcept {
   if (index >= created) return;
   auto& r = requests[index];
+  r.relocated = false;
   r.size = std::min(size, r.capacity);
   if (data != nullptr && r.size != 0U) std::copy_n(data, r.size, r.data.begin());
+  r.state = EC_REQUEST_SUCCESS;
+}
+void relocate_and_complete(std::size_t index, const std::uint8_t* data, std::size_t size) noexcept {
+  if (index >= created) return;
+  auto& r = requests[index];
+  r.relocated = true;
+  r.size = std::min(size, r.capacity);
+  if (data != nullptr && r.size != 0U)
+    std::copy_n(data, r.size, r.relocated_data.begin());
   r.state = EC_REQUEST_SUCCESS;
 }
 void fail(std::size_t index) noexcept {
@@ -81,7 +93,9 @@ ec_sdo_request_t* ecrt_slave_config_create_sdo_request(ec_slave_config_t*, uint1
   auto& r = requests[created++]; r.capacity = capacity; return &r;
 }
 int ecrt_sdo_request_timeout(ec_sdo_request_t*, uint32_t timeout) { return timeout == 0U ? -1 : 0; }
-uint8_t* ecrt_sdo_request_data(ec_sdo_request_t* r) { return r->data.data(); }
+uint8_t* ecrt_sdo_request_data(ec_sdo_request_t* r) {
+  return r->relocated ? r->relocated_data.data() : r->data.data();
+}
 size_t ecrt_sdo_request_data_size(const ec_sdo_request_t* r) { return r->size; }
 int ecrt_sdo_request_read(ec_sdo_request_t* r) {
   if (r->state == EC_REQUEST_BUSY) return -1;

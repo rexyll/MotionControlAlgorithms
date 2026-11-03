@@ -166,6 +166,8 @@ constexpr bool ethercat_slave_health_transition_allowed(
   return false;
 }
 
+// slave_position is the bounded index into the associated topology snapshot;
+// protocol station addresses are carried separately by adapter bindings/SDO requests.
 struct EthercatPdoEntry {
   std::uint16_t slave_position{0U};
   std::uint16_t domain_id{0U};

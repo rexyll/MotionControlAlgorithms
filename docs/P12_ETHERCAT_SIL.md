@@ -443,12 +443,16 @@ The adapter now supports two deliberately distinct configuration paths:
    process-image entries.
 
 The mapping profile records ring position, vendor/product identity, SM
-index/direction, PDO index, object index/subindex and bit length. It must be
-ordered by station/SM/PDO/entry. Every process-image binding must match exactly
-one declared profile entry in identity, object, width and direction. The
-profile may include mapped entries not consumed by the process image; these
-are still passed to IgH so the declared PDO layout remains complete. Slaves
-appearing only in the profile are also identity-checked and configured.
+index/direction, PDO index, object index/subindex and the full 8-bit PDO entry
+bit length (1..255), including padding entries (0x0000:00). It must be ordered
+by ring position/SM/PDO/entry. Every process-image binding must match exactly
+one non-padding profile entry in identity, object, width and direction. Process
+image bindings remain limited to 1..64 bits because their value API is
+`uint64_t`; wider or padding entries are preserved in the PDO layout but not
+exposed as scalar process-image bindings. The profile may include mapped
+entries not consumed by the process image; these are still passed to IgH so
+the declared PDO layout remains complete. Slaves appearing only in the
+profile are also identity-checked and configured.
 
 The profile-to-IgH translation uses fixed-capacity arrays and does not allocate
 memory. A failed `ecrt_slave_config_pdos()` call releases the partially

@@ -412,10 +412,16 @@ mca::core::Status EthercatIghAdapter<S, D, E>::activate() noexcept {
     domain_data_[d] = ecrt_domain_data(domains_[d]);
     domain_size_[d] = ecrt_domain_size(domains_[d]);
     if (domain_data_[d] == nullptr || domain_size_[d] == 0U) {
-      ecrt_master_deactivate(master_);
+      const int deactivate_result = ecrt_master_deactivate(master_);
       for (std::size_t i = 0; i < domain_count_; ++i) {
         domain_data_[i] = nullptr;
         domain_size_[i] = 0U;
+      }
+      if (deactivate_result != 0) {
+        // A failed rollback leaves the master's activation state uncertain.
+        // Release the complete inactive configuration rather than permitting
+        // a retry against a potentially active master.
+        (void)shutdown();
       }
       return {mca::core::StatusCode::RuntimeError};
     }

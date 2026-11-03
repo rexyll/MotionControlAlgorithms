@@ -103,3 +103,23 @@ TEST(EthercatBusHealthMonitor, RejectsInvalidConfigAndRepeatedSequences) {
 }
 
 }  // namespace
+
+
+TEST(EthercatBusHealthMonitor, KeepsLatchedFaultVisibleWhenDiagnosticsBecomeInvalid) {
+  EthercatBusHealthMonitor monitor({2U, 2U});
+  auto fault = healthy_sample(1U);
+  fault.latched_fault = true;
+  ASSERT_TRUE(monitor.update(fault).ok());
+  ASSERT_EQ(monitor.snapshot().state, EthercatBusHealthState::Fault);
+
+  auto invalid = healthy_sample(2U);
+  invalid.diagnostics_valid = false;
+  ASSERT_TRUE(monitor.update(invalid).ok());
+  EXPECT_FALSE(monitor.snapshot().sample_valid);
+  EXPECT_EQ(monitor.snapshot().state, EthercatBusHealthState::Fault);
+  EXPECT_EQ(monitor.snapshot().consecutive_good_cycles, 0U);
+
+  ASSERT_TRUE(monitor.clear_latched_fault().ok());
+  ASSERT_TRUE(monitor.update(healthy_sample(3U)).ok());
+  EXPECT_EQ(monitor.snapshot().state, EthercatBusHealthState::Recovering);
+}

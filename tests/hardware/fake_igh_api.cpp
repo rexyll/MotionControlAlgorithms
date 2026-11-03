@@ -198,14 +198,14 @@ int ecrt_slave_config_state(const ec_slave_config_t*, ec_slave_config_state_t* s
 }
 int ecrt_master_get_slave(ec_master_t*, uint16_t position, ec_slave_info_t* info) {
   if (position != 0U) return -1;
-  *info = {}; info->position = 5U; info->vendor_id = 0x2U;
+  *info = {}; info->position = 0U; info->vendor_id = 0x2U;
   info->product_code = 0x1234U; info->revision_number = 1U;
   info->serial_number = 7U; info->al_state = EC_AL_STATE_PREOP; return 0;
 }
 ec_domain_t* ecrt_master_create_domain(ec_master_t*) { return &domain; }
 ec_slave_config_t* ecrt_master_slave_config(ec_master_t*, uint16_t, uint16_t position,
                                              uint32_t vendor, uint32_t product) {
-  return position == 5U && vendor == 0x2U && product == 0x1234U ? &slave : nullptr;
+  return position == 0U && vendor == 0x2U && product == 0x1234U ? &slave : nullptr;
 }
 int ecrt_slave_config_pdos(ec_slave_config_t*, unsigned int count,
                             const ec_sync_info_t* syncs) {
@@ -235,7 +235,7 @@ int ecrt_slave_config_pdos(ec_slave_config_t*, unsigned int count,
 }
 int ecrt_master_get_sync_manager(ec_master_t*, uint16_t station,
                                 uint8_t sync_index, ec_sync_info_t* sync) {
-  if (station != 5U || sync == nullptr) return -1;
+  if (station != 0U || sync == nullptr) return -1;
   *sync = {};
   if (sync_index == 2U) {
     sync->index = 2U; sync->dir = EC_DIR_INPUT; sync->n_pdos = 1U;

@@ -285,6 +285,12 @@ mca::core::Status EthercatIghAdapter<S, D, E>::enqueue_sdo(
     return {mca::core::StatusCode::InvalidArgument};
 
   for (std::size_t i = 0; i < sdo_slot_count_; ++i) {
+    if (sdo_slots_[i].occupied &&
+        sdo_slots_[i].request_id == request.request_id)
+      return {mca::core::StatusCode::RuntimeError};
+  }
+
+  for (std::size_t i = 0; i < sdo_slot_count_; ++i) {
     auto& slot = sdo_slots_[i];
     if (slot.occupied || slot.request == nullptr) continue;
     const auto& config = sdo_profile_.slots[i];

@@ -6,6 +6,7 @@
 
 #include "mca/core/types.hpp"
 #include "mca/hardware/ethercat_adapter_state.hpp"
+#include "mca/hardware/ethercat_pdo_mapping_profile.hpp"
 
 #if defined(MCA_ENABLE_IGH)
 #include <ecrt.h>
@@ -21,6 +22,7 @@ class EthercatIghAdapter final {
   using State = EthercatAdapterState<MaxSlaves, MaxDomains, MaxEntries>;
   using Topology = typename State::Topology;
   using Layout = typename State::Layout;
+  using PdoMappingProfile = EthercatPdoMappingProfile<MaxEntries>;
 
   struct Config {
     unsigned int master_index{0U};
@@ -101,6 +103,11 @@ class EthercatIghAdapter final {
   mca::core::Status discover() noexcept;
   mca::core::Status configure(const std::array<PdoBinding, MaxEntries>& bindings,
                               std::size_t binding_count) noexcept;
+  // Applies the declared SyncManager/PDO mapping through ecrt_slave_config_pdos
+  // before registering entries. The profile must cover every binding exactly once.
+  mca::core::Status configure(const std::array<PdoBinding, MaxEntries>& bindings,
+                              std::size_t binding_count,
+                              const PdoMappingProfile& mapping) noexcept;
   // Must be configured after PDO layout and before master activation.
   mca::core::Status configure_sdo_profile(const SdoProfile& profile) noexcept;
   mca::core::Status enqueue_sdo(const SdoRequest& request) noexcept;
@@ -114,6 +121,9 @@ class EthercatIghAdapter final {
   mca::core::Status shutdown() noexcept;
 
  private:
+  mca::core::Status configure_impl(
+      const std::array<PdoBinding, MaxEntries>& bindings,
+      std::size_t binding_count, const PdoMappingProfile* mapping) noexcept;
   static EthercatAlState map_al_state(std::uint8_t state) noexcept;
   [[nodiscard]] std::size_t domain_index(std::uint16_t domain_id) const noexcept;
 

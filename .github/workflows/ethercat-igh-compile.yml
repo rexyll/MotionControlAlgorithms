@@ -1,0 +1,24 @@
+name: ethercat-igh-compile
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  igh-1-6-13-api-compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Eigen
+        run: sudo apt-get update && sudo apt-get install -y libeigen3-dev
+      - name: Fetch pinned IgH 1.6.13 headers
+        run: |
+          git clone --depth 1 --branch 1.6.13 https://gitlab.com/etherlab.org/ethercat.git /tmp/ethercat
+          test "$(git -C /tmp/ethercat rev-parse HEAD)" = "61cc654f5b721ddd54df0f58bdd34106d91c5359"
+      - name: Compile MCA IgH adapter against pinned API
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow \
+            -DMCA_ENABLE_IGH=1 -Iinclude -I/usr/include/eigen3 -I/tmp/ethercat/include \
+            -c src/hardware/ethercat_igh_adapter.cpp -o /tmp/ethercat_igh_adapter.o

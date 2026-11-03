@@ -32,6 +32,16 @@ bool activate_failure = false;
 bool domain_data_failure = false;
 bool zero_size = false;
 bool deactivate_failure = false;
+bool master_state_failure = false;
+bool slave_state_failure = false;
+bool master_link_up = true;
+unsigned int master_responding = 1U;
+unsigned int master_al_states = EC_AL_STATE_OP;
+bool slave_online = true;
+bool slave_operational = true;
+std::uint8_t slave_al_state = EC_AL_STATE_OP;
+std::size_t queues = 0U;
+std::size_t sends = 0U;
 std::size_t activations = 0U;
 }
 
@@ -46,7 +56,11 @@ void reset() noexcept {
   releases = 0U;
   deactivations = 0U;
   activate_failure = false; domain_data_failure = false;
-  zero_size = false; deactivate_failure = false; activations = 0U;
+  zero_size = false; deactivate_failure = false;
+  master_state_failure = false; slave_state_failure = false;
+  master_link_up = true; master_responding = 1U; master_al_states = EC_AL_STATE_OP;
+  slave_online = true; slave_operational = true; slave_al_state = EC_AL_STATE_OP;
+  queues = 0U; sends = 0U; activations = 0U;
   domain = {};
   requests = {};
 }
@@ -58,6 +72,16 @@ void fail_activate(bool enabled) noexcept { activate_failure = enabled; }
 void fail_domain_data(bool enabled) noexcept { domain_data_failure = enabled; }
 void zero_domain_size(bool enabled) noexcept { zero_size = enabled; }
 void fail_deactivate(bool enabled) noexcept { deactivate_failure = enabled; }
+void set_master_state(bool link_up, unsigned int responding, unsigned int al_states) noexcept {
+  master_link_up = link_up; master_responding = responding; master_al_states = al_states;
+}
+void set_slave_state(bool online, bool operational, std::uint8_t al_state) noexcept {
+  slave_online = online; slave_operational = operational; slave_al_state = al_state;
+}
+void fail_master_state(bool enabled) noexcept { master_state_failure = enabled; }
+void fail_slave_state(bool enabled) noexcept { slave_state_failure = enabled; }
+std::size_t queue_calls() noexcept { return queues; }
+std::size_t send_calls() noexcept { return sends; }
 std::size_t activate_calls() noexcept { return activations; }
 void record_activate() noexcept { ++activations; }
 bool activation_fails() noexcept { return activate_failure; }
@@ -107,6 +131,20 @@ void ecrt_release_master(ec_master_t*) { fake_igh::on_release(); }
 int ecrt_master(ec_master_t*, ec_master_info_t* info) {
   info->slave_count = 1U; return 0;
 }
+int ecrt_master_state(const ec_master_t*, ec_master_state_t* state) {
+  if (master_state_failure) return -1;
+  state->slaves_responding = master_responding;
+  state->al_states = master_al_states;
+  state->link_up = master_link_up ? 1U : 0U;
+  return 0;
+}
+int ecrt_slave_config_state(const ec_slave_config_t*, ec_slave_config_state_t* state) {
+  if (slave_state_failure) return -1;
+  state->online = slave_online ? 1U : 0U;
+  state->operational = slave_operational ? 1U : 0U;
+  state->al_state = slave_al_state;
+  return 0;
+}
 int ecrt_master_get_slave(ec_master_t*, uint16_t position, ec_slave_info_t* info) {
   if (position != 0U) return -1;
   *info = {}; info->position = 5U; info->vendor_id = 0x2U;
@@ -155,6 +193,6 @@ int ecrt_domain_process(ec_domain_t*) { return 0; }
 int ecrt_domain_state(const ec_domain_t*, ec_domain_state_t* s) {
   s->working_counter = 1U; s->wc_state = EC_WC_COMPLETE; return 0;
 }
-int ecrt_domain_queue(ec_domain_t*) { return 0; }
-int ecrt_master_send(ec_master_t*) { return 0; }
+int ecrt_domain_queue(ec_domain_t*) { ++queues; return 0; }
+int ecrt_master_send(ec_master_t*) { ++sends; return 0; }
 }

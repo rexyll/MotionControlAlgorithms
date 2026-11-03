@@ -326,7 +326,8 @@ TEST(EthercatIghFakeApi, FailedActivationRollbackReleasesUncertainMaster) {
   EXPECT_EQ(adapter.state().state(), mca::hardware::EthercatMasterState::Offline);
   EXPECT_FALSE(adapter.activate().ok());
 }
-\nTEST(EthercatIghFakeApi, ShutdownDeactivatesAndReleasesMasterExactlyOnce) {
+
+TEST(EthercatIghFakeApi, ShutdownDeactivatesAndReleasesMasterExactlyOnce) {
   fake_igh::reset();
   Adapter::Config config{};
   config.cycle_time_ns = 1'000'000U;

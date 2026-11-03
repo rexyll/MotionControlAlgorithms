@@ -456,11 +456,23 @@ physical slave accepted or activated the mapping.
 
 ### Remaining mapping and protocol gates
 
-The following are not yet implemented or proven:
+The adapter now supports both mapping ownership policies:
 
-- `UseDiscoveredMapping`: read the existing configured SM/PDO/entry layout
-  through the relevant IgH inspection API and compare SM direction, PDO order,
-  object identity and bit length before accepting bindings;
+- `ApplyConfiguredMapping`: apply the explicit profile with
+  `ecrt_slave_config_pdos()`, then register process-image entries;
+- `UseDiscoveredMapping`: inspect the connected slave's SM/PDO/entry
+  hierarchy through `ecrt_master_get_sync_manager()`,
+  `ecrt_master_get_pdo()` and `ecrt_master_get_pdo_entry()`, compare SM
+  direction, PDO order, object index/subindex and bit length, detect additional
+  PDO-bearing SyncManagers, then register only after an exact match.
+
+The discovered-map path is covered by fake-API tests for matching hierarchy
+and bit-width mismatch rejection. The IgH inspection API is a master's view of
+the connected slave's currently provided/proposed mapping; it is not an
+independent CoE SDO readback of the slave's active assignment.
+
+Still open:
+
 - independent CoE readback of assignment objects 0x1C12/0x1C13 and mapping
   objects 0x1600+/0x1A00+ where supported;
 - multi-slave profile tests with sparse station positions and different

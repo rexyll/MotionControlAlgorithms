@@ -80,7 +80,9 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
     const PdoMappingProfile* mapping, EthercatPdoMappingPolicy policy) noexcept {
   if (master_ == nullptr || state_.state() != EthercatMasterState::Discovered ||
       count == 0U || count > E || config_.cycle_time_ns == 0U ||
-      (mapping != nullptr && !mapping->valid()))
+      (mapping != nullptr && !mapping->valid()) ||
+      (policy != EthercatPdoMappingPolicy::UseDiscoveredMapping &&
+       policy != EthercatPdoMappingPolicy::ApplyConfiguredMapping))
     return {mca::core::StatusCode::InvalidArgument};
 
   // IgH has no public per-domain destroy operation. Once a domain or slave

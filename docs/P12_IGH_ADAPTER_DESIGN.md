@@ -490,5 +490,12 @@ The KickCAT test must independently read back the active assignment/mapping
 through CoE objects 0x1C12/0x1C13 and 0x1600+/0x1A00+ where supported. A
 successful `ecrt_slave_config_pdos()` call proves only that IgH accepted the
 configuration request; it is not proof that a physical slave applied the map.
-The next protocol gate is therefore SDO readback plus cyclic PDO/WKC exchange
-against KickCAT, followed separately by real-slave HIL.
+The repository now includes an opt-in real-IgH KickCAT cyclic SIL executable
+(`MCA_BUILD_IGH_KICKCAT_SIL=ON`) and a script switch
+(`MCA_ECAT_CYCLIC_SIL=1`) that builds/runs it against the active simulator.
+It requires all configured slaves to reach AL OP and ten consecutive cycles
+with complete domain WKC while reading inputs and writing zero to outputs.
+The harness is implemented but its execution against the user's Ubuntu
+environment is still pending. Independent CoE SDO readback is separately
+available with `MCA_ECAT_COE_READBACK=1`. Both gates must pass before claiming
+protocol-level KickCAT validation; real-slave HIL remains separate.

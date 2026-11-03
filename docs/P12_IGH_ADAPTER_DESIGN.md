@@ -201,8 +201,18 @@ enqueue path also checks the live IgH request state before submission rather
 than trusting only MCA slot bookkeeping. Shutdown is idempotent and clears
 adapter-owned handles/bookkeeping even if the master pointer was already null.
 
-This is an initial direct adapter implementation, not yet a fully tested
-mailbox queue or a claim of safe behavior under every IgH runtime failure.
+The current implementation has focused Fake C-API regression coverage for
+independent concurrent slots, duplicate live IDs, backend BUSY-slot skipping,
+deadline quarantine, terminal ERROR mapping and slot reuse, SUCCESS-only read
+buffer access (including pointer relocation), response-size bounds, exact-size
+writes, and write-payload copying. Setup rollback is tested for both request
+creation failure and timeout-configuration failure; shutdown is tested for
+deactivation/release exactly once and repeated-call idempotence.
+
+These tests exercise the adapter's state and resource-management logic against
+a deterministic C-API test double. They do not emulate EtherCAT frames, CoE
+protocol behavior, kernel scheduling, NIC DMA, bus timing, or physical slave
+firmware. They are not a substitute for simulator/fixture testing or HIL.
 ### Error and Abort-code observability
 
 The realtime request API exposes only `EC_REQUEST_UNUSED`,

@@ -71,7 +71,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
     const PdoMappingProfile* mapping) noexcept {
   if (master_ == nullptr || state_.state() != EthercatMasterState::Discovered ||
       count == 0U || count > E || config_.cycle_time_ns == 0U ||
-      (mapping != nullptr && (!mapping->valid() || mapping->size() != count)))
+      (mapping != nullptr && !mapping->valid()))
     return {mca::core::StatusCode::InvalidArgument};
 
   // IgH has no public per-domain destroy operation. Once a domain or slave
@@ -139,11 +139,14 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
   if (mapping != nullptr) {
     // A configured mapping must describe exactly the same objects, widths,
     // directions and slave identities as the domain registration list.
-    for (std::size_t i = 0; i < mapping->size(); ++i) {
-      const auto& entry = (*mapping)[i];
+    // The profile may contain entries not consumed by this process image.
+    // Every registered binding must nevertheless resolve to exactly one
+    // declared entry with identical identity, width and direction.
+    for (std::size_t i = 0; i < count; ++i) {
+      const auto& binding = bindings[i];
       std::size_t matches = 0U;
-      for (std::size_t j = 0; j < count; ++j) {
-        const auto& binding = bindings[j];
+      for (std::size_t j = 0; j < mapping->size(); ++j) {
+        const auto& entry = (*mapping)[j];
         if (binding.station_position == entry.station_position &&
             binding.vendor_id == entry.vendor_id &&
             binding.product_code == entry.product_code &&

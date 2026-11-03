@@ -36,7 +36,7 @@ class EthercatIghAdapter final {
   using SdoResult = EthercatSdoResult<kMaxSdoBytes>;
 
   struct SlaveRuntimeHealth {
-    std::uint16_t station_position{0U};
+    std::uint16_t ring_position{0U};
     bool configured{false};
     bool state_valid{false};
     bool online{false};
@@ -70,7 +70,7 @@ class EthercatIghAdapter final {
   };
 
   struct PdoBinding {
-    std::uint16_t station_position{0U};
+    std::uint16_t ring_position{0U};
     std::uint32_t vendor_id{0U};
     std::uint32_t product_code{0U};
     std::uint16_t index{0U};

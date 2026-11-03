@@ -211,6 +211,33 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
   }
 
   if (mapping != nullptr) {
+    // A complete profile can include a slave whose PDOs are not currently
+    // consumed by this process image. Create and identity-check every such
+    // slave configuration before applying any mapping.
+    for (std::size_t i = 0; i < mapping->size(); ++i) {
+      const auto& entry = (*mapping)[i];
+      std::size_t topology_index = state_.topology().slave_count;
+      for (std::size_t t = 0; t < state_.topology().slave_count; ++t) {
+        const auto& slave = state_.topology().slaves[t];
+        if (slave.station_position == entry.station_position) {
+          if (slave.vendor_id != entry.vendor_id ||
+              slave.product_code != entry.product_code)
+            return fail_configuration({mca::core::StatusCode::ConstraintViolation});
+          topology_index = t;
+          break;
+        }
+      }
+      if (topology_index >= state_.topology().slave_count)
+        return fail_configuration({mca::core::StatusCode::ConstraintViolation});
+      if (slave_configs_[topology_index] == nullptr) {
+        slave_configs_[topology_index] = ecrt_master_slave_config(
+            master_, 0U, entry.station_position, entry.vendor_id,
+            entry.product_code);
+      }
+      if (slave_configs_[topology_index] == nullptr)
+        return fail_configuration({mca::core::StatusCode::RuntimeError});
+    }
+
     // Translate the bounded profile into IgH's SyncManager -> PDO -> entry
     // tree per slave. The IgH call consumes the arrays synchronously.
     std::size_t profile_begin = 0U;

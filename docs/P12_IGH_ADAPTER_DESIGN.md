@@ -438,16 +438,46 @@ The validator rejects:
 - a PDO group that reappears after a later PDO group in the same SM.
 
 The profile must be supplied in station/SM/PDO/entry order. It deliberately
-does not call the IgH API and does not claim to discover the physical slave's
-current mapping. This separates deterministic application intent from
-backend application and from independent on-wire verification.
+does not discover the physical slave's current mapping. This separates
+deterministic application intent from backend application and from
+independent on-wire verification.
 
 Portable GTest coverage is in
 `tests/hardware/ethercat_pdo_mapping_profile_test.cpp`; a dependency-light
-smoke test is also run by `ethercat-pdo-image`. The next implementation slice
-must translate a validated profile into IgH `ec_sync_info_t`,
-`ec_pdo_info_t` and `ec_pdo_entry_info_t` arrays, call
-`ecrt_slave_config_pdos()` before PDO registration/master activation, and
-test those calls through the fake IgH API. The KickCAT test must then read back
-the mapping via CoE object 0x1C12/0x1C13 and 0x1600+/0x1A00+ where supported;
-the configured profile alone is not proof of the slave's actual mapping.
+smoke test is also run by `ethercat-pdo-image`.
+
+### IgH profile application
+
+The adapter now exposes an overload of `configure(bindings, count, mapping)`.
+It validates that every process-image binding resolves to exactly one profile
+entry with the same station/vendor/product identity, object index/subindex,
+bit width and direction. The profile may additionally contain mapped entries
+that the current process image does not consume; those entries are still
+included in the configured PDO layout.
+
+For each slave, the adapter groups the profile into bounded
+`ec_sync_info_t` -> `ec_pdo_info_t` -> `ec_pdo_entry_info_t` arrays and calls
+`ecrt_slave_config_pdos()`. Only after all requested slave mappings have been
+applied does it call `ecrt_slave_config_reg_pdo_entry()` for the registered
+process-image entries. The arrays are fixed-capacity and no heap allocation is
+performed. A failed PDO-configuration call releases the partially configured
+inactive master; registration and activation are not attempted afterwards.
+
+The original two-argument `configure(bindings, count)` overload remains
+available and intentionally retains "use the slave's existing mapping"
+semantics. It does not claim to apply or verify a mapping.
+
+Fake IgH tests now inspect the exact Sync Manager direction, PDO index, entry
+index/width and call ordering, cover a complete profile with an unconsumed
+mapped entry, verify mapping/binding mismatch rejection, and inject
+`ecrt_slave_config_pdos()` failure to check rollback. These are API-contract
+unit tests only.
+
+### Remaining protocol verification
+
+The KickCAT test must independently read back the active assignment/mapping
+through CoE objects 0x1C12/0x1C13 and 0x1600+/0x1A00+ where supported. A
+successful `ecrt_slave_config_pdos()` call proves only that IgH accepted the
+configuration request; it is not proof that a physical slave applied the map.
+The next protocol gate is therefore SDO readback plus cyclic PDO/WKC exchange
+against KickCAT, followed separately by real-slave HIL.

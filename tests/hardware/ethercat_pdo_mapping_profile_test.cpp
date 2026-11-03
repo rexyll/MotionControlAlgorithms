@@ -33,10 +33,22 @@ TEST(EthercatPdoMappingProfile, RejectsMixedDirectionWithinSyncManager) {
   EXPECT_FALSE(profile.add({5U, 0x29cU, 0x03b11002U, 2U, 0x1600U, 0x6041U, 0U, 16U, Direction::Input}));
 }
 
-TEST(EthercatPdoMappingProfile, RejectsZeroAndOversizedEntryWidth) {
+TEST(EthercatPdoMappingProfile, RejectsZeroWidthButAcceptsWideUnboundEntries) {
   Profile profile{};
   EXPECT_FALSE(profile.add({5U, 0x29cU, 0x03b11002U, 2U, 0x1600U, 0x6040U, 0U, 0U, Direction::Output}));
-  EXPECT_FALSE(profile.add({5U, 0x29cU, 0x03b11002U, 2U, 0x1600U, 0x6040U, 0U, 65U, Direction::Output}));
+  ASSERT_TRUE(profile.add({5U, 0x29cU, 0x03b11002U, 2U, 0x1600U, 0x6040U, 0U, 128U, Direction::Output}));
+  EXPECT_TRUE(profile.valid());
+}
+
+TEST(EthercatPdoMappingProfile, AcceptsRepeatedPaddingEntriesAndRejectsMalformedPadding) {
+  Profile profile{};
+  ASSERT_TRUE(profile.add({5U, 0x29cU, 0x03b11002U, 2U, 0x1600U, 0x0000U, 0U, 8U, Direction::Output}));
+  ASSERT_TRUE(profile.add({5U, 0x29cU, 0x03b11002U, 2U, 0x1600U, 0x0000U, 0U, 8U, Direction::Output}));
+  ASSERT_TRUE(profile.add({5U, 0x29cU, 0x03b11002U, 2U, 0x1600U, 0x6040U, 0U, 16U, Direction::Output}));
+  EXPECT_TRUE(profile.valid());
+
+  Profile malformed{};
+  EXPECT_FALSE(malformed.add({5U, 0x29cU, 0x03b11002U, 2U, 0x1600U, 0x0000U, 1U, 8U, Direction::Output}));
 }
 
 TEST(EthercatPdoMappingProfile, AcceptsMultipleOrderedPdosWithinOneSyncManager) {

@@ -41,7 +41,9 @@ Request read_request(std::uint64_t id, std::uint64_t deadline) {
 
 TEST(EthercatIghFakeApi, ReadsOnlyAfterSuccessAndCopiesTerminalBuffer) {
   fake_igh::reset();
-  Adapter adapter;
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
   ASSERT_TRUE(activate_with_two_slots(adapter));
   ASSERT_EQ(fake_igh::request_count(), 2U);
 
@@ -66,7 +68,9 @@ TEST(EthercatIghFakeApi, ReadsOnlyAfterSuccessAndCopiesTerminalBuffer) {
 
 TEST(EthercatIghFakeApi, SupportsIndependentConcurrentSlotsAndRejectsDuplicateIds) {
   fake_igh::reset();
-  Adapter adapter;
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
   ASSERT_TRUE(activate_with_two_slots(adapter));
   ASSERT_TRUE(adapter.enqueue_sdo(read_request(10U, 500U)).ok());
   EXPECT_FALSE(adapter.enqueue_sdo(read_request(10U, 600U)).ok());
@@ -77,7 +81,9 @@ TEST(EthercatIghFakeApi, SupportsIndependentConcurrentSlotsAndRejectsDuplicateId
 
 TEST(EthercatIghFakeApi, SkipsUnownedBackendSlotThatIsAlreadyBusy) {
   fake_igh::reset();
-  Adapter adapter;
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
   ASSERT_TRUE(activate_with_two_slots(adapter));
   fake_igh::set_busy(0U);
   ASSERT_TRUE(adapter.enqueue_sdo(read_request(15U, 500U)).ok());
@@ -87,7 +93,9 @@ TEST(EthercatIghFakeApi, SkipsUnownedBackendSlotThatIsAlreadyBusy) {
 
 TEST(EthercatIghFakeApi, QuarantinesTimedOutBusySlotUntilTerminalObservation) {
   fake_igh::reset();
-  Adapter adapter;
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
   ASSERT_TRUE(activate_with_two_slots(adapter));
   ASSERT_TRUE(adapter.enqueue_sdo(read_request(20U, 100U)).ok());
 
@@ -106,7 +114,9 @@ TEST(EthercatIghFakeApi, QuarantinesTimedOutBusySlotUntilTerminalObservation) {
 
 TEST(EthercatIghFakeApi, MapsIgHErrorToFailedWithoutInventingAbortCode) {
   fake_igh::reset();
-  Adapter adapter;
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
   ASSERT_TRUE(activate_with_two_slots(adapter));
   ASSERT_TRUE(adapter.enqueue_sdo(read_request(30U, 500U)).ok());
   fake_igh::fail(0U);
@@ -119,7 +129,9 @@ TEST(EthercatIghFakeApi, MapsIgHErrorToFailedWithoutInventingAbortCode) {
 
 TEST(EthercatIghFakeApi, CopiesFixedSizeWritePayloadBeforeSubmission) {
   fake_igh::reset();
-  Adapter adapter;
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
   ASSERT_TRUE(activate_with_two_slots(adapter));
   Request request{};
   request.request_id = 40U;

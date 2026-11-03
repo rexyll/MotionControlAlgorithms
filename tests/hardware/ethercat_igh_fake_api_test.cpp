@@ -171,6 +171,27 @@ TEST(EthercatIghFakeApi, RejectsReadResponseAboveAdapterCapacity) {
   EXPECT_EQ(fake_igh::read_calls(1U), 0U);
 }
 
+TEST(EthercatIghFakeApi, RejectsSuccessfulReadLargerThanCallerBound) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slots(adapter));
+  ASSERT_NE(fake_igh::request(0U), nullptr);
+  EXPECT_EQ(ecrt_sdo_request_data_size(fake_igh::request(0U)), 4U);
+
+  ASSERT_TRUE(adapter.enqueue_sdo(read_request(33U, 500U, 3U)).ok());
+  const std::array<std::uint8_t, 4U> bytes{{0x10U, 0x20U, 0x30U, 0x40U}};
+  fake_igh::complete(0U, bytes.data(), bytes.size());
+
+  Result result{};
+  ASSERT_TRUE(adapter.poll_sdo(33U, 100U, result).ok());
+  EXPECT_EQ(result.state, mca::hardware::EthercatMailboxResultState::Failed);
+  EXPECT_EQ(result.payload_size, 0U);
+  EXPECT_EQ(result.payload[0], 0U);
+  EXPECT_TRUE(adapter.enqueue_sdo(read_request(34U, 500U, 4U)).ok());
+}
+
 TEST(EthercatIghFakeApi, AcceptsWriteAtExactTransferCapacityAndRejectsOverflow) {
   fake_igh::reset();
   Adapter::Config config{};

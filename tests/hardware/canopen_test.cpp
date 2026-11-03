@@ -144,6 +144,26 @@ TEST(CanopenHeartbeat, ObservesProducerStateAndDetectsTimeoutRecovery) {
   EXPECT_FALSE(monitor.observe(heartbeat, 1300U));
 }
 
+TEST(CanopenHeartbeat, DetectsMissingInitialHeartbeatAfterExplicitStart) {
+  CanopenHeartbeatMonitor monitor(7U, 100U);
+  ASSERT_TRUE(monitor.start(500U));
+  EXPECT_FALSE(monitor.seen());
+  EXPECT_FALSE(monitor.poll(599U));
+  EXPECT_TRUE(monitor.poll(600U));
+  EXPECT_TRUE(monitor.timed_out());
+  EXPECT_FALSE(monitor.seen());
+
+  CanopenCanFrame heartbeat;
+  heartbeat.cob_id = 0x707U;
+  heartbeat.dlc = 1U;
+  heartbeat.data[0] = 0x7FU;
+  EXPECT_TRUE(monitor.observe(heartbeat, 650U));
+  EXPECT_TRUE(monitor.seen());
+  EXPECT_FALSE(monitor.timed_out());
+  EXPECT_FALSE(monitor.poll(749U));
+  EXPECT_TRUE(monitor.poll(750U));
+}
+
 TEST(CanopenEmcy, DecodesErrorRegisterAndPreservesManufacturerBytes) {
   CanopenCanFrame frame;
   frame.cob_id = 0x081U;

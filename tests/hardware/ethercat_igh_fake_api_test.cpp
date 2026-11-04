@@ -729,7 +729,7 @@ TEST(EthercatIghFakeApi, IgHHealthBridgeConfirmsHealthyAfterConsecutiveCompleteC
     ASSERT_TRUE(health.update(adapter).ok());
   }
   EXPECT_EQ(health.snapshot().state,
-            mca::hardware::mca::hardware::EthercatBusHealthState::Healthy);
+            mca::hardware::EthercatBusHealthState::Healthy);
   EXPECT_EQ(health.snapshot().consecutive_good_cycles, 5U);
 }
 
@@ -746,7 +746,7 @@ TEST(EthercatIghFakeApi, IgHHealthBridgeDebouncesLinkLossAndTreatsReadFailureAsU
     ASSERT_TRUE(health.update(adapter).ok());
   }
   ASSERT_EQ(health.snapshot().state,
-            mca::hardware::mca::hardware::EthercatBusHealthState::Healthy);
+            mca::hardware::EthercatBusHealthState::Healthy);
 
   fake_igh::set_master_state(false, 0U, EC_AL_STATE_SAFEOP);
   for (int i = 0; i < 3; ++i) {
@@ -754,13 +754,13 @@ TEST(EthercatIghFakeApi, IgHHealthBridgeDebouncesLinkLossAndTreatsReadFailureAsU
     ASSERT_TRUE(health.update(adapter).ok());
   }
   EXPECT_EQ(health.snapshot().state,
-            mca::hardware::mca::hardware::EthercatBusHealthState::Lost);
+            mca::hardware::EthercatBusHealthState::Lost);
 
   fake_igh::fail_master_state(true);
   EXPECT_FALSE(adapter.exchange().ok());
   ASSERT_TRUE(health.update(adapter).ok());
   EXPECT_EQ(health.snapshot().state,
-            mca::hardware::mca::hardware::EthercatBusHealthState::Unknown);
+            mca::hardware::EthercatBusHealthState::Unknown);
   EXPECT_EQ(health.snapshot().consecutive_bad_cycles, 0U);
 }
 
@@ -777,7 +777,7 @@ TEST(EthercatIghFakeApi, FaultResetFailsClosedWhenWkcDropsBeforePulse) {
     ASSERT_TRUE(health.update(adapter).ok());
   }
   ASSERT_EQ(health.snapshot().state,
-            mca::hardware::mca::hardware::EthercatBusHealthState::Healthy);
+            mca::hardware::EthercatBusHealthState::Healthy);
 
   mca::hardware::Cia402FaultResetSequencer sequencer;
   ASSERT_TRUE(sequencer.begin(0x0008U, true));
@@ -793,11 +793,11 @@ TEST(EthercatIghFakeApi, FaultResetFailsClosedWhenWkcDropsBeforePulse) {
   ASSERT_TRUE(health.update(adapter).ok());
   EXPECT_FALSE(adapter.domain_working_counter_complete(7U));
   ASSERT_EQ(health.snapshot().state,
-            mca::hardware::mca::hardware::EthercatBusHealthState::Degraded);
+            mca::hardware::EthercatBusHealthState::Degraded);
 
   const auto plan =
       sequencer.update(0x0008U, health.snapshot().state ==
-                                     mca::hardware::mca::hardware::EthercatBusHealthState::Healthy);
+                                     mca::hardware::EthercatBusHealthState::Healthy);
   EXPECT_EQ(plan.controlword, 0x0000U);
   EXPECT_FALSE(plan.pulse_sent);
   EXPECT_TRUE(plan.failed);
@@ -817,13 +817,13 @@ TEST(EthercatIghFakeApi, FaultResetAbortsAfterPulseWhenWkcDrops) {
     ASSERT_TRUE(health.update(adapter).ok());
   }
   ASSERT_EQ(health.snapshot().state,
-            mca::hardware::mca::hardware::EthercatBusHealthState::Healthy);
+            mca::hardware::EthercatBusHealthState::Healthy);
 
   mca::hardware::Cia402FaultResetSequencer sequencer;
   ASSERT_TRUE(sequencer.begin(0x0008U, true));
   const auto pulse = sequencer.update(
       0x0008U, health.snapshot().state ==
-                   mca::hardware::mca::hardware::EthercatBusHealthState::Healthy);
+                   mca::hardware::EthercatBusHealthState::Healthy);
   ASSERT_TRUE(pulse.pulse_sent);
   EXPECT_EQ(pulse.controlword, 0x0080U);
   EXPECT_EQ(pulse.phase,
@@ -840,11 +840,11 @@ TEST(EthercatIghFakeApi, FaultResetAbortsAfterPulseWhenWkcDrops) {
   ASSERT_TRUE(health.update(adapter).ok());
   EXPECT_FALSE(adapter.domain_working_counter_complete(7U));
   ASSERT_EQ(health.snapshot().state,
-            mca::hardware::mca::hardware::EthercatBusHealthState::Degraded);
+            mca::hardware::EthercatBusHealthState::Degraded);
 
   const auto plan =
       sequencer.update(0x0008U, health.snapshot().state ==
-                                     mca::hardware::mca::hardware::EthercatBusHealthState::Healthy);
+                                     mca::hardware::EthercatBusHealthState::Healthy);
   EXPECT_EQ(plan.controlword, 0x0000U);
   EXPECT_FALSE(plan.pulse_sent);
   EXPECT_TRUE(plan.failed);

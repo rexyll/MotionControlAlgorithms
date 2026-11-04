@@ -163,22 +163,22 @@ int main() {
         write_value(adapter, cia402.mode_of_operation, kCspMode);
     const auto send_status = adapter.queue_send();
     if (adapter.cycle_sequence() == previous_sequence) {
-      std::cerr << "FAIL: IgH did not send startup cyclic frame\\n";
+      std::cerr << "FAIL: IgH did not send startup cyclic frame\n";
       break;
     }
     if (!safe_outputs_ok) {
-      std::cerr << "FAIL: unable to refresh safe startup PDO image\\n";
+      std::cerr << "FAIL: unable to refresh safe startup PDO image\n";
       break;
     }
     if (transport_healthy(adapter, topology.slave_count)) {
       startup_transport_ready = true;
       std::cout << "Startup transport ready after "
-                << (startup_cycle + 1U) << " cycle(s)\\n";
+                << (startup_cycle + 1U) << " cycle(s)\n";
       break;
     }
     if ((!receive_status.ok() || !send_status.ok()) &&
         adapter.domain_working_counter_complete(1U)) {
-      std::cerr << "FAIL: cyclic exchange failed after domain WKC became complete\\n";
+      std::cerr << "FAIL: cyclic exchange failed after domain WKC became complete\n";
       break;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -227,7 +227,7 @@ int main() {
     if (!transport_healthy(adapter, topology.slave_count)) {
       (void)adapter.queue_send();
       feedback_ok = false;
-      std::cerr << "FAIL: EtherCAT health/WKC interlock lost during PDS sequence\\n";
+      std::cerr << "FAIL: EtherCAT health/WKC interlock lost during PDS sequence\n";
       break;
     }
 
@@ -235,13 +235,13 @@ int main() {
         !read_i32_bits(adapter, cia402.actual_position, hold_position_bits)) {
       (void)adapter.queue_send();
       feedback_ok = false;
-      std::cerr << "FAIL: unable to read CiA 402 status/position feedback\\n";
+      std::cerr << "FAIL: unable to read CiA 402 status/position feedback\n";
       break;
     }
     if (!receive_status.ok()) {
       (void)adapter.queue_send();
       feedback_ok = false;
-      std::cerr << "FAIL: receive/process phase reported an EtherCAT cycle error\\n";
+      std::cerr << "FAIL: receive/process phase reported an EtherCAT cycle error\n";
       break;
     }
     have_hold_position = true;
@@ -250,6 +250,7 @@ int main() {
         observed == Cia402PdsState::FaultReactionActive ||
         observed == Cia402PdsState::Unknown ||
         observed == Cia402PdsState::NotReadyToSwitchOn) {
+      (void)adapter.queue_send();
       feedback_ok = false;
       std::cerr << "FAIL: unexpected PDS state, statusword=0x"
                 << std::hex << last_statusword << std::dec << '\n';
@@ -265,6 +266,7 @@ int main() {
     std::uint64_t mode_raw = 0U;
     if (!adapter.read_pdo(cia402.mode_display, mode_raw).ok() ||
         mode_raw > 0xFFU) {
+      (void)adapter.queue_send();
       feedback_ok = false;
       std::cerr << "FAIL: unable to read mode display\n";
       break;
@@ -279,6 +281,7 @@ int main() {
         write_value(adapter, cia402.target_velocity, 0U) &&
         write_value(adapter, cia402.mode_of_operation, kCspMode);
     if (!writes_ok) {
+      (void)adapter.queue_send();
       feedback_ok = false;
       std::cerr << "FAIL: PDO write failed"
                 << " controlword=0x" << std::hex << plan.controlword

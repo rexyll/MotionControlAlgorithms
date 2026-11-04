@@ -1,5 +1,6 @@
 #include "mca/hardware/ethercat_igh_adapter.hpp"
 #include "mca/hardware/cia402_pdo_bindings.hpp"
+#include "mca/hardware/cia402_pds_controller.hpp"
 
 #include <array>
 #include <chrono>
@@ -8,11 +9,53 @@
 #include <iostream>
 #include <thread>
 
-int main() {
-  using Adapter = mca::hardware::EthercatIghAdapter<16U, 4U, 128U>;
-  using Direction = mca::hardware::EthercatPdoDirection;
-  using Policy = mca::hardware::EthercatPdoMappingPolicy;
+namespace {
 
+using Adapter = mca::hardware::EthercatIghAdapter<16U, 4U, 128U>;
+using Direction = mca::hardware::EthercatPdoDirection;
+using Policy = mca::hardware::EthercatPdoMappingPolicy;
+using mca::hardware::Cia402PdsState;
+
+constexpr std::size_t kMaximumCycles = 5'000U;
+constexpr std::size_t kStableCyclesRequired = 10U;
+constexpr std::uint8_t kCspMode = 8U;
+
+bool transport_healthy(const Adapter& adapter, std::size_t expected_slaves) {
+  const auto& health = adapter.runtime_health();
+  if (!health.valid() || !health.link_up ||
+      health.slaves_responding != expected_slaves ||
+      !adapter.domain_working_counter_complete(1U) ||
+      adapter.observed_wkc() == 0U) {
+    return false;
+  }
+  for (std::size_t i = 0; i < health.slave_count; ++i) {
+    if (!health.slaves[i].configured || !health.slaves[i].online ||
+        !health.slaves[i].operational) return false;
+  }
+  return true;
+}
+
+bool read_u16(Adapter& adapter, std::size_t index, std::uint16_t& value) {
+  std::uint64_t raw = 0U;
+  if (!adapter.read_pdo(index, raw).ok() || raw > 0xFFFFU) return false;
+  value = static_cast<std::uint16_t>(raw);
+  return true;
+}
+
+bool read_i32_bits(Adapter& adapter, std::size_t index, std::uint32_t& bits) {
+  std::uint64_t raw = 0U;
+  if (!adapter.read_pdo(index, raw).ok() || raw > 0xFFFFFFFFULL) return false;
+  bits = static_cast<std::uint32_t>(raw);
+  return true;
+}
+
+bool write_value(Adapter& adapter, std::size_t index, std::uint64_t value) {
+  return adapter.write_pdo(index, value).ok();
+}
+
+}  // namespace
+
+int main() {
   Adapter::Config config{};
   config.master_index = 0U;
   config.cycle_time_ns = 1'000'000U;
@@ -20,30 +63,29 @@ int main() {
   Adapter adapter(config);
 
   if (!adapter.request_master().ok()) {
-    std::cerr << "FAIL: request_master\n";
+    std::cerr << "FAIL: request_master\\n";
     return 1;
   }
   if (!adapter.discover().ok()) {
-    std::cerr << "FAIL: discover\n";
+    std::cerr << "FAIL: discover\\n";
     return 1;
   }
 
   const auto& topology = adapter.topology();
-  if (topology.slave_count == 0U || topology.slave_count > 16U) {
-    std::cerr << "FAIL: unexpected slave count " << topology.slave_count << '\n';
+  if (topology.slave_count != 1U) {
+    std::cerr << "FAIL: CiA 402 SIL requires exactly one drive slave; found "
+              << topology.slave_count << '\\n';
     return 1;
   }
-  std::cout << "Discovered " << topology.slave_count << " slave(s)\n";
-  for (std::size_t i = 0; i < topology.slave_count; ++i) {
-    const auto& slave = topology.slaves[i];
-    std::cout << "  ring_position=" << slave.ring_position
-              << " vendor=0x" << std::hex << slave.vendor_id
-              << " product=0x" << slave.product_code << std::dec << '\n';
-  }
+  std::cout << "Discovered " << topology.slave_count << " slave(s)\\n";
+  const auto& drive = topology.slaves[0];
+  std::cout << "  ring_position=" << drive.ring_position
+            << " vendor=0x" << std::hex << drive.vendor_id
+            << " product=0x" << drive.product_code << std::dec << '\\n';
 
   Adapter::PdoMappingProfile mapping{};
   if (!adapter.discover_pdo_mapping(mapping).ok()) {
-    std::cerr << "FAIL: discover_pdo_mapping (capacity or unsupported map)\n";
+    std::cerr << "FAIL: discover_pdo_mapping (capacity or unsupported map)\\n";
     return 1;
   }
 
@@ -51,11 +93,9 @@ int main() {
   std::size_t binding_count = 0U;
   for (std::size_t i = 0; i < mapping.size(); ++i) {
     const auto& entry = mapping[i];
-    // Keep padding and >64-bit entries in the full configured map, but do not
-    // expose them through the uint64_t scalar process-image API.
     if (entry.index == 0U || entry.bit_length > 64U) continue;
     if (binding_count >= bindings.size()) {
-      std::cerr << "FAIL: process-image binding capacity exceeded\n";
+      std::cerr << "FAIL: process-image binding capacity exceeded\\n";
       return 1;
     }
     bindings[binding_count++] = {
@@ -63,22 +103,15 @@ int main() {
         entry.index, entry.subindex, entry.bit_length, 1U, entry.direction};
   }
   if (binding_count == 0U) {
-    std::cerr << "FAIL: no scalar PDO entries available for process image\n";
+    std::cerr << "FAIL: no scalar PDO entries available for process image\\n";
     return 1;
   }
 
-  // This target is specifically the CiA 402 KickCAT drive SIL. Confirm the
-  // complete typed object set by dictionary identity before any cyclic writes.
-  if (topology.slave_count != 1U) {
-    std::cerr << "FAIL: CiA 402 SIL requires exactly one drive slave\n";
-    return 1;
-  }
   mca::hardware::Cia402PdoBindings cia402{};
-  const auto& drive = topology.slaves[0];
   if (!mca::hardware::resolve_cia402_pdo_bindings(
           bindings, binding_count, drive.ring_position, drive.vendor_id,
           drive.product_code, cia402)) {
-    std::cerr << "FAIL: discovered PDO bindings do not match the typed CiA 402 profile\n";
+    std::cerr << "FAIL: discovered PDO bindings do not match typed CiA 402 profile\\n";
     return 1;
   }
   std::cout << "CiA402 binding indices: controlword=" << cia402.controlword
@@ -88,88 +121,170 @@ int main() {
             << " statusword=" << cia402.statusword
             << " actual_position=" << cia402.actual_position
             << " actual_velocity=" << cia402.actual_velocity
-            << " mode_display=" << cia402.mode_display << '\n';
-
+            << " mode_display=" << cia402.mode_display << '\\n';
   std::cout << "Discovered PDO entries=" << mapping.size()
-            << " scalar bindings=" << binding_count << '\n';
+            << " scalar bindings=" << binding_count << '\\n';
+
   if (!adapter.configure(bindings, binding_count, mapping,
                          Policy::UseDiscoveredMapping).ok()) {
-    std::cerr << "FAIL: UseDiscoveredMapping configure\n";
+    std::cerr << "FAIL: UseDiscoveredMapping configure\\n";
     return 1;
   }
   if (!adapter.activate().ok()) {
-    std::cerr << "FAIL: activate\n";
+    std::cerr << "FAIL: activate\\n";
     return 1;
   }
 
-  std::size_t stable_cycles = 0U;
-  constexpr std::size_t kMaximumCycles = 5'000U;
-  for (std::size_t cycle = 0; cycle < kMaximumCycles; ++cycle) {
-    bool values_ok = true;
-    for (std::size_t i = 0; i < binding_count; ++i) {
-      if (bindings[i].direction == Direction::Output) {
-        if (!adapter.write_pdo(i, 0U).ok()) values_ok = false;
+  // Start with a deterministic, non-motion output image. One successful
+  // exchange is required before any state transition is requested.
+  bool outputs_ok =
+      write_value(adapter, cia402.controlword, 0U) &&
+      write_value(adapter, cia402.target_position, 0U) &&
+      write_value(adapter, cia402.target_velocity, 0U) &&
+      write_value(adapter, cia402.mode_of_operation, kCspMode);
+  auto cycle_status = outputs_ok ? adapter.exchange()
+                                 : mca::core::Status{mca::core::StatusCode::RuntimeError};
+  if (!cycle_status.ok() || !transport_healthy(adapter, topology.slave_count)) {
+    std::cerr << "FAIL: initial healthy EtherCAT exchange not established\\n";
+    (void)adapter.shutdown();
+    return 1;
+  }
+
+  mca::hardware::Cia402ControlRequest request{};
+  request.communication_healthy = true;
+  request.enable_operation = true;
+  std::size_t enabled_stable_cycles = 0U;
+  std::size_t cycles = 1U;
+  std::uint16_t last_statusword = 0U;
+  std::uint8_t last_mode_display = 0U;
+  std::uint32_t hold_position_bits = 0U;
+  bool have_hold_position = false;
+  bool state_machine_passed = false;
+  bool feedback_ok = true;
+
+  for (; cycles < kMaximumCycles; ++cycles) {
+    if (!transport_healthy(adapter, topology.slave_count)) {
+      feedback_ok = false;
+      std::cerr << "FAIL: EtherCAT health/WKC interlock lost during PDS sequence\\n";
+      break;
+    }
+
+    if (!read_u16(adapter, cia402.statusword, last_statusword) ||
+        !read_i32_bits(adapter, cia402.actual_position, hold_position_bits)) {
+      feedback_ok = false;
+      std::cerr << "FAIL: unable to read CiA 402 status/position feedback\\n";
+      break;
+    }
+    have_hold_position = true;
+    const auto observed = mca::hardware::decode_cia402_pds_state(last_statusword);
+    if (observed == Cia402PdsState::Fault ||
+        observed == Cia402PdsState::FaultReactionActive ||
+        observed == Cia402PdsState::Unknown ||
+        observed == Cia402PdsState::NotReadyToSwitchOn) {
+      feedback_ok = false;
+      std::cerr << "FAIL: unexpected PDS state, statusword=0x"
+                << std::hex << last_statusword << std::dec << '\\n';
+      break;
+    }
+
+    mca::hardware::Cia402ControlRequest cycle_request{};
+    cycle_request.communication_healthy = true;
+    cycle_request.enable_operation = true;
+    const auto plan =
+        mca::hardware::plan_cia402_control(last_statusword, cycle_request);
+
+    std::uint64_t mode_raw = 0U;
+    if (!adapter.read_pdo(cia402.mode_display, mode_raw).ok() ||
+        mode_raw > 0xFFU) {
+      feedback_ok = false;
+      std::cerr << "FAIL: unable to read mode display\\n";
+      break;
+    }
+    last_mode_display = static_cast<std::uint8_t>(mode_raw);
+
+    // Hold the current actual position throughout enable sequencing. This
+    // test intentionally proves no commanded displacement.
+    const bool writes_ok =
+        write_value(adapter, cia402.controlword, plan.controlword) &&
+        write_value(adapter, cia402.target_position, hold_position_bits) &&
+        write_value(adapter, cia402.target_velocity, 0U) &&
+        write_value(adapter, cia402.mode_of_operation, kCspMode);
+    if (!writes_ok || !adapter.exchange().ok()) {
+      feedback_ok = false;
+      std::cerr << "FAIL: PDO write or cyclic exchange failed\\n";
+      break;
+    }
+
+    if (plan.operation_enabled && plan.motion_permitted &&
+        last_mode_display == kCspMode) {
+      ++enabled_stable_cycles;
+      if (enabled_stable_cycles >= kStableCyclesRequired) {
+        state_machine_passed = true;
+        ++cycles;
+        break;
       }
-    }
-
-    const auto cycle_status = adapter.exchange();
-    const auto& health = adapter.runtime_health();
-    bool all_operational = health.valid() && health.link_up &&
-        health.slaves_responding == topology.slave_count;
-    for (std::size_t i = 0; i < health.slave_count; ++i) {
-      if (health.slaves[i].configured)
-        all_operational = all_operational && health.slaves[i].operational;
-    }
-
-    bool inputs_readable = true;
-    for (std::size_t i = 0; i < binding_count; ++i) {
-      if (bindings[i].direction == Direction::Input) {
-        std::uint64_t value = 0U;
-        if (!adapter.read_pdo(i, value).ok()) inputs_readable = false;
-      }
-    }
-
-    const bool wkc_complete =
-        adapter.domain_working_counter_complete(1U) &&
-        adapter.observed_wkc() > 0U;
-    if (cycle_status.ok() && values_ok && inputs_readable &&
-        all_operational && wkc_complete) {
-      ++stable_cycles;
-      if (stable_cycles >= 10U) break;
     } else {
-      stable_cycles = 0U;
+      enabled_stable_cycles = 0U;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 
-  const auto& final_health = adapter.runtime_health();
-  const bool passed = stable_cycles >= 10U &&
-      adapter.domain_working_counter_complete(1U) &&
-      adapter.observed_wkc() > 0U;
+  // Explicitly remove voltage after the state-machine check; do not leave the
+  // simulated drive enabled when this acceptance executable exits.
+  const bool disable_written = write_value(adapter, cia402.controlword, 0U) &&
+      write_value(adapter, cia402.target_velocity, 0U) &&
+      (have_hold_position
+           ? write_value(adapter, cia402.target_position, hold_position_bits)
+           : true);
+  bool disabled_feedback = false;
+  if (disable_written) {
+    for (std::size_t i = 0; i < 100U; ++i) {
+      if (!adapter.exchange().ok() ||
+          !transport_healthy(adapter, topology.slave_count)) break;
+      std::uint16_t statusword = 0U;
+      if (read_u16(adapter, cia402.statusword, statusword) &&
+          mca::hardware::decode_cia402_pds_state(statusword) ==
+              Cia402PdsState::SwitchOnDisabled) {
+        disabled_feedback = true;
+        break;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+  }
+
+  const auto final_health = adapter.runtime_health();
+  const bool transport_passed = transport_healthy(adapter, topology.slave_count);
   std::cout << "cycles=" << adapter.cycle_sequence()
-            << " stable_cycles=" << stable_cycles
-            << " observed_wkc=" << adapter.observed_wkc()
-            << " domain_complete="
-            << adapter.domain_working_counter_complete(1U) << '\n';
+            << " enabled_stable_cycles=" << enabled_stable_cycles
+            << " statusword=0x" << std::hex << last_statusword
+            << " mode_display=0x" << static_cast<unsigned int>(last_mode_display)
+            << std::dec
+            << " wkc=" << adapter.observed_wkc()
+            << " domain_complete=" << adapter.domain_working_counter_complete(1U)
+            << " disabled_feedback=" << disabled_feedback << '\\n';
   for (std::size_t i = 0; i < final_health.slave_count; ++i) {
     const auto& slave = final_health.slaves[i];
     std::cout << "slave ring_position=" << slave.ring_position
               << " online=" << slave.online
               << " operational=" << slave.operational
               << " al_state=0x" << std::hex
-              << static_cast<unsigned int>(slave.al_state) << std::dec << '\n';
+              << static_cast<unsigned int>(slave.al_state) << std::dec << '\\n';
   }
 
   const auto shutdown_status = adapter.shutdown();
   if (!shutdown_status.ok()) {
-    std::cerr << "FAIL: shutdown\n";
+    std::cerr << "FAIL: shutdown\\n";
     return 1;
   }
-  if (!passed) {
-    std::cerr << "FAIL: cyclic PDO/WKC/OP acceptance not reached\n";
+  if (!feedback_ok || !state_machine_passed || !disabled_feedback ||
+      !transport_passed) {
+    std::cerr << "FAIL: CiA 402 state-machine closed-loop acceptance not reached\\n";
     return 1;
   }
-  std::cout << "PASS: IgH adapter discovered mapping, verified it, exchanged "
-               "cyclic PDO data with complete WKC and all slaves OP.\n";
+  std::cout << "PASS: EtherCAT transport healthy; CiA 402 reached Operation Enabled "
+               "from statusword feedback in CSP mode, held position unchanged, "
+               "then returned to Switch On Disabled.\\n";
+  std::cout << "NOTE: KickCAT echoes mode display; this does not validate a real "
+               "drive's mode acceptance, motion response, DC timing or HIL safety.\\n";
   return 0;
 }

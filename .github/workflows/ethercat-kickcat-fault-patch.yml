@@ -18,6 +18,19 @@ jobs:
       - name: Validate and apply DS402 fault-injection patch
         run: |
           python3 scripts/ethercat_sil/apply_kickcat_ds402_fault_patch.py /tmp/KickCAT
+          # Validate the first application itself; a second invocation must only
+          # prove idempotence and must not be required to upgrade v1 semantics.
+          python3 - <<'PY'
+          from pathlib import Path
+          header = Path("/tmp/KickCAT/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h").read_text()
+          app = Path("/tmp/KickCAT/lib/simulation/src/DeviceApp.cc").read_text()
+          assert "fault_after_cycles" in header
+          assert "fault_reaction_cycles" in app
+          assert "status_word_value_ == OPERATION_ENABLED" in header
+          assert "(control_word & 0x000FU) == 0x000FU" in header
+          assert "const bool fault_reset_edge =" in header
+          assert "++cycle_count_;" in header
+          PY
           python3 scripts/ethercat_sil/apply_kickcat_ds402_fault_patch.py /tmp/KickCAT
           git -C /tmp/KickCAT diff --check
           grep -q 'fault_after_cycles' /tmp/KickCAT/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h

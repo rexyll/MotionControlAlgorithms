@@ -63,7 +63,15 @@ mca::core::Status EthercatIghAdapter<S, D, E>::discover_pdo_mapping(
   for (std::size_t slave_index = 0; slave_index < topology.slave_count;
        ++slave_index) {
     const auto& slave = topology.slaves[slave_index];
-    for (std::uint8_t sm = 0U; sm < EC_MAX_SYNC_MANAGERS; ++sm) {
+    ec_slave_info_t slave_info{};
+    if (ecrt_master_get_slave(master_, slave.ring_position, &slave_info) != 0 ||
+        slave_info.sync_count > EC_MAX_SYNC_MANAGERS)
+      return {mca::core::StatusCode::RuntimeError};
+
+    // IgH reports the number of implemented Sync Managers per slave. Querying
+    // the global maximum probes non-existent SMs and makes libethercat emit
+    // misleading EINVAL diagnostics for otherwise healthy slaves.
+    for (std::uint8_t sm = 0U; sm < slave_info.sync_count; ++sm) {
       ec_sync_info_t sync{};
       if (ecrt_master_get_sync_manager(master_, slave.ring_position, sm,
                                        &sync) != 0)
@@ -311,6 +319,10 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
       std::size_t profile_begin = 0U;
       while (profile_begin < mapping->size()) {
         const auto ring_position = (*mapping)[profile_begin].ring_position;
+        ec_slave_info_t slave_info{};
+        if (ecrt_master_get_slave(master_, ring_position, &slave_info) != 0 ||
+            slave_info.sync_count > EC_MAX_SYNC_MANAGERS)
+          return fail_configuration({mca::core::StatusCode::RuntimeError});
         std::size_t cursor = profile_begin;
         std::size_t expected_sync_count = 0U;
         while (cursor < mapping->size() &&
@@ -368,7 +380,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
 
         // Detect additional PDO-bearing SMs not declared by the profile.
         std::size_t discovered_sync_count = 0U;
-        for (std::uint8_t sm = 0U; sm < EC_MAX_SYNC_MANAGERS; ++sm) {
+        for (std::uint8_t sm = 0U; sm < slave_info.sync_count; ++sm) {
           ec_sync_info_t actual_sync{};
           if (ecrt_master_get_sync_manager(master_, ring_position, sm,
                                            &actual_sync) == 0 &&

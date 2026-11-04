@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include "fake_igh_api.hpp"
+#include "mca/hardware/cia402_pds_controller.hpp"
 #include "mca/hardware/ethercat_igh_adapter.hpp"
 #include "mca/hardware/ethercat_igh_health_monitor.hpp"
 
@@ -737,6 +738,81 @@ TEST(EthercatIghFakeApi, IgHHealthBridgeDebouncesLinkLossAndTreatsReadFailureAsU
   EXPECT_EQ(health.snapshot().state,
             mca::hardware::EthercatBusHealthState::Unknown);
   EXPECT_EQ(health.snapshot().consecutive_bad_cycles, 0U);
+}
+
+TEST(EthercatIghFakeApi, FaultResetFailsClosedWhenWkcDropsBeforePulse) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slots(adapter));
+
+  mca::hardware::EthercatIghHealthMonitor<16U, 4U, 128U> health;
+  for (std::size_t i = 0U; i < 5U; ++i) {
+    ASSERT_TRUE(adapter.exchange().ok());
+    ASSERT_TRUE(health.update(adapter).ok());
+  }
+  ASSERT_EQ(health.snapshot().state,
+            mca::hardware::EthercatBusHealthState::Healthy);
+
+  mca::hardware::Cia402FaultResetSequencer sequencer;
+  ASSERT_TRUE(sequencer.begin(0x0008U, true));
+
+  fake_igh::set_domain_working_counter_complete(false);
+  ASSERT_TRUE(adapter.exchange().ok());
+  ASSERT_TRUE(health.update(adapter).ok());
+  EXPECT_FALSE(adapter.domain_working_counter_complete(7U));
+  ASSERT_EQ(health.snapshot().state,
+            mca::hardware::EthercatBusHealthState::Degraded);
+
+  const auto plan =
+      sequencer.update(0x0008U, health.snapshot().state ==
+                                     mca::hardware::EthercatBusHealthState::Healthy);
+  EXPECT_EQ(plan.controlword, 0x0000U);
+  EXPECT_FALSE(plan.pulse_sent);
+  EXPECT_TRUE(plan.failed);
+  EXPECT_EQ(plan.phase, mca::hardware::Cia402FaultResetPhase::Failed);
+}
+
+TEST(EthercatIghFakeApi, FaultResetAbortsAfterPulseWhenWkcDrops) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slots(adapter));
+
+  mca::hardware::EthercatIghHealthMonitor<16U, 4U, 128U> health;
+  for (std::size_t i = 0U; i < 5U; ++i) {
+    ASSERT_TRUE(adapter.exchange().ok());
+    ASSERT_TRUE(health.update(adapter).ok());
+  }
+  ASSERT_EQ(health.snapshot().state,
+            mca::hardware::EthercatBusHealthState::Healthy);
+
+  mca::hardware::Cia402FaultResetSequencer sequencer;
+  ASSERT_TRUE(sequencer.begin(0x0008U, true));
+  const auto pulse = sequencer.update(
+      0x0008U, health.snapshot().state ==
+                   mca::hardware::EthercatBusHealthState::Healthy);
+  ASSERT_TRUE(pulse.pulse_sent);
+  EXPECT_EQ(pulse.controlword, 0x0080U);
+  EXPECT_EQ(pulse.phase,
+            mca::hardware::Cia402FaultResetPhase::AwaitingFaultClear);
+
+  fake_igh::set_domain_working_counter_complete(false);
+  ASSERT_TRUE(adapter.exchange().ok());
+  ASSERT_TRUE(health.update(adapter).ok());
+  EXPECT_FALSE(adapter.domain_working_counter_complete(7U));
+  ASSERT_EQ(health.snapshot().state,
+            mca::hardware::EthercatBusHealthState::Degraded);
+
+  const auto plan =
+      sequencer.update(0x0008U, health.snapshot().state ==
+                                     mca::hardware::EthercatBusHealthState::Healthy);
+  EXPECT_EQ(plan.controlword, 0x0000U);
+  EXPECT_FALSE(plan.pulse_sent);
+  EXPECT_TRUE(plan.failed);
+  EXPECT_EQ(plan.phase, mca::hardware::Cia402FaultResetPhase::Failed);
 }
 
 TEST(EthercatIghFakeApi, SplitsReceiveProcessFromQueueAndSendPhases) {

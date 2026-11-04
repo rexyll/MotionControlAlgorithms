@@ -59,6 +59,7 @@ typedef struct {
   uint32_t revision_number;
   uint32_t serial_number;
   uint8_t al_state;
+  uint8_t sync_count;
 } ec_slave_info_t;
 typedef struct {
   unsigned int working_counter;

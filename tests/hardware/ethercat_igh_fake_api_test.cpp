@@ -28,6 +28,30 @@ bool activate_with_two_slots(Adapter& adapter) {
   return adapter.activate().ok();
 }
 
+bool activate_with_two_slaves(Adapter& adapter, bool shared_domain = false) {
+  fake_igh::set_slave_count(2U);
+  if (!adapter.request_master().ok() || !adapter.discover().ok()) return false;
+  std::array<Adapter::PdoBinding, 128U> bindings{};
+  if (shared_domain) {
+    bindings[0] = {0U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
+                   mca::hardware::EthercatPdoDirection::Input};
+    bindings[1] = {1U, 0x2U, 0x1234U, 0x6040U, 0U, 16U, 7U,
+                   mca::hardware::EthercatPdoDirection::Output};
+    if (!adapter.configure(bindings, 2U).ok()) return false;
+  } else {
+    bindings[0] = {0U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
+                   mca::hardware::EthercatPdoDirection::Input};
+    bindings[1] = {0U, 0x2U, 0x1234U, 0x6040U, 0U, 16U, 7U,
+                   mca::hardware::EthercatPdoDirection::Output};
+    bindings[2] = {1U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 8U,
+                   mca::hardware::EthercatPdoDirection::Input};
+    bindings[3] = {1U, 0x2U, 0x1234U, 0x6040U, 0U, 16U, 8U,
+                   mca::hardware::EthercatPdoDirection::Output};
+    if (!adapter.configure(bindings, 4U).ok()) return false;
+  }
+  return adapter.activate().ok();
+}
+
 Request read_request(std::uint64_t id, std::uint64_t deadline,
                      std::size_t max_response_size = 4U) {
   Request r{};
@@ -825,6 +849,109 @@ TEST(EthercatIghFakeApi, FaultResetAbortsAfterPulseWhenWkcDrops) {
   EXPECT_FALSE(plan.pulse_sent);
   EXPECT_TRUE(plan.failed);
   EXPECT_EQ(plan.phase, mca::hardware::Cia402FaultResetPhase::Failed);
+}
+
+TEST(EthercatIghFakeApi, IsolatesOneSlaveLossAndRecoversWithoutLosingPeer) {
+  fake_igh::reset();
+  Adapter::Config adapter_config{};
+  adapter_config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(adapter_config);
+  ASSERT_TRUE(activate_with_two_slaves(adapter));
+
+  mca::hardware::EthercatIghSlaveHealthMonitor<16U, 4U, 128U> slave_health(
+      {1U, 2U});
+  mca::hardware::EthercatIghHealthMonitor<16U, 4U, 128U> bus_health({1U, 1U});
+
+  ASSERT_TRUE(adapter.exchange().ok());
+  ASSERT_TRUE(slave_health.update(adapter).ok());
+  ASSERT_TRUE(bus_health.update(adapter).ok());
+  ASSERT_TRUE(slave_health.snapshot().valid());
+  ASSERT_EQ(slave_health.snapshot().slave_count, 2U);
+  EXPECT_EQ(slave_health.snapshot().slaves[0].ring_position, 0U);
+  EXPECT_EQ(slave_health.snapshot().slaves[0].state,
+            EthercatSlaveHealthState::Present);
+  EXPECT_EQ(slave_health.snapshot().slaves[1].ring_position, 1U);
+  EXPECT_EQ(slave_health.snapshot().slaves[1].state,
+            EthercatSlaveHealthState::Present);
+  EXPECT_EQ(bus_health.snapshot().state, EthercatBusHealthState::Healthy);
+
+  fake_igh::set_slave_state_at(0U, false, false, EC_AL_STATE_SAFEOP);
+  fake_igh::set_master_state(true, 1U, EC_AL_STATE_OP);
+  fake_igh::set_domain_working_counter_complete_at(0U, false);
+  EXPECT_FALSE(adapter.exchange().ok());
+  ASSERT_TRUE(slave_health.update(adapter).ok());
+  ASSERT_TRUE(bus_health.update(adapter).ok());
+
+  ASSERT_TRUE(slave_health.snapshot().valid());
+  EXPECT_EQ(slave_health.snapshot().slaves[0].state,
+            EthercatSlaveHealthState::Lost);
+  EXPECT_EQ(slave_health.snapshot().slaves[1].state,
+            EthercatSlaveHealthState::Present);
+  EXPECT_EQ(bus_health.snapshot().state, EthercatBusHealthState::Lost);
+  EXPECT_TRUE(adapter.domain_working_counter_complete(8U));
+
+  fake_igh::set_slave_state_at(0U, true, true, EC_AL_STATE_OP);
+  fake_igh::set_master_state(true, 2U, EC_AL_STATE_OP);
+  fake_igh::set_domain_working_counter_complete_at(0U, true);
+  ASSERT_TRUE(adapter.exchange().ok());
+  ASSERT_TRUE(slave_health.update(adapter).ok());
+  EXPECT_EQ(slave_health.snapshot().slaves[0].state,
+            EthercatSlaveHealthState::Recovering);
+  EXPECT_EQ(slave_health.snapshot().slaves[1].state,
+            EthercatSlaveHealthState::Present);
+
+  ASSERT_TRUE(adapter.exchange().ok());
+  ASSERT_TRUE(slave_health.update(adapter).ok());
+  EXPECT_EQ(slave_health.snapshot().slaves[0].state,
+            EthercatSlaveHealthState::Present);
+  EXPECT_EQ(slave_health.snapshot().slaves[1].state,
+            EthercatSlaveHealthState::Present);
+}
+
+TEST(EthercatIghFakeApi, RejectsSharedDomainForPerSlaveWkcIsolation) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slaves(adapter, true));
+
+  mca::hardware::EthercatIghSlaveHealthMonitor<16U, 4U, 128U> slave_health;
+  ASSERT_TRUE(adapter.exchange().ok());
+  EXPECT_EQ(slave_health.update(adapter).code,
+            mca::core::StatusCode::ConstraintViolation);
+  EXPECT_FALSE(slave_health.snapshot().valid());
+}
+
+TEST(EthercatIghFakeApi, KeepsSlaveFaultLatchedUntilExplicitClearAndRecovery) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slaves(adapter));
+
+  mca::hardware::EthercatIghSlaveHealthMonitor<16U, 4U, 128U> slave_health(
+      {1U, 2U});
+  ASSERT_TRUE(adapter.exchange().ok());
+  ASSERT_TRUE(slave_health.update(adapter).ok());
+  ASSERT_TRUE(slave_health.latch_fault(1U));
+  EXPECT_EQ(slave_health.snapshot().slaves[1].state,
+            EthercatSlaveHealthState::Fault);
+
+  ASSERT_TRUE(adapter.exchange().ok());
+  ASSERT_TRUE(slave_health.update(adapter).ok());
+  EXPECT_EQ(slave_health.snapshot().slaves[1].state,
+            EthercatSlaveHealthState::Fault);
+  EXPECT_FALSE(slave_health.clear_fault(0U));
+  ASSERT_TRUE(slave_health.clear_fault(1U));
+
+  ASSERT_TRUE(adapter.exchange().ok());
+  ASSERT_TRUE(slave_health.update(adapter).ok());
+  EXPECT_EQ(slave_health.snapshot().slaves[1].state,
+            EthercatSlaveHealthState::Recovering);
+  ASSERT_TRUE(adapter.exchange().ok());
+  ASSERT_TRUE(slave_health.update(adapter).ok());
+  EXPECT_EQ(slave_health.snapshot().slaves[1].state,
+            EthercatSlaveHealthState::Present);
 }
 
 TEST(EthercatIghFakeApi, SplitsReceiveProcessFromQueueAndSendPhases) {

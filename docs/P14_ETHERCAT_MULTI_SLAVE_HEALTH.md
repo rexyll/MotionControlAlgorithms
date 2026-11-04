@@ -77,31 +77,73 @@ The multi-station tests cover:
 4. Rejection of a process-data domain shared by two stations.
 5. An explicit per-station Fault latch that survives good transport feedback
    and only returns through explicit clear plus healthy recovery samples.
+6. A latched Fault remains Fault when the IgH slave-diagnostic read temporarily
+   fails; non-faulted stations become Unknown until diagnostics recover.
 
-These are API/fake-backend tests. They do not yet constitute multi-slave
-wire-level SIL. The existing
-`run_kickcat_igh_veth_discovery.sh` acceptance runner still enforces exactly
-one discovered slave and the cyclic CiA402 SIL harness currently maps one
-drive. A separate multi-slave cyclic harness must be added before claiming
-multi-drive wire-level acceptance.
+These are API/fake-backend tests. They do not constitute multi-slave wire-level
+SIL. Linux CI #1854 at commit `3120a71a` reported 758/758 core tests passed,
+including the first five cases above. The diagnostic-read latch regression was
+added after that run and is covered by the later CI #1856.
 
-## KickCAT simulator capability and next acceptance gate
+## Multi-slave veth runner and baseline SIL
 
 The pinned KickCAT revision
 `cb2e1a192ac11ffaa58f08945053b8129abf94cb` supports multiple slave JSON
-configuration files after `-s/--slaves`, and supports an optional topology
-file for explicit slave-to-slave links. The current one-slave runner does not
-yet expose these options. The next wire-level gate is to run two DS402 simulator
-instances on one veth EtherCAT chain, map each drive into its own domain, inject
-a fault into only one drive, and prove that:
+configuration files after `-s/--slaves`. The veth runner now accepts
+`KICKCAT_SLAVE_CONFIGS` as a space-separated list and verifies the exact
+expected slave count plus vendor/product/revision identity on every station.
+CoE PDO assignment/entry readback runs at each IgH ring position.
+
+The new `mca_ethercat_igh_kickcat_multi_slave_cyclic_sil` target independently
+maps each discovered drive to a dedicated process-data domain
+(`domain_id = topology_slot + 1`). It resolves the CiA 402 PDO binding set
+separately by ring position, brings both drives to stable Operation Enabled
+while holding each actual position, then disables both and checks feedback.
+The runner selects this target when exactly two config files are supplied.
+The existing fault-injection mode remains deliberately restricted to one
+slave until independent multi-drive fault sequencing is implemented.
+
+Run the two-drive baseline with the same known-good DS402 simulator JSON twice.
+KickCAT creates two distinct simulated slaves from the two config arguments;
+the config file remains in the directory containing its relative ESI file:
+
+```bash
+export KICKCAT_SOURCE_DIR="$HOME/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT"
+sudo -E env \
+  KICKCAT_SIMULATOR="$KICKCAT_SOURCE_DIR/build/simulation/network_simulator" \
+  KICKCAT_SLAVE_CONFIGS="$KICKCAT_SOURCE_DIR/simulation/slave_configs/ecat402-drive.json $KICKCAT_SOURCE_DIR/simulation/slave_configs/ecat402-drive.json" \
+  MCA_ECAT_EXPECTED_SLAVES=2 \
+  MCA_ECAT_COE_READBACK=1 \
+  MCA_ECAT_DISABLE_EOE=1 \
+  MCA_ECAT_CYCLIC_SIL=1 \
+  MCA_ECAT_CYCLIC_TIMEOUT_SEC=60 \
+  bash scripts/ethercat_sil/run_kickcat_igh_veth_discovery.sh
+```
+
+This is the next user-side wire-level gate. Expected acceptance is two
+independently discovered ring positions, CoE readback at both positions,
+two independent complete-WKC domains, both drives reaching stable Operation
+Enabled from their own statusword feedback, then both returning to
+Switch On Disabled. The script selects the multi-slave target automatically
+from `MCA_ECAT_EXPECTED_SLAVES=2`.
+
+## Independent multi-drive fault gate (not yet implemented)
+
+After the baseline two-drive run is confirmed, extend the fixture runner and
+cyclic test to trigger one drive at a time with different deterministic
+`fault_after_cycles` and `fault_reaction_cycles` values. The final acceptance
+must prove:
 
 - both slaves are independently discovered and identified by ring position;
-- both reach Operation Enabled from their own statusword feedback;
-- the injected drive reaches Fault Reaction Active/Fault while the peer remains
-  Operation Enabled with complete domain WKC;
-- the faulted drive's explicit reset does not re-enable it;
-- the unaffected peer remains operational throughout;
+- the selected drive reaches Fault Reaction Active/Fault while the peer remains
+  Operation Enabled with its own complete domain WKC;
+- the faulted drive's explicit reset emits exactly one `0x0080` pulse and does
+  not re-enable that drive;
+- the unaffected peer remains Operation Enabled throughout the first drive's
+  fault and reset;
+- the second drive can then be faulted/reset independently;
 - master link, each slave's AL state and each domain's WKC are logged separately.
 
-A successful multi-slave fake-backend test must not be reported as this
-wire-level gate. Real drive/HIL acceptance remains a separate later phase.
+A successful multi-slave fake-backend test or two-drive baseline does not prove
+independent multi-drive fault recovery. Real drive/HIL acceptance remains a
+separate later phase.

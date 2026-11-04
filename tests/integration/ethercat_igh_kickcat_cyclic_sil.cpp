@@ -154,23 +154,31 @@ int main() {
   for (std::size_t startup_cycle = 0U;
        startup_cycle < kStartupCyclesMaximum; ++startup_cycle) {
     const auto previous_sequence = adapter.cycle_sequence();
-    const auto cycle_status = adapter.exchange();
+    const auto receive_status = adapter.receive_process();
+    // Refresh the safe output image after receive/process, before queue/send.
+    const bool safe_outputs_ok =
+        write_value(adapter, cia402.controlword, 0U) &&
+        write_value(adapter, cia402.target_position, 0U) &&
+        write_value(adapter, cia402.target_velocity, 0U) &&
+        write_value(adapter, cia402.mode_of_operation, kCspMode);
+    const auto send_status = adapter.queue_send();
     if (adapter.cycle_sequence() == previous_sequence) {
-      std::cerr << "FAIL: IgH did not send startup cyclic frame\n";
+      std::cerr << "FAIL: IgH did not send startup cyclic frame\\n";
+      break;
+    }
+    if (!safe_outputs_ok) {
+      std::cerr << "FAIL: unable to refresh safe startup PDO image\\n";
       break;
     }
     if (transport_healthy(adapter, topology.slave_count)) {
       startup_transport_ready = true;
       std::cout << "Startup transport ready after "
-                << (startup_cycle + 1U) << " cycle(s)\n";
+                << (startup_cycle + 1U) << " cycle(s)\\n";
       break;
     }
-    // An incomplete WKC is normal while the master/slave state machine is
-    // converging. Once WKC is complete, a failed exchange is no longer a
-    // startup transient and must fail immediately.
-    if (!cycle_status.ok() &&
+    if ((!receive_status.ok() || !send_status.ok()) &&
         adapter.domain_working_counter_complete(1U)) {
-      std::cerr << "FAIL: cyclic exchange failed after domain WKC became complete\n";
+      std::cerr << "FAIL: cyclic exchange failed after domain WKC became complete\\n";
       break;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -215,16 +223,25 @@ int main() {
     // simulator cycle. The startup convergence loop may have just completed
     // an exchange, so an immediate back-to-back frame is not deterministic.
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    const auto receive_status = adapter.receive_process();
     if (!transport_healthy(adapter, topology.slave_count)) {
+      (void)adapter.queue_send();
       feedback_ok = false;
-      std::cerr << "FAIL: EtherCAT health/WKC interlock lost during PDS sequence\n";
+      std::cerr << "FAIL: EtherCAT health/WKC interlock lost during PDS sequence\\n";
       break;
     }
 
     if (!read_u16(adapter, cia402.statusword, last_statusword) ||
         !read_i32_bits(adapter, cia402.actual_position, hold_position_bits)) {
+      (void)adapter.queue_send();
       feedback_ok = false;
-      std::cerr << "FAIL: unable to read CiA 402 status/position feedback\n";
+      std::cerr << "FAIL: unable to read CiA 402 status/position feedback\\n";
+      break;
+    }
+    if (!receive_status.ok()) {
+      (void)adapter.queue_send();
+      feedback_ok = false;
+      std::cerr << "FAIL: receive/process phase reported an EtherCAT cycle error\\n";
       break;
     }
     have_hold_position = true;
@@ -269,7 +286,7 @@ int main() {
                 << '\n';
       break;
     }
-    const auto cycle_status = adapter.exchange();
+    const auto cycle_status = adapter.queue_send();
     if (!cycle_status.ok()) {
       const auto& health = adapter.runtime_health();
       feedback_ok = false;
@@ -307,26 +324,27 @@ int main() {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 
-  // Explicitly remove voltage after the state-machine check; do not leave the
-  // simulated drive enabled when this acceptance executable exits.
-  const bool disable_written = write_value(adapter, cia402.controlword, 0U) &&
-      write_value(adapter, cia402.target_velocity, 0U) &&
-      (have_hold_position
-           ? write_value(adapter, cia402.target_position, hold_position_bits)
-           : true);
+  // Remove voltage with receive -> output update -> queue/send ordering.
   bool disabled_feedback = false;
-  if (disable_written) {
-    for (std::size_t i = 0; i < 100U; ++i) {
-      if (!adapter.exchange().ok() ||
-          !transport_healthy(adapter, topology.slave_count)) break;
-      std::uint16_t statusword = 0U;
-      if (read_u16(adapter, cia402.statusword, statusword) &&
-          mca::hardware::decode_cia402_pds_state(statusword) ==
-              Cia402PdsState::SwitchOnDisabled) {
-        disabled_feedback = true;
-        break;
-      }
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  for (std::size_t i = 0; i < 100U; ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    const auto receive_status = adapter.receive_process();
+    const bool health_ok = transport_healthy(adapter, topology.slave_count);
+    std::uint16_t statusword = 0U;
+    const bool status_ok = read_u16(adapter, cia402.statusword, statusword);
+    const bool disable_written =
+        write_value(adapter, cia402.controlword, 0U) &&
+        write_value(adapter, cia402.target_velocity, 0U) &&
+        (have_hold_position
+             ? write_value(adapter, cia402.target_position, hold_position_bits)
+             : write_value(adapter, cia402.target_position, 0U));
+    const auto send_status = adapter.queue_send();
+    if (!health_ok || !status_ok || !disable_written ||
+        !receive_status.ok() || !send_status.ok()) break;
+    if (mca::hardware::decode_cia402_pds_state(statusword) ==
+        Cia402PdsState::SwitchOnDisabled) {
+      disabled_feedback = true;
+      break;
     }
   }
 

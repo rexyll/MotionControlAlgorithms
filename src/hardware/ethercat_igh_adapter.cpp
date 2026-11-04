@@ -778,6 +778,8 @@ mca::core::Status EthercatIghAdapter<S, D, E>::activate() noexcept {
     }
   }
   activated_ = true;
+  cycle_pending_ = false;
+  pending_cycle_ok_ = true;
   const auto status = state_.on_activated();
   if (!status.ok()) {
     const int deactivate_result = ecrt_master_deactivate(master_);
@@ -795,15 +797,13 @@ mca::core::Status EthercatIghAdapter<S, D, E>::activate() noexcept {
 }
 
 template <std::size_t S, std::size_t D, std::size_t E>
-mca::core::Status EthercatIghAdapter<S, D, E>::exchange() noexcept {
-  if (!activated_ || master_ == nullptr || state_.state() != EthercatMasterState::Active)
+mca::core::Status EthercatIghAdapter<S, D, E>::receive_process() noexcept {
+  if (!activated_ || master_ == nullptr ||
+      state_.state() != EthercatMasterState::Active || cycle_pending_)
     return {mca::core::StatusCode::RuntimeError};
 
-  // Keep the cyclic datagram pipeline moving even when health diagnostics
-  // or a domain report a fault. These IgH state APIs are realtime-safe and
-  // expose link/master and per-configured-slave state independently of WKC.
+  // IgH cyclic order: receive -> process -> application PDO access -> queue -> send.
   bool cycle_ok = (ecrt_master_receive(master_) == 0);
-
   ec_master_state_t master_state{};
   const int master_state_result = ecrt_master_state(master_, &master_state);
   runtime_health_.master_state_valid = (master_state_result == 0);
@@ -826,7 +826,6 @@ mca::core::Status EthercatIghAdapter<S, D, E>::exchange() noexcept {
     health.ring_position = state_.topology().slaves[i].ring_position;
     health.configured = (slave_configs_[i] != nullptr);
     if (!health.configured) continue;
-
     ec_slave_config_state_t slave_state{};
     const int slave_state_result =
         ecrt_slave_config_state(slave_configs_[i], &slave_state);
@@ -843,37 +842,63 @@ mca::core::Status EthercatIghAdapter<S, D, E>::exchange() noexcept {
 
   std::uint32_t total_wkc = 0U;
   bool all_domains_complete = true;
-
   for (std::size_t d = 0; d < domain_count_; ++d) {
     if (ecrt_domain_process(domains_[d]) != 0) cycle_ok = false;
-    ec_domain_state_t s{};
-    if (ecrt_domain_state(domains_[d], &s) != 0) {
+    ec_domain_state_t domain_state{};
+    if (ecrt_domain_state(domains_[d], &domain_state) != 0) {
       cycle_ok = false;
       domain_wkc_[d] = 0U;
       domain_wc_complete_[d] = false;
       all_domains_complete = false;
       continue;
     }
-    domain_wkc_[d] = static_cast<std::uint16_t>(std::min(s.working_counter, 0xFFFFU));
-    domain_wc_complete_[d] = (s.wc_state == EC_WC_COMPLETE);
+    domain_wkc_[d] = static_cast<std::uint16_t>(
+        std::min(domain_state.working_counter, 0xFFFFU));
+    domain_wc_complete_[d] = (domain_state.wc_state == EC_WC_COMPLETE);
     total_wkc += domain_wkc_[d];
     if (!domain_wc_complete_[d]) all_domains_complete = false;
   }
-
   observed_wkc_ = static_cast<std::uint16_t>(std::min(total_wkc, 0xFFFFU));
-  for (std::size_t d = 0; d < domain_count_; ++d)
-    if (ecrt_domain_queue(domains_[d]) != 0) cycle_ok = false;
-  if (ecrt_master_send(master_) != 0) cycle_ok = false;
-  else ++cycle_sequence_;
-  // Health sequence counts diagnostic samples, independently of successful
-  // PDO sends, so a failed send cannot make a fresh snapshot look stale.
+  pending_cycle_ok_ = cycle_ok && all_domains_complete;
+  cycle_pending_ = true;
+
+  // Count diagnostic samples independently from successful datagram sends.
   runtime_health_.sequence = runtime_health_.sequence == UINT64_MAX
                                  ? 1U
                                  : runtime_health_.sequence + 1U;
+  return pending_cycle_ok_ ? mca::core::Status{}
+                           : mca::core::Status{mca::core::StatusCode::RuntimeError};
+}
 
-  if (!all_domains_complete || !cycle_ok)
+template <std::size_t S, std::size_t D, std::size_t E>
+mca::core::Status EthercatIghAdapter<S, D, E>::queue_send() noexcept {
+  if (!activated_ || master_ == nullptr ||
+      state_.state() != EthercatMasterState::Active || !cycle_pending_)
     return {mca::core::StatusCode::RuntimeError};
-  return {};
+
+  bool send_ok = true;
+  for (std::size_t d = 0; d < domain_count_; ++d)
+    if (ecrt_domain_queue(domains_[d]) != 0) send_ok = false;
+  if (ecrt_master_send(master_) != 0) {
+    send_ok = false;
+  } else {
+    ++cycle_sequence_;
+  }
+  cycle_pending_ = false;
+  const bool cycle_ok = pending_cycle_ok_ && send_ok;
+  pending_cycle_ok_ = true;
+  return cycle_ok ? mca::core::Status{}
+                  : mca::core::Status{mca::core::StatusCode::RuntimeError};
+}
+
+template <std::size_t S, std::size_t D, std::size_t E>
+mca::core::Status EthercatIghAdapter<S, D, E>::exchange() noexcept {
+  const auto receive_status = receive_process();
+  // Always send after a valid receive phase, even when WKC/health is incomplete.
+  const auto send_status = queue_send();
+  return receive_status.ok() && send_status.ok()
+             ? mca::core::Status{}
+             : mca::core::Status{mca::core::StatusCode::RuntimeError};
 }
 
 template <std::size_t S, std::size_t D, std::size_t E>
@@ -940,6 +965,8 @@ mca::core::Status EthercatIghAdapter<S, D, E>::shutdown() noexcept {
   sdo_profile_ = {};
   observed_wkc_ = 0U;
   cycle_sequence_ = 0U;
+  cycle_pending_ = false;
+  pending_cycle_ok_ = true;
   runtime_health_ = {};
   domain_wkc_.fill(0U);
   domain_wc_complete_.fill(false);

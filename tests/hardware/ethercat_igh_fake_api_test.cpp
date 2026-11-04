@@ -738,3 +738,27 @@ TEST(EthercatIghFakeApi, IgHHealthBridgeDebouncesLinkLossAndTreatsReadFailureAsU
             mca::hardware::EthercatBusHealthState::Unknown);
   EXPECT_EQ(health.snapshot().consecutive_bad_cycles, 0U);
 }
+
+TEST(EthercatIghFakeApi, SplitsReceiveProcessFromQueueAndSendPhases) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slots(adapter));
+
+  const auto previous_sequence = adapter.cycle_sequence();
+  EXPECT_TRUE(adapter.receive_process().ok());
+  EXPECT_EQ(adapter.cycle_sequence(), previous_sequence);
+  EXPECT_EQ(fake_igh::queue_calls(), 0U);
+  EXPECT_EQ(fake_igh::send_calls(), 0U);
+
+  // Application PDO reads/writes are performed in this interval.
+  EXPECT_TRUE(adapter.queue_send().ok());
+  EXPECT_EQ(fake_igh::queue_calls(), 1U);
+  EXPECT_EQ(fake_igh::send_calls(), 1U);
+  EXPECT_EQ(adapter.cycle_sequence(), previous_sequence + 1U);
+
+  EXPECT_FALSE(adapter.queue_send().ok());
+  EXPECT_EQ(fake_igh::queue_calls(), 1U);
+  EXPECT_EQ(fake_igh::send_calls(), 1U);
+}

@@ -121,6 +121,11 @@ class EthercatIghAdapter final {
   mca::core::Status poll_sdo(std::uint64_t request_id, std::uint64_t now_timestamp_ns,
                              SdoResult& output) noexcept;
   mca::core::Status activate() noexcept;
+  // Split cyclic phase: receive/process inputs before application PDO access,
+  // then queue/send outputs after the application has updated the image.
+  mca::core::Status receive_process() noexcept;
+  mca::core::Status queue_send() noexcept;
+  // Compatibility helper for callers without an application PDO update window.
   mca::core::Status exchange() noexcept;
   mca::core::Status read_pdo(std::size_t binding_index, std::uint64_t& value) const noexcept;
   mca::core::Status write_pdo(std::size_t binding_index, std::uint64_t value) noexcept;
@@ -164,6 +169,8 @@ class EthercatIghAdapter final {
   RuntimeHealth runtime_health_{};
   std::uint64_t cycle_sequence_{0U};
   bool activated_{false};
+  bool cycle_pending_{false};
+  bool pending_cycle_ok_{true};
 };
 
 #endif  // MCA_ENABLE_IGH

@@ -81,6 +81,8 @@ enum {
   EC_AL_STATE_PREOP = 2,
   EC_AL_STATE_SAFEOP = 4,
   EC_AL_STATE_OP = 8,
+  EC_WC_ZERO = 0,
+  EC_WC_INCOMPLETE = 1,
   EC_WC_COMPLETE = 2
 };
 

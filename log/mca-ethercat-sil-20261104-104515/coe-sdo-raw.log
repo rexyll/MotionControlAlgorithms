@@ -1,0 +1,2 @@
+READ 0x1C12:0 type=uint8 exit=1 elapsed_ms=11
+Failed to upload SDO: Input/output error

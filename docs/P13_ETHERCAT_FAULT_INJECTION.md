@@ -108,6 +108,36 @@ feedback. It records `FAULT_TRACE` and `FAULT_RESET_TRACE` lines in
 `cyclic-pdo-wkc.log`. The script rejects fault mode unless cyclic SIL is also
 enabled and the fixture contains a positive `fault_after_cycles`.
 
+## Reliability extension: reaction-duration matrix
+
+The first wire-level pass validates the default three-cycle reaction interval.
+To exercise short, default and longer intervals without editing the checked-in
+fixture, run the matrix wrapper against the same patched simulator:
+
+```bash
+sudo -E env \
+  KICKCAT_SIMULATOR="$KICKCAT_SOURCE_DIR/build/simulation/network_simulator" \
+  KICKCAT_SLAVE_CONFIG="$KICKCAT_SOURCE_DIR/simulation/slave_configs/ecat402-drive-fault.json" \
+  MCA_ECAT_FAULT_REACTION_MATRIX="1 2 3 5" \
+  MCA_ECAT_CYCLIC_TIMEOUT_SEC=60 \
+  bash scripts/ethercat_sil/run_kickcat_igh_fault_duration_matrix.sh
+```
+
+The wrapper creates a temporary JSON fixture for each duration and starts an
+independent IgH/veth/KickCAT SIL session for every case. Each case must prove
+the exact configured number of `0x000F` samples, transition to `0x0008`,
+a single `0x0080` pulse, and return to `0x0040` without re-enabling. Artifacts
+are isolated under
+`/tmp/mca-ethercat-fault-matrix-<timestamp>/reaction-N/`. Override the matrix
+with `MCA_ECAT_FAULT_REACTION_MATRIX`; accepted values are integers 1 through
+1000.
+
+The portable `Cia402FaultResetSequencer` tests also exercise a held Fault
+feedback interval (eight cycles without a second pulse), communication loss
+before and after pulse emission, unexpected post-reset states, and timeout /
+explicit re-arm behavior. These are controller-level tests; they do not
+simulate physical cable removal or vendor-specific drive behavior.
+
 ## Required wire-level acceptance
 
 Do not mark the fault gate passed until a run against the patched

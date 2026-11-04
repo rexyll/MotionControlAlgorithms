@@ -37,7 +37,8 @@ fail() {
 # --position and --type options; parse the first numeric token from its output.
 read_sdo_value() {
   local index="$1" subindex="$2" type="$3" output token value
-  local command_status=0
+  local command_status=0 started finished elapsed
+  started=$(date +%s)
   if output=$(timeout "$TIMEOUT_SEC" "$ETHERCAT_CLI" upload --position 0 \
       --type "$type" "$index" "$subindex" 2>&1); then
     command_status=0
@@ -121,18 +122,16 @@ run_coe_readback() {
 }
 
 start_coe_capture() {
-  # Capture at the simulator endpoint, where KickCAT receives raw frames.
-  # IgH's ec_generic path may bypass packet-socket capture on MASTER_IF.
-  # The veth pair is isolated, so capture all Ethernet frames and avoid
-  # relying on EtherType/direction metadata at the master endpoint.
-  tcpdump -U -Z root -i "$SIM_IF" -nn -s 0 -w \
-    "$ARTIFACT_DIR/coe-simulator.pcap" \
-    >"$ARTIFACT_DIR/coe-simulator-capture.log" 2>&1 &
+  # Use live text decoding rather than pcap. The previous pcap capture
+  # received hundreds of kernel-filter packets but wrote zero records, so
+  # preserve tcpdump's decoded output directly for diagnosis.
+  tcpdump -l -i "$SIM_IF" -nn -e -vvv -XX \
+    >"$ARTIFACT_DIR/coe-simulator-live.log" 2>&1 &
   COE_CAPTURE_PID=$!
   sleep 0.5
   kill -0 "$COE_CAPTURE_PID" 2>/dev/null || {
-    cat "$ARTIFACT_DIR/coe-simulator-capture.log" >&2 || true
-    fail "EtherCAT CoE packet capture did not stay running"
+    cat "$ARTIFACT_DIR/coe-simulator-live.log" >&2 || true
+    fail "EtherCAT CoE live capture did not stay running"
   }
 }
 
@@ -141,10 +140,6 @@ stop_coe_capture() {
     kill -INT "$COE_CAPTURE_PID" 2>/dev/null || true
     wait "$COE_CAPTURE_PID" 2>/dev/null || true
     COE_CAPTURE_PID=""
-  fi
-  if [[ -f "$ARTIFACT_DIR/coe-simulator.pcap" ]]; then
-    tcpdump -nn -e -vvv -XX -r "$ARTIFACT_DIR/coe-simulator.pcap" \
-      >"$ARTIFACT_DIR/coe-simulator.log" 2>&1 || true
   fi
 }
 
@@ -264,9 +259,12 @@ fi
 RX_PID=""
 
 if [[ "$COE_READBACK" == "1" ]]; then
+  "$ETHERCAT_CLI" master >"$ARTIFACT_DIR/master-before-coe.log" 2>&1 || true
+  "$ETHERCAT_CLI" slaves -v >"$ARTIFACT_DIR/slaves-before-coe.log" 2>&1 || true
   start_coe_capture
   if ! run_coe_readback >"$ARTIFACT_DIR/coe-pdo-readback.txt"; then
     stop_coe_capture
+    "$ETHERCAT_CLI" master >"$ARTIFACT_DIR/master-after-coe.log" 2>&1 || true
     cat "$ARTIFACT_DIR/coe-pdo-readback.txt" >&2 || true
     fail "CoE PDO assignment/mapping readback failed"
   fi

@@ -40,8 +40,36 @@ def main() -> int:
     header_marked = "fault_after_cycles" in header
     app_marked = "fault_after_cycles" in app and "fault_reaction_cycles" in app
     if header_marked and app_marked:
-        print(f"KickCAT DS402 fault fixture already applied at {revision}")
-        return 0
+        old_counter = """            last_control_word_ = control_word;
+            if (not fault_injected_ and status_word_value_ == OPERATION_ENABLED
+                and (control_word & 0x000FU) == 0x000FU)
+            {
+                ++cycle_count_;
+            }
+
+            if (not fault_injected_ and params_.fault_after_cycles > 0U
+"""
+        new_counter = """            last_control_word_ = control_word;
+            if (not fault_injected_ and status_word_value_ == OPERATION_ENABLED
+                and (control_word & 0x000FU) == 0x000FU)
+            {
+                ++cycle_count_;
+            }
+
+            if (not fault_injected_ and params_.fault_after_cycles > 0U
+"""
+        if old_counter in header:
+            header = header.replace(old_counter, new_counter, 1)
+            header_path.write_text(header, encoding="utf-8")
+            print(
+                "PASS: upgraded DS402 fault counter to count only Operation Enabled cycles "
+                f"at {revision}"
+            )
+            return 0
+        if new_counter in header:
+            print(f"KickCAT DS402 fault fixture already applied (enabled-cycle semantics) at {revision}")
+            return 0
+        raise SystemExit("unknown existing KickCAT fault fixture version; restore the pinned clean checkout")
     if header_marked or app_marked:
         raise SystemExit("partial KickCAT fault patch detected; restore the pinned clean checkout")
 

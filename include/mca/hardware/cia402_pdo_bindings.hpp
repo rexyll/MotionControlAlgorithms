@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 
 #include "mca/hardware/ethercat_adapter_state.hpp"

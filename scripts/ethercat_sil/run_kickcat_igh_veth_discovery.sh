@@ -350,6 +350,7 @@ if [[ "$CYCLIC_SIL" == "1" ]]; then
   cat "$ARTIFACT_DIR/cyclic-pdo-wkc.log"
 fi
 
+printf '\nDiscovery-time slave snapshot (captured before cyclic SIL; not runtime AL-state evidence):\n'
 cat "$ARTIFACT_DIR/slaves-verbose.log"
 printf '\nPASS: IgH ec_generic <-> veth <-> KickCAT raw-socket slave discovery and bidirectional EtherCAT frame exchange.\n'
 if [[ "$CYCLIC_SIL" == "1" && "$COE_READBACK" == "1" ]]; then

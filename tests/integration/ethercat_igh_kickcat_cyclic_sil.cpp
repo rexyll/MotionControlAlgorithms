@@ -211,6 +211,10 @@ int main() {
   bool feedback_ok = true;
 
   for (; cycles < kMaximumCycles; ++cycles) {
+    // Pace the first and subsequent state-machine exchanges at the 1 ms
+    // simulator cycle. The startup convergence loop may have just completed
+    // an exchange, so an immediate back-to-back frame is not deterministic.
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
     if (!transport_healthy(adapter, topology.slave_count)) {
       feedback_ok = false;
       std::cerr << "FAIL: EtherCAT health/WKC interlock lost during PDS sequence\n";
@@ -257,9 +261,35 @@ int main() {
         write_value(adapter, cia402.target_position, hold_position_bits) &&
         write_value(adapter, cia402.target_velocity, 0U) &&
         write_value(adapter, cia402.mode_of_operation, kCspMode);
-    if (!writes_ok || !adapter.exchange().ok()) {
+    if (!writes_ok) {
       feedback_ok = false;
-      std::cerr << "FAIL: PDO write or cyclic exchange failed\n";
+      std::cerr << "FAIL: PDO write failed"
+                << " controlword=0x" << std::hex << plan.controlword
+                << std::dec << " target_position_bits=" << hold_position_bits
+                << '\n';
+      break;
+    }
+    const auto cycle_status = adapter.exchange();
+    if (!cycle_status.ok()) {
+      const auto& health = adapter.runtime_health();
+      feedback_ok = false;
+      std::cerr << "FAIL: cyclic exchange failed"
+                << " status_code=" << static_cast<unsigned int>(cycle_status.code())
+                << " master_state_valid=" << health.master_state_valid
+                << " link_up=" << health.link_up
+                << " slaves_responding=" << health.slaves_responding
+                << " wkc=" << adapter.observed_wkc()
+                << " domain_complete="
+                << adapter.domain_working_counter_complete(1U);
+      for (std::size_t i = 0U; i < health.slave_count; ++i) {
+        const auto& slave = health.slaves[i];
+        std::cerr << " slave[" << i << "] online=" << slave.online
+                  << " operational=" << slave.operational
+                  << " al_state=0x" << std::hex
+                  << static_cast<unsigned int>(slave.al_state) << std::dec
+                  << " state_error=" << slave.state_error;
+      }
+      std::cerr << '\n';
       break;
     }
 

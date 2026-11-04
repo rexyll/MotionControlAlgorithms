@@ -1,0 +1,35 @@
+=== Master 0, Slave 0 ===
+Device: Main
+State: PREOP
+Flag: +
+Identity:
+  Vendor Id:       0x00000000
+  Product code:    0x00000000
+  Revision number: 0x00000000
+  Serial number:   0x00000000
+DL information:
+  FMMU bit operation: no
+  Distributed clocks: yes, 64 bit
+  DC system time transmission delay: 0 ns
+Port  Type  Link  Loop    Signal  NextSlave  RxTime [ns]  Diff [ns]   NextDc [ns]
+   0  MII   up    open    yes             -   1274476565           0           0
+   1  MII   up    open    yes             -   1274477165         600           0
+   2  N/A   down  closed  no              -            -           -           -
+   3  N/A   down  closed  no              -            -           -           -
+=== Master 0, Slave 1 ===
+Device: Main
+State: ???
+Flag: +
+Identity:
+  Vendor Id:       0x00000000
+  Product code:    0x00000000
+  Revision number: 0x00000000
+  Serial number:   0x00000000
+DL information:
+  FMMU bit operation: no
+  Distributed clocks: no
+Port  Type  Link  Loop    Signal  NextSlave
+   0  N/A   down  open    no              -
+   1  N/A   down  open    no              -
+   2  N/A   down  open    no              -
+   3  N/A   down  open    no              -

@@ -1,0 +1,5 @@
+SDO read failed: 0x1C12:0 (uint8)
+Failed to upload SDO: Input/output error
+Slave ring position 0 CoE PDO mapping readback
+ERROR: CoE PDO assignment/mapping readback failed
+Artifacts: /tmp/mca-ethercat-multislave-20261104-220835

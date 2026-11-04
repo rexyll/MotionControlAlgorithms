@@ -54,7 +54,6 @@ std::size_t pdo_registrations = 0U;
 std::size_t captured_syncs = 0U;
 std::array<CapturedSync, 16U> captured{};
 bool domain_data_failure = false;
-bool domain_wkc_complete = true;
 bool zero_size = false;
 bool deactivate_failure = false;
 bool master_state_failure = false;
@@ -88,7 +87,6 @@ void reset() noexcept {
   pdo_configurations = 0U; pdo_registrations = 0U;
   captured_syncs = 0U;
   domain_data_failure = false;
-  domain_wkc_complete_by_index.fill(true);
   zero_size = false; deactivate_failure = false;
   master_state_failure = false; slave_state_failure = false;
   master_link_up = true; master_responding = 1U; master_al_states = EC_AL_STATE_OP;

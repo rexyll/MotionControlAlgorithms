@@ -1,0 +1,1245 @@
+earl@earl-VMware-Virtual-Platform:~/workspace/MotionControlAlgorithms$ export KICKCAT_SOURCE_DIR="$HOME/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT"
+earl@earl-VMware-Virtual-Platform:~/workspace/MotionControlAlgorithms$ sudo -E env \
+  KICKCAT_SIMULATOR="$KICKCAT_SOURCE_DIR/build/simulation/network_simulator" \
+  KICKCAT_SLAVE_CONFIG="$KICKCAT_SOURCE_DIR/simulation/slave_configs/ecat402-drive-fault.json" \
+  MCA_ECAT_FAULT_REACTION_MATRIX="1 2 3 5" \
+  MCA_ECAT_COE_READBACK=1 \
+  MCA_ECAT_DISABLE_EOE=1 \
+  MCA_ECAT_CYCLIC_TIMEOUT_SEC=60 \
+  bash scripts/ethercat_sil/run_kickcat_igh_fault_duration_matrix.sh
+Fault Reaction Active duration matrix: 1 2 3 5
+Artifacts root: /tmp/mca-ethercat-fault-matrix-20261104-210416
+
+=== Running fault-reaction duration: 1 cycle(s) ===
+
+PASS: CoE SDO readback of RxPDO/TxPDO assignments and PDO entries.
+Discovered 1 slave(s)
+  ring_position=0 vendor=0x29c product=0x3b11002
+CiA402 binding indices: controlword=0 target_position=1 target_velocity=2 mode=3 statusword=4 actual_position=5 actual_velocity=6 mode_display=7
+Discovered PDO entries=8 scalar bindings=8
+Startup transport ready after 80 cycle(s)
+FAULT_TRACE cycle=100 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=101 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=102 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=103 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=104 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=105 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=106 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=107 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=108 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=109 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=110 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=111 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=112 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=113 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=114 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=115 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=116 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=117 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=118 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=119 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=120 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=121 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=122 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=123 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=124 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=125 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=126 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=127 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=128 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=129 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=130 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=131 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=132 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=133 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=134 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=135 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=136 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=137 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=138 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=139 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=140 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=141 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=142 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=143 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=144 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=145 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=146 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=147 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=148 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=149 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=150 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=151 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=152 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=153 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=154 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=155 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=156 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=157 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=158 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=159 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=160 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=161 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=162 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=163 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=164 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=165 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=166 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=167 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=168 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=169 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=170 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=171 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=172 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=173 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=174 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=175 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=176 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=177 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=178 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=179 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=180 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=181 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=182 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=183 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=184 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=185 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=186 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=187 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=188 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=189 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=190 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=191 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=192 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=193 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=194 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=195 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=196 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=197 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=198 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=199 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=200 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=201 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=202 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=203 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=204 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=205 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=206 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=207 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=208 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=209 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=210 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=211 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=212 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=213 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=214 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=215 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=216 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=217 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=218 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=219 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=220 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=221 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=222 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=223 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=224 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=225 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=226 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=227 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=228 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=229 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=230 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=231 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=232 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=233 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=234 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=235 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=236 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=237 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=238 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=239 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=240 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=241 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=242 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=243 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=244 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=245 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=246 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=247 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=248 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=249 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=250 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=251 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=252 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=253 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=254 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=255 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=256 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=257 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=258 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=259 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=260 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=261 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=262 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=263 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=264 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=265 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=266 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=267 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=268 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=269 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=270 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=271 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=272 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=273 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=274 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=275 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=276 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=277 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=278 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=279 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=280 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=281 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=282 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=283 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=284 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=285 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=286 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=287 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=288 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=289 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=290 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=291 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=292 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=293 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=294 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=295 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=296 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=297 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=298 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=299 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=300 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=301 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=302 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=303 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=304 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=305 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=306 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=307 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=308 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=309 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=310 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=311 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=312 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=313 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=314 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=315 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=316 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=317 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=318 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=319 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=320 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=321 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=322 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=323 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=324 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=325 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=326 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=327 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=328 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=329 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=330 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=331 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=332 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=333 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=334 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=335 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=336 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=337 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=338 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=339 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=340 statusword=0xf controlword=0x0 wkc=3 domain_complete=1
+FAULT_TRACE cycle=341 statusword=0x8 controlword=0x0 wkc=3 domain_complete=1
+FAULT_RESET controlword=0x80 pulse_sent=1
+FAULT_RESET_TRACE cycle=343 statusword=0x8 controlword=0x0 phase=2 wkc=3
+FAULT_RESET_TRACE cycle=344 statusword=0x8 controlword=0x0 phase=2 wkc=3
+FAULT_RESET_TRACE cycle=345 statusword=0x40 controlword=0x0 phase=3 wkc=3
+PASS: wire-level CiA402 Fault Reaction Active -> Fault -> explicit one-cycle Fault Reset -> Switch On Disabled; drive was not re-enabled.
+cycles=346 enabled_stable_cycles=10 statusword=0x40 mode_display=0x8 wkc=3 domain_complete=1 disabled_feedback=1
+slave ring_position=0 online=1 operational=1 al_state=0x8
+PASS: EtherCAT transport healthy; CiA 402 reached Operation Enabled from statusword feedback in CSP mode, held position unchanged, then returned to Switch On Disabled.
+NOTE: Injected fault validates the patched KickCAT model only; vendor fault codes, emergency objects, STO and HIL safety remain unvalidated.
+NOTE: KickCAT echoes mode display; this does not validate a real drive's mode acceptance, motion response, DC timing or HIL safety.
+
+Discovery-time slave snapshot (captured before cyclic SIL; not runtime AL-state evidence):
+=== Master 0, Slave 0 ===
+Device: Main
+State: PREOP
+Flag: +
+Identity:
+  Vendor Id:       0x0000029c
+  Product code:    0x03b11002
+  Revision number: 0x00050005
+  Serial number:   0x00000000
+DL information:
+  FMMU bit operation: no
+  Distributed clocks: yes, 64 bit
+  DC system time transmission delay: 0 ns
+Port  Type  Link  Loop    Signal  NextSlave  RxTime [ns]  Diff [ns]   NextDc [ns]
+   0  MII   up    open    yes             -    645816167           0           0
+   1  MII   down  closed  no              -            -           -           -
+   2  N/A   down  closed  no              -            -           -           -
+   3  N/A   down  closed  no              -            -           -           -
+Mailboxes:
+  Bootstrap RX: 0x1000/128, TX: 0x1400/128
+  Standard  RX: 0x1000/128, TX: 0x1400/128
+  Supported protocols: EoE, CoE, FoE
+General:
+  Group: Servo Drives
+  Image name: 
+  Order number: EVS-NET-01
+  Device name: EVS-NET-01
+  CoE details:
+    Enable SDO: yes
+    Enable SDO Info: yes
+    Enable PDO Assign: yes
+    Enable PDO Configuration: yes
+    Enable Upload at startup: no
+    Enable SDO complete access: yes
+  Flags:
+    Enable SafeOp: no
+    Enable notLRW: no
+  Current consumption: 0 mA
+
+PASS: IgH ec_generic <-> veth <-> KickCAT raw-socket slave discovery and bidirectional EtherCAT frame exchange.
+NOTE: CoE mapping readback and cyclic PDO/WKC/AL-OP passed; CiA402 motion, DC timing and real-slave HIL remain unvalidated.
+Artifacts: /tmp/mca-ethercat-fault-matrix-20261104-210416/reaction-1
+PASS: Fault Reaction Active duration 1 cycle(s)
+
+=== Running fault-reaction duration: 2 cycle(s) ===
+
+PASS: CoE SDO readback of RxPDO/TxPDO assignments and PDO entries.
+Discovered 1 slave(s)
+  ring_position=0 vendor=0x29c product=0x3b11002
+CiA402 binding indices: controlword=0 target_position=1 target_velocity=2 mode=3 statusword=4 actual_position=5 actual_velocity=6 mode_display=7
+Discovered PDO entries=8 scalar bindings=8
+Startup transport ready after 731 cycle(s)
+FAULT_TRACE cycle=751 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=752 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=753 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=754 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=755 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=756 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=757 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=758 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=759 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=760 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=761 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=762 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=763 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=764 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=765 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=766 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=767 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=768 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=769 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=770 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=771 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=772 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=773 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=774 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=775 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=776 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=777 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=778 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=779 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=780 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=781 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=782 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=783 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=784 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=785 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=786 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=787 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=788 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=789 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=790 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=791 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=792 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=793 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=794 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=795 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=796 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=797 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=798 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=799 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=800 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=801 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=802 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=803 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=804 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=805 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=806 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=807 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=808 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=809 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=810 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=811 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=812 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=813 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=814 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=815 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=816 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=817 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=818 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=819 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=820 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=821 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=822 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=823 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=824 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=825 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=826 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=827 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=828 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=829 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=830 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=831 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=832 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=833 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=834 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=835 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=836 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=837 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=838 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=839 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=840 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=841 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=842 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=843 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=844 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=845 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=846 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=847 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=848 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=849 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=850 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=851 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=852 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=853 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=854 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=855 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=856 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=857 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=858 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=859 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=860 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=861 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=862 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=863 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=864 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=865 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=866 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=867 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=868 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=869 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=870 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=871 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=872 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=873 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=874 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=875 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=876 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=877 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=878 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=879 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=880 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=881 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=882 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=883 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=884 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=885 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=886 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=887 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=888 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=889 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=890 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=891 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=892 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=893 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=894 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=895 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=896 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=897 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=898 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=899 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=900 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=901 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=902 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=903 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=904 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=905 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=906 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=907 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=908 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=909 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=910 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=911 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=912 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=913 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=914 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=915 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=916 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=917 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=918 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=919 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=920 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=921 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=922 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=923 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=924 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=925 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=926 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=927 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=928 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=929 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=930 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=931 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=932 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=933 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=934 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=935 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=936 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=937 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=938 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=939 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=940 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=941 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=942 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=943 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=944 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=945 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=946 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=947 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=948 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=949 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=950 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=951 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=952 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=953 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=954 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=955 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=956 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=957 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=958 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=959 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=960 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=961 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=962 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=963 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=964 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=965 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=966 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=967 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=968 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=969 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=970 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=971 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=972 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=973 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=974 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=975 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=976 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=977 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=978 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=979 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=980 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=981 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=982 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=983 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=984 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=985 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=986 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=987 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=988 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=989 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=990 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=991 statusword=0xf controlword=0x0 wkc=3 domain_complete=1
+FAULT_TRACE cycle=992 statusword=0xf controlword=0x0 wkc=3 domain_complete=1
+FAULT_TRACE cycle=993 statusword=0x8 controlword=0x0 wkc=3 domain_complete=1
+FAULT_RESET controlword=0x80 pulse_sent=1
+FAULT_RESET_TRACE cycle=995 statusword=0x8 controlword=0x0 phase=2 wkc=3
+FAULT_RESET_TRACE cycle=996 statusword=0x8 controlword=0x0 phase=2 wkc=3
+FAULT_RESET_TRACE cycle=997 statusword=0x40 controlword=0x0 phase=3 wkc=3
+PASS: wire-level CiA402 Fault Reaction Active -> Fault -> explicit one-cycle Fault Reset -> Switch On Disabled; drive was not re-enabled.
+cycles=998 enabled_stable_cycles=10 statusword=0x40 mode_display=0x8 wkc=3 domain_complete=1 disabled_feedback=1
+slave ring_position=0 online=1 operational=1 al_state=0x8
+PASS: EtherCAT transport healthy; CiA 402 reached Operation Enabled from statusword feedback in CSP mode, held position unchanged, then returned to Switch On Disabled.
+NOTE: Injected fault validates the patched KickCAT model only; vendor fault codes, emergency objects, STO and HIL safety remain unvalidated.
+NOTE: KickCAT echoes mode display; this does not validate a real drive's mode acceptance, motion response, DC timing or HIL safety.
+
+Discovery-time slave snapshot (captured before cyclic SIL; not runtime AL-state evidence):
+=== Master 0, Slave 0 ===
+Device: Main
+State: PREOP
+Flag: +
+Identity:
+  Vendor Id:       0x0000029c
+  Product code:    0x03b11002
+  Revision number: 0x00050005
+  Serial number:   0x00000000
+DL information:
+  FMMU bit operation: no
+  Distributed clocks: yes, 64 bit
+  DC system time transmission delay: 0 ns
+Port  Type  Link  Loop    Signal  NextSlave  RxTime [ns]  Diff [ns]   NextDc [ns]
+   0  MII   up    open    yes             -    225928735           0           0
+   1  MII   down  closed  no              -            -           -           -
+   2  N/A   down  closed  no              -            -           -           -
+   3  N/A   down  closed  no              -            -           -           -
+Mailboxes:
+  Bootstrap RX: 0x1000/128, TX: 0x1400/128
+  Standard  RX: 0x1000/128, TX: 0x1400/128
+  Supported protocols: EoE, CoE, FoE
+General:
+  Group: Servo Drives
+  Image name: 
+  Order number: EVS-NET-01
+  Device name: EVS-NET-01
+  CoE details:
+    Enable SDO: yes
+    Enable SDO Info: yes
+    Enable PDO Assign: yes
+    Enable PDO Configuration: yes
+    Enable Upload at startup: no
+    Enable SDO complete access: yes
+  Flags:
+    Enable SafeOp: no
+    Enable notLRW: no
+  Current consumption: 0 mA
+
+PASS: IgH ec_generic <-> veth <-> KickCAT raw-socket slave discovery and bidirectional EtherCAT frame exchange.
+NOTE: CoE mapping readback and cyclic PDO/WKC/AL-OP passed; CiA402 motion, DC timing and real-slave HIL remain unvalidated.
+Artifacts: /tmp/mca-ethercat-fault-matrix-20261104-210416/reaction-2
+PASS: Fault Reaction Active duration 2 cycle(s)
+
+=== Running fault-reaction duration: 3 cycle(s) ===
+
+PASS: CoE SDO readback of RxPDO/TxPDO assignments and PDO entries.
+Discovered 1 slave(s)
+  ring_position=0 vendor=0x29c product=0x3b11002
+CiA402 binding indices: controlword=0 target_position=1 target_velocity=2 mode=3 statusword=4 actual_position=5 actual_velocity=6 mode_display=7
+Discovered PDO entries=8 scalar bindings=8
+Startup transport ready after 78 cycle(s)
+FAULT_TRACE cycle=98 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=99 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=100 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=101 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=102 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=103 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=104 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=105 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=106 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=107 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=108 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=109 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=110 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=111 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=112 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=113 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=114 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=115 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=116 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=117 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=118 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=119 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=120 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=121 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=122 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=123 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=124 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=125 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=126 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=127 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=128 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=129 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=130 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=131 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=132 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=133 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=134 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=135 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=136 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=137 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=138 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=139 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=140 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=141 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=142 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=143 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=144 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=145 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=146 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=147 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=148 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=149 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=150 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=151 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=152 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=153 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=154 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=155 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=156 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=157 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=158 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=159 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=160 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=161 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=162 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=163 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=164 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=165 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=166 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=167 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=168 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=169 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=170 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=171 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=172 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=173 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=174 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=175 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=176 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=177 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=178 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=179 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=180 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=181 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=182 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=183 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=184 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=185 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=186 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=187 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=188 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=189 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=190 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=191 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=192 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=193 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=194 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=195 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=196 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=197 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=198 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=199 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=200 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=201 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=202 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=203 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=204 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=205 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=206 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=207 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=208 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=209 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=210 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=211 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=212 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=213 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=214 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=215 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=216 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=217 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=218 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=219 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=220 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=221 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=222 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=223 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=224 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=225 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=226 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=227 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=228 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=229 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=230 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=231 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=232 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=233 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=234 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=235 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=236 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=237 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=238 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=239 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=240 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=241 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=242 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=243 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=244 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=245 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=246 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=247 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=248 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=249 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=250 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=251 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=252 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=253 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=254 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=255 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=256 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=257 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=258 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=259 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=260 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=261 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=262 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=263 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=264 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=265 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=266 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=267 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=268 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=269 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=270 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=271 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=272 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=273 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=274 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=275 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=276 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=277 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=278 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=279 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=280 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=281 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=282 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=283 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=284 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=285 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=286 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=287 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=288 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=289 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=290 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=291 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=292 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=293 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=294 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=295 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=296 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=297 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=298 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=299 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=300 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=301 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=302 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=303 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=304 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=305 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=306 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=307 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=308 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=309 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=310 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=311 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=312 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=313 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=314 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=315 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=316 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=317 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=318 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=319 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=320 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=321 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=322 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=323 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=324 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=325 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=326 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=327 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=328 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=329 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=330 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=331 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=332 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=333 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=334 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=335 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=336 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=337 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=338 statusword=0xf controlword=0x0 wkc=3 domain_complete=1
+FAULT_TRACE cycle=339 statusword=0xf controlword=0x0 wkc=3 domain_complete=1
+FAULT_TRACE cycle=340 statusword=0xf controlword=0x0 wkc=3 domain_complete=1
+FAULT_TRACE cycle=341 statusword=0x8 controlword=0x0 wkc=3 domain_complete=1
+FAULT_RESET controlword=0x80 pulse_sent=1
+FAULT_RESET_TRACE cycle=343 statusword=0x8 controlword=0x0 phase=2 wkc=3
+FAULT_RESET_TRACE cycle=344 statusword=0x8 controlword=0x0 phase=2 wkc=3
+FAULT_RESET_TRACE cycle=345 statusword=0x40 controlword=0x0 phase=3 wkc=3
+PASS: wire-level CiA402 Fault Reaction Active -> Fault -> explicit one-cycle Fault Reset -> Switch On Disabled; drive was not re-enabled.
+cycles=346 enabled_stable_cycles=10 statusword=0x40 mode_display=0x8 wkc=3 domain_complete=1 disabled_feedback=1
+slave ring_position=0 online=1 operational=1 al_state=0x8
+PASS: EtherCAT transport healthy; CiA 402 reached Operation Enabled from statusword feedback in CSP mode, held position unchanged, then returned to Switch On Disabled.
+NOTE: Injected fault validates the patched KickCAT model only; vendor fault codes, emergency objects, STO and HIL safety remain unvalidated.
+NOTE: KickCAT echoes mode display; this does not validate a real drive's mode acceptance, motion response, DC timing or HIL safety.
+
+Discovery-time slave snapshot (captured before cyclic SIL; not runtime AL-state evidence):
+=== Master 0, Slave 0 ===
+Device: Main
+State: PREOP
+Flag: +
+Identity:
+  Vendor Id:       0x0000029c
+  Product code:    0x03b11002
+  Revision number: 0x00050005
+  Serial number:   0x00000000
+DL information:
+  FMMU bit operation: no
+  Distributed clocks: yes, 64 bit
+  DC system time transmission delay: 0 ns
+Port  Type  Link  Loop    Signal  NextSlave  RxTime [ns]  Diff [ns]   NextDc [ns]
+   0  MII   up    open    yes             -    539872550           0           0
+   1  MII   down  closed  no              -            -           -           -
+   2  N/A   down  closed  no              -            -           -           -
+   3  N/A   down  closed  no              -            -           -           -
+Mailboxes:
+  Bootstrap RX: 0x1000/128, TX: 0x1400/128
+  Standard  RX: 0x1000/128, TX: 0x1400/128
+  Supported protocols: EoE, CoE, FoE
+General:
+  Group: Servo Drives
+  Image name: 
+  Order number: EVS-NET-01
+  Device name: EVS-NET-01
+  CoE details:
+    Enable SDO: yes
+    Enable SDO Info: yes
+    Enable PDO Assign: yes
+    Enable PDO Configuration: yes
+    Enable Upload at startup: no
+    Enable SDO complete access: yes
+  Flags:
+    Enable SafeOp: no
+    Enable notLRW: no
+  Current consumption: 0 mA
+
+PASS: IgH ec_generic <-> veth <-> KickCAT raw-socket slave discovery and bidirectional EtherCAT frame exchange.
+NOTE: CoE mapping readback and cyclic PDO/WKC/AL-OP passed; CiA402 motion, DC timing and real-slave HIL remain unvalidated.
+Artifacts: /tmp/mca-ethercat-fault-matrix-20261104-210416/reaction-3
+PASS: Fault Reaction Active duration 3 cycle(s)
+
+=== Running fault-reaction duration: 5 cycle(s) ===
+
+PASS: CoE SDO readback of RxPDO/TxPDO assignments and PDO entries.
+Discovered 1 slave(s)
+  ring_position=0 vendor=0x29c product=0x3b11002
+CiA402 binding indices: controlword=0 target_position=1 target_velocity=2 mode=3 statusword=4 actual_position=5 actual_velocity=6 mode_display=7
+Discovered PDO entries=8 scalar bindings=8
+Startup transport ready after 82 cycle(s)
+FAULT_TRACE cycle=102 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=103 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=104 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=105 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=106 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=107 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=108 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=109 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=110 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=111 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=112 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=113 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=114 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=115 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=116 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=117 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=118 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=119 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=120 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=121 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=122 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=123 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=124 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=125 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=126 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=127 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=128 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=129 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=130 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=131 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=132 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=133 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=134 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=135 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=136 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=137 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=138 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=139 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=140 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=141 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=142 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=143 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=144 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=145 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=146 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=147 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=148 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=149 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=150 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=151 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=152 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=153 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=154 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=155 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=156 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=157 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=158 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=159 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=160 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=161 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=162 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=163 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=164 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=165 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=166 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=167 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=168 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=169 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=170 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=171 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=172 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=173 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=174 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=175 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=176 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=177 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=178 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=179 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=180 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=181 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=182 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=183 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=184 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=185 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=186 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=187 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=188 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=189 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=190 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=191 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=192 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=193 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=194 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=195 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=196 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=197 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=198 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=199 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=200 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=201 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=202 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=203 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=204 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=205 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=206 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=207 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=208 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=209 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=210 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=211 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=212 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=213 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=214 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=215 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=216 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=217 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=218 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=219 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=220 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=221 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=222 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=223 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=224 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=225 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=226 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=227 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=228 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=229 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=230 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=231 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=232 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=233 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=234 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=235 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=236 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=237 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=238 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=239 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=240 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=241 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=242 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=243 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=244 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=245 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=246 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=247 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=248 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=249 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=250 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=251 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=252 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=253 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=254 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=255 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=256 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=257 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=258 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=259 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=260 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=261 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=262 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=263 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=264 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=265 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=266 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=267 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=268 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=269 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=270 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=271 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=272 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=273 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=274 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=275 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=276 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=277 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=278 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=279 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=280 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=281 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=282 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=283 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=284 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=285 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=286 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=287 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=288 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=289 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=290 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=291 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=292 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=293 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=294 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=295 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=296 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=297 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=298 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=299 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=300 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=301 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=302 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=303 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=304 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=305 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=306 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=307 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=308 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=309 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=310 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=311 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=312 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=313 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=314 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=315 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=316 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=317 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=318 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=319 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=320 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=321 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=322 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=323 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=324 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=325 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=326 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=327 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=328 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=329 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=330 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=331 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=332 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=333 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=334 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=335 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=336 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=337 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=338 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=339 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=340 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=341 statusword=0x37 controlword=0xf wkc=3 domain_complete=1
+FAULT_TRACE cycle=342 statusword=0xf controlword=0x0 wkc=3 domain_complete=1
+FAULT_TRACE cycle=343 statusword=0xf controlword=0x0 wkc=3 domain_complete=1
+FAULT_TRACE cycle=344 statusword=0xf controlword=0x0 wkc=3 domain_complete=1
+FAULT_TRACE cycle=345 statusword=0xf controlword=0x0 wkc=3 domain_complete=1
+FAULT_TRACE cycle=346 statusword=0xf controlword=0x0 wkc=3 domain_complete=1
+FAULT_TRACE cycle=347 statusword=0x8 controlword=0x0 wkc=3 domain_complete=1
+FAULT_RESET controlword=0x80 pulse_sent=1
+FAULT_RESET_TRACE cycle=349 statusword=0x8 controlword=0x0 phase=2 wkc=3
+FAULT_RESET_TRACE cycle=350 statusword=0x8 controlword=0x0 phase=2 wkc=3
+FAULT_RESET_TRACE cycle=351 statusword=0x40 controlword=0x0 phase=3 wkc=3
+PASS: wire-level CiA402 Fault Reaction Active -> Fault -> explicit one-cycle Fault Reset -> Switch On Disabled; drive was not re-enabled.
+cycles=352 enabled_stable_cycles=10 statusword=0x40 mode_display=0x8 wkc=3 domain_complete=1 disabled_feedback=1
+slave ring_position=0 online=1 operational=1 al_state=0x8
+PASS: EtherCAT transport healthy; CiA 402 reached Operation Enabled from statusword feedback in CSP mode, held position unchanged, then returned to Switch On Disabled.
+NOTE: Injected fault validates the patched KickCAT model only; vendor fault codes, emergency objects, STO and HIL safety remain unvalidated.
+NOTE: KickCAT echoes mode display; this does not validate a real drive's mode acceptance, motion response, DC timing or HIL safety.
+
+Discovery-time slave snapshot (captured before cyclic SIL; not runtime AL-state evidence):
+=== Master 0, Slave 0 ===
+Device: Main
+State: PREOP
+Flag: +
+Identity:
+  Vendor Id:       0x0000029c
+  Product code:    0x03b11002
+  Revision number: 0x00050005
+  Serial number:   0x00000000
+DL information:
+  FMMU bit operation: no
+  Distributed clocks: yes, 64 bit
+  DC system time transmission delay: 0 ns
+Port  Type  Link  Loop    Signal  NextSlave  RxTime [ns]  Diff [ns]   NextDc [ns]
+   0  MII   up    open    yes             -    299924172           0           0
+   1  MII   down  closed  no              -            -           -           -
+   2  N/A   down  closed  no              -            -           -           -
+   3  N/A   down  closed  no              -            -           -           -
+Mailboxes:
+  Bootstrap RX: 0x1000/128, TX: 0x1400/128
+  Standard  RX: 0x1000/128, TX: 0x1400/128
+  Supported protocols: EoE, CoE, FoE
+General:
+  Group: Servo Drives
+  Image name: 
+  Order number: EVS-NET-01
+  Device name: EVS-NET-01
+  CoE details:
+    Enable SDO: yes
+    Enable SDO Info: yes
+    Enable PDO Assign: yes
+    Enable PDO Configuration: yes
+    Enable Upload at startup: no
+    Enable SDO complete access: yes
+  Flags:
+    Enable SafeOp: no
+    Enable notLRW: no
+  Current consumption: 0 mA
+
+PASS: IgH ec_generic <-> veth <-> KickCAT raw-socket slave discovery and bidirectional EtherCAT frame exchange.
+NOTE: CoE mapping readback and cyclic PDO/WKC/AL-OP passed; CiA402 motion, DC timing and real-slave HIL remain unvalidated.
+Artifacts: /tmp/mca-ethercat-fault-matrix-20261104-210416/reaction-5
+PASS: Fault Reaction Active duration 5 cycle(s)
+
+PASS: all Fault Reaction Active duration matrix cases: 1 2 3 5
+Artifacts: /tmp/mca-ethercat-fault-matrix-20261104-210416

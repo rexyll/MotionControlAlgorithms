@@ -59,6 +59,15 @@ bool environment_flag(const char* name) {
   return value != nullptr && std::string(value) == "1";
 }
 
+std::size_t environment_size(const char* name, std::size_t fallback) {
+  const char* value = std::getenv(name);
+  if (value == nullptr || *value == '\0') return fallback;
+  char* end = nullptr;
+  const auto parsed = std::strtoul(value, &end, 10);
+  if (end == value || *end != '\0') return fallback;
+  return static_cast<std::size_t>(parsed);
+}
+
 }  // namespace
 
 int main() {
@@ -340,6 +349,8 @@ int main() {
     bool saw_fault_reaction = false;
     bool saw_fault = false;
     std::size_t fault_reaction_cycles_seen = 0U;
+    const std::size_t expected_fault_reaction_cycles =
+        environment_size("MCA_ECAT_EXPECTED_FAULT_REACTION_CYCLES", 3U);
 
     // Maintain Operation Enabled until the simulator injects its configured
     // fault. After Fault Reaction Active is observed, only safe outputs are sent.
@@ -410,10 +421,13 @@ int main() {
     }
 
     if (feedback_ok && (!saw_fault_reaction || !saw_fault ||
-                        fault_reaction_cycles_seen == 0U)) {
+                        fault_reaction_cycles_seen !=
+                            expected_fault_reaction_cycles)) {
       feedback_ok = false;
-      std::cerr << "FAIL: simulator did not expose Fault Reaction Active then Fault; "
-                << "reaction_cycles=" << fault_reaction_cycles_seen << '\n';
+      std::cerr << "FAIL: simulator did not expose the expected Fault Reaction Active "
+                << "duration followed by Fault; reaction_cycles="
+                << fault_reaction_cycles_seen
+                << " expected=" << expected_fault_reaction_cycles << '\n';
     }
 
     if (feedback_ok && saw_fault) {

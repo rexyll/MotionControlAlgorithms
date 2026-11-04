@@ -42,8 +42,9 @@ TEST(Cia402PdoCodec, RejectsOutOfRangeWithoutModifyingImage) {
   const auto before = image;
   EXPECT_FALSE(cia402_write_u16(image.data(), image.size(), 24U, 0xFFFFU));
   EXPECT_FALSE(cia402_write_i32(image.data(), image.size(), 8U, -1));
-  EXPECT_FALSE(cia402_read_i32(image.data(), image.size(), 8U,
-                               *reinterpret_cast<std::int32_t*>(nullptr)));
+  std::int32_t untouched = 123;
+  EXPECT_FALSE(cia402_read_i32(nullptr, image.size(), 0U, untouched));
+  EXPECT_EQ(untouched, 123);
   EXPECT_EQ(image, before);
 }
 

@@ -389,7 +389,6 @@ int main() {
     bool saw_reaction = false;
     bool saw_fault = false;
     std::size_t reaction_cycles = 0U;
-    std::uint16_t fault_statusword = 0U;
     std::cout << "MULTI_FAULT target_ring=" << target.ring_position
               << " peer_ring=" << peer.ring_position
               << " expected_reaction_cycles=" << reaction_value << '\n';
@@ -437,7 +436,6 @@ int main() {
         ++reaction_cycles;
       } else if (target_state == Cia402PdsState::Fault) {
         saw_fault = true;
-        fault_statusword = target.last_statusword;
       } else if (saw_reaction) {
         (void)adapter.queue_send();
         std::cerr << "FAIL: target left FRA without reporting Fault\n";

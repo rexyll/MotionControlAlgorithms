@@ -1,0 +1,8 @@
+Discovered 1 slave(s)
+  ring_position=0 vendor=0x29c product=0x3b11002
+CiA402 binding indices: controlword=0 target_position=1 target_velocity=2 mode=3 statusword=4 actual_position=5 actual_velocity=6 mode_display=7
+Discovered PDO entries=8 scalar bindings=8
+Startup transport ready after 80 cycle(s)
+cycles=5080 enabled_stable_cycles=0 statusword=0x40 mode_display=0x8 wkc=3 domain_complete=1 disabled_feedback=1
+slave ring_position=0 online=1 operational=1 al_state=0x8
+FAIL: CiA 402 state-machine closed-loop acceptance not reached

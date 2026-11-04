@@ -142,6 +142,36 @@ before and after pulse emission, unexpected post-reset states, and timeout /
 explicit re-arm behavior. These are controller-level tests; they do not
 simulate physical cable removal or vendor-specific drive behavior.
 
+## Recorded reaction-duration matrix pass
+
+Observed on 2026-11-04 from the user-provided run in
+`log/114.txt`. Artifact root:
+`/tmp/mca-ethercat-fault-matrix-20261104-210416`.
+
+All four independent IgH/veth/KickCAT sessions passed. The cyclic process
+image reported exactly the configured number of consecutive
+Fault Reaction Active (`0x000F`) samples before latched Fault (`0x0008`):
+
+| Configured FRA cycles | Observed FRA cycles | First FRA cycle | Fault cycle | Final reset feedback |
+| ---: | ---: | ---: | ---: | --- |
+| 1 | 1 | 340 | 341 | cycle 345: `0x0040` |
+| 2 | 2 | 991 | 993 | cycle 997: `0x0040` |
+| 3 | 3 | 338 | 341 | cycle 345: `0x0040` |
+| 5 | 5 | 342 | 347 | cycle 351: `0x0040` |
+
+For every case, the harness emitted exactly one `0x0080` reset pulse, then
+used `0x0000` controlword while awaiting feedback. All reset traces retained
+WKC=3; the final state reported `domain_complete=1`,
+`disabled_feedback=1`, slave online/operational, and AL state `0x08 (OP)`.
+The matrix wrapper completed with
+`PASS: all Fault Reaction Active duration matrix cases: 1 2 3 5`.
+
+This extends the earlier single three-cycle wire-level result to short,
+default and longer configured FRA intervals. It remains evidence for the
+deterministic patched KickCAT model only; it does not establish vendor-specific
+fault reaction timing, real-drive reset semantics, STO behavior or physical
+HIL safety.
+
 ## Required wire-level acceptance
 
 Do not mark the fault gate passed until a run against the patched

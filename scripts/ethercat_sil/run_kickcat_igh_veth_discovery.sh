@@ -30,6 +30,7 @@ TX_PID=""
 RX_PID=""
 COE_CAPTURE_IN_PID=""
 COE_CAPTURE_OUT_PID=""
+MASTER_CAPTURE_IN_PID=""
 LOADED_MASTER=0
 LOADED_GENERIC=0
 VETH_CREATED=0
@@ -160,6 +161,11 @@ start_coe_capture() {
   tcpdump -l -Q out -i "$SIM_IF" -nn -e -vvv -XX \
     'ether proto 0x88a4' >"$ARTIFACT_DIR/coe-simulator-egress.log" 2>&1 &
   COE_CAPTURE_OUT_PID=$!
+  # Capture the return path at the IgH-facing veth endpoint as well. A frame
+  # observed leaving the simulator NIC is not proof that the master received it.
+  tcpdump -l -Q in -i "$MASTER_IF" -nn -e -vvv -XX \
+    'ether proto 0x88a4' >"$ARTIFACT_DIR/coe-master-ingress.log" 2>&1 &
+  MASTER_CAPTURE_IN_PID=$!
   sleep 0.5
   kill -0 "$COE_CAPTURE_IN_PID" 2>/dev/null || {
     cat "$ARTIFACT_DIR/coe-simulator-ingress.log" >&2 || true
@@ -168,6 +174,10 @@ start_coe_capture() {
   kill -0 "$COE_CAPTURE_OUT_PID" 2>/dev/null || {
     cat "$ARTIFACT_DIR/coe-simulator-egress.log" >&2 || true
     fail "EtherCAT simulator egress capture did not stay running"
+  }
+  kill -0 "$MASTER_CAPTURE_IN_PID" 2>/dev/null || {
+    cat "$ARTIFACT_DIR/coe-master-ingress.log" >&2 || true
+    fail "EtherCAT master ingress capture did not stay running"
   }
 }
 
@@ -181,6 +191,11 @@ stop_coe_capture() {
     kill -INT "$COE_CAPTURE_OUT_PID" 2>/dev/null || true
     wait "$COE_CAPTURE_OUT_PID" 2>/dev/null || true
     COE_CAPTURE_OUT_PID=""
+  fi
+  if [[ -n "$MASTER_CAPTURE_IN_PID" ]]; then
+    kill -INT "$MASTER_CAPTURE_IN_PID" 2>/dev/null || true
+    wait "$MASTER_CAPTURE_IN_PID" 2>/dev/null || true
+    MASTER_CAPTURE_IN_PID=""
   fi
 }
 

@@ -8,9 +8,17 @@
 
 namespace {
 using namespace mca::hardware;
-using Adapter = EthercatIghAdapter<16U, 4U, 16U>;
-using Binding = Adapter::PdoBinding;
 using Direction = EthercatPdoDirection;
+struct Binding {
+  std::uint16_t ring_position;
+  std::uint32_t vendor_id;
+  std::uint32_t product_code;
+  std::uint16_t index;
+  std::uint8_t subindex;
+  std::uint8_t bit_length;
+  std::uint16_t domain_id;
+  Direction direction;
+};
 
 std::array<Binding, 8U> make_bindings() {
   // Deliberately not in PDO order: resolution must use object identity.

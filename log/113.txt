@@ -1,0 +1,423 @@
+earl@earl-VMware-Virtual-Platform:~/workspace/MotionControlAlgorithms$ sed -i 's/\r$//' \
+  scripts/ethercat_sil/prepare_kickcat_fault_injection.sh \
+  scripts/ethercat_sil/apply_kickcat_ds402_fault_patch.py
+earl@earl-VMware-Virtual-Platform:~/workspace/MotionControlAlgorithms$ export KICKCAT_SOURCE_DIR="$HOME/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT"
+earl@earl-VMware-Virtual-Platform:~/workspace/MotionControlAlgorithms$ echo "===== 1. Apply fault injection fixture ====="
+bash scripts/ethercat_sil/prepare_kickcat_fault_injection.sh
+===== 1. Apply fault injection fixture =====
+PASS: applied MCA DS402 fault fixture to KickCAT cb2e1a192ac11ffaa58f08945053b8129abf94cb
+PASS: KickCAT DS402 fault-injection fixture ready at cb2e1a192ac11ffaa58f08945053b8129abf94cb
+Build network_simulator in the KickCAT checkout before running MCA fault SIL.
+earl@earl-VMware-Virtual-Platform:~/workspace/MotionControlAlgorithms$ echo "===== 2. Verify source patch ====="
+
+grep -n -E 'fault_after_cycles|fault_reaction_cycles|fault_injected_|cycle_count_' \
+  "$KICKCAT_SOURCE_DIR/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h" \
+  "$KICKCAT_SOURCE_DIR/lib/simulation/src/DeviceApp.cc"
+===== 2. Verify source patch =====
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h:38:            std::uint32_t fault_after_cycles = 0U;
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h:39:            std::uint32_t fault_reaction_cycles = 3U;
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h:121:            ++cycle_count_;
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h:123:            if (not fault_injected_ and params_.fault_after_cycles > 0U
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h:124:                and cycle_count_ >= params_.fault_after_cycles)
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h:126:                fault_injected_ = true;
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h:129:                    1U, params_.fault_reaction_cycles);
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h:262:        std::uint32_t cycle_count_{0U};
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h:265:        bool          fault_injected_{false};
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/simulation/src/DeviceApp.cc:24:            mp.fault_after_cycles = config.value("fault_after_cycles", mp.fault_after_cycles);
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/simulation/src/DeviceApp.cc:25:            mp.fault_reaction_cycles = config.value("fault_reaction_cycles", mp.fault_reaction_cycles);
+earl@earl-VMware-Virtual-Platform:~/workspace/MotionControlAlgorithms$ echo "===== 3. Rebuild patched simulator ====="
+
+cmake --build "$KICKCAT_SOURCE_DIR/build" \
+  --target network_simulator --clean-first --parallel 2
+===== 3. Rebuild patched simulator =====
+[  3%] Building CXX object lib/CMakeFiles/kickcat.dir/src/Frame.cc.o
+[  3%] Building CXX object lib/CMakeFiles/kickcat.dir/src/checksum/adler32.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[  3%] Building CXX object lib/CMakeFiles/kickcat.dir/src/Mailbox.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/src/Frame.cc:5:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+4 warnings generated.
+[  5%] Building CXX object lib/CMakeFiles/kickcat.dir/src/protocol.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/src/Mailbox.cc:6:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+1 warning generated.
+[  6%] Building CXX object lib/CMakeFiles/kickcat.dir/src/TapSocket.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+8 warnings generated.
+[  8%] Building CXX object lib/CMakeFiles/kickcat.dir/src/SIIParser.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 10%] Building CXX object lib/CMakeFiles/kickcat.dir/src/OS/Filesystem.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/src/SIIParser.cc:2:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+1 warning generated.
+[ 11%] Building CXX object lib/CMakeFiles/kickcat.dir/src/OS/SoftPll.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+2 warnings generated.
+[ 13%] Building CXX object lib/CMakeFiles/kickcat.dir/src/OS/Time.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 15%] Building CXX object lib/CMakeFiles/kickcat.dir/src/OS/Timer.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 16%] Building CXX object lib/CMakeFiles/kickcat.dir/src/utils/xsd.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 16%] Building CXX object lib/CMakeFiles/kickcat.dir/src/CoE/OD.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 18%] Building CXX object lib/CMakeFiles/kickcat.dir/src/CoE/protocol.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 20%] Building CXX object lib/CMakeFiles/kickcat.dir/src/CoE/mailbox/request.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 22%] Building CXX object lib/CMakeFiles/kickcat.dir/src/CoE/mailbox/response.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/src/CoE/mailbox/request.cc:5:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/src/CoE/mailbox/request.cc:435:173: warning: format specifies type 'void *' but the argument has type 'uint8_t *' (aka 'unsigned char *') [-Wformat-pedantic]
+  435 |         coe_info("\nReceived size %" PRIi32 " already received %" PRIu32 ", remaining_size %" PRIi32 " client_data_ %p \n ", size , already_received_size_, remaining_size, client_data_);
+      |                                                                                                                     ~~                                                      ^~~~~~~~~~~~
+      |                                                                                                                     %s
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:106:25: note: expanded from macro 'coe_info'
+  106 |     #define coe_info    _none
+      |                         ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:55: note: expanded from macro '_none'
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                       ^~~~~~~~~~~
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/src/CoE/mailbox/request.cc:6:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/CoE/mailbox/request.h:74:27: warning: private field 'mailbox_' is not used [-Wunused-private-field]
+   74 |         request::Mailbox& mailbox_;
+      |                           ^
+10 warnings generated.
+[ 23%] Building CXX object lib/CMakeFiles/kickcat.dir/src/CoE/CiA/DS402/StateMachine.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/src/CoE/CiA/DS402/StateMachine.cc:2:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+4 warnings generated.
+1 warning generated.
+[ 25%] Building CXX object lib/CMakeFiles/kickcat.dir/src/EoE/protocol.cc.o
+[ 27%] Building CXX object lib/CMakeFiles/kickcat.dir/src/FoE/protocol.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 28%] Building CXX object lib/CMakeFiles/kickcat.dir/src/FoE/mailbox/request.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 30%] Building CXX object lib/CMakeFiles/kickcat.dir/src/FoE/mailbox/response.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 30%] Building CXX object lib/CMakeFiles/kickcat.dir/src/ESI/Parser.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 32%] Building CXX object lib/CMakeFiles/kickcat.dir/src/ESI/SIIBuilder.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/src/ESI/Parser.cc:8:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/src/ESI/SIIBuilder.cc:7:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+2 warnings generated.
+[ 33%] Building CXX object lib/CMakeFiles/kickcat.dir/src/utils/xml.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 35%] Building CXX object lib/CMakeFiles/kickcat.dir/src/OS/Linux/Socket.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/src/OS/Linux/Socket.cc:15:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+4 warnings generated.
+[ 37%] Building CXX object lib/CMakeFiles/kickcat.dir/src/OS/Linux/UdpDiagSocket.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 38%] Building CXX object lib/CMakeFiles/kickcat.dir/src/OS/Unix/Time.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 40%] Building CXX object lib/CMakeFiles/kickcat.dir/src/OS/Unix/Timer.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/src/OS/Unix/Timer.cc:4:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+5 warnings generated.
+2 warnings generated.
+[ 42%] Building CXX object lib/CMakeFiles/kickcat.dir/src/OS/Unix/Mutex.cc.o
+[ 42%] Building CXX object lib/CMakeFiles/kickcat.dir/src/OS/Unix/SharedMemory.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 44%] Building CXX object lib/CMakeFiles/kickcat.dir/src/OS/Unix/ConditionVariable.cc.o
+1 warning generated.
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+[ 45%] Building CXX object lib/CMakeFiles/kickcat.dir/src/OS/Unix/Thread.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+1 warning generated.
+[ 47%] Building CXX object lib/CMakeFiles/kickcat.dir/src/OS/Unix/Filesystem.cc.o
+[ 49%] Building CXX object lib/CMakeFiles/kickcat.dir/master/src/AbstractLink.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 50%] Building CXX object lib/CMakeFiles/kickcat.dir/master/src/Bus.cc.o
+1 warning generated.
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+[ 52%] Building CXX object lib/CMakeFiles/kickcat.dir/master/src/CoE.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/master/src/Bus.cc:6:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/master/src/Bus.cc:327:29: warning: lambda capture 'this' is not used [-Wunused-lambda-capture]
+  327 |             auto process = [this, &slave](DatagramHeader const*, uint8_t const* data, uint16_t wkc)
+      |                             ^~~~~
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/master/src/Bus.cc:6:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+1 warning generated.
+[ 54%] Building CXX object lib/CMakeFiles/kickcat.dir/master/src/CoE/CiA/DS402/Drive.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 55%] Building CXX object lib/CMakeFiles/kickcat.dir/master/src/dc.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/master/src/dc.cc:5:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/master/src/dc.cc:472:34: warning: lambda capture 'slave' is not used [-Wunused-lambda-capture]
+  472 |                 auto process = [&slave](DatagramHeader const*, uint8_t const*, uint16_t wkc)
+      |                                 ~^~~~~
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/master/src/dc.cc:5:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+23 warnings generated.
+[ 55%] Building CXX object lib/CMakeFiles/kickcat.dir/master/src/FoE.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+17 warnings generated.
+[ 57%] Building CXX object lib/CMakeFiles/kickcat.dir/master/src/Diagnostics.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 59%] Building CXX object lib/CMakeFiles/kickcat.dir/master/src/Gateway.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 61%] Building CXX object lib/CMakeFiles/kickcat.dir/master/src/helpers.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/master/src/Gateway.cc:6:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+6 warnings generated.
+[ 62%] Building CXX object lib/CMakeFiles/kickcat.dir/master/src/Link.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 64%] Building CXX object lib/CMakeFiles/kickcat.dir/master/src/Prints.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/master/src/Link.cc:9:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/master/src/Link.cc:415:81: warning: captured structured bindings are a C++20 extension [-Wc++20-extensions]
+  415 |                     [&](LogicalFrameDescription const& d) { return d.address == header_nominal->address; });
+      |                                                                                 ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/master/src/Link.cc:370:15: note: 'header_nominal' declared here
+  370 |         auto [header_nominal, data_nominal, wkc_nominal] = frame_nominal_.nextDatagram();
+      |               ^
+9 warnings generated.
+[ 66%] Building CXX object lib/CMakeFiles/kickcat.dir/master/src/MailboxSequencer.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 67%] Building CXX object lib/CMakeFiles/kickcat.dir/master/src/MasterOD.cc.o
+1 warning generated.
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+[ 69%] Building CXX object lib/CMakeFiles/kickcat.dir/master/src/Slave.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 69%] Building CXX object lib/CMakeFiles/kickcat.dir/slave/src/AbstractEmulatedEEPROM.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 71%] Building CXX object lib/CMakeFiles/kickcat.dir/slave/src/AbstractESC.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/slave/src/AbstractEmulatedEEPROM.cc:4:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+5 warnings generated.
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/slave/src/AbstractESC.cc:4:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+[ 72%] Building CXX object lib/CMakeFiles/kickcat.dir/slave/src/ESM.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+3 warnings generated.
+[ 74%] Building CXX object lib/CMakeFiles/kickcat.dir/slave/src/ESMStates.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 76%] Building CXX object lib/CMakeFiles/kickcat.dir/slave/src/PDO.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 77%] Building CXX object lib/CMakeFiles/kickcat.dir/slave/src/AbstractSPI.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/slave/src/PDO.cc:4:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+[ 79%] Building CXX object lib/CMakeFiles/kickcat.dir/slave/src/EEPROM/EEPROM_factory.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+4 warnings generated.
+[ 81%] Building CXX object lib/CMakeFiles/kickcat.dir/slave/src/ESC/EmulatedESC.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 81%] Building CXX object lib/CMakeFiles/kickcat.dir/slave/src/ESC/Lan9252.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/slave/src/ESC/EmulatedESC.cc:6:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+In file included from /home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/slave/src/ESC/Lan9252.cc:2:
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+    9 | #define _none(...)    do { if (0) { fprintf(stderr, ##__VA_ARGS__); } } while (0)
+      |                                                     ^
+/home/earl/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT/lib/include/kickcat/debug.h:9:53: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+3 warnings generated.
+[ 83%] Building CXX object lib/CMakeFiles/kickcat.dir/slave/src/ESC/XMC4800.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+4 warnings generated.
+[ 84%] Building CXX object lib/CMakeFiles/kickcat.dir/slave/src/EmulatedNetwork.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 86%] Building CXX object lib/CMakeFiles/kickcat.dir/slave/src/slave/Slave.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+1 warning generated.
+[ 88%] Linking CXX static library libkickcat.a
+[ 88%] Built target kickcat
+[ 89%] Building CXX object lib/simulation/CMakeFiles/kickcat_simulation.dir/src/SimulatedSlave.cc.o
+[ 91%] Building CXX object lib/simulation/CMakeFiles/kickcat_simulation.dir/src/Topology.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 93%] Building CXX object lib/simulation/CMakeFiles/kickcat_simulation.dir/src/DeviceApp.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[ 94%] Building CXX object lib/simulation/CMakeFiles/kickcat_simulation.dir/src/DirectoryStorage.cc.o
+1 warning generated.
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+[ 94%] Building CXX object lib/simulation/CMakeFiles/kickcat_simulation.dir/src/SimulatorControlServer.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+1 warning generated.
+[ 96%] Linking CXX static library libkickcat_simulation.a
+[ 96%] Built target kickcat_simulation
+[ 98%] Building CXX object simulation/CMakeFiles/network_simulator.dir/network_simulator.cc.o
+warning: unknown warning option '-Wduplicated-cond' [-Wunknown-warning-option]
+1 warning generated.
+[100%] Linking CXX executable network_simulator
+[100%] Built target network_simulator
+earl@earl-VMware-Virtual-Platform:~/workspace/MotionControlAlgorithms$ echo "===== 4. Verify patched source and build ====="
+
+grep -q 'fault_after_cycles' \
+  "$KICKCAT_SOURCE_DIR/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h" \
+  || { echo "FAIL: DS402 fault patch missing"; return 1 2>/dev/null || exit 1; }
+===== 4. Verify patched source and build =====
+earl@earl-VMware-Virtual-Platform:~/workspace/MotionControlAlgorithms$ grep -q 'fault_reaction_cycles' \
+  "$KICKCAT_SOURCE_DIR/lib/simulation/src/DeviceApp.cc" \
+  || { echo "FAIL: JSON parameter binding missing"; return 1 2>/dev/null || exit 1; }
+earl@earl-VMware-Virtual-Platform:~/workspace/MotionControlAlgorithms$ test -x "$KICKCAT_SOURCE_DIR/build/simulation/network_simulator" \
+  || { echo "FAIL: simulator executable missing"; return 1 2>/dev/null || exit 1; }
+earl@earl-VMware-Virtual-Platform:~/workspace/MotionControlAlgorithms$ echo "PASS: patched KickCAT simulator built successfully"
+PASS: patched KickCAT simulator built successfully

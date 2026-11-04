@@ -136,6 +136,12 @@ TEST(Cia402FaultResetSequencer, EmitsOneResetPulseAndWaitsForDisabledFeedback) {
   EXPECT_TRUE(plan.complete);
   EXPECT_FALSE(plan.failed);
   EXPECT_EQ(plan.phase, Cia402FaultResetPhase::Complete);
+
+  // A completed reset remains de-energized; the sequencer never re-enables.
+  plan = sequencer.update(0x0040U, true);
+  EXPECT_EQ(plan.controlword, 0x0000U);
+  EXPECT_TRUE(plan.complete);
+  EXPECT_FALSE(plan.failed);
 }
 
 TEST(Cia402FaultResetSequencer, TimesOutAndRequiresExplicitRearm) {

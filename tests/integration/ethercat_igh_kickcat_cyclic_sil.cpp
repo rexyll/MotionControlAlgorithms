@@ -274,6 +274,7 @@ int main() {
       const auto& health = adapter.runtime_health();
       feedback_ok = false;
       std::cerr << "FAIL: cyclic exchange failed"
+                << " status_code=" << static_cast<unsigned int>(cycle_status.code)
                 << " master_state_valid=" << health.master_state_valid
                 << " link_up=" << health.link_up
                 << " slaves_responding=" << health.slaves_responding

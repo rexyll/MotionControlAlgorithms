@@ -1,0 +1,67 @@
+diff --git a/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h b/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h
+--- a/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h
++++ b/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h
+@@ -36,0 +37,3 @@
++            // Deterministic one-shot DS402 fault injection. Zero disables it.
++            std::uint32_t fault_after_cycles = 0U;
++            std::uint32_t fault_reaction_cycles = 3U;
+@@ -86,0 +90,2 @@
++        static constexpr uint16_t FAULT_REACTION_ACTIVE = 0x000FU;
++        static constexpr uint16_t FAULT = ds402::status::value::FAULT_STATE;
+@@ -112,0 +118,43 @@
++            const bool fault_reset_edge = (control_word & 0x0080U) != 0U
++                                       and (last_control_word_ & 0x0080U) == 0U;
++            last_control_word_ = control_word;
++            ++cycle_count_;
++
++            if (not fault_injected_ and params_.fault_after_cycles > 0U
++                and cycle_count_ >= params_.fault_after_cycles)
++            {
++                fault_injected_ = true;
++                fault_reaction_active_ = true;
++                fault_reaction_remaining_ = std::max<std::uint32_t>(
++                    1U, params_.fault_reaction_cycles);
++            }
++
++            // Fault Reaction Active lasts for the configured cycles, then Fault
++            // remains latched until a fresh controlword bit-7 rising edge.
++            if (fault_reaction_active_)
++            {
++                status_word_value_ = FAULT_REACTION_ACTIVE;
++                if (fault_reaction_remaining_ > 0U)
++                {
++                    --fault_reaction_remaining_;
++                }
++                if (fault_reaction_remaining_ == 0U)
++                {
++                    fault_reaction_active_ = false;
++                    fault_latched_ = true;
++                }
++                return;
++            }
++            if (fault_latched_)
++            {
++                if (fault_reset_edge)
++                {
++                    fault_latched_ = false;
++                    status_word_value_ = SWITCH_ON_DISABLED;
++                }
++                else
++                {
++                    status_word_value_ = FAULT;
++                }
++                return;
++            }
+@@ -212,0 +261,6 @@
++
++        std::uint32_t cycle_count_{0U};
++        std::uint32_t fault_reaction_remaining_{0U};
++        std::uint16_t last_control_word_{0U};
++        bool          fault_injected_{false};
++        bool          fault_reaction_active_{false};
+diff --git a/lib/simulation/src/DeviceApp.cc b/lib/simulation/src/DeviceApp.cc
+--- a/lib/simulation/src/DeviceApp.cc
++++ b/lib/simulation/src/DeviceApp.cc
+@@ -23,0 +24,2 @@
++        bool          fault_latched_{false};
++            mp.fault_after_cycles = config.value("fault_after_cycles", mp.fault_after_cycles);

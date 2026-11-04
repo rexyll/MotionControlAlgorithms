@@ -172,9 +172,14 @@ class EthercatIghSlaveHealthMonitor final {
       tracked.ring_position = topology.slaves[topology_index].ring_position;
 
       if (!observed->state_valid) {
-        tracked.state = EthercatSlaveHealthState::Unknown;
-        tracked.bad_cycles = 0U;
-        tracked.good_cycles = 0U;
+        // A transient diagnostic read failure must not erase an explicitly
+        // latched drive fault. Non-faulted stations become Unknown until a
+        // trustworthy observation is available again.
+        if (tracked.state != EthercatSlaveHealthState::Fault) {
+          tracked.state = EthercatSlaveHealthState::Unknown;
+          tracked.bad_cycles = 0U;
+          tracked.good_cycles = 0U;
+        }
         append_snapshot(tracked);
         continue;
       }

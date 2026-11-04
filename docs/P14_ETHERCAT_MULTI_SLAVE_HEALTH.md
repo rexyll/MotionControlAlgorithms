@@ -127,23 +127,44 @@ Enabled from their own statusword feedback, then both returning to
 Switch On Disabled. The script selects the multi-slave target automatically
 from `MCA_ECAT_EXPECTED_SLAVES=2`.
 
-## Independent multi-drive fault gate (not yet implemented)
+## Independent multi-drive fault isolation SIL
 
-After the baseline two-drive run is confirmed, extend the fixture runner and
-cyclic test to trigger one drive at a time with different deterministic
-`fault_after_cycles` and `fault_reaction_cycles` values. The final acceptance
-must prove:
+The wire-level multi-slave harness now has an opt-in
+`MCA_ECAT_MULTI_FAULT_SIL=1` mode. It selects the target by EtherCAT ring
+position, expects exactly two DS402 simulator configs, and verifies that the
+non-target config has fault injection disabled. The target must have a positive
+`fault_after_cycles`; its configured FRA duration is read from that same
+fixture and compared with the observed Statusword sequence.
 
-- both slaves are independently discovered and identified by ring position;
-- the selected drive reaches Fault Reaction Active/Fault while the peer remains
-  Operation Enabled with its own complete domain WKC;
-- the faulted drive's explicit reset emits exactly one `0x0080` pulse and does
-  not re-enable that drive;
-- the unaffected peer remains Operation Enabled throughout the first drive's
-  fault and reset;
-- the second drive can then be faulted/reset independently;
-- master link, each slave's AL state and each domain's WKC are logged separately.
+Each test run targets one drive:
 
-A successful multi-slave fake-backend test or two-drive baseline does not prove
-independent multi-drive fault recovery. Real drive/HIL acceptance remains a
-separate later phase.
+1. Bring both drives to stable Operation Enabled while holding actual position.
+2. Wait for only the selected drive to transition through the configured
+   Fault Reaction Active duration and then Fault.
+3. Require the peer to remain Operation Enabled and both independent PDO
+   domains to retain complete WKC on every observed cycle.
+4. Arm the CiA 402 reset sequencer from a fresh Fault sample.
+5. Send exactly one `0x0080` pulse to the target while continuing to send
+   Operation Enabled controlword to the peer.
+6. Require target Switch On Disabled and peer Operation Enabled feedback.
+
+Run both directions using the same known-good base DS402 JSON. The script
+creates derived fixtures beside the source JSON so relative ESI resources
+remain resolvable:
+
+```bash
+export KICKCAT_SOURCE_DIR="$HOME/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT"
+export KICKCAT_SLAVE_CONFIG="$KICKCAT_SOURCE_DIR/simulation/slave_configs/ecat402-drive.json"
+sudo -E env \
+  KICKCAT_SIMULATOR="$KICKCAT_SOURCE_DIR/build/simulation/network_simulator" \
+  KICKCAT_SLAVE_CONFIG="$KICKCAT_SLAVE_CONFIG" \
+  MCA_ECAT_MULTI_FAULT_AFTER_CYCLES=40 \
+  MCA_ECAT_MULTI_FAULT_REACTION_CYCLES=3 \
+  bash scripts/ethercat_sil/run_kickcat_igh_multi_slave_fault_isolation.sh
+```
+
+The script runs ring position 0 and ring position 1 as separate cases and
+stores artifacts under `/tmp/mca-ethercat-multi-fault-*`. This is KickCAT
+SIL only: vendor-specific fault semantics, distributed-clock timing, real-drive
+fault behavior and physical HIL remain unvalidated. Peer preservation in this
+simulator is not a safety-rated isolation function.

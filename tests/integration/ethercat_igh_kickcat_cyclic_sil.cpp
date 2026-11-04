@@ -436,19 +436,43 @@ int main() {
         feedback_ok = false;
         std::cerr << "FAIL: explicit Fault Reset request was rejected\n";
       } else {
-        // A fresh receive phase is mandatory before the reset PDO write. Confirm
-        // the drive is still faulted immediately before emitting the reset edge.
+        // A fresh receive phase is mandatory before the reset PDO write. Pace
+        // this exchange exactly like the main cyclic loop: the simulator needs
+        // one 1 ms cycle to process the preceding controlword=0 frame and return
+        // the next process image. An unpaced receive can sample before that
+        // response is available and falsely reject a still-latched Fault.
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
         const auto reset_receive_status = adapter.receive_process();
         std::uint16_t confirmed_fault_statusword = 0U;
-        if (!reset_receive_status.ok() ||
-            !transport_healthy(adapter, topology.slave_count) ||
-            !read_u16(adapter, cia402.statusword,
-                      confirmed_fault_statusword) ||
+        const bool reset_transport_healthy =
+            transport_healthy(adapter, topology.slave_count);
+        const bool reset_statusword_read =
+            read_u16(adapter, cia402.statusword,
+                     confirmed_fault_statusword);
+        const auto confirmed_fault_state =
             mca::hardware::decode_cia402_pds_state(
-                confirmed_fault_statusword) != Cia402PdsState::Fault) {
+                confirmed_fault_statusword);
+        if (!reset_receive_status.ok() || !reset_transport_healthy ||
+            !reset_statusword_read ||
+            confirmed_fault_state != Cia402PdsState::Fault) {
+          const auto& reset_health = adapter.runtime_health();
           feedback_ok = false;
           (void)adapter.queue_send();
-          std::cerr << "FAIL: Fault state was not confirmed immediately before reset\n";
+          std::cerr << "FAIL: Fault state was not confirmed immediately before reset"
+                    << " receive_ok=" << reset_receive_status.ok()
+                    << " statusword_read=" << reset_statusword_read
+                    << " statusword=0x" << std::hex
+                    << confirmed_fault_statusword << std::dec
+                    << " decoded_state="
+                    << static_cast<unsigned int>(confirmed_fault_state)
+                    << " transport_healthy=" << reset_transport_healthy
+                    << " runtime_valid=" << reset_health.valid()
+                    << " link_up=" << reset_health.link_up
+                    << " slaves_responding=" << reset_health.slaves_responding
+                    << " wkc=" << adapter.observed_wkc()
+                    << " domain_complete="
+                    << adapter.domain_working_counter_complete(1U)
+                    << '\n';
         } else {
           last_statusword = confirmed_fault_statusword;
           const auto reset_pulse =

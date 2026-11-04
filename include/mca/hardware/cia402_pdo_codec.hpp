@@ -1,7 +1,7 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
-#include <limits>
 
 #include "mca/hardware/ethercat_pdo_image.hpp"
 

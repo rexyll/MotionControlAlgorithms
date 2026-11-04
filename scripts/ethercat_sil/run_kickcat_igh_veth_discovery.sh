@@ -20,6 +20,7 @@ readonly IGH_DEBUG_LEVEL="${MCA_ECAT_DEBUG_LEVEL:-$(if [[ "$COE_READBACK" == "1"
 readonly DISABLE_EOE="${MCA_ECAT_DISABLE_EOE:-0}"
 readonly CYCLIC_SIL="${MCA_ECAT_CYCLIC_SIL:-0}"
 readonly FAULT_SIL="${MCA_ECAT_FAULT_SIL:-0}"
+readonly MULTI_FAULT_SIL="${MCA_ECAT_MULTI_FAULT_SIL:-0}"
 readonly CYCLIC_TIMEOUT_SEC="${MCA_ECAT_CYCLIC_TIMEOUT_SEC:-20}"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -244,6 +245,37 @@ if [[ "$DISABLE_EOE" != "0" && "$DISABLE_EOE" != "1" ]]; then
 fi
 if [[ "$FAULT_SIL" != "0" && "$FAULT_SIL" != "1" ]]; then
   fail "MCA_ECAT_FAULT_SIL must be 0 or 1"
+fi
+if [[ "$MULTI_FAULT_SIL" != "0" && "$MULTI_FAULT_SIL" != "1" ]]; then
+  fail "MCA_ECAT_MULTI_FAULT_SIL must be 0 or 1"
+fi
+if [[ "$MULTI_FAULT_SIL" == "1" ]]; then
+  [[ "$EXPECTED_SLAVES" == "2" ]] || fail "multi-slave fault SIL requires exactly two configured slaves"
+  [[ "$CYCLIC_SIL" == "1" ]] || fail "multi-slave fault SIL requires MCA_ECAT_CYCLIC_SIL=1"
+  [[ "$FAULT_SIL" == "0" ]] || fail "single-slave and multi-slave fault modes cannot be combined"
+  [[ "${#SLAVE_CONFIGS[@]}" == "2" ]] || fail "multi-slave fault SIL requires two config files"
+  [[ "${MCA_ECAT_MULTI_FAULT_RING_POSITION:-}" =~ ^[01]$ ]] || fail "set MCA_ECAT_MULTI_FAULT_RING_POSITION to 0 or 1"
+  command -v python3 >/dev/null || fail "python3 is required to validate multi-slave fault fixtures"
+  export MCA_ECAT_EXPECTED_FAULT_REACTION_CYCLES="$(
+    python3 - "${SLAVE_CONFIGS[0]}" "${SLAVE_CONFIGS[1]}" "${MCA_ECAT_MULTI_FAULT_RING_POSITION}" <<'PY'
+import json
+import pathlib
+import sys
+configs = [json.loads(pathlib.Path(p).read_text(encoding="utf-8")) for p in sys.argv[1:3]]
+target = int(sys.argv[3])
+for slot, config in enumerate(configs):
+    if not isinstance(config, dict) or not bool(config.get("ds402_motor", False)):
+        raise SystemExit(f"slave {slot} must be a DS402 motor fixture")
+    after = int(config.get("fault_after_cycles", 0))
+    if slot == target:
+        if after <= 0:
+            raise SystemExit("selected slave must have positive fault_after_cycles")
+        reaction = max(1, int(config.get("fault_reaction_cycles", 3)))
+    elif after != 0:
+        raise SystemExit("non-target slave must have fault_after_cycles=0")
+print(reaction)
+PY
+  )" || fail "invalid per-slave multi-fault fixture JSON"
 fi
 if [[ "$FAULT_SIL" == "1" ]]; then
   [[ "$EXPECTED_SLAVES" == "1" ]] || fail "MCA_ECAT_FAULT_SIL still uses the single-slave cyclic harness"

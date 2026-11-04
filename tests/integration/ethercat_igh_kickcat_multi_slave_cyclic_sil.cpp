@@ -183,22 +183,46 @@ int main() {
     return 1;
   }
 
+  // IgH may need multiple cyclic exchanges to move the slaves from PREOP
+  // through SAFEOP to OP. An incomplete WKC makes receive_process() and
+  // queue_send() report RuntimeError, but queue_send() still queues and sends
+  // the safe output image. Do not abort convergence on that expected state.
   bool startup_ready = false;
+  bool startup_output_write_failed = false;
+  bool startup_frame_send_failed = false;
   for (std::size_t cycle = 0U; cycle < kStartupCyclesMaximum; ++cycle) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    const auto previous_sequence = adapter.cycle_sequence();
     const auto receive = adapter.receive_process();
     const auto health_status = slave_health.update(adapter);
     const bool outputs_ok = write_safe_outputs(adapter, drives);
     const auto send = adapter.queue_send();
-    if (!outputs_ok || !send.ok()) {
-      std::cerr << "FAIL: startup safe-output exchange\n";
+
+    if (adapter.cycle_sequence() == previous_sequence) {
+      startup_frame_send_failed = true;
+      std::cerr << "FAIL: IgH did not send startup cyclic frame\n";
       break;
     }
-    if (receive.ok() && health_status.ok() && transport_healthy(adapter) &&
-        slave_health.snapshot().valid()) {
+    if (!outputs_ok) {
+      startup_output_write_failed = true;
+      std::cerr << "FAIL: unable to refresh safe startup PDO image\n";
+      break;
+    }
+    if (receive.ok() && send.ok() && health_status.ok() &&
+        transport_healthy(adapter) && slave_health.snapshot().valid()) {
       startup_ready = true;
       std::cout << "Startup transport and per-slave health ready after "
                 << (cycle + 1U) << " cycles\n";
+      break;
+    }
+
+    const bool all_domains_complete =
+        adapter.domain_working_counter_complete(1U) &&
+        adapter.domain_working_counter_complete(2U);
+    if ((!receive.ok() || !send.ok()) && all_domains_complete) {
+      startup_frame_send_failed = !send.ok();
+      std::cerr << "FAIL: cyclic exchange failed after both domain WKC "
+                   "became complete\n";
       break;
     }
   }
@@ -216,6 +240,12 @@ int main() {
                 << " operational=" << slave.operational
                 << " state_valid=" << slave.state_valid;
     }
+    std::cerr << " domain[1] wkc=" << adapter.domain_working_counter(1U)
+              << " complete=" << adapter.domain_working_counter_complete(1U)
+              << " domain[2] wkc=" << adapter.domain_working_counter(2U)
+              << " complete=" << adapter.domain_working_counter_complete(2U)
+              << " output_write_failed=" << startup_output_write_failed
+              << " frame_send_failed=" << startup_frame_send_failed;
     std::cerr << '\n';
     (void)adapter.shutdown();
     return 1;

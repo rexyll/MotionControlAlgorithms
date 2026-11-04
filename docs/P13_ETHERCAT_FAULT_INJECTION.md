@@ -61,6 +61,43 @@ The patch exposes the sequence through the same PDO-mapped controlword and
 statusword as the normal simulator. It does not inject an arbitrary statusword
 into the master's process image.
 
+## Run the wire-level fault gate
+
+After applying the patch and rebuilding `network_simulator`, create a separate
+fixture JSON (do not overwrite the baseline fixture) with the two fault
+parameters, for example:
+
+```json
+{
+  "esi": "ecat402-drive.xml",
+  "ds402_motor": true,
+  "fault_after_cycles": 250,
+  "fault_reaction_cycles": 3
+}
+```
+
+Run the same IgH/veth harness with the fault gate enabled:
+
+```bash
+sudo -E env \
+  KICKCAT_SIMULATOR="$KICKCAT_SOURCE_DIR/build/simulation/network_simulator" \
+  KICKCAT_SLAVE_CONFIG="$KICKCAT_SOURCE_DIR/simulation/slave_configs/ecat402-drive-fault.json" \
+  MCA_ECAT_COE_READBACK=1 \
+  MCA_ECAT_DISABLE_EOE=1 \
+  MCA_ECAT_CYCLIC_SIL=1 \
+  MCA_ECAT_FAULT_SIL=1 \
+  MCA_ECAT_CYCLIC_TIMEOUT_SEC=60 \
+  bash scripts/ethercat_sil/run_kickcat_igh_veth_discovery.sh
+```
+
+The harness reads the expected reaction-cycle count from the JSON and passes it
+to the C++ acceptance executable. It maintains Operation Enabled until the
+configured injection occurs, then verifies the exact Fault Reaction Active
+duration, latched Fault, one-cycle `0x0080` reset pulse and Switch On Disabled
+feedback. It records `FAULT_TRACE` and `FAULT_RESET_TRACE` lines in
+`cyclic-pdo-wkc.log`. The script rejects fault mode unless cyclic SIL is also
+enabled and the fixture contains a positive `fault_after_cycles`.
+
 ## Required wire-level acceptance
 
 Do not mark the fault gate passed until a run against the patched

@@ -6,6 +6,8 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <string>
 #include <iostream>
 #include <thread>
 
@@ -52,9 +54,15 @@ bool write_value(Adapter& adapter, std::size_t index, std::uint64_t value) {
   return adapter.write_pdo(index, value).ok();
 }
 
+bool environment_flag(const char* name) {
+  const char* value = std::getenv(name);
+  return value != nullptr && std::string(value) == "1";
+}
+
 }  // namespace
 
 int main() {
+  const bool fault_sil_requested = environment_flag("MCA_ECAT_FAULT_SIL");
   Adapter::Config config{};
   config.master_index = 0U;
   config.cycle_time_ns = 1'000'000U;
@@ -327,6 +335,195 @@ int main() {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 
+  bool fault_sil_passed = !fault_sil_requested;
+  if (fault_sil_requested && feedback_ok && state_machine_passed) {
+    bool saw_fault_reaction = false;
+    bool saw_fault = false;
+    std::size_t fault_reaction_cycles_seen = 0U;
+
+    // Maintain Operation Enabled until the simulator injects its configured
+    // fault. After Fault Reaction Active is observed, only safe outputs are sent.
+    for (std::size_t i = 0U; i < 2'000U; ++i) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      const auto receive_status = adapter.receive_process();
+      std::uint16_t statusword = 0U;
+      std::uint32_t actual_position_bits = 0U;
+      if (!receive_status.ok() ||
+          !transport_healthy(adapter, topology.slave_count) ||
+          !read_u16(adapter, cia402.statusword, statusword) ||
+          !read_i32_bits(adapter, cia402.actual_position,
+                         actual_position_bits)) {
+        feedback_ok = false;
+        (void)adapter.queue_send();
+        std::cerr << "FAIL: transport/feedback lost during injected-fault wait\n";
+        break;
+      }
+
+      const auto state =
+          mca::hardware::decode_cia402_pds_state(statusword);
+      if (state == Cia402PdsState::FaultReactionActive) {
+        saw_fault_reaction = true;
+        ++fault_reaction_cycles_seen;
+      } else if (state == Cia402PdsState::Fault) {
+        saw_fault = true;
+      } else if (saw_fault_reaction) {
+        feedback_ok = false;
+        (void)adapter.queue_send();
+        std::cerr << "FAIL: unexpected PDS state after Fault Reaction Active, "
+                  << "statusword=0x" << std::hex << statusword << std::dec
+                  << '\n';
+        break;
+      } else if (state != Cia402PdsState::OperationEnabled) {
+        feedback_ok = false;
+        (void)adapter.queue_send();
+        std::cerr << "FAIL: drive left Operation Enabled before injected fault, "
+                  << "statusword=0x" << std::hex << statusword << std::dec
+                  << '\n';
+        break;
+      }
+
+      const std::uint16_t controlword =
+          state == Cia402PdsState::OperationEnabled && !saw_fault_reaction
+              ? 0x000FU
+              : 0x0000U;
+      const bool writes_ok =
+          write_value(adapter, cia402.controlword, controlword) &&
+          write_value(adapter, cia402.target_velocity, 0U) &&
+          write_value(adapter, cia402.target_position, actual_position_bits) &&
+          write_value(adapter, cia402.mode_of_operation, kCspMode);
+      const auto send_status = adapter.queue_send();
+      std::cout << "FAULT_TRACE cycle=" << adapter.cycle_sequence()
+                << " statusword=0x" << std::hex << statusword
+                << " controlword=0x" << controlword << std::dec
+                << " wkc=" << adapter.observed_wkc()
+                << " domain_complete="
+                << adapter.domain_working_counter_complete(1U) << '\n';
+      if (!writes_ok || !send_status.ok()) {
+        feedback_ok = false;
+        std::cerr << "FAIL: PDO send failed during injected-fault wait\n";
+        break;
+      }
+      if (saw_fault) {
+        last_statusword = statusword;
+        break;
+      }
+    }
+
+    if (feedback_ok && (!saw_fault_reaction || !saw_fault ||
+                        fault_reaction_cycles_seen == 0U)) {
+      feedback_ok = false;
+      std::cerr << "FAIL: simulator did not expose Fault Reaction Active then Fault; "
+                << "reaction_cycles=" << fault_reaction_cycles_seen << '\n';
+    }
+
+    if (feedback_ok && saw_fault) {
+      mca::hardware::Cia402FaultResetSequencer reset_sequencer(100U);
+      if (!reset_sequencer.begin(last_statusword, true)) {
+        feedback_ok = false;
+        std::cerr << "FAIL: explicit Fault Reset request was rejected\n";
+      } else {
+        // A fresh receive phase is mandatory before the reset PDO write. Confirm
+        // the drive is still faulted immediately before emitting the reset edge.
+        const auto reset_receive_status = adapter.receive_process();
+        std::uint16_t confirmed_fault_statusword = 0U;
+        if (!reset_receive_status.ok() ||
+            !transport_healthy(adapter, topology.slave_count) ||
+            !read_u16(adapter, cia402.statusword,
+                      confirmed_fault_statusword) ||
+            mca::hardware::decode_cia402_pds_state(
+                confirmed_fault_statusword) != Cia402PdsState::Fault) {
+          feedback_ok = false;
+          (void)adapter.queue_send();
+          std::cerr << "FAIL: Fault state was not confirmed immediately before reset\n";
+        } else {
+          last_statusword = confirmed_fault_statusword;
+          const auto reset_pulse =
+              reset_sequencer.update(confirmed_fault_statusword, true);
+          const bool reset_pulse_sent = reset_pulse.pulse_sent &&
+                                        reset_pulse.controlword == 0x0080U;
+          std::size_t reset_pulse_count =
+              reset_pulse.pulse_sent ? 1U : 0U;
+          const auto pulse_position =
+              have_hold_position ? hold_position_bits : 0U;
+          const bool pulse_write_ok =
+              write_value(adapter, cia402.controlword, reset_pulse.controlword) &&
+              write_value(adapter, cia402.target_velocity, 0U) &&
+              write_value(adapter, cia402.target_position, pulse_position) &&
+              write_value(adapter, cia402.mode_of_operation, kCspMode);
+          const auto pulse_send_status = adapter.queue_send();
+          std::cout << "FAULT_RESET controlword=0x" << std::hex
+                    << reset_pulse.controlword << std::dec
+                    << " pulse_sent=" << reset_pulse.pulse_sent << '\n';
+
+          bool reset_complete = false;
+          if (!pulse_write_ok || !pulse_send_status.ok() ||
+              !reset_pulse_sent) {
+            feedback_ok = false;
+            std::cerr << "FAIL: one-cycle Fault Reset pulse could not be sent\n";
+          } else {
+            for (std::size_t i = 0U; i < 20U; ++i) {
+              std::this_thread::sleep_for(std::chrono::milliseconds(1));
+              const auto receive_status = adapter.receive_process();
+              std::uint16_t statusword = 0U;
+              std::uint32_t actual_position_bits = 0U;
+              if (!receive_status.ok() ||
+                  !transport_healthy(adapter, topology.slave_count) ||
+                  !read_u16(adapter, cia402.statusword, statusword) ||
+                  !read_i32_bits(adapter, cia402.actual_position,
+                                 actual_position_bits)) {
+                feedback_ok = false;
+                (void)adapter.queue_send();
+                std::cerr << "FAIL: transport/feedback lost while awaiting reset feedback\n";
+                break;
+              }
+              const auto plan = reset_sequencer.update(statusword, true);
+              if (plan.pulse_sent) ++reset_pulse_count;
+              const bool writes_ok =
+                  write_value(adapter, cia402.controlword, plan.controlword) &&
+                  write_value(adapter, cia402.target_velocity, 0U) &&
+                  write_value(adapter, cia402.target_position,
+                              actual_position_bits) &&
+                  write_value(adapter, cia402.mode_of_operation, kCspMode);
+              const auto send_status = adapter.queue_send();
+              std::cout << "FAULT_RESET_TRACE cycle=" << adapter.cycle_sequence()
+                        << " statusword=0x" << std::hex << statusword
+                        << " controlword=0x" << plan.controlword << std::dec
+                        << " phase=" << static_cast<unsigned int>(plan.phase)
+                        << " wkc=" << adapter.observed_wkc() << '\n';
+              if (!writes_ok || !send_status.ok() || plan.failed) {
+                feedback_ok = false;
+                std::cerr << "FAIL: Fault Reset sequence failed\n";
+                break;
+              }
+              if (plan.complete) {
+                reset_complete =
+                    mca::hardware::decode_cia402_pds_state(statusword) ==
+                    Cia402PdsState::SwitchOnDisabled;
+                last_statusword = statusword;
+                break;
+              }
+            }
+          }
+          fault_sil_passed = feedback_ok && reset_pulse_count == 1U &&
+                             reset_complete;
+          if (!fault_sil_passed) {
+            feedback_ok = false;
+            std::cerr << "FAIL: reset did not produce exactly one 0x0080 pulse "
+                         "and Switch On Disabled feedback; pulse_count="
+                      << reset_pulse_count << '\n';
+          } else {
+            std::cout << "PASS: wire-level CiA402 Fault Reaction Active -> Fault "
+                         "-> explicit one-cycle Fault Reset -> Switch On Disabled; "
+                         "drive was not re-enabled.\n";
+          }
+        }
+      }
+    }
+  } else if (fault_sil_requested) {
+    feedback_ok = false;
+    std::cerr << "FAIL: fault SIL requires baseline Operation Enabled acceptance\n";
+  }
+
   // Remove voltage with receive -> output update -> queue/send ordering.
   bool disabled_feedback = false;
   for (std::size_t i = 0; i < 100U; ++i) {
@@ -376,13 +573,17 @@ int main() {
     return 1;
   }
   if (!feedback_ok || !state_machine_passed || !disabled_feedback ||
-      !transport_passed) {
+      !transport_passed || !fault_sil_passed) {
     std::cerr << "FAIL: CiA 402 state-machine closed-loop acceptance not reached\n";
     return 1;
   }
   std::cout << "PASS: EtherCAT transport healthy; CiA 402 reached Operation Enabled "
                "from statusword feedback in CSP mode, held position unchanged, "
                "then returned to Switch On Disabled.\n";
+  if (fault_sil_requested) {
+    std::cout << "NOTE: Injected fault validates the patched KickCAT model only; "
+                 "vendor fault codes, emergency objects, STO and HIL safety remain unvalidated.\n";
+  }
   std::cout << "NOTE: KickCAT echoes mode display; this does not validate a real "
                "drive's mode acceptance, motion response, DC timing or HIL safety.\n";
   return 0;

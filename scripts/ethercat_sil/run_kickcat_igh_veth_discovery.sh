@@ -16,6 +16,7 @@ readonly ETHERCAT_CLI="${ETHERCAT_CLI:-ethercat}"
 readonly COE_READBACK="${MCA_ECAT_COE_READBACK:-0}"
 readonly DISABLE_EOE="${MCA_ECAT_DISABLE_EOE:-0}"
 readonly CYCLIC_SIL="${MCA_ECAT_CYCLIC_SIL:-0}"
+readonly FAULT_SIL="${MCA_ECAT_FAULT_SIL:-0}"
 readonly CYCLIC_TIMEOUT_SEC="${MCA_ECAT_CYCLIC_TIMEOUT_SEC:-20}"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -185,6 +186,16 @@ command -v modinfo >/dev/null || fail "kmod (modinfo) is required"
 command -v tcpdump >/dev/null || fail "tcpdump is required to prove bidirectional EtherCAT frames"
 if [[ "$DISABLE_EOE" != "0" && "$DISABLE_EOE" != "1" ]]; then
   fail "MCA_ECAT_DISABLE_EOE must be 0 or 1"
+fi
+if [[ "$FAULT_SIL" != "0" && "$FAULT_SIL" != "1" ]]; then
+  fail "MCA_ECAT_FAULT_SIL must be 0 or 1"
+fi
+if [[ "$FAULT_SIL" == "1" ]]; then
+  [[ "$CYCLIC_SIL" == "1" ]] || fail "MCA_ECAT_FAULT_SIL requires MCA_ECAT_CYCLIC_SIL=1"
+  command -v python3 >/dev/null || fail "python3 is required to validate fault fixture JSON"
+  export MCA_ECAT_EXPECTED_FAULT_REACTION_CYCLES="$(
+    python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); n=int(c.get("fault_reaction_cycles", 3)); assert int(c.get("fault_after_cycles", 0)) > 0; print(max(1,n))' "$KICKCAT_SLAVE_CONFIG"
+  )" || fail "fault SIL requires positive fault_after_cycles and a valid fault_reaction_cycles"
 fi
 command -v timeout >/dev/null || fail "coreutils timeout is required"
 command -v "$ETHERCAT_CLI" >/dev/null || fail "IgH ethercat CLI not found: $ETHERCAT_CLI"

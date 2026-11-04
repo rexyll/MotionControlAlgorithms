@@ -954,6 +954,35 @@ TEST(EthercatIghFakeApi, KeepsSlaveFaultLatchedUntilExplicitClearAndRecovery) {
             mca::hardware::EthercatSlaveHealthState::Present);
 }
 
+TEST(EthercatIghFakeApi, PreservesLatchedSlaveFaultWhenDiagnosticsBecomeUnavailable) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slaves(adapter));
+
+  mca::hardware::EthercatIghSlaveHealthMonitor<16U, 4U, 128U> slave_health(
+      {1U, 2U});
+  ASSERT_TRUE(adapter.exchange().ok());
+  ASSERT_TRUE(slave_health.update(adapter).ok());
+  ASSERT_TRUE(slave_health.latch_fault(1U));
+
+  fake_igh::fail_slave_state(true);
+  EXPECT_FALSE(adapter.exchange().ok());
+  ASSERT_TRUE(slave_health.update(adapter).ok());
+  ASSERT_EQ(slave_health.snapshot().slave_count, 2U);
+  EXPECT_EQ(slave_health.snapshot().slaves[0].state,
+            mca::hardware::EthercatSlaveHealthState::Unknown);
+  EXPECT_EQ(slave_health.snapshot().slaves[1].state,
+            mca::hardware::EthercatSlaveHealthState::Fault);
+
+  fake_igh::fail_slave_state(false);
+  ASSERT_TRUE(adapter.exchange().ok());
+  ASSERT_TRUE(slave_health.update(adapter).ok());
+  EXPECT_EQ(slave_health.snapshot().slaves[1].state,
+            mca::hardware::EthercatSlaveHealthState::Fault);
+}
+
 TEST(EthercatIghFakeApi, SplitsReceiveProcessFromQueueAndSendPhases) {
   fake_igh::reset();
   Adapter::Config config{};

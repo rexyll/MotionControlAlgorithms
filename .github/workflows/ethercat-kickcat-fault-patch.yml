@@ -31,7 +31,7 @@ jobs:
           assert "(control_word & 0x000FU) == 0x000FU" in state_machine
           assert "const bool fault_reset_edge =" in state_machine
           assert state_machine.count("++cycle_count_;") == 1
-          assert "last_control_word_ = control_word;\\n            ++cycle_count_;" not in state_machine
+          assert "last_control_word_ = control_word;" + chr(10) + "            ++cycle_count_;" not in state_machine
           PY
           before="$(git -C /tmp/KickCAT diff --binary | sha256sum)"
           python3 scripts/ethercat_sil/apply_kickcat_ds402_fault_patch.py /tmp/KickCAT

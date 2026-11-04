@@ -29,10 +29,10 @@ jobs:
           sudo apt-get install -y nlohmann-json3-dev
           g++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow \
             -I/tmp/KickCAT/lib/include -I/tmp/KickCAT/lib/master/include \
-            -I/tmp/KickCAT/lib/simulation/include \
+            -I/tmp/KickCAT/lib/slave/include -I/tmp/KickCAT/lib/simulation/include \
             -fsyntax-only /tmp/KickCAT/lib/simulation/src/DeviceApp.cc
           printf '#include "kickcat/simulation/devices/Ds402Motor.h"\\n' | \
             g++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow \
               -I/tmp/KickCAT/lib/include -I/tmp/KickCAT/lib/master/include \
-              -I/tmp/KickCAT/lib/simulation/include \
+              -I/tmp/KickCAT/lib/slave/include -I/tmp/KickCAT/lib/simulation/include \
               -x c++ -fsyntax-only -

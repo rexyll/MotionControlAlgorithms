@@ -108,7 +108,7 @@ TEST(Cia402FaultResetSequencer, RequiresExplicitHealthyFaultRequest) {
 }
 
 TEST(Cia402FaultResetSequencer, EmitsOneResetPulseAndWaitsForDisabledFeedback) {
-  Cia402FaultResetSequencer sequencer(4U);
+  Cia402FaultResetSequencer sequencer(16U);
   ASSERT_TRUE(sequencer.begin(0x0008U, true));
 
   auto plan = sequencer.update(0x0008U, true);

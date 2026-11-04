@@ -84,6 +84,103 @@ constexpr Cia402ControlPlan plan_cia402_control(
   return plan;
 }
 
+
+enum class Cia402FaultResetPhase : std::uint8_t {
+  Idle,
+  PulsePending,
+  AwaitingFaultClear,
+  Complete,
+  Failed
+};
+
+struct Cia402FaultResetPlan {
+  std::uint16_t controlword{0U};
+  Cia402FaultResetPhase phase{Cia402FaultResetPhase::Idle};
+  bool pulse_sent{false};
+  bool complete{false};
+  bool failed{false};
+};
+
+// Explicit, bounded Fault Reset workflow. The application must route the
+// sequencer's controlword to the drive for every step; it emits 0x0080 for
+// exactly one cycle, then clears bit 7 and waits for Switch On Disabled
+// feedback. It never enables the drive after a successful reset.
+class Cia402FaultResetSequencer final {
+ public:
+  explicit constexpr Cia402FaultResetSequencer(
+      std::uint32_t feedback_timeout_cycles = 100U) noexcept
+      : feedback_timeout_cycles_(feedback_timeout_cycles) {}
+
+  [[nodiscard]] constexpr bool configured() const noexcept {
+    return feedback_timeout_cycles_ > 0U;
+  }
+
+  [[nodiscard]] constexpr Cia402FaultResetPhase phase() const noexcept {
+    return phase_;
+  }
+
+  // Reset can only be explicitly armed from an observed Fault state while
+  // communication is healthy. Failed workflows require reset() before retry.
+  constexpr bool begin(std::uint16_t statusword,
+                       bool communication_healthy) noexcept {
+    if (!configured() || !communication_healthy ||
+        decode_cia402_pds_state(statusword) != Cia402PdsState::Fault ||
+        (phase_ != Cia402FaultResetPhase::Idle &&
+         phase_ != Cia402FaultResetPhase::Complete)) {
+      return false;
+    }
+    phase_ = Cia402FaultResetPhase::PulsePending;
+    waited_cycles_ = 0U;
+    return true;
+  }
+
+  constexpr Cia402FaultResetPlan update(
+      std::uint16_t statusword, bool communication_healthy) noexcept {
+    Cia402FaultResetPlan plan{};
+    if (phase_ == Cia402FaultResetPhase::PulsePending) {
+      if (!communication_healthy ||
+          decode_cia402_pds_state(statusword) != Cia402PdsState::Fault) {
+        phase_ = Cia402FaultResetPhase::Failed;
+      } else {
+        plan.controlword = cia402_controlword(Cia402ControlAction::FaultReset);
+        plan.pulse_sent = true;
+        phase_ = Cia402FaultResetPhase::AwaitingFaultClear;
+      }
+    } else if (phase_ == Cia402FaultResetPhase::AwaitingFaultClear) {
+      if (!communication_healthy) {
+        phase_ = Cia402FaultResetPhase::Failed;
+      } else {
+        const auto state = decode_cia402_pds_state(statusword);
+        if (state == Cia402PdsState::SwitchOnDisabled) {
+          phase_ = Cia402FaultResetPhase::Complete;
+        } else if (state != Cia402PdsState::Fault &&
+                   state != Cia402PdsState::FaultReactionActive) {
+          phase_ = Cia402FaultResetPhase::Failed;
+        } else {
+          ++waited_cycles_;
+          if (waited_cycles_ >= feedback_timeout_cycles_) {
+            phase_ = Cia402FaultResetPhase::Failed;
+          }
+        }
+      }
+    }
+    plan.phase = phase_;
+    plan.complete = phase_ == Cia402FaultResetPhase::Complete;
+    plan.failed = phase_ == Cia402FaultResetPhase::Failed;
+    return plan;
+  }
+
+  constexpr void reset() noexcept {
+    phase_ = Cia402FaultResetPhase::Idle;
+    waited_cycles_ = 0U;
+  }
+
+ private:
+  std::uint32_t feedback_timeout_cycles_{100U};
+  std::uint32_t waited_cycles_{0U};
+  Cia402FaultResetPhase phase_{Cia402FaultResetPhase::Idle};
+};
+
 struct Cia402MotionInterlock {
   bool ethercat_operational{false};
   bool link_up{false};

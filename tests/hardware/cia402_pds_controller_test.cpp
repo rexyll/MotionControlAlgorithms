@@ -97,4 +97,88 @@ TEST(Cia402MotionInterlock, RequiresEveryIndependentSafetyCondition) {
   EXPECT_FALSE(cia402_motion_permitted(interlock));
 }
 
+
+TEST(Cia402FaultResetSequencer, RequiresExplicitHealthyFaultRequest) {
+  Cia402FaultResetSequencer sequencer;
+  EXPECT_FALSE(sequencer.begin(0x0027U, true));
+  EXPECT_FALSE(sequencer.begin(0x0008U, false));
+  EXPECT_EQ(sequencer.phase(), Cia402FaultResetPhase::Idle);
+  EXPECT_TRUE(sequencer.begin(0x0008U, true));
+  EXPECT_EQ(sequencer.phase(), Cia402FaultResetPhase::PulsePending);
+}
+
+TEST(Cia402FaultResetSequencer, EmitsOneResetPulseAndWaitsForDisabledFeedback) {
+  Cia402FaultResetSequencer sequencer(4U);
+  ASSERT_TRUE(sequencer.begin(0x0008U, true));
+
+  auto plan = sequencer.update(0x0008U, true);
+  EXPECT_EQ(plan.controlword, 0x0080U);
+  EXPECT_TRUE(plan.pulse_sent);
+  EXPECT_FALSE(plan.complete);
+  EXPECT_EQ(plan.phase, Cia402FaultResetPhase::AwaitingFaultClear);
+
+  plan = sequencer.update(0x0008U, true);
+  EXPECT_EQ(plan.controlword, 0x0000U);
+  EXPECT_FALSE(plan.pulse_sent);
+  EXPECT_FALSE(plan.complete);
+
+  plan = sequencer.update(0x000FU, true);
+  EXPECT_EQ(plan.controlword, 0x0000U);
+  EXPECT_EQ(plan.phase, Cia402FaultResetPhase::AwaitingFaultClear);
+
+  plan = sequencer.update(0x0040U, true);
+  EXPECT_EQ(plan.controlword, 0x0000U);
+  EXPECT_TRUE(plan.complete);
+  EXPECT_FALSE(plan.failed);
+  EXPECT_EQ(plan.phase, Cia402FaultResetPhase::Complete);
+}
+
+TEST(Cia402FaultResetSequencer, TimesOutAndRequiresExplicitRearm) {
+  Cia402FaultResetSequencer sequencer(2U);
+  ASSERT_TRUE(sequencer.begin(0x0008U, true));
+  ASSERT_TRUE(sequencer.update(0x0008U, true).pulse_sent);
+
+  auto plan = sequencer.update(0x0008U, true);
+  EXPECT_FALSE(plan.failed);
+  plan = sequencer.update(0x0008U, true);
+  EXPECT_TRUE(plan.failed);
+  EXPECT_EQ(plan.phase, Cia402FaultResetPhase::Failed);
+  EXPECT_FALSE(sequencer.begin(0x0008U, true));
+
+  sequencer.reset();
+  EXPECT_TRUE(sequencer.begin(0x0008U, true));
+}
+
+TEST(Cia402FaultResetSequencer, CommunicationLossAbortsWithoutResetPulse) {
+  Cia402FaultResetSequencer sequencer;
+  ASSERT_TRUE(sequencer.begin(0x0008U, true));
+
+  auto plan = sequencer.update(0x0008U, false);
+  EXPECT_EQ(plan.controlword, 0x0000U);
+  EXPECT_FALSE(plan.pulse_sent);
+  EXPECT_TRUE(plan.failed);
+
+  sequencer.reset();
+  ASSERT_TRUE(sequencer.begin(0x0008U, true));
+  ASSERT_TRUE(sequencer.update(0x0008U, true).pulse_sent);
+  plan = sequencer.update(0x0008U, false);
+  EXPECT_EQ(plan.controlword, 0x0000U);
+  EXPECT_TRUE(plan.failed);
+}
+
+TEST(Cia402FaultResetSequencer, RejectsUnexpectedStateAfterResetPulse) {
+  Cia402FaultResetSequencer sequencer;
+  ASSERT_TRUE(sequencer.begin(0x0008U, true));
+  ASSERT_TRUE(sequencer.update(0x0008U, true).pulse_sent);
+  const auto plan = sequencer.update(0x0027U, true);
+  EXPECT_EQ(plan.controlword, 0x0000U);
+  EXPECT_TRUE(plan.failed);
+}
+
+TEST(Cia402FaultResetSequencer, RejectsInvalidTimeout) {
+  Cia402FaultResetSequencer sequencer(0U);
+  EXPECT_FALSE(sequencer.configured());
+  EXPECT_FALSE(sequencer.begin(0x0008U, true));
+}
+
 }  // namespace

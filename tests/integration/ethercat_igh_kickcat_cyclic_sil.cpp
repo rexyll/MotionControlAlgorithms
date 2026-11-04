@@ -134,17 +134,69 @@ int main() {
     return 1;
   }
 
-  // Start with a deterministic, non-motion output image. One successful
-  // exchange is required before any state transition is requested.
-  bool outputs_ok =
+  // Start with a deterministic, non-motion output image. IgH may need
+  // several cycles after activation before the first complete domain WKC and
+  // slave OP feedback arrive. Treat that bounded startup convergence as
+  // expected; do not require the very first exchange to be healthy.
+  const bool outputs_ok =
       write_value(adapter, cia402.controlword, 0U) &&
       write_value(adapter, cia402.target_position, 0U) &&
       write_value(adapter, cia402.target_velocity, 0U) &&
       write_value(adapter, cia402.mode_of_operation, kCspMode);
-  auto cycle_status = outputs_ok ? adapter.exchange()
-                                 : mca::core::Status{mca::core::StatusCode::RuntimeError};
-  if (!cycle_status.ok() || !transport_healthy(adapter, topology.slave_count)) {
-    std::cerr << "FAIL: initial healthy EtherCAT exchange not established\n";
+  if (!outputs_ok) {
+    std::cerr << "FAIL: unable to initialize safe PDO output image\n";
+    (void)adapter.shutdown();
+    return 1;
+  }
+
+  constexpr std::size_t kStartupCyclesMaximum = 5'000U;
+  bool startup_transport_ready = false;
+  for (std::size_t startup_cycle = 0U;
+       startup_cycle < kStartupCyclesMaximum; ++startup_cycle) {
+    const auto previous_sequence = adapter.cycle_sequence();
+    const auto cycle_status = adapter.exchange();
+    if (adapter.cycle_sequence() == previous_sequence) {
+      std::cerr << "FAIL: IgH did not send startup cyclic frame\n";
+      break;
+    }
+    if (transport_healthy(adapter, topology.slave_count)) {
+      startup_transport_ready = true;
+      std::cout << "Startup transport ready after "
+                << (startup_cycle + 1U) << " cycle(s)\n";
+      break;
+    }
+    // An incomplete WKC is normal while the master/slave state machine is
+    // converging. Once WKC is complete, a failed exchange is no longer a
+    // startup transient and must fail immediately.
+    if (!cycle_status.ok() &&
+        adapter.domain_working_counter_complete(1U)) {
+      std::cerr << "FAIL: cyclic exchange failed after domain WKC became complete\n";
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  if (!startup_transport_ready) {
+    const auto& health = adapter.runtime_health();
+    std::cerr << "FAIL: initial healthy EtherCAT exchange not established"
+              << " master_state_valid=" << health.master_state_valid
+              << " link_up=" << health.link_up
+              << " slaves_responding=" << health.slaves_responding
+              << " slave_count=" << health.slave_count
+              << " runtime_valid=" << health.valid()
+              << " wkc=" << adapter.observed_wkc()
+              << " domain_complete="
+              << adapter.domain_working_counter_complete(1U);
+    for (std::size_t i = 0U; i < health.slave_count; ++i) {
+      const auto& slave = health.slaves[i];
+      std::cerr << " slave[" << i << "] configured=" << slave.configured
+                << " state_valid=" << slave.state_valid
+                << " online=" << slave.online
+                << " operational=" << slave.operational
+                << " al_state=0x" << std::hex
+                << static_cast<unsigned int>(slave.al_state) << std::dec
+                << " state_error=" << slave.state_error;
+    }
+    std::cerr << '\n';
     (void)adapter.shutdown();
     return 1;
   }

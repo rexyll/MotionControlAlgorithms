@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <limits>
 
-#include "mca/hardware/ethercat_igh_adapter.hpp"
+#include "mca/hardware/ethercat_adapter_state.hpp"
 
 namespace mca::hardware {
 
@@ -36,16 +36,13 @@ struct Cia402PdoBindings {
   }
 };
 
-template <std::size_t MaxEntries>
+template <typename Binding, std::size_t MaxEntries>
 [[nodiscard]] bool resolve_cia402_pdo_bindings(
-    const std::array<typename EthercatIghAdapter<16U, 4U, MaxEntries>::PdoBinding,
-                     MaxEntries>& bindings,
+    const std::array<Binding, MaxEntries>& bindings,
     std::size_t binding_count, std::uint16_t ring_position,
     std::uint32_t vendor_id, std::uint32_t product_code,
     Cia402PdoBindings& output) noexcept {
   using Direction = EthercatPdoDirection;
-  using Binding =
-      typename EthercatIghAdapter<16U, 4U, MaxEntries>::PdoBinding;
   if (binding_count == 0U || binding_count > MaxEntries) return false;
 
   Cia402PdoBindings resolved{};

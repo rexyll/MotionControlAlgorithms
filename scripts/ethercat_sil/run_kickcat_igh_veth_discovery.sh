@@ -14,6 +14,7 @@ readonly KICKCAT_SIMULATOR="${KICKCAT_SIMULATOR:-}"
 readonly KICKCAT_SLAVE_CONFIG="${KICKCAT_SLAVE_CONFIG:-}"
 readonly ETHERCAT_CLI="${ETHERCAT_CLI:-ethercat}"
 readonly COE_READBACK="${MCA_ECAT_COE_READBACK:-0}"
+readonly DISABLE_EOE="${MCA_ECAT_DISABLE_EOE:-0}"
 readonly CYCLIC_SIL="${MCA_ECAT_CYCLIC_SIL:-0}"
 readonly CYCLIC_TIMEOUT_SEC="${MCA_ECAT_CYCLIC_TIMEOUT_SEC:-20}"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -182,6 +183,9 @@ command -v ip >/dev/null || fail "iproute2 (ip) is required"
 command -v modprobe >/dev/null || fail "kmod (modprobe) is required"
 command -v modinfo >/dev/null || fail "kmod (modinfo) is required"
 command -v tcpdump >/dev/null || fail "tcpdump is required to prove bidirectional EtherCAT frames"
+if [[ "$DISABLE_EOE" != "0" && "$DISABLE_EOE" != "1" ]]; then
+  fail "MCA_ECAT_DISABLE_EOE must be 0 or 1"
+fi
 command -v timeout >/dev/null || fail "coreutils timeout is required"
 command -v "$ETHERCAT_CLI" >/dev/null || fail "IgH ethercat CLI not found: $ETHERCAT_CLI"
 modinfo ec_master >/dev/null 2>&1 || fail "IgH ec_master module is not installed for the running kernel"
@@ -202,6 +206,8 @@ chmod 700 "$ARTIFACT_DIR"
   "$KICKCAT_SIMULATOR" --help 2>&1 | head -40 || true
   printf '\n'
   printf 'master_if=%s\nsim_if=%s\nmaster_mac=%s\nsim_mac=%s\n' "$MASTER_IF" "$SIM_IF" "$MASTER_MAC" "$SIM_MAC"
+  printf '\nIgH module parameters:\n'
+  modinfo ec_master 2>&1 | grep -E '^(version|parm):' || true
 } >"$ARTIFACT_DIR/environment.txt"
 
 ip link add "$MASTER_IF" type veth peer name "$SIM_IF"
@@ -274,6 +280,23 @@ fi
 RX_PID=""
 
 if [[ "$COE_READBACK" == "1" ]]; then
+  # Record EoE handler/interface state. EoE can generate mailbox traffic
+  # independently of CoE and shares the slave mailbox Sync Managers.
+  {
+    ip -o link show
+    "$ETHERCAT_CLI" eoe 2>&1 || true
+  } >"$ARTIFACT_DIR/eoe-before-coe.log" 2>&1
+  if [[ "$DISABLE_EOE" == "1" ]]; then
+    # Opt-in isolation experiment: close auto-created EoE interfaces.
+    while IFS= read -r eoe_if; do
+      [[ "$eoe_if" == eoe0* ]] || continue
+      ip link set dev "$eoe_if" down
+    done < <(ip -o link show | awk -F': ' '{sub(/@.*/, "", $2); print $2}')
+    {
+      ip -o link show
+      "$ETHERCAT_CLI" eoe 2>&1 || true
+    } >"$ARTIFACT_DIR/eoe-after-disable.log" 2>&1
+  fi
   "$ETHERCAT_CLI" master >"$ARTIFACT_DIR/master-before-coe.log" 2>&1 || true
   "$ETHERCAT_CLI" slaves -v >"$ARTIFACT_DIR/slaves-before-coe.log" 2>&1 || true
   start_coe_capture
@@ -284,6 +307,10 @@ if [[ "$COE_READBACK" == "1" ]]; then
     fail "CoE PDO assignment/mapping readback failed"
   fi
   stop_coe_capture
+  {
+    ip -o link show
+    "$ETHERCAT_CLI" eoe 2>&1 || true
+  } >"$ARTIFACT_DIR/eoe-after-coe.log" 2>&1
   printf '\nPASS: CoE SDO readback of RxPDO/TxPDO assignments and PDO entries.\n'
 fi
 

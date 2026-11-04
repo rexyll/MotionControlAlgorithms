@@ -27,6 +27,15 @@ export KICKCAT_SOURCE_DIR="$HOME/workspace/MotionControlAlgorithms/scripts/ether
 bash scripts/ethercat_sil/prepare_kickcat_fault_injection.sh
 
 cmake --build "$KICKCAT_SOURCE_DIR/build" --target network_simulator -j"$(nproc)"
+
+cat > "$KICKCAT_SOURCE_DIR/simulation/slave_configs/ecat402-drive-fault.json" <<'JSON'
+{
+  "esi": "ecat402-drive.xml",
+  "ds402_motor": true,
+  "fault_after_cycles": 250,
+  "fault_reaction_cycles": 3
+}
+JSON
 ```
 
 The helper refuses a different KickCAT revision, checks all source insertion

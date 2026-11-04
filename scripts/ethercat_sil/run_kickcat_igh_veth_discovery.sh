@@ -45,9 +45,11 @@ read_sdo_value() {
   else
     command_status=$?
   fi
+  finished=$(date +%s)
+  elapsed=$((finished - started))
   {
-    printf 'READ %s:%s type=%s exit=%s\n' \
-      "$index" "$subindex" "$type" "$command_status"
+    printf 'READ %s:%s type=%s exit=%s elapsed_sec=%s\n' \
+      "$index" "$subindex" "$type" "$command_status" "$elapsed"
     printf '%s\n' "$output"
   } >>"$ARTIFACT_DIR/coe-sdo-raw.log"
   if (( command_status != 0 )); then

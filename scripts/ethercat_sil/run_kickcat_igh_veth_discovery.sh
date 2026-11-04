@@ -23,7 +23,8 @@ readonly ARTIFACT_DIR="${MCA_ECAT_ARTIFACT_DIR:-/tmp/mca-ethercat-sil-$(date +%Y
 SIM_PID=""
 TX_PID=""
 RX_PID=""
-COE_CAPTURE_PID=""
+COE_CAPTURE_IN_PID=""
+COE_CAPTURE_OUT_PID=""
 LOADED_MASTER=0
 LOADED_GENERIC=0
 VETH_CREATED=0
@@ -37,19 +38,19 @@ fail() {
 # --position and --type options; parse the first numeric token from its output.
 read_sdo_value() {
   local index="$1" subindex="$2" type="$3" output token value
-  local command_status=0 started finished elapsed
-  started=$(date +%s)
+  local command_status=0 started finished elapsed_ms
+  started=$(date +%s%N)
   if output=$(timeout "$TIMEOUT_SEC" "$ETHERCAT_CLI" upload --position 0 \
       --type "$type" "$index" "$subindex" 2>&1); then
     command_status=0
   else
     command_status=$?
   fi
-  finished=$(date +%s)
-  elapsed=$((finished - started))
+  finished=$(date +%s%N)
+  elapsed_ms=$(((finished - started) / 1000000))
   {
-    printf 'READ %s:%s type=%s exit=%s elapsed_sec=%s\n' \
-      "$index" "$subindex" "$type" "$command_status" "$elapsed"
+    printf 'READ %s:%s type=%s exit=%s elapsed_ms=%s\n' \
+      "$index" "$subindex" "$type" "$command_status" "$elapsed_ms"
     printf '%s\n' "$output"
   } >>"$ARTIFACT_DIR/coe-sdo-raw.log"
   if (( command_status != 0 )); then
@@ -124,24 +125,36 @@ run_coe_readback() {
 }
 
 start_coe_capture() {
-  # Use live text decoding rather than pcap. The previous pcap capture
-  # received hundreds of kernel-filter packets but wrote zero records, so
-  # preserve tcpdump's decoded output directly for diagnosis.
-  tcpdump -l -i "$SIM_IF" -nn -e -vvv -XX \
-    >"$ARTIFACT_DIR/coe-simulator-live.log" 2>&1 &
-  COE_CAPTURE_PID=$!
+  # Capture both directions independently at the simulator veth endpoint.
+  # EtherCAT responses retain the master's Ethernet source address after
+  # in-place slave processing, so MAC addresses alone cannot identify direction.
+  tcpdump -l -Q in -i "$SIM_IF" -nn -e -vvv -XX \
+    'ether proto 0x88a4' >"$ARTIFACT_DIR/coe-simulator-ingress.log" 2>&1 &
+  COE_CAPTURE_IN_PID=$!
+  tcpdump -l -Q out -i "$SIM_IF" -nn -e -vvv -XX \
+    'ether proto 0x88a4' >"$ARTIFACT_DIR/coe-simulator-egress.log" 2>&1 &
+  COE_CAPTURE_OUT_PID=$!
   sleep 0.5
-  kill -0 "$COE_CAPTURE_PID" 2>/dev/null || {
-    cat "$ARTIFACT_DIR/coe-simulator-live.log" >&2 || true
-    fail "EtherCAT CoE live capture did not stay running"
+  kill -0 "$COE_CAPTURE_IN_PID" 2>/dev/null || {
+    cat "$ARTIFACT_DIR/coe-simulator-ingress.log" >&2 || true
+    fail "EtherCAT simulator ingress capture did not stay running"
+  }
+  kill -0 "$COE_CAPTURE_OUT_PID" 2>/dev/null || {
+    cat "$ARTIFACT_DIR/coe-simulator-egress.log" >&2 || true
+    fail "EtherCAT simulator egress capture did not stay running"
   }
 }
 
 stop_coe_capture() {
-  if [[ -n "$COE_CAPTURE_PID" ]]; then
-    kill -INT "$COE_CAPTURE_PID" 2>/dev/null || true
-    wait "$COE_CAPTURE_PID" 2>/dev/null || true
-    COE_CAPTURE_PID=""
+  if [[ -n "$COE_CAPTURE_IN_PID" ]]; then
+    kill -INT "$COE_CAPTURE_IN_PID" 2>/dev/null || true
+    wait "$COE_CAPTURE_IN_PID" 2>/dev/null || true
+    COE_CAPTURE_IN_PID=""
+  fi
+  if [[ -n "$COE_CAPTURE_OUT_PID" ]]; then
+    kill -INT "$COE_CAPTURE_OUT_PID" 2>/dev/null || true
+    wait "$COE_CAPTURE_OUT_PID" 2>/dev/null || true
+    COE_CAPTURE_OUT_PID=""
   fi
 }
 

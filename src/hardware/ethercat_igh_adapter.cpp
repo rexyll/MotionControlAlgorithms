@@ -2,6 +2,8 @@
 
 #if defined(MCA_ENABLE_IGH)
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 
 #include "mca/hardware/ethercat_pdo_image.hpp"
 
@@ -71,10 +73,26 @@ mca::core::Status EthercatIghAdapter<S, D, E>::discover_pdo_mapping(
     // IgH reports the number of implemented Sync Managers per slave. Querying
     // the global maximum probes non-existent SMs and makes libethercat emit
     // misleading EINVAL diagnostics for otherwise healthy slaves.
+    const bool trace_sm = std::getenv("MCA_IGH_SM_TRACE") != nullptr;
+    if (trace_sm) {
+      std::fprintf(stderr,
+                   "[MCA_IGH_SM] phase=discover_pdo_mapping ring=%u sync_count=%u\n",
+                   static_cast<unsigned int>(slave.ring_position),
+                   static_cast<unsigned int>(slave_info.sync_count));
+    }
     for (std::uint8_t sm = 0U; sm < slave_info.sync_count; ++sm) {
       ec_sync_info_t sync{};
-      if (ecrt_master_get_sync_manager(master_, slave.ring_position, sm,
-                                       &sync) != 0)
+      const int sm_result =
+          ecrt_master_get_sync_manager(master_, slave.ring_position, sm, &sync);
+      if (trace_sm) {
+        std::fprintf(stderr,
+                     "[MCA_IGH_SM] phase=discover_pdo_mapping ring=%u sm=%u rc=%d index=%u dir=%u pdos=%u\n",
+                     static_cast<unsigned int>(slave.ring_position),
+                     static_cast<unsigned int>(sm), sm_result,
+                     static_cast<unsigned int>(sync.index),
+                     static_cast<unsigned int>(sync.dir), sync.n_pdos);
+      }
+      if (sm_result != 0)
         continue;
       if (sync.n_pdos == 0U) continue;
       if (sync.n_pdos > E || sync.n_pdos > 65535U ||
@@ -323,6 +341,13 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
         if (ecrt_master_get_slave(master_, ring_position, &slave_info) != 0 ||
             slave_info.sync_count > EC_MAX_SYNC_MANAGERS)
           return fail_configuration({mca::core::StatusCode::RuntimeError});
+        const bool trace_sm = std::getenv("MCA_IGH_SM_TRACE") != nullptr;
+        if (trace_sm) {
+          std::fprintf(stderr,
+                       "[MCA_IGH_SM] phase=verify_profile ring=%u sync_count=%u\n",
+                       static_cast<unsigned int>(ring_position),
+                       static_cast<unsigned int>(slave_info.sync_count));
+        }
         std::size_t cursor = profile_begin;
         std::size_t expected_sync_count = 0U;
         while (cursor < mapping->size() &&
@@ -336,8 +361,19 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
           const std::size_t sync_end = cursor;
 
           ec_sync_info_t actual_sync{};
-          if (ecrt_master_get_sync_manager(master_, ring_position, sync_index,
-                                           &actual_sync) != 0 ||
+          const int sync_result =
+              ecrt_master_get_sync_manager(master_, ring_position, sync_index,
+                                           &actual_sync);
+          if (trace_sm) {
+            std::fprintf(stderr,
+                         "[MCA_IGH_SM] phase=verify_profile ring=%u sm=%u rc=%d index=%u dir=%u pdos=%u\n",
+                         static_cast<unsigned int>(ring_position),
+                         static_cast<unsigned int>(sync_index), sync_result,
+                         static_cast<unsigned int>(actual_sync.index),
+                         static_cast<unsigned int>(actual_sync.dir),
+                         actual_sync.n_pdos);
+          }
+          if (sync_result != 0 ||
               actual_sync.index != sync_index ||
               actual_sync.dir != (direction == EthercatPdoDirection::Input
                                       ? EC_DIR_INPUT : EC_DIR_OUTPUT))
@@ -382,9 +418,19 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
         std::size_t discovered_sync_count = 0U;
         for (std::uint8_t sm = 0U; sm < slave_info.sync_count; ++sm) {
           ec_sync_info_t actual_sync{};
-          if (ecrt_master_get_sync_manager(master_, ring_position, sm,
-                                           &actual_sync) == 0 &&
-              actual_sync.n_pdos != 0U)
+          const int sync_result =
+              ecrt_master_get_sync_manager(master_, ring_position, sm,
+                                           &actual_sync);
+          if (trace_sm) {
+            std::fprintf(stderr,
+                         "[MCA_IGH_SM] phase=count_profile ring=%u sm=%u rc=%d index=%u dir=%u pdos=%u\n",
+                         static_cast<unsigned int>(ring_position),
+                         static_cast<unsigned int>(sm), sync_result,
+                         static_cast<unsigned int>(actual_sync.index),
+                         static_cast<unsigned int>(actual_sync.dir),
+                         actual_sync.n_pdos);
+          }
+          if (sync_result == 0 && actual_sync.n_pdos != 0U)
             ++discovered_sync_count;
         }
         if (discovered_sync_count != expected_sync_count)

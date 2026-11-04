@@ -12,7 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate opt-in Linux SIL harness syntax
-        run: bash -n scripts/ethercat_sil/run_kickcat_igh_veth_discovery.sh
+        run: |
+          bash -n scripts/ethercat_sil/run_kickcat_igh_veth_discovery.sh
+          bash -n scripts/ethercat_sil/run_kickcat_igh_fault_duration_matrix.sh
       - name: Install Eigen
         run: sudo apt-get update && sudo apt-get install -y libeigen3-dev
       - name: Fetch pinned IgH 1.6.13 headers

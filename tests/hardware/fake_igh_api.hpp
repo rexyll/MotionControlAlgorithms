@@ -25,6 +25,11 @@ void zero_domain_size(bool enabled) noexcept;
 void fail_deactivate(bool enabled) noexcept;
 void set_master_state(bool link_up, unsigned int slaves_responding, unsigned int al_states) noexcept;
 void set_slave_state(bool online, bool operational, std::uint8_t al_state) noexcept;
+void set_slave_count(std::size_t count) noexcept;
+void set_slave_state_at(std::size_t index, bool online, bool operational,
+                        std::uint8_t al_state) noexcept;
+void set_domain_working_counter_complete_at(std::size_t index,
+                                             bool complete) noexcept;
 void set_domain_working_counter_complete(bool complete) noexcept;
 void fail_master_state(bool enabled) noexcept;
 void fail_slave_state(bool enabled) noexcept;

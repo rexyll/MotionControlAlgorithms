@@ -4,8 +4,11 @@
 #include <cstring>
 
 struct ec_master {};
-struct ec_domain { std::array<std::uint8_t, 8> data{}; };
-struct ec_slave_config {};
+struct ec_domain {
+  std::array<std::uint8_t, 8> data{};
+  std::size_t index{0U};
+};
+struct ec_slave_config { std::size_t index{0U}; };
 struct ec_sdo_request {
   ec_request_state_t state{EC_REQUEST_UNUSED};
   std::array<std::uint8_t, 256> data{};
@@ -30,9 +33,11 @@ struct CapturedSync {
   std::size_t pdo_count{0U};
   std::array<CapturedPdo, 32U> pdos{};
 };
+constexpr std::size_t kFakeSlaveCapacity = 4U;
+constexpr std::size_t kFakeDomainCapacity = 4U;
 ec_master master;
-ec_domain domain;
-ec_slave_config slave;
+std::array<ec_domain, kFakeDomainCapacity> domains{};
+std::array<ec_slave_config, kFakeSlaveCapacity> slaves{};
 std::array<ec_sdo_request, 8> requests{};
 std::size_t created = 0U;
 std::size_t create_attempts = 0U;
@@ -57,9 +62,12 @@ bool slave_state_failure = false;
 bool master_link_up = true;
 unsigned int master_responding = 1U;
 unsigned int master_al_states = EC_AL_STATE_OP;
-bool slave_online = true;
-bool slave_operational = true;
-std::uint8_t slave_al_state = EC_AL_STATE_OP;
+std::size_t configured_slave_count = 1U;
+std::size_t created_domain_count = 0U;
+std::array<bool, kFakeSlaveCapacity> slave_online{{true, true, true, true}};
+std::array<bool, kFakeSlaveCapacity> slave_operational{{true, true, true, true}};
+std::array<std::uint8_t, kFakeSlaveCapacity> slave_al_state{{EC_AL_STATE_OP, EC_AL_STATE_OP, EC_AL_STATE_OP, EC_AL_STATE_OP}};
+std::array<bool, kFakeDomainCapacity> domain_wkc_complete_by_index{{true, true, true, true}};
 std::size_t queues = 0U;
 std::size_t sends = 0U;
 std::size_t activations = 0U;
@@ -80,13 +88,17 @@ void reset() noexcept {
   pdo_configurations = 0U; pdo_registrations = 0U;
   captured_syncs = 0U;
   domain_data_failure = false;
-  domain_wkc_complete = true;
+  domain_wkc_complete_by_index.fill(true);
   zero_size = false; deactivate_failure = false;
   master_state_failure = false; slave_state_failure = false;
   master_link_up = true; master_responding = 1U; master_al_states = EC_AL_STATE_OP;
-  slave_online = true; slave_operational = true; slave_al_state = EC_AL_STATE_OP;
+  configured_slave_count = 1U; created_domain_count = 0U;
+  slave_online.fill(true); slave_operational.fill(true);
+  slave_al_state.fill(EC_AL_STATE_OP);
+  domain_wkc_complete_by_index.fill(true);
+  for (std::size_t i = 0U; i < slaves.size(); ++i) slaves[i].index = i;
+  for (std::size_t i = 0U; i < domains.size(); ++i) domains[i] = ec_domain{};
   queues = 0U; sends = 0U; activations = 0U;
-  domain = {};
   requests = {};
 }
 std::size_t request_count() noexcept { return created; }
@@ -129,10 +141,26 @@ void set_master_state(bool link_up, unsigned int responding, unsigned int al_sta
   master_link_up = link_up; master_responding = responding; master_al_states = al_states;
 }
 void set_slave_state(bool online, bool operational, std::uint8_t al_state) noexcept {
-  slave_online = online; slave_operational = operational; slave_al_state = al_state;
+  set_slave_state_at(0U, online, operational, al_state);
+}
+void set_slave_count(std::size_t count) noexcept {
+  if (count == 0U || count > kFakeSlaveCapacity) return;
+  configured_slave_count = count;
+  master_responding = static_cast<unsigned int>(count);
+}
+void set_slave_state_at(std::size_t index, bool online, bool operational,
+                        std::uint8_t al_state) noexcept {
+  if (index >= configured_slave_count) return;
+  slave_online[index] = online;
+  slave_operational[index] = operational;
+  slave_al_state[index] = al_state;
 }
 void set_domain_working_counter_complete(bool complete) noexcept {
-  domain_wkc_complete = complete;
+  domain_wkc_complete_by_index.fill(complete);
+}
+void set_domain_working_counter_complete_at(std::size_t index,
+                                             bool complete) noexcept {
+  if (index < created_domain_count) domain_wkc_complete_by_index[index] = complete;
 }
 void fail_master_state(bool enabled) noexcept { master_state_failure = enabled; }
 void fail_slave_state(bool enabled) noexcept { slave_state_failure = enabled; }
@@ -185,7 +213,7 @@ extern "C" {
 ec_master_t* ecrt_request_master(unsigned int) { return &master; }
 void ecrt_release_master(ec_master_t*) { fake_igh::on_release(); }
 int ecrt_master(ec_master_t*, ec_master_info_t* info) {
-  info->slave_count = 1U; return 0;
+  info->slave_count = static_cast<unsigned int>(configured_slave_count); return 0;
 }
 int ecrt_master_state(const ec_master_t*, ec_master_state_t* state) {
   if (master_state_failure) return -1;
@@ -194,25 +222,32 @@ int ecrt_master_state(const ec_master_t*, ec_master_state_t* state) {
   state->link_up = master_link_up ? 1U : 0U;
   return 0;
 }
-int ecrt_slave_config_state(const ec_slave_config_t*, ec_slave_config_state_t* state) {
-  if (slave_state_failure) return -1;
-  state->online = slave_online ? 1U : 0U;
-  state->operational = slave_operational ? 1U : 0U;
-  state->al_state = slave_al_state;
+int ecrt_slave_config_state(const ec_slave_config_t* config, ec_slave_config_state_t* state) {
+  if (slave_state_failure || config == nullptr || config->index >= configured_slave_count) return -1;
+  const auto index = config->index;
+  state->online = slave_online[index] ? 1U : 0U;
+  state->operational = slave_operational[index] ? 1U : 0U;
+  state->al_state = slave_al_state[index];
   return 0;
 }
 int ecrt_master_get_slave(ec_master_t*, uint16_t position, ec_slave_info_t* info) {
-  if (position != 0U) return -1;
-  *info = {}; info->position = 0U; info->vendor_id = 0x2U;
+  if (position >= configured_slave_count || info == nullptr) return -1;
+  *info = {}; info->position = position; info->vendor_id = 0x2U;
   info->product_code = 0x1234U; info->revision_number = 1U;
-  info->serial_number = 7U; info->al_state = EC_AL_STATE_PREOP;
+  info->serial_number = 7U + position; info->al_state = EC_AL_STATE_PREOP;
   info->sync_count = 4U;
   return 0;
 }
-ec_domain_t* ecrt_master_create_domain(ec_master_t*) { return &domain; }
+ec_domain_t* ecrt_master_create_domain(ec_master_t*) {
+  if (created_domain_count >= domains.size()) return nullptr;
+  auto& created = domains[created_domain_count];
+  created.index = created_domain_count++;
+  return &created;
+}
 ec_slave_config_t* ecrt_master_slave_config(ec_master_t*, uint16_t, uint16_t position,
                                              uint32_t vendor, uint32_t product) {
-  return position == 0U && vendor == 0x2U && product == 0x1234U ? &slave : nullptr;
+  return position < configured_slave_count && vendor == 0x2U && product == 0x1234U
+      ? &slaves[position] : nullptr;
 }
 int ecrt_slave_config_pdos(ec_slave_config_t*, unsigned int count,
                             const ec_sync_info_t* syncs) {
@@ -319,13 +354,19 @@ ec_request_state_t ecrt_sdo_request_state(const ec_sdo_request_t* r) { return r-
 int ecrt_master_set_send_interval(ec_master_t*, size_t) { return 0; }
 int ecrt_master_activate(ec_master_t*) { fake_igh::record_activate(); return fake_igh::activation_fails() ? -1 : 0; }
 int ecrt_master_deactivate(ec_master_t*) { fake_igh::on_deactivate(); return fake_igh::deactivation_fails() ? -1 : 0; }
-uint8_t* ecrt_domain_data(ec_domain_t* d) { return fake_igh::domain_data_fails() ? nullptr : d->data.data(); }
-size_t ecrt_domain_size(const ec_domain_t* d) { return fake_igh::domain_size_is_zero() ? 0U : d->data.size(); }
+uint8_t* ecrt_domain_data(ec_domain_t* d) {
+  return fake_igh::domain_data_fails() || d == nullptr ? nullptr : d->data.data();
+}
+size_t ecrt_domain_size(const ec_domain_t* d) {
+  return fake_igh::domain_size_is_zero() || d == nullptr ? 0U : d->data.size();
+}
 int ecrt_master_receive(ec_master_t*) { return 0; }
 int ecrt_domain_process(ec_domain_t*) { return 0; }
-int ecrt_domain_state(const ec_domain_t*, ec_domain_state_t* s) {
-  s->working_counter = domain_wkc_complete ? 1U : 0U;
-  s->wc_state = domain_wkc_complete ? EC_WC_COMPLETE : EC_WC_INCOMPLETE;
+int ecrt_domain_state(const ec_domain_t* domain, ec_domain_state_t* state) {
+  if (domain == nullptr || domain->index >= created_domain_count || state == nullptr) return -1;
+  const bool complete = domain_wkc_complete_by_index[domain->index];
+  state->working_counter = complete ? 1U : 0U;
+  state->wc_state = complete ? EC_WC_COMPLETE : EC_WC_INCOMPLETE;
   return 0;
 }
 int ecrt_domain_queue(ec_domain_t*) { ++queues; return 0; }

@@ -1,0 +1,4 @@
+# Keep executable scripts compatible with their declared interpreters on Linux/WSL.
+*.sh text eol=lf
+*.bash text eol=lf
+*.py text eol=lf

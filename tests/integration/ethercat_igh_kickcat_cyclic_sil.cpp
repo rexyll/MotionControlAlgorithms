@@ -12,7 +12,6 @@
 namespace {
 
 using Adapter = mca::hardware::EthercatIghAdapter<16U, 4U, 128U>;
-using Direction = mca::hardware::EthercatPdoDirection;
 using Policy = mca::hardware::EthercatPdoMappingPolicy;
 using mca::hardware::Cia402PdsState;
 
@@ -63,29 +62,29 @@ int main() {
   Adapter adapter(config);
 
   if (!adapter.request_master().ok()) {
-    std::cerr << "FAIL: request_master\\n";
+    std::cerr << "FAIL: request_master\n";
     return 1;
   }
   if (!adapter.discover().ok()) {
-    std::cerr << "FAIL: discover\\n";
+    std::cerr << "FAIL: discover\n";
     return 1;
   }
 
   const auto& topology = adapter.topology();
   if (topology.slave_count != 1U) {
     std::cerr << "FAIL: CiA 402 SIL requires exactly one drive slave; found "
-              << topology.slave_count << '\\n';
+              << topology.slave_count << '\n';
     return 1;
   }
-  std::cout << "Discovered " << topology.slave_count << " slave(s)\\n";
+  std::cout << "Discovered " << topology.slave_count << " slave(s)\n";
   const auto& drive = topology.slaves[0];
   std::cout << "  ring_position=" << drive.ring_position
             << " vendor=0x" << std::hex << drive.vendor_id
-            << " product=0x" << drive.product_code << std::dec << '\\n';
+            << " product=0x" << drive.product_code << std::dec << '\n';
 
   Adapter::PdoMappingProfile mapping{};
   if (!adapter.discover_pdo_mapping(mapping).ok()) {
-    std::cerr << "FAIL: discover_pdo_mapping (capacity or unsupported map)\\n";
+    std::cerr << "FAIL: discover_pdo_mapping (capacity or unsupported map)\n";
     return 1;
   }
 
@@ -95,7 +94,7 @@ int main() {
     const auto& entry = mapping[i];
     if (entry.index == 0U || entry.bit_length > 64U) continue;
     if (binding_count >= bindings.size()) {
-      std::cerr << "FAIL: process-image binding capacity exceeded\\n";
+      std::cerr << "FAIL: process-image binding capacity exceeded\n";
       return 1;
     }
     bindings[binding_count++] = {
@@ -103,7 +102,7 @@ int main() {
         entry.index, entry.subindex, entry.bit_length, 1U, entry.direction};
   }
   if (binding_count == 0U) {
-    std::cerr << "FAIL: no scalar PDO entries available for process image\\n";
+    std::cerr << "FAIL: no scalar PDO entries available for process image\n";
     return 1;
   }
 
@@ -111,7 +110,7 @@ int main() {
   if (!mca::hardware::resolve_cia402_pdo_bindings(
           bindings, binding_count, drive.ring_position, drive.vendor_id,
           drive.product_code, cia402)) {
-    std::cerr << "FAIL: discovered PDO bindings do not match typed CiA 402 profile\\n";
+    std::cerr << "FAIL: discovered PDO bindings do not match typed CiA 402 profile\n";
     return 1;
   }
   std::cout << "CiA402 binding indices: controlword=" << cia402.controlword
@@ -121,17 +120,17 @@ int main() {
             << " statusword=" << cia402.statusword
             << " actual_position=" << cia402.actual_position
             << " actual_velocity=" << cia402.actual_velocity
-            << " mode_display=" << cia402.mode_display << '\\n';
+            << " mode_display=" << cia402.mode_display << '\n';
   std::cout << "Discovered PDO entries=" << mapping.size()
-            << " scalar bindings=" << binding_count << '\\n';
+            << " scalar bindings=" << binding_count << '\n';
 
   if (!adapter.configure(bindings, binding_count, mapping,
                          Policy::UseDiscoveredMapping).ok()) {
-    std::cerr << "FAIL: UseDiscoveredMapping configure\\n";
+    std::cerr << "FAIL: UseDiscoveredMapping configure\n";
     return 1;
   }
   if (!adapter.activate().ok()) {
-    std::cerr << "FAIL: activate\\n";
+    std::cerr << "FAIL: activate\n";
     return 1;
   }
 
@@ -145,14 +144,11 @@ int main() {
   auto cycle_status = outputs_ok ? adapter.exchange()
                                  : mca::core::Status{mca::core::StatusCode::RuntimeError};
   if (!cycle_status.ok() || !transport_healthy(adapter, topology.slave_count)) {
-    std::cerr << "FAIL: initial healthy EtherCAT exchange not established\\n";
+    std::cerr << "FAIL: initial healthy EtherCAT exchange not established\n";
     (void)adapter.shutdown();
     return 1;
   }
 
-  mca::hardware::Cia402ControlRequest request{};
-  request.communication_healthy = true;
-  request.enable_operation = true;
   std::size_t enabled_stable_cycles = 0U;
   std::size_t cycles = 1U;
   std::uint16_t last_statusword = 0U;
@@ -165,14 +161,14 @@ int main() {
   for (; cycles < kMaximumCycles; ++cycles) {
     if (!transport_healthy(adapter, topology.slave_count)) {
       feedback_ok = false;
-      std::cerr << "FAIL: EtherCAT health/WKC interlock lost during PDS sequence\\n";
+      std::cerr << "FAIL: EtherCAT health/WKC interlock lost during PDS sequence\n";
       break;
     }
 
     if (!read_u16(adapter, cia402.statusword, last_statusword) ||
         !read_i32_bits(adapter, cia402.actual_position, hold_position_bits)) {
       feedback_ok = false;
-      std::cerr << "FAIL: unable to read CiA 402 status/position feedback\\n";
+      std::cerr << "FAIL: unable to read CiA 402 status/position feedback\n";
       break;
     }
     have_hold_position = true;
@@ -183,7 +179,7 @@ int main() {
         observed == Cia402PdsState::NotReadyToSwitchOn) {
       feedback_ok = false;
       std::cerr << "FAIL: unexpected PDS state, statusword=0x"
-                << std::hex << last_statusword << std::dec << '\\n';
+                << std::hex << last_statusword << std::dec << '\n';
       break;
     }
 
@@ -197,7 +193,7 @@ int main() {
     if (!adapter.read_pdo(cia402.mode_display, mode_raw).ok() ||
         mode_raw > 0xFFU) {
       feedback_ok = false;
-      std::cerr << "FAIL: unable to read mode display\\n";
+      std::cerr << "FAIL: unable to read mode display\n";
       break;
     }
     last_mode_display = static_cast<std::uint8_t>(mode_raw);
@@ -211,7 +207,7 @@ int main() {
         write_value(adapter, cia402.mode_of_operation, kCspMode);
     if (!writes_ok || !adapter.exchange().ok()) {
       feedback_ok = false;
-      std::cerr << "FAIL: PDO write or cyclic exchange failed\\n";
+      std::cerr << "FAIL: PDO write or cyclic exchange failed\n";
       break;
     }
 
@@ -261,30 +257,30 @@ int main() {
             << std::dec
             << " wkc=" << adapter.observed_wkc()
             << " domain_complete=" << adapter.domain_working_counter_complete(1U)
-            << " disabled_feedback=" << disabled_feedback << '\\n';
+            << " disabled_feedback=" << disabled_feedback << '\n';
   for (std::size_t i = 0; i < final_health.slave_count; ++i) {
     const auto& slave = final_health.slaves[i];
     std::cout << "slave ring_position=" << slave.ring_position
               << " online=" << slave.online
               << " operational=" << slave.operational
               << " al_state=0x" << std::hex
-              << static_cast<unsigned int>(slave.al_state) << std::dec << '\\n';
+              << static_cast<unsigned int>(slave.al_state) << std::dec << '\n';
   }
 
   const auto shutdown_status = adapter.shutdown();
   if (!shutdown_status.ok()) {
-    std::cerr << "FAIL: shutdown\\n";
+    std::cerr << "FAIL: shutdown\n";
     return 1;
   }
   if (!feedback_ok || !state_machine_passed || !disabled_feedback ||
       !transport_passed) {
-    std::cerr << "FAIL: CiA 402 state-machine closed-loop acceptance not reached\\n";
+    std::cerr << "FAIL: CiA 402 state-machine closed-loop acceptance not reached\n";
     return 1;
   }
   std::cout << "PASS: EtherCAT transport healthy; CiA 402 reached Operation Enabled "
                "from statusword feedback in CSP mode, held position unchanged, "
-               "then returned to Switch On Disabled.\\n";
+               "then returned to Switch On Disabled.\n";
   std::cout << "NOTE: KickCAT echoes mode display; this does not validate a real "
-               "drive's mode acceptance, motion response, DC timing or HIL safety.\\n";
+               "drive's mode acceptance, motion response, DC timing or HIL safety.\n";
   return 0;
 }

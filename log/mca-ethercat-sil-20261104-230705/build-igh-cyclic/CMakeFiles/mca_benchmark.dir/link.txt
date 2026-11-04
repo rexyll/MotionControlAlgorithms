@@ -1,0 +1,2 @@
+/usr/bin/ar qc libmca_benchmark.a CMakeFiles/mca_benchmark.dir/src/benchmark/metrics.cpp.o
+/usr/bin/ranlib libmca_benchmark.a

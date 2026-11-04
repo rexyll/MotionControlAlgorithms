@@ -1,0 +1,5 @@
+Discovered 2 drive slaves
+Drive slot=0 ring_position=0 domain=1 bindings={cw:0,sw:4,target_pos:1,actual_pos:5}
+Drive slot=1 ring_position=1 domain=2 bindings={cw:8,sw:12,target_pos:9,actual_pos:13}
+FAIL: startup safe-output exchange
+FAIL: two-slave transport did not reach healthy OP/WKC runtime_valid=1 link_up=1 responding=2 wkc=0 slave[0] ring=0 online=1 operational=0 state_valid=1 slave[1] ring=1 online=1 operational=0 state_valid=1

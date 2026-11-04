@@ -123,14 +123,18 @@ sudo -E env \
   bash scripts/ethercat_sil/run_kickcat_igh_fault_duration_matrix.sh
 ```
 
-The wrapper creates a temporary JSON fixture for each duration and starts an
-independent IgH/veth/KickCAT SIL session for every case. Each case must prove
-the exact configured number of `0x000F` samples, transition to `0x0008`,
-a single `0x0080` pulse, and return to `0x0040` without re-enabling. Artifacts
-are isolated under
+The wrapper creates a temporary JSON fixture beside the base JSON
+(and removes it on exit), preserving KickCAT's config-directory-relative ESI,
+EEPROM, CoE XML and FoE resource resolution. It starts an independent
+IgH/veth/KickCAT SIL session for every case. Each case must prove the exact
+configured number of `0x000F` samples, transition to `0x0008`, a single
+`0x0080` pulse, and return to `0x0040` without re-enabling. Artifacts are
+isolated under
 `/tmp/mca-ethercat-fault-matrix-<timestamp>/reaction-N/`. Override the matrix
 with `MCA_ECAT_FAULT_REACTION_MATRIX`; accepted values are integers 1 through
-1000.
+1000. Before starting the simulator, the wrapper verifies that every resource
+file/directory referenced by the base fixture exists relative to the same
+config directory.
 
 The portable `Cia402FaultResetSequencer` tests also exercise a held Fault
 feedback interval (eight cycles without a second pulse), communication loss

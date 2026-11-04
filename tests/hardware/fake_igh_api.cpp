@@ -200,7 +200,9 @@ int ecrt_master_get_slave(ec_master_t*, uint16_t position, ec_slave_info_t* info
   if (position != 0U) return -1;
   *info = {}; info->position = 0U; info->vendor_id = 0x2U;
   info->product_code = 0x1234U; info->revision_number = 1U;
-  info->serial_number = 7U; info->al_state = EC_AL_STATE_PREOP; return 0;
+  info->serial_number = 7U; info->al_state = EC_AL_STATE_PREOP;
+  info->sync_count = 4U;
+  return 0;
 }
 ec_domain_t* ecrt_master_create_domain(ec_master_t*) { return &domain; }
 ec_slave_config_t* ecrt_master_slave_config(ec_master_t*, uint16_t, uint16_t position,

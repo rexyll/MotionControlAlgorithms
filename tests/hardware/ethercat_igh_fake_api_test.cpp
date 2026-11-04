@@ -759,7 +759,13 @@ TEST(EthercatIghFakeApi, FaultResetFailsClosedWhenWkcDropsBeforePulse) {
   ASSERT_TRUE(sequencer.begin(0x0008U, true));
 
   fake_igh::set_domain_working_counter_complete(false);
-  ASSERT_TRUE(adapter.exchange().ok());
+  const auto queued_before_loss = fake_igh::queue_calls();
+  const auto sent_before_loss = fake_igh::send_calls();
+  // An incomplete WKC is a failed cycle even though exchange() must still
+  // queue and send the frame to keep the cyclic transport moving.
+  EXPECT_FALSE(adapter.exchange().ok());
+  EXPECT_EQ(fake_igh::queue_calls(), queued_before_loss + 1U);
+  EXPECT_EQ(fake_igh::send_calls(), sent_before_loss + 1U);
   ASSERT_TRUE(health.update(adapter).ok());
   EXPECT_FALSE(adapter.domain_working_counter_complete(7U));
   ASSERT_EQ(health.snapshot().state,

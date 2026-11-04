@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly RUNNER="$SCRIPT_DIR/run_kickcat_igh_veth_discovery.sh"
-readonly BASE_CONFIG="${KICKCAT_SLAVE_CONFIG:-}"
+BASE_CONFIG="${KICKCAT_SLAVE_CONFIG:-}"
 readonly MATRIX="${MCA_ECAT_FAULT_REACTION_MATRIX:-1 2 3 5}"
 readonly ARTIFACT_ROOT="${MCA_ECAT_FAULT_MATRIX_ARTIFACT_ROOT:-/tmp/mca-ethercat-fault-matrix-$(date +%Y%m%d-%H%M%S)}"
 FIXTURE_FILES=()
@@ -48,7 +48,7 @@ for requested_cycles in "${DURATION_VALUES[@]}"; do
   cycles=$((10#$requested_cycles))
   (( cycles >= 1 && cycles <= 1000 )) || fail "duration must be in [1, 1000] cycles: $requested_cycles"
 
-  fixture="$(mktemp --tmpdir="$CONFIG_DIR" ".ecat402-drive-fault-${cycles}.XXXXXX.json")"
+  fixture="$(mktemp --tmpdir="$CONFIG_DIR" ".ecat402-drive-fault-${cycles}.XXXXXX")"
   FIXTURE_FILES+=("$fixture")
   python3 - "$BASE_CONFIG" "$fixture" "$cycles" <<'PY'
 import json
@@ -87,7 +87,7 @@ if "foe_dir" in config:
         raise SystemExit(f"configured foe_dir not found: {resolved}")
 
 config["fault_reaction_cycles"] = duration
-target.write_text(json.dumps(config, indent=2) + "\\n", encoding="utf-8")
+target.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 PY
 
   export KICKCAT_SLAVE_CONFIG="$fixture"

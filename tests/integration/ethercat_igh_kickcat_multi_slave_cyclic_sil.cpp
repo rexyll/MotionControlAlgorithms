@@ -658,8 +658,14 @@ int main() {
 
   std::cout << "PASS: two independent EtherCAT slave domains reached "
                "Operation Enabled and each returned to Switch On Disabled.\n";
-  std::cout << "NOTE: This is two-slave KickCAT baseline SIL only; independent "
-               "per-drive fault injection, vendor semantics, DC timing and "
-               "physical HIL remain unvalidated.\n";
+  const char* multi_fault_mode = std::getenv("MCA_ECAT_MULTI_FAULT_SIL");
+  if (multi_fault_mode != nullptr && std::string(multi_fault_mode) == "1") {
+    std::cout << "NOTE: This is two-slave KickCAT fault-isolation SIL only; "
+                 "vendor semantics, DC timing and physical HIL remain unvalidated.\n";
+  } else {
+    std::cout << "NOTE: This is two-slave KickCAT baseline SIL only; independent "
+                 "per-drive fault injection, vendor semantics, DC timing and "
+                 "physical HIL remain unvalidated.\n";
+  }
   return 0;
 }

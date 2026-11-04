@@ -1,4 +1,5 @@
 #include "mca/hardware/ethercat_igh_adapter.hpp"
+#include "mca/hardware/cia402_pdo_bindings.hpp"
 
 #include <array>
 #include <chrono>
@@ -65,6 +66,29 @@ int main() {
     std::cerr << "FAIL: no scalar PDO entries available for process image\n";
     return 1;
   }
+
+  // This target is specifically the CiA 402 KickCAT drive SIL. Confirm the
+  // complete typed object set by dictionary identity before any cyclic writes.
+  if (topology.slave_count != 1U) {
+    std::cerr << "FAIL: CiA 402 SIL requires exactly one drive slave\n";
+    return 1;
+  }
+  mca::hardware::Cia402PdoBindings cia402{};
+  const auto& drive = topology.slaves[0];
+  if (!mca::hardware::resolve_cia402_pdo_bindings(
+          bindings, binding_count, drive.ring_position, drive.vendor_id,
+          drive.product_code, cia402)) {
+    std::cerr << "FAIL: discovered PDO bindings do not match the typed CiA 402 profile\n";
+    return 1;
+  }
+  std::cout << "CiA402 binding indices: controlword=" << cia402.controlword
+            << " target_position=" << cia402.target_position
+            << " target_velocity=" << cia402.target_velocity
+            << " mode=" << cia402.mode_of_operation
+            << " statusword=" << cia402.statusword
+            << " actual_position=" << cia402.actual_position
+            << " actual_velocity=" << cia402.actual_velocity
+            << " mode_display=" << cia402.mode_display << '\n';
 
   std::cout << "Discovered PDO entries=" << mapping.size()
             << " scalar bindings=" << binding_count << '\n';

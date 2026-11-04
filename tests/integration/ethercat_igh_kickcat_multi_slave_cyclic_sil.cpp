@@ -7,6 +7,8 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <string>
 #include <iostream>
 #include <thread>
 
@@ -346,6 +348,249 @@ int main() {
               << static_cast<unsigned int>(drive.last_mode_display)
               << std::dec << " domain_wkc="
               << adapter.domain_working_counter(drive.domain_id) << '\n';
+  }
+
+  // Optional wire-level independent fault-isolation case. The simulator
+  // fixture injects a fault into exactly one configured ring position; the
+  // other drive must remain Operation Enabled with its own complete domain.
+  const char* multi_fault_flag = std::getenv("MCA_ECAT_MULTI_FAULT_SIL");
+  if (multi_fault_flag != nullptr && std::string(multi_fault_flag) == "1") {
+    const char* target_text = std::getenv("MCA_ECAT_MULTI_FAULT_RING_POSITION");
+    const char* reaction_text = std::getenv("MCA_ECAT_EXPECTED_FAULT_REACTION_CYCLES");
+    if (target_text == nullptr || reaction_text == nullptr) {
+      std::cerr << "FAIL: multi-fault mode requires target ring position and "
+                   "expected FRA duration\\n";
+      (void)adapter.shutdown();
+      return 1;
+    }
+    char* target_end = nullptr;
+    char* reaction_end = nullptr;
+    const unsigned long target_value = std::strtoul(target_text, &target_end, 10);
+    const unsigned long reaction_value = std::strtoul(reaction_text, &reaction_end, 10);
+    if (target_end == target_text || *target_end != '\\0' ||
+        reaction_end == reaction_text || *reaction_end != '\\0' ||
+        reaction_value == 0UL || reaction_value > 1000UL) {
+      std::cerr << "FAIL: invalid multi-fault target or FRA duration\\n";
+      (void)adapter.shutdown();
+      return 1;
+    }
+    std::size_t target_slot = kDriveCount;
+    for (std::size_t slot = 0U; slot < drives.size(); ++slot) {
+      if (drives[slot].ring_position == target_value) target_slot = slot;
+    }
+    if (target_slot >= kDriveCount) {
+      std::cerr << "FAIL: requested fault ring position was not discovered\\n";
+      (void)adapter.shutdown();
+      return 1;
+    }
+    const std::size_t peer_slot = 1U - target_slot;
+    auto& target = drives[target_slot];
+    auto& peer = drives[peer_slot];
+    bool saw_reaction = false;
+    bool saw_fault = false;
+    std::size_t reaction_cycles = 0U;
+    std::uint16_t fault_statusword = 0U;
+    std::cout << "MULTI_FAULT target_ring=" << target.ring_position
+              << " peer_ring=" << peer.ring_position
+              << " expected_reaction_cycles=" << reaction_value << '\\n';
+
+    for (std::size_t cycle = 0U; cycle < 2'000U; ++cycle) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      const auto receive = adapter.receive_process();
+      if (!receive.ok() || !transport_healthy(adapter)) {
+        (void)adapter.queue_send();
+        std::cerr << "FAIL: transport/domain health lost during independent fault wait\\n";
+        (void)adapter.shutdown();
+        return 1;
+      }
+      bool reads_ok = true;
+      for (auto& drive : drives) {
+        reads_ok = read_u16(adapter, drive.pdo.statusword, drive.last_statusword) &&
+                   read_i32_bits(adapter, drive.pdo.actual_position,
+                                 drive.held_position_bits) && reads_ok;
+      }
+      if (!reads_ok) {
+        (void)adapter.queue_send();
+        std::cerr << "FAIL: PDO feedback read failed during independent fault wait\\n";
+        (void)adapter.shutdown();
+        return 1;
+      }
+      const auto target_state =
+          mca::hardware::decode_cia402_pds_state(target.last_statusword);
+      const auto peer_state =
+          mca::hardware::decode_cia402_pds_state(peer.last_statusword);
+      if (peer_state != Cia402PdsState::OperationEnabled ||
+          !adapter.domain_working_counter_complete(peer.domain_id) ||
+          !adapter.domain_working_counter_complete(target.domain_id)) {
+        (void)adapter.queue_send();
+        std::cerr << "FAIL: unaffected peer left Operation Enabled or a per-drive "
+                     "domain WKC became incomplete; peer_statusword=0x"
+                  << std::hex << peer.last_statusword << std::dec
+                  << " peer_domain_wkc=" << adapter.domain_working_counter(peer.domain_id)
+                  << " target_domain_wkc=" << adapter.domain_working_counter(target.domain_id)
+                  << '\\n';
+        (void)adapter.shutdown();
+        return 1;
+      }
+      if (target_state == Cia402PdsState::FaultReactionActive) {
+        saw_reaction = true;
+        ++reaction_cycles;
+      } else if (target_state == Cia402PdsState::Fault) {
+        saw_fault = true;
+        fault_statusword = target.last_statusword;
+      } else if (saw_reaction) {
+        (void)adapter.queue_send();
+        std::cerr << "FAIL: target left FRA without reporting Fault\\n";
+        (void)adapter.shutdown();
+        return 1;
+      } else if (target_state != Cia402PdsState::OperationEnabled) {
+        (void)adapter.queue_send();
+        std::cerr << "FAIL: target left Operation Enabled before injected fault\\n";
+        (void)adapter.shutdown();
+        return 1;
+      }
+
+      const bool writes_ok =
+          write_value(adapter, target.pdo.controlword,
+                      target_state == Cia402PdsState::OperationEnabled && !saw_reaction
+                          ? 0x000FU : 0U) &&
+          write_value(adapter, target.pdo.target_position, target.held_position_bits) &&
+          write_value(adapter, target.pdo.target_velocity, 0U) &&
+          write_value(adapter, target.pdo.mode_of_operation, kCspMode) &&
+          write_value(adapter, peer.pdo.controlword, 0x000FU) &&
+          write_value(adapter, peer.pdo.target_position, peer.held_position_bits) &&
+          write_value(adapter, peer.pdo.target_velocity, 0U) &&
+          write_value(adapter, peer.pdo.mode_of_operation, kCspMode);
+      const auto send = adapter.queue_send();
+      std::cout << "MULTI_FAULT_TRACE cycle=" << adapter.cycle_sequence()
+                << " target_statusword=0x" << std::hex << target.last_statusword
+                << " peer_statusword=0x" << peer.last_statusword << std::dec
+                << " target_domain_wkc=" << adapter.domain_working_counter(target.domain_id)
+                << " peer_domain_wkc=" << adapter.domain_working_counter(peer.domain_id)
+                << '\\n';
+      if (!writes_ok || !send.ok()) {
+        std::cerr << "FAIL: PDO write/send failed during independent fault wait\\n";
+        (void)adapter.shutdown();
+        return 1;
+      }
+      if (saw_fault) break;
+    }
+    if (!saw_reaction || !saw_fault ||
+        reaction_cycles != static_cast<std::size_t>(reaction_value)) {
+      std::cerr << "FAIL: target FRA/Fault sequence mismatch; saw_reaction="
+                << saw_reaction << " saw_fault=" << saw_fault
+                << " reaction_cycles=" << reaction_cycles
+                << " expected=" << reaction_value << '\\n';
+      (void)adapter.shutdown();
+      return 1;
+    }
+
+    // Confirm a fresh Fault feedback sample immediately before arming reset.
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    const auto confirm_receive = adapter.receive_process();
+    std::uint16_t confirmed_fault = 0U;
+    std::uint16_t confirmed_peer = 0U;
+    if (!confirm_receive.ok() || !transport_healthy(adapter) ||
+        !read_u16(adapter, target.pdo.statusword, confirmed_fault) ||
+        !read_u16(adapter, peer.pdo.statusword, confirmed_peer) ||
+        mca::hardware::decode_cia402_pds_state(confirmed_fault) != Cia402PdsState::Fault ||
+        mca::hardware::decode_cia402_pds_state(confirmed_peer) != Cia402PdsState::OperationEnabled) {
+      (void)adapter.queue_send();
+      std::cerr << "FAIL: target Fault and peer Operation Enabled not confirmed before reset\\n";
+      (void)adapter.shutdown();
+      return 1;
+    }
+
+    mca::hardware::Cia402FaultResetSequencer reset_sequencer(100U);
+    if (!reset_sequencer.begin(confirmed_fault, true)) {
+      std::cerr << "FAIL: independent target Fault Reset could not be armed\\n";
+      (void)adapter.shutdown();
+      return 1;
+    }
+    const auto pulse = reset_sequencer.update(confirmed_fault, true);
+    const bool pulse_written =
+        pulse.pulse_sent && pulse.controlword == 0x0080U &&
+        write_value(adapter, target.pdo.controlword, pulse.controlword) &&
+        write_value(adapter, target.pdo.target_position, target.held_position_bits) &&
+        write_value(adapter, target.pdo.target_velocity, 0U) &&
+        write_value(adapter, target.pdo.mode_of_operation, kCspMode) &&
+        write_value(adapter, peer.pdo.controlword, 0x000FU) &&
+        write_value(adapter, peer.pdo.target_position, peer.held_position_bits) &&
+        write_value(adapter, peer.pdo.target_velocity, 0U) &&
+        write_value(adapter, peer.pdo.mode_of_operation, kCspMode);
+    const auto pulse_send = adapter.queue_send();
+    std::size_t pulse_count = pulse.pulse_sent ? 1U : 0U;
+    if (!pulse_written || !pulse_send.ok()) {
+      std::cerr << "FAIL: one-cycle target Fault Reset pulse failed\\n";
+      (void)adapter.shutdown();
+      return 1;
+    }
+
+    bool reset_complete = false;
+    for (std::size_t cycle = 0U; cycle < 100U; ++cycle) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      const auto receive = adapter.receive_process();
+      std::uint16_t target_status = 0U;
+      std::uint16_t peer_status = 0U;
+      std::uint32_t target_position = 0U;
+      std::uint32_t peer_position = 0U;
+      if (!receive.ok() || !transport_healthy(adapter) ||
+          !read_u16(adapter, target.pdo.statusword, target_status) ||
+          !read_u16(adapter, peer.pdo.statusword, peer_status) ||
+          !read_i32_bits(adapter, target.pdo.actual_position, target_position) ||
+          !read_i32_bits(adapter, peer.pdo.actual_position, peer_position) ||
+          mca::hardware::decode_cia402_pds_state(peer_status) != Cia402PdsState::OperationEnabled ||
+          !adapter.domain_working_counter_complete(peer.domain_id) ||
+          !adapter.domain_working_counter_complete(target.domain_id)) {
+        (void)adapter.queue_send();
+        std::cerr << "FAIL: peer/domain health lost while awaiting target reset feedback\\n";
+        (void)adapter.shutdown();
+        return 1;
+      }
+      const auto plan = reset_sequencer.update(target_status, true);
+      if (plan.pulse_sent) ++pulse_count;
+      const bool writes_ok =
+          write_value(adapter, target.pdo.controlword, plan.controlword) &&
+          write_value(adapter, target.pdo.target_position, target_position) &&
+          write_value(adapter, target.pdo.target_velocity, 0U) &&
+          write_value(adapter, target.pdo.mode_of_operation, kCspMode) &&
+          write_value(adapter, peer.pdo.controlword, 0x000FU) &&
+          write_value(adapter, peer.pdo.target_position, peer_position) &&
+          write_value(adapter, peer.pdo.target_velocity, 0U) &&
+          write_value(adapter, peer.pdo.mode_of_operation, kCspMode);
+      const auto send = adapter.queue_send();
+      std::cout << "MULTI_FAULT_RESET_TRACE cycle=" << adapter.cycle_sequence()
+                << " target_statusword=0x" << std::hex << target_status
+                << " peer_statusword=0x" << peer_status << std::dec
+                << " target_controlword=0x" << std::hex << plan.controlword
+                << std::dec << " phase=" << static_cast<unsigned int>(plan.phase)
+                << " peer_domain_wkc=" << adapter.domain_working_counter(peer.domain_id)
+                << '\\n';
+      if (!writes_ok || !send.ok() || plan.failed) {
+        std::cerr << "FAIL: target reset sequence or peer preservation failed\\n";
+        (void)adapter.shutdown();
+        return 1;
+      }
+      if (plan.complete) {
+        reset_complete =
+            mca::hardware::decode_cia402_pds_state(target_status) ==
+            Cia402PdsState::SwitchOnDisabled;
+        target.last_statusword = target_status;
+        break;
+      }
+    }
+    if (!reset_complete || pulse_count != 1U) {
+      std::cerr << "FAIL: target did not return Disabled with exactly one reset pulse; "
+                << "pulse_count=" << pulse_count << '\\n';
+      (void)adapter.shutdown();
+      return 1;
+    }
+    std::cout << "PASS: independent fault isolation target_ring="
+              << target.ring_position << " peer_ring=" << peer.ring_position
+              << " FRA_cycles=" << reaction_cycles
+              << " reset_pulses=" << pulse_count
+              << " target_statusword=0x" << std::hex << target.last_statusword
+              << std::dec << " peer_remained_operation_enabled=1\\n";
   }
 
   bool all_disabled = false;

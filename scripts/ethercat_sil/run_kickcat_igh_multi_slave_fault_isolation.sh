@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly RUNNER="$SCRIPT_DIR/run_kickcat_igh_veth_discovery.sh"
-readonly BASE_CONFIG="${KICKCAT_SLAVE_CONFIG:-}"
+BASE_CONFIG="${KICKCAT_SLAVE_CONFIG:-}"
 readonly ARTIFACT_ROOT="${MCA_ECAT_MULTI_FAULT_ARTIFACT_ROOT:-/tmp/mca-ethercat-multi-fault-$(date +%Y%m%d-%H%M%S)}"
 readonly FAULT_AFTER_CYCLES="${MCA_ECAT_MULTI_FAULT_AFTER_CYCLES:-40}"
 readonly REACTION_CYCLES="${MCA_ECAT_MULTI_FAULT_REACTION_CYCLES:-3}"

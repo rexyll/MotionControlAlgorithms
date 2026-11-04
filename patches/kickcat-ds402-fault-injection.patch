@@ -21,7 +21,7 @@ diff --git a/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h b/li
 @@ -108,7 +113,51 @@
              vel_ = 0.0;
          }
-
+ 
          void stepStateMachine(uint16_t control_word)
          {
 +            const bool fault_reset_edge = (control_word & 0x0080U) != 0U

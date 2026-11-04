@@ -12,6 +12,8 @@ readonly SIM_MAC="${MCA_ECAT_SIM_MAC:-02:4d:43:41:45:02}"
 readonly TIMEOUT_SEC="${MCA_ECAT_TIMEOUT_SEC:-20}"
 readonly KICKCAT_SIMULATOR="${KICKCAT_SIMULATOR:-}"
 readonly KICKCAT_SLAVE_CONFIG="${KICKCAT_SLAVE_CONFIG:-}"
+readonly KICKCAT_SLAVE_CONFIGS="${KICKCAT_SLAVE_CONFIGS:-}"
+readonly EXPECTED_SLAVES_OVERRIDE="${MCA_ECAT_EXPECTED_SLAVES:-}"
 readonly ETHERCAT_CLI="${ETHERCAT_CLI:-ethercat}"
 readonly COE_READBACK="${MCA_ECAT_COE_READBACK:-0}"
 readonly DISABLE_EOE="${MCA_ECAT_DISABLE_EOE:-0}"
@@ -39,10 +41,10 @@ fail() {
 # Read a typed CoE object through the IgH CLI. The CLI supports explicit
 # --position and --type options; parse the first numeric token from its output.
 read_sdo_value() {
-  local index="$1" subindex="$2" type="$3" output token value
+  local index="$1" subindex="$2" type="$3" position="${4:-0}" output token value
   local command_status=0 started finished elapsed_ms
   started=$(date +%s%N)
-  if output=$(timeout "$TIMEOUT_SEC" "$ETHERCAT_CLI" upload --position 0 \
+  if output=$(timeout "$TIMEOUT_SEC" "$ETHERCAT_CLI" upload --position "$position" \
       --type "$type" "$index" "$subindex" 2>&1); then
     command_status=0
   else
@@ -51,8 +53,8 @@ read_sdo_value() {
   finished=$(date +%s%N)
   elapsed_ms=$(((finished - started) / 1000000))
   {
-    printf 'READ %s:%s type=%s exit=%s elapsed_ms=%s\n' \
-      "$index" "$subindex" "$type" "$command_status" "$elapsed_ms"
+    printf 'READ position=%s %s:%s type=%s exit=%s elapsed_ms=%s\n' \
+      "$position" "$index" "$subindex" "$type" "$command_status" "$elapsed_ms"
     printf '%s\n' "$output"
   } >>"$ARTIFACT_DIR/coe-sdo-raw.log"
   if (( command_status != 0 )); then
@@ -83,29 +85,29 @@ read_sdo_value() {
 }
 
 verify_coe_assignment() {
-  local assignment_index="$1" label="$2"
+  local position="$1" assignment_index="$2" label="$3"
   local pdo_count pdo_pos pdo_index entry_count entry_pos mapped
   local object_index object_subindex bit_length
-  pdo_count=$(read_sdo_value "$assignment_index" 0 uint8) || return 1
+  pdo_count=$(read_sdo_value "$assignment_index" 0 uint8 "$position") || return 1
   (( pdo_count > 0 && pdo_count <= 16 )) || {
     printf '%s assignment count out of range: %s\n' "$label" "$pdo_count" >&2
     return 1
   }
   printf '%s assignment 0x%s: %s PDO(s)\n' "$label" "${assignment_index#0x}" "$pdo_count"
   for ((pdo_pos = 1; pdo_pos <= pdo_count; ++pdo_pos)); do
-    pdo_index=$(read_sdo_value "$assignment_index" "$pdo_pos" uint16) || return 1
+    pdo_index=$(read_sdo_value "$assignment_index" "$pdo_pos" uint16 "$position") || return 1
     (( pdo_index > 0 )) || {
       printf '%s assignment contains zero PDO index at subindex %s\n' "$label" "$pdo_pos" >&2
       return 1
     }
-    entry_count=$(read_sdo_value "$pdo_index" 0 uint8) || return 1
+    entry_count=$(read_sdo_value "$pdo_index" 0 uint8 "$position") || return 1
     (( entry_count > 0 && entry_count <= 64 )) || {
       printf 'PDO 0x%04x mapping entry count out of range: %s\n' "$pdo_index" "$entry_count" >&2
       return 1
     }
     printf '  PDO 0x%04x: %s mapped entries\n' "$pdo_index" "$entry_count"
     for ((entry_pos = 1; entry_pos <= entry_count; ++entry_pos)); do
-      mapped=$(read_sdo_value "$pdo_index" "$entry_pos" uint32) || return 1
+      mapped=$(read_sdo_value "$pdo_index" "$entry_pos" uint32 "$position") || return 1
       object_index=$(((mapped >> 16) & 0xffff))
       object_subindex=$(((mapped >> 8) & 0xff))
       bit_length=$((mapped & 0xff))
@@ -121,9 +123,12 @@ verify_coe_assignment() {
 }
 
 run_coe_readback() {
-  printf 'Slave ring position 0 CoE PDO mapping readback\n'
-  verify_coe_assignment 0x1C12 "RxPDO" || return 1
-  verify_coe_assignment 0x1C13 "TxPDO" || return 1
+  local position
+  for ((position = 0; position < EXPECTED_SLAVES; ++position)); do
+    printf 'Slave ring position %s CoE PDO mapping readback\n' "$position"
+    verify_coe_assignment "$position" 0x1C12 "RxPDO" || return 1
+    verify_coe_assignment "$position" 0x1C13 "TxPDO" || return 1
+  done
 }
 
 start_coe_capture() {
@@ -179,7 +184,23 @@ trap 'exit 143' TERM
 
 [[ $EUID -eq 0 ]] || fail "run as root (sudo -E) because veth, IgH modules and AF_PACKET need privileges"
 [[ -n "$KICKCAT_SIMULATOR" && -x "$KICKCAT_SIMULATOR" ]] || fail "set KICKCAT_SIMULATOR to the executable network_simulator"
-[[ -n "$KICKCAT_SLAVE_CONFIG" && -f "$KICKCAT_SLAVE_CONFIG" ]] || fail "set KICKCAT_SLAVE_CONFIG to KickCAT's ecat402-drive.json"
+SLAVE_CONFIGS=()
+if [[ -n "$KICKCAT_SLAVE_CONFIGS" ]]; then
+  read -r -a SLAVE_CONFIGS <<< "$KICKCAT_SLAVE_CONFIGS"
+elif [[ -n "$KICKCAT_SLAVE_CONFIG" ]]; then
+  SLAVE_CONFIGS=("$KICKCAT_SLAVE_CONFIG")
+fi
+(("${#SLAVE_CONFIGS[@]}" > 0)) || fail "set KICKCAT_SLAVE_CONFIG or KICKCAT_SLAVE_CONFIGS"
+for slave_config in "${SLAVE_CONFIGS[@]}"; do
+  [[ -f "$slave_config" ]] || fail "KickCAT slave config not found: $slave_config"
+done
+if [[ -n "$EXPECTED_SLAVES_OVERRIDE" ]]; then
+  [[ "$EXPECTED_SLAVES_OVERRIDE" =~ ^[1-9][0-9]*$ ]] || fail "MCA_ECAT_EXPECTED_SLAVES must be a positive integer"
+  EXPECTED_SLAVES=$((10#$EXPECTED_SLAVES_OVERRIDE))
+  (( EXPECTED_SLAVES == ${#SLAVE_CONFIGS[@]} )) || fail "expected slave count must match the number of KickCAT config files"
+else
+  EXPECTED_SLAVES=${#SLAVE_CONFIGS[@]}
+fi
 command -v ip >/dev/null || fail "iproute2 (ip) is required"
 command -v modprobe >/dev/null || fail "kmod (modprobe) is required"
 command -v modinfo >/dev/null || fail "kmod (modinfo) is required"
@@ -191,6 +212,7 @@ if [[ "$FAULT_SIL" != "0" && "$FAULT_SIL" != "1" ]]; then
   fail "MCA_ECAT_FAULT_SIL must be 0 or 1"
 fi
 if [[ "$FAULT_SIL" == "1" ]]; then
+  [[ "$EXPECTED_SLAVES" == "1" ]] || fail "MCA_ECAT_FAULT_SIL still uses the single-slave cyclic harness"
   [[ "$CYCLIC_SIL" == "1" ]] || fail "MCA_ECAT_FAULT_SIL requires MCA_ECAT_CYCLIC_SIL=1"
   command -v python3 >/dev/null || fail "python3 is required to validate fault fixture JSON"
   export MCA_ECAT_EXPECTED_FAULT_REACTION_CYCLES="$(
@@ -216,7 +238,8 @@ chmod 700 "$ARTIFACT_DIR"
   printf '\n'
   "$KICKCAT_SIMULATOR" --help 2>&1 | head -40 || true
   printf '\n'
-  printf 'master_if=%s\nsim_if=%s\nmaster_mac=%s\nsim_mac=%s\n' "$MASTER_IF" "$SIM_IF" "$MASTER_MAC" "$SIM_MAC"
+  printf 'master_if=%s\nsim_if=%s\nmaster_mac=%s\nsim_mac=%s\nexpected_slaves=%s\n' "$MASTER_IF" "$SIM_IF" "$MASTER_MAC" "$SIM_MAC" "$EXPECTED_SLAVES"
+  printf 'slave_config=%s\n' "${SLAVE_CONFIGS[*]}"
   printf '\nIgH module parameters:\n'
   modinfo ec_master 2>&1 | grep -E '^(version|parm):' || true
 } >"$ARTIFACT_DIR/environment.txt"
@@ -235,7 +258,7 @@ modprobe ec_generic
 LOADED_GENERIC=1
 
 # KickCAT uses its Linux PF_PACKET/SOCK_RAW backend on the peer veth endpoint.
-"$KICKCAT_SIMULATOR" -i "$SIM_IF" -s "$KICKCAT_SLAVE_CONFIG" \
+"$KICKCAT_SIMULATOR" -i "$SIM_IF" -s "${SLAVE_CONFIGS[@]}" \
   >"$ARTIFACT_DIR/kickcat-simulator.log" 2>&1 &
 SIM_PID=$!
 sleep 1
@@ -261,10 +284,13 @@ while (( SECONDS < deadline )); do
   count=$("$ETHERCAT_CLI" slaves 2>/dev/null | awk '
     NF >= 4 && $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+:[0-9]+$/ { n++ }
     END { print n+0 }')
-  if [[ "$count" == "1" ]] &&
-     grep -Eiq 'Vendor Id:[[:space:]]*0x0*29c' "$ARTIFACT_DIR/slaves-verbose.log" &&
-     grep -Eiq 'Product code:[[:space:]]*0x0*3b11002' "$ARTIFACT_DIR/slaves-verbose.log" &&
-     grep -Eiq 'Revision number:[[:space:]]*0x0*50005' "$ARTIFACT_DIR/slaves-verbose.log"; then
+  vendor_count=$(grep -Eic 'Vendor Id:[[:space:]]*0x0*29c' "$ARTIFACT_DIR/slaves-verbose.log" || true)
+  product_count=$(grep -Eic 'Product code:[[:space:]]*0x0*3b11002' "$ARTIFACT_DIR/slaves-verbose.log" || true)
+  revision_count=$(grep -Eic 'Revision number:[[:space:]]*0x0*50005' "$ARTIFACT_DIR/slaves-verbose.log" || true)
+  if [[ "$count" == "$EXPECTED_SLAVES" ]] &&
+     [[ "$vendor_count" == "$EXPECTED_SLAVES" ]] &&
+     [[ "$product_count" == "$EXPECTED_SLAVES" ]] &&
+     [[ "$revision_count" == "$EXPECTED_SLAVES" ]]; then
     found=1
     break
   fi
@@ -276,7 +302,7 @@ if (( ! found )); then
   cat "$ARTIFACT_DIR/master-status.log" >&2 || true
   cat "$ARTIFACT_DIR/slaves-verbose.log" >&2 || true
   cat "$ARTIFACT_DIR/kickcat-simulator.log" >&2 || true
-  fail "IgH did not discover exactly one slave with the pinned ESI identity"
+  fail "IgH did not discover exactly $EXPECTED_SLAVES slave(s) with the pinned ESI identity"
 fi
 
 if ! wait "$TX_PID"; then
@@ -329,6 +355,12 @@ if [[ "$CYCLIC_SIL" == "1" ]]; then
   command -v cmake >/dev/null || fail "cmake is required for cyclic PDO SIL"
   command -v c++ >/dev/null || fail "a C++ compiler is required for cyclic PDO SIL"
   readonly CYCLIC_BUILD_DIR="$ARTIFACT_DIR/build-igh-cyclic"
+  CYCLIC_TARGET=mca_ethercat_igh_kickcat_cyclic_sil
+  if [[ "$EXPECTED_SLAVES" == "2" ]]; then
+    CYCLIC_TARGET=mca_ethercat_igh_kickcat_multi_slave_cyclic_sil
+  elif [[ "$EXPECTED_SLAVES" != "1" ]]; then
+    fail "cyclic SIL supports one or two slaves; found $EXPECTED_SLAVES"
+  fi
   if ! cmake -S "$REPO_ROOT" -B "$CYCLIC_BUILD_DIR" \
       -DMCA_BUILD_TESTS=OFF -DMCA_BUILD_IGH_KICKCAT_SIL=ON \
       >"$ARTIFACT_DIR/cyclic-cmake-configure.log" 2>&1; then
@@ -336,13 +368,13 @@ if [[ "$CYCLIC_SIL" == "1" ]]; then
     fail "real-IgH cyclic SIL target configuration failed (check ecrt.h, libethercat and Eigen3)"
   fi
   if ! cmake --build "$CYCLIC_BUILD_DIR" --target \
-      mca_ethercat_igh_kickcat_cyclic_sil --parallel 2 \
+      "$CYCLIC_TARGET" --parallel 2 \
       >"$ARTIFACT_DIR/cyclic-cmake-build.log" 2>&1; then
     cat "$ARTIFACT_DIR/cyclic-cmake-build.log" >&2
     fail "real-IgH cyclic SIL target build failed"
   fi
   if ! timeout "$CYCLIC_TIMEOUT_SEC" \
-      "$CYCLIC_BUILD_DIR/mca_ethercat_igh_kickcat_cyclic_sil" \
+      "$CYCLIC_BUILD_DIR/$CYCLIC_TARGET" \
       >"$ARTIFACT_DIR/cyclic-pdo-wkc.log" 2>&1; then
     cat "$ARTIFACT_DIR/cyclic-pdo-wkc.log" >&2
     fail "cyclic PDO/WKC/OP SIL failed"

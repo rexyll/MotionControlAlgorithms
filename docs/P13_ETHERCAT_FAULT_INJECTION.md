@@ -23,8 +23,8 @@ Patch helper:
 The user's existing checkout is used by default:
 
 ```bash
-KICKCAT_SOURCE_DIR="$HOME/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT" \
-  bash scripts/ethercat_sil/prepare_kickcat_fault_injection.sh
+export KICKCAT_SOURCE_DIR="$HOME/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT"
+bash scripts/ethercat_sil/prepare_kickcat_fault_injection.sh
 
 cmake --build "$KICKCAT_SOURCE_DIR/build" --target network_simulator -j"$(nproc)"
 ```

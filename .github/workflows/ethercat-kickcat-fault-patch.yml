@@ -18,6 +18,7 @@ jobs:
       - name: Validate and apply DS402 fault-injection patch
         run: |
           python3 scripts/ethercat_sil/apply_kickcat_ds402_fault_patch.py /tmp/KickCAT
+          python3 scripts/ethercat_sil/apply_kickcat_ds402_fault_patch.py /tmp/KickCAT
           git -C /tmp/KickCAT diff --check
           grep -q 'fault_after_cycles' /tmp/KickCAT/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h
           grep -q 'fault_reaction_cycles' /tmp/KickCAT/lib/simulation/src/DeviceApp.cc

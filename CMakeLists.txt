@@ -39,6 +39,17 @@ if(MCA_BUILD_IGH_KICKCAT_SIL)
     mca_core ${IGH_LIBRARY} Threads::Threads)
   target_compile_options(mca_ethercat_igh_kickcat_cyclic_sil PRIVATE
     -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
+  add_executable(mca_ethercat_igh_kickcat_multi_slave_cyclic_sil
+    src/hardware/ethercat_igh_adapter.cpp
+    tests/integration/ethercat_igh_kickcat_multi_slave_cyclic_sil.cpp)
+  target_include_directories(mca_ethercat_igh_kickcat_multi_slave_cyclic_sil PRIVATE
+    ${IGH_INCLUDE_DIR})
+  target_compile_definitions(mca_ethercat_igh_kickcat_multi_slave_cyclic_sil PRIVATE
+    MCA_ENABLE_IGH=1)
+  target_link_libraries(mca_ethercat_igh_kickcat_multi_slave_cyclic_sil PRIVATE
+    mca_core ${IGH_LIBRARY} Threads::Threads)
+  target_compile_options(mca_ethercat_igh_kickcat_multi_slave_cyclic_sil PRIVATE
+    -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 endif()
 if(MCA_BUILD_TESTS)
   enable_testing()

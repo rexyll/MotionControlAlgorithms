@@ -263,7 +263,7 @@ int main() {
       const auto plan =
           mca::hardware::plan_cia402_control(drive.last_statusword, request);
       std::uint64_t mode_raw = 0U;
-      if (!adapter.read_pdo(drive.pdo.mode_display, mode_raw) ||
+      if (!adapter.read_pdo(drive.pdo.mode_display, mode_raw).ok() ||
           mode_raw > 0xFFU) {
         std::cerr << "FAIL: mode display read on ring "
                   << drive.ring_position << '\n';

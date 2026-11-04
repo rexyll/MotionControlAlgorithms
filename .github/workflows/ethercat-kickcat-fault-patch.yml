@@ -17,8 +17,9 @@ jobs:
           git -C /tmp/KickCAT checkout --detach cb2e1a192ac11ffaa58f08945053b8129abf94cb
       - name: Validate and apply DS402 fault-injection patch
         run: |
-          git -C /tmp/KickCAT apply --check patches/kickcat-ds402-fault-injection.patch
-          git -C /tmp/KickCAT apply patches/kickcat-ds402-fault-injection.patch
+          PATCH_FILE="$GITHUB_WORKSPACE/patches/kickcat-ds402-fault-injection.patch"
+          git -C /tmp/KickCAT apply --check "$PATCH_FILE"
+          git -C /tmp/KickCAT apply "$PATCH_FILE"
           git -C /tmp/KickCAT diff --check
           grep -q 'fault_after_cycles' /tmp/KickCAT/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h
           grep -q 'fault_reaction_cycles' /tmp/KickCAT/lib/simulation/src/DeviceApp.cc

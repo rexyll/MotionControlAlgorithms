@@ -16,6 +16,7 @@ readonly KICKCAT_SLAVE_CONFIGS="${KICKCAT_SLAVE_CONFIGS:-}"
 readonly EXPECTED_SLAVES_OVERRIDE="${MCA_ECAT_EXPECTED_SLAVES:-}"
 readonly ETHERCAT_CLI="${ETHERCAT_CLI:-ethercat}"
 readonly COE_READBACK="${MCA_ECAT_COE_READBACK:-0}"
+readonly IGH_DEBUG_LEVEL="${MCA_ECAT_DEBUG_LEVEL:-$(if [[ "$COE_READBACK" == "1" ]]; then printf '1'; else printf '0'; fi)}"
 readonly DISABLE_EOE="${MCA_ECAT_DISABLE_EOE:-0}"
 readonly CYCLIC_SIL="${MCA_ECAT_CYCLIC_SIL:-0}"
 readonly FAULT_SIL="${MCA_ECAT_FAULT_SIL:-0}"
@@ -38,11 +39,28 @@ fail() {
   exit 1
 }
 
+capture_kernel_diagnostics() {
+  local label="$1"
+  {
+    printf 'capture=%s\n' "$label"
+    date --iso-8601=ns 2>&1 || date
+    printf '\n--- IgH/EtherCAT kernel messages (last 500) ---\n'
+    dmesg --time-format iso 2>&1 | tail -n 500 || true
+  } >"$ARTIFACT_DIR/kernel-$label.log" 2>&1 || true
+  {
+    printf 'capture=%s\n' "$label"
+    dmesg --time-format iso 2>&1 |
+      grep -Ei 'EtherCAT|ec_master|ec_generic|SDO|mailbox|CoE|EoE' |
+      tail -n 250 || true
+  } >"$ARTIFACT_DIR/kernel-$label-ethercat.log" 2>&1 || true
+}
+
 # Read a typed CoE object through the IgH CLI. The CLI supports explicit
 # --position and --type options; parse the first numeric token from its output.
 read_sdo_value() {
   local index="$1" subindex="$2" type="$3" position="${4:-0}" output token value
-  local command_status=0 started finished elapsed_ms
+  local command_status=0 started finished elapsed_ms started_wall finished_wall
+  started_wall=$(date --iso-8601=ns)
   started=$(date +%s%N)
   if output=$(timeout "$TIMEOUT_SEC" "$ETHERCAT_CLI" upload --position "$position" \
       --type "$type" "$index" "$subindex" 2>&1); then
@@ -51,10 +69,11 @@ read_sdo_value() {
     command_status=$?
   fi
   finished=$(date +%s%N)
+  finished_wall=$(date --iso-8601=ns)
   elapsed_ms=$(((finished - started) / 1000000))
   {
-    printf 'READ position=%s %s:%s type=%s exit=%s elapsed_ms=%s\n' \
-      "$position" "$index" "$subindex" "$type" "$command_status" "$elapsed_ms"
+    printf 'READ position=%s %s:%s type=%s exit=%s elapsed_ms=%s start_epoch_ns=%s finish_epoch_ns=%s start_wall=%s finish_wall=%s\n' \
+      "$position" "$index" "$subindex" "$type" "$command_status" "$elapsed_ms" "$started" "$finished" "$started_wall" "$finished_wall"
     printf '%s\n' "$output"
   } >>"$ARTIFACT_DIR/coe-sdo-raw.log"
   if (( command_status != 0 )); then
@@ -221,6 +240,7 @@ if [[ "$FAULT_SIL" == "1" ]]; then
 fi
 command -v timeout >/dev/null || fail "coreutils timeout is required"
 command -v "$ETHERCAT_CLI" >/dev/null || fail "IgH ethercat CLI not found: $ETHERCAT_CLI"
+[[ "$IGH_DEBUG_LEVEL" =~ ^[0-9]+$ ]] || fail "MCA_ECAT_DEBUG_LEVEL must be a non-negative integer"
 modinfo ec_master >/dev/null 2>&1 || fail "IgH ec_master module is not installed for the running kernel"
 modinfo ec_generic >/dev/null 2>&1 || fail "IgH ec_generic module is not installed for the running kernel"
 
@@ -252,7 +272,7 @@ ip link set dev "$MASTER_IF" up
 ip link set dev "$SIM_IF" up
 
 # IgH selects its master device by the main_devices MAC, not by interface name.
-modprobe ec_master "main_devices=$MASTER_MAC"
+modprobe ec_master "main_devices=$MASTER_MAC" "debug_level=$IGH_DEBUG_LEVEL"
 LOADED_MASTER=1
 modprobe ec_generic
 LOADED_GENERIC=1
@@ -336,10 +356,22 @@ if [[ "$COE_READBACK" == "1" ]]; then
   fi
   "$ETHERCAT_CLI" master >"$ARTIFACT_DIR/master-before-coe.log" 2>&1 || true
   "$ETHERCAT_CLI" slaves -v >"$ARTIFACT_DIR/slaves-before-coe.log" 2>&1 || true
+  capture_kernel_diagnostics "before-coe"
   start_coe_capture
   if ! run_coe_readback >"$ARTIFACT_DIR/coe-pdo-readback.txt"; then
     stop_coe_capture
-    "$ETHERCAT_CLI" master >"$ARTIFACT_DIR/master-after-coe.log" 2>&1 || true
+    capture_kernel_diagnostics "after-coe-failure"
+    {
+      date --iso-8601=ns 2>&1 || date
+      printf '\n--- ethercat master ---\n'
+      "$ETHERCAT_CLI" master 2>&1 || true
+      printf '\n--- ethercat slaves -v ---\n'
+      "$ETHERCAT_CLI" slaves -v 2>&1 || true
+      printf '\n--- ip -s link ---\n'
+      ip -s link show 2>&1 || true
+      printf '\n--- EoE interfaces ---\n'
+      ip -o link show 2>&1 | grep -E 'eoe[0-9]+s[0-9]+' || true
+    } >"$ARTIFACT_DIR/coe-failure-state.log" 2>&1
     cat "$ARTIFACT_DIR/coe-pdo-readback.txt" >&2 || true
     fail "CoE PDO assignment/mapping readback failed"
   fi

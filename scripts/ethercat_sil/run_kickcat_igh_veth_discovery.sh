@@ -120,18 +120,6 @@ run_coe_readback() {
   verify_coe_assignment 0x1C13 "TxPDO" || return 1
 }
 
-stop_coe_capture() {
-  if [[ -n "$COE_CAPTURE_PID" ]]; then
-    kill -INT "$COE_CAPTURE_PID" 2>/dev/null || true
-    wait "$COE_CAPTURE_PID" 2>/dev/null || true
-    COE_CAPTURE_PID=""
-  fi
-  if [[ -f "$ARTIFACT_DIR/coe-master.pcap" ]]; then
-    tcpdump -nn -e -vvv -XX -r "$ARTIFACT_DIR/coe-master.pcap" \
-      >"$ARTIFACT_DIR/coe-master.log" 2>&1 || true
-  fi
-}
-
 start_coe_capture() {
   # Capture at the simulator endpoint, where KickCAT receives raw frames.
   # IgH's ec_generic path may bypass packet-socket capture on MASTER_IF.

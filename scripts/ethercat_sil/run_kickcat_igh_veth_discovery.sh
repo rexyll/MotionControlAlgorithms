@@ -326,7 +326,7 @@ if [[ "$COE_READBACK" == "1" ]]; then
   if [[ "$DISABLE_EOE" == "1" ]]; then
     # Opt-in isolation experiment: close auto-created EoE interfaces.
     while IFS= read -r eoe_if; do
-      [[ "$eoe_if" == eoe0* ]] || continue
+      [[ "$eoe_if" == eoe* ]] || continue
       ip link set dev "$eoe_if" down
     done < <(ip -o link show | awk -F': ' '{sub(/@.*/, "", $2); print $2}')
     {

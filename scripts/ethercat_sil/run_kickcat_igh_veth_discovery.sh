@@ -23,8 +23,7 @@ readonly ARTIFACT_DIR="${MCA_ECAT_ARTIFACT_DIR:-/tmp/mca-ethercat-sil-$(date +%Y
 SIM_PID=""
 TX_PID=""
 RX_PID=""
-COE_TX_PID=""
-COE_RX_PID=""
+COE_CAPTURE_PID=""
 LOADED_MASTER=0
 LOADED_GENERIC=0
 VETH_CREATED=0
@@ -122,37 +121,30 @@ run_coe_readback() {
 }
 
 stop_coe_capture() {
-  local pid
-  for pid in "$COE_TX_PID" "$COE_RX_PID"; do
-    if [[ -n "$pid" ]]; then
-      kill -INT "$pid" 2>/dev/null || true
-      wait "$pid" 2>/dev/null || true
-    fi
-  done
-  COE_TX_PID=""
-  COE_RX_PID=""
-  if [[ -f "$ARTIFACT_DIR/coe-master-tx.pcap" ]]; then
-    tcpdump -nn -e -vvv -XX -r "$ARTIFACT_DIR/coe-master-tx.pcap" \
-      >"$ARTIFACT_DIR/coe-master-tx.log" 2>&1 || true
+  if [[ -n "$COE_CAPTURE_PID" ]]; then
+    kill -INT "$COE_CAPTURE_PID" 2>/dev/null || true
+    wait "$COE_CAPTURE_PID" 2>/dev/null || true
+    COE_CAPTURE_PID=""
   fi
-  if [[ -f "$ARTIFACT_DIR/coe-master-rx.pcap" ]]; then
-    tcpdump -nn -e -vvv -XX -r "$ARTIFACT_DIR/coe-master-rx.pcap" \
-      >"$ARTIFACT_DIR/coe-master-rx.log" 2>&1 || true
+  if [[ -f "$ARTIFACT_DIR/coe-master.pcap" ]]; then
+    tcpdump -nn -e -vvv -XX -r "$ARTIFACT_DIR/coe-master.pcap" \
+      >"$ARTIFACT_DIR/coe-master.log" 2>&1 || true
   fi
 }
 
 start_coe_capture() {
-  # Keep full EtherCAT frames during SDO readback. The earlier discovery-only
-  # capture intentionally stops before CoE and cannot diagnose mailbox traffic.
-  tcpdump -U -i "$MASTER_IF" -Q out -nn -s 0 -w \
-    "$ARTIFACT_DIR/coe-master-tx.pcap" 'ether proto 0x88a4' \
-    >"$ARTIFACT_DIR/coe-master-tx-capture.log" 2>&1 &
-  COE_TX_PID=$!
-  tcpdump -U -i "$MASTER_IF" -Q in -nn -s 0 -w \
-    "$ARTIFACT_DIR/coe-master-rx.pcap" 'ether proto 0x88a4' \
-    >"$ARTIFACT_DIR/coe-master-rx-capture.log" 2>&1 &
-  COE_RX_PID=$!
-  sleep 0.2
+  # Capture both directions in one process. Avoid -Q in/out because the
+  # direction-filtered captures previously reported packets received by the
+  # filter but wrote empty pcaps on the veth/IgH path.
+  tcpdump -U -Z root -i "$MASTER_IF" -nn -s 0 -w \
+    "$ARTIFACT_DIR/coe-master.pcap" 'ether proto 0x88a4' \
+    >"$ARTIFACT_DIR/coe-master-capture.log" 2>&1 &
+  COE_CAPTURE_PID=$!
+  sleep 0.5
+  kill -0 "$COE_CAPTURE_PID" 2>/dev/null || {
+    cat "$ARTIFACT_DIR/coe-master-capture.log" >&2 || true
+    fail "EtherCAT CoE packet capture did not stay running"
+  }
 }
 
 cleanup() {

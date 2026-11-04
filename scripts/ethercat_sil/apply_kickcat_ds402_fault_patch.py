@@ -41,11 +41,7 @@ def main() -> int:
     app_marked = "fault_after_cycles" in app and "fault_reaction_cycles" in app
     if header_marked and app_marked:
         old_counter = """            last_control_word_ = control_word;
-            if (not fault_injected_ and status_word_value_ == OPERATION_ENABLED
-                and (control_word & 0x000FU) == 0x000FU)
-            {
-                ++cycle_count_;
-            }
+            ++cycle_count_;
 
             if (not fault_injected_ and params_.fault_after_cycles > 0U
 """

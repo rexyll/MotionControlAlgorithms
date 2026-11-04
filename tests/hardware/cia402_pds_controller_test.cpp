@@ -117,10 +117,15 @@ TEST(Cia402FaultResetSequencer, EmitsOneResetPulseAndWaitsForDisabledFeedback) {
   EXPECT_FALSE(plan.complete);
   EXPECT_EQ(plan.phase, Cia402FaultResetPhase::AwaitingFaultClear);
 
-  plan = sequencer.update(0x0008U, true);
-  EXPECT_EQ(plan.controlword, 0x0000U);
-  EXPECT_FALSE(plan.pulse_sent);
-  EXPECT_FALSE(plan.complete);
+  // Holding Fault feedback must not emit another reset pulse. The reset
+  // command is a one-cycle rising-edge request, not a level held until clear.
+  for (std::size_t cycle = 0U; cycle < 8U; ++cycle) {
+    plan = sequencer.update(0x0008U, true);
+    EXPECT_EQ(plan.controlword, 0x0000U);
+    EXPECT_FALSE(plan.pulse_sent);
+    EXPECT_FALSE(plan.complete);
+    EXPECT_FALSE(plan.failed);
+  }
 
   plan = sequencer.update(0x000FU, true);
   EXPECT_EQ(plan.controlword, 0x0000U);

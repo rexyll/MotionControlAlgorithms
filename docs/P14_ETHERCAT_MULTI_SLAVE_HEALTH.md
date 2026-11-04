@@ -81,9 +81,9 @@ The multi-station tests cover:
    fails; non-faulted stations become Unknown until diagnostics recover.
 
 These are API/fake-backend tests. They do not constitute multi-slave wire-level
-SIL. Linux CI #1854 at commit `3120a71a` reported 758/758 core tests passed,
-including the first five cases above. The diagnostic-read latch regression was
-added after that run and is covered by the later CI #1856.
+SIL. Linux CI #1856 at commit `da78675a` reported 759/759 core tests passed,
+including all six cases above. The multi-slave cyclic harness also passed the
+pinned IgH 1.6.13 API syntax-compile workflow (`ethercat-igh-compile` #307).
 
 ## Multi-slave veth runner and baseline SIL
 

@@ -26,7 +26,7 @@ command -v python3 >/dev/null || fail "python3 is required to derive duration fi
 
 [[ -n "${MATRIX//[[:space:]]/}" ]] || fail "MCA_ECAT_FAULT_REACTION_MATRIX must contain at least one duration"
 read -r -a DURATION_VALUES <<< "$MATRIX"
-(("${#DURATION_VALUES[@]}" > 0)) || fail "no fault-reaction durations were parsed"
+((${#DURATION_VALUES[@]} > 0)) || fail "no fault-reaction durations were parsed"
 
 mkdir -p "$ARTIFACT_ROOT"
 printf 'Fault Reaction Active duration matrix: %s\n' "$MATRIX"

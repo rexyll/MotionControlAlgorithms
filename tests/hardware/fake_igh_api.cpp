@@ -49,6 +49,7 @@ std::size_t pdo_registrations = 0U;
 std::size_t captured_syncs = 0U;
 std::array<CapturedSync, 16U> captured{};
 bool domain_data_failure = false;
+bool domain_wkc_complete = true;
 bool zero_size = false;
 bool deactivate_failure = false;
 bool master_state_failure = false;
@@ -79,6 +80,7 @@ void reset() noexcept {
   pdo_configurations = 0U; pdo_registrations = 0U;
   captured_syncs = 0U;
   domain_data_failure = false;
+  domain_wkc_complete = true;
   zero_size = false; deactivate_failure = false;
   master_state_failure = false; slave_state_failure = false;
   master_link_up = true; master_responding = 1U; master_al_states = EC_AL_STATE_OP;
@@ -128,6 +130,9 @@ void set_master_state(bool link_up, unsigned int responding, unsigned int al_sta
 }
 void set_slave_state(bool online, bool operational, std::uint8_t al_state) noexcept {
   slave_online = online; slave_operational = operational; slave_al_state = al_state;
+}
+void set_domain_working_counter_complete(bool complete) noexcept {
+  domain_wkc_complete = complete;
 }
 void fail_master_state(bool enabled) noexcept { master_state_failure = enabled; }
 void fail_slave_state(bool enabled) noexcept { slave_state_failure = enabled; }
@@ -319,7 +324,9 @@ size_t ecrt_domain_size(const ec_domain_t* d) { return fake_igh::domain_size_is_
 int ecrt_master_receive(ec_master_t*) { return 0; }
 int ecrt_domain_process(ec_domain_t*) { return 0; }
 int ecrt_domain_state(const ec_domain_t*, ec_domain_state_t* s) {
-  s->working_counter = 1U; s->wc_state = EC_WC_COMPLETE; return 0;
+  s->working_counter = domain_wkc_complete ? 1U : 0U;
+  s->wc_state = domain_wkc_complete ? EC_WC_COMPLETE : EC_WC_INCOMPLETE;
+  return 0;
 }
 int ecrt_domain_queue(ec_domain_t*) { ++queues; return 0; }
 int ecrt_master_send(ec_master_t*) { ++sends; return 0; }

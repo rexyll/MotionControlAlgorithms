@@ -1,0 +1,24 @@
+Linux earl-VMware-Virtual-Platform 7.0.0-42-generic #42~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Mon Oct 19 14:43:01 UTC 2 x86_64 x86_64 x86_64 GNU/Linux
+
+Usage: network_simulator [--help] [--version] --interface VAR [--redundancy VAR] [--control VAR] [--topology VAR] [--slaves VAR...]
+
+Optional arguments:
+  -h, --help        shows help message and exits 
+  -v, --version     prints version information and exits 
+  -i, --interface   network interface name [required]
+  -r, --redundancy  redundancy network interface (enables cable-redundancy routing) [nargs=0..1] [default: ""]
+  --control         shared-memory name of a break/heal control channel (see SimulatorControl.h) [nargs=0..1] [default: ""]
+  --topology        JSON topology file: master injection + slave-to-slave links (branching tree) [nargs=0..1] [default: ""]
+  -s, --slaves      JSON configuration files for slaves [nargs: 0 or more] 
+
+master_if=mcaecat0
+sim_if=mcaecat1
+master_mac=02:4d:43:41:45:01
+sim_mac=02:4d:43:41:45:02
+
+IgH module parameters:
+version:        1.6.13 1.6.13.g61cc654-1+41.1
+parm:           main_devices:MAC addresses of main devices (array of charp)
+parm:           backup_devices:MAC addresses of backup devices (array of charp)
+parm:           debug_level:Debug level (uint)
+parm:           run_on_cpu:Bind kthreads to a specific cpu (uint)

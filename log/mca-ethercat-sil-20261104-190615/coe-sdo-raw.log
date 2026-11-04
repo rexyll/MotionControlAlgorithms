@@ -1,0 +1,28 @@
+READ 0x1C12:0 type=uint8 exit=0 elapsed_ms=16
+0x01 1
+READ 0x1C12:1 type=uint16 exit=0 elapsed_ms=13
+0x1600 5632
+READ 5632:0 type=uint8 exit=0 elapsed_ms=18
+0x04 4
+READ 5632:1 type=uint32 exit=0 elapsed_ms=16
+0x60400010 1614807056
+READ 5632:2 type=uint32 exit=0 elapsed_ms=11
+0x607a0020 1618608160
+READ 5632:3 type=uint32 exit=0 elapsed_ms=10
+0x60ff0020 1627324448
+READ 5632:4 type=uint32 exit=0 elapsed_ms=14
+0x60600008 1616904200
+READ 0x1C13:0 type=uint8 exit=0 elapsed_ms=11
+0x01 1
+READ 0x1C13:1 type=uint16 exit=0 elapsed_ms=11
+0x1a00 6656
+READ 6656:0 type=uint8 exit=0 elapsed_ms=11
+0x04 4
+READ 6656:1 type=uint32 exit=0 elapsed_ms=11
+0x60410010 1614872592
+READ 6656:2 type=uint32 exit=0 elapsed_ms=9
+0x60640020 1617166368
+READ 6656:3 type=uint32 exit=0 elapsed_ms=9
+0x606c0020 1617690656
+READ 6656:4 type=uint32 exit=0 elapsed_ms=11
+0x60610008 1616969736

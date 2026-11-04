@@ -216,7 +216,7 @@ if [[ "$FAULT_SIL" == "1" ]]; then
   [[ "$CYCLIC_SIL" == "1" ]] || fail "MCA_ECAT_FAULT_SIL requires MCA_ECAT_CYCLIC_SIL=1"
   command -v python3 >/dev/null || fail "python3 is required to validate fault fixture JSON"
   export MCA_ECAT_EXPECTED_FAULT_REACTION_CYCLES="$(
-    python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); n=int(c.get("fault_reaction_cycles", 3)); assert int(c.get("fault_after_cycles", 0)) > 0; print(max(1,n))' "$KICKCAT_SLAVE_CONFIG"
+    python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); n=int(c.get("fault_reaction_cycles", 3)); assert int(c.get("fault_after_cycles", 0)) > 0; print(max(1,n))' "${SLAVE_CONFIGS[0]}"
   )" || fail "fault SIL requires positive fault_after_cycles and a valid fault_reaction_cycles"
 fi
 command -v timeout >/dev/null || fail "coreutils timeout is required"
@@ -275,8 +275,8 @@ timeout "$((TIMEOUT_SEC + 5))" tcpdump -U -i "$MASTER_IF" -Q in -nn -e \
   'ether proto 0x88a4' -c 1 >"$ARTIFACT_DIR/master-rx.log" 2>&1 &
 RX_PID=$!
 
-# IgH's idle master FSM scans automatically. Poll until the single simulator
-# slave is discovered; do not treat CLI success with zero slaves as acceptance.
+# IgH's idle master FSM scans automatically. Poll until the configured number
+# of simulator slaves is discovered; do not accept a partial topology.
 deadline=$((SECONDS + TIMEOUT_SEC))
 found=0
 while (( SECONDS < deadline )); do

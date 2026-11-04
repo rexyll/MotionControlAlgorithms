@@ -23,6 +23,8 @@ readonly ARTIFACT_DIR="${MCA_ECAT_ARTIFACT_DIR:-/tmp/mca-ethercat-sil-$(date +%Y
 SIM_PID=""
 TX_PID=""
 RX_PID=""
+COE_TX_PID=""
+COE_RX_PID=""
 LOADED_MASTER=0
 LOADED_GENERIC=0
 VETH_CREATED=0
@@ -119,9 +121,44 @@ run_coe_readback() {
   verify_coe_assignment 0x1C13 "TxPDO" || return 1
 }
 
+stop_coe_capture() {
+  local pid
+  for pid in "$COE_TX_PID" "$COE_RX_PID"; do
+    if [[ -n "$pid" ]]; then
+      kill -INT "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+    fi
+  done
+  COE_TX_PID=""
+  COE_RX_PID=""
+  if [[ -f "$ARTIFACT_DIR/coe-master-tx.pcap" ]]; then
+    tcpdump -nn -e -vvv -XX -r "$ARTIFACT_DIR/coe-master-tx.pcap" \
+      >"$ARTIFACT_DIR/coe-master-tx.log" 2>&1 || true
+  fi
+  if [[ -f "$ARTIFACT_DIR/coe-master-rx.pcap" ]]; then
+    tcpdump -nn -e -vvv -XX -r "$ARTIFACT_DIR/coe-master-rx.pcap" \
+      >"$ARTIFACT_DIR/coe-master-rx.log" 2>&1 || true
+  fi
+}
+
+start_coe_capture() {
+  # Keep full EtherCAT frames during SDO readback. The earlier discovery-only
+  # capture intentionally stops before CoE and cannot diagnose mailbox traffic.
+  tcpdump -U -i "$MASTER_IF" -Q out -nn -s 0 -w \
+    "$ARTIFACT_DIR/coe-master-tx.pcap" 'ether proto 0x88a4' \
+    >"$ARTIFACT_DIR/coe-master-tx-capture.log" 2>&1 &
+  COE_TX_PID=$!
+  tcpdump -U -i "$MASTER_IF" -Q in -nn -s 0 -w \
+    "$ARTIFACT_DIR/coe-master-rx.pcap" 'ether proto 0x88a4' \
+    >"$ARTIFACT_DIR/coe-master-rx-capture.log" 2>&1 &
+  COE_RX_PID=$!
+  sleep 0.2
+}
+
 cleanup() {
   local rc=$?
   trap - EXIT INT TERM
+  stop_coe_capture
   if [[ -n "$TX_PID" ]]; then kill "$TX_PID" 2>/dev/null || true; wait "$TX_PID" 2>/dev/null || true; fi
   if [[ -n "$RX_PID" ]]; then kill "$RX_PID" 2>/dev/null || true; wait "$RX_PID" 2>/dev/null || true; fi
   if [[ -n "$SIM_PID" ]]; then kill -TERM "$SIM_PID" 2>/dev/null || true; wait "$SIM_PID" 2>/dev/null || true; fi
@@ -234,10 +271,13 @@ fi
 RX_PID=""
 
 if [[ "$COE_READBACK" == "1" ]]; then
+  start_coe_capture
   if ! run_coe_readback >"$ARTIFACT_DIR/coe-pdo-readback.txt"; then
+    stop_coe_capture
     cat "$ARTIFACT_DIR/coe-pdo-readback.txt" >&2 || true
     fail "CoE PDO assignment/mapping readback failed"
   fi
+  stop_coe_capture
   printf '\nPASS: CoE SDO readback of RxPDO/TxPDO assignments and PDO entries.\n'
 fi
 

@@ -26,12 +26,17 @@ jobs:
           app = Path("/tmp/KickCAT/lib/simulation/src/DeviceApp.cc").read_text()
           assert "fault_after_cycles" in header
           assert "fault_reaction_cycles" in app
-          assert "status_word_value_ == OPERATION_ENABLED" in header
-          assert "(control_word & 0x000FU) == 0x000FU" in header
-          assert "const bool fault_reset_edge =" in header
-          assert "++cycle_count_;" in header
+          state_machine = header.split("void stepStateMachine(uint16_t control_word)", 1)[1]
+          assert "status_word_value_ == OPERATION_ENABLED" in state_machine
+          assert "(control_word & 0x000FU) == 0x000FU" in state_machine
+          assert "const bool fault_reset_edge =" in state_machine
+          assert state_machine.count("++cycle_count_;") == 1
+          assert "last_control_word_ = control_word;\\n            ++cycle_count_;" not in state_machine
           PY
+          before="$(git -C /tmp/KickCAT diff --binary | sha256sum)"
           python3 scripts/ethercat_sil/apply_kickcat_ds402_fault_patch.py /tmp/KickCAT
+          after="$(git -C /tmp/KickCAT diff --binary | sha256sum)"
+          test "$before" = "$after"
           git -C /tmp/KickCAT diff --check
           grep -q 'fault_after_cycles' /tmp/KickCAT/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h
           grep -q 'fault_reaction_cycles' /tmp/KickCAT/lib/simulation/src/DeviceApp.cc

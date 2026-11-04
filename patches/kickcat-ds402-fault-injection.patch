@@ -8,7 +8,7 @@ diff --git a/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h b/li
 @@ -86,0 +90,2 @@
 +        static constexpr uint16_t FAULT_REACTION_ACTIVE = 0x000FU;
 +        static constexpr uint16_t FAULT = ds402::status::value::FAULT_STATE;
-@@ -112,0 +118,43 @@
+@@ -112,0 +118,44 @@
 +            const bool fault_reset_edge = (control_word & 0x0080U) != 0U
 +                                       and (last_control_word_ & 0x0080U) == 0U;
 +            last_control_word_ = control_word;
@@ -52,16 +52,17 @@ diff --git a/lib/simulation/include/kickcat/simulation/devices/Ds402Motor.h b/li
 +                }
 +                return;
 +            }
-@@ -212,0 +261,6 @@
 +
+@@ -212,0 +261,6 @@
 +        std::uint32_t cycle_count_{0U};
 +        std::uint32_t fault_reaction_remaining_{0U};
 +        std::uint16_t last_control_word_{0U};
 +        bool          fault_injected_{false};
 +        bool          fault_reaction_active_{false};
++        bool          fault_latched_{false};
 diff --git a/lib/simulation/src/DeviceApp.cc b/lib/simulation/src/DeviceApp.cc
 --- a/lib/simulation/src/DeviceApp.cc
 +++ b/lib/simulation/src/DeviceApp.cc
 @@ -23,0 +24,2 @@
-+        bool          fault_latched_{false};
 +            mp.fault_after_cycles = config.value("fault_after_cycles", mp.fault_after_cycles);
++            mp.fault_reaction_cycles = config.value("fault_reaction_cycles", mp.fault_reaction_cycles);

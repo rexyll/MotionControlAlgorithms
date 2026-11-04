@@ -131,6 +131,38 @@ statusword/controlword per cycle around the injected event, WKC and AL state.
 A patch-application CI pass is not a compiled simulator, wire-level SIL or
 physical HIL pass.
 
+## Recorded local wire-level SIL pass
+
+Observed on 2026-11-04 with the pinned KickCAT revision
+`cb2e1a192ac11ffaa58f08945053b8129abf94cb` and the patched
+`network_simulator`. User-provided artifact directory:
+`/tmp/mca-ethercat-sil-20261104-203349`.
+
+- CoE RxPDO/TxPDO assignment and PDO-entry SDO readback: PASS.
+- One slave discovered; the cyclic harness reported all 8 scalar PDO bindings.
+- Startup transport became ready after 81 cycles.
+- The fault trace showed statusword `0x000F` at cycles 341, 342 and 343,
+  followed by latched Fault `0x0008` at cycle 344 (three FRA cycles exactly).
+- The reset sequencer emitted `controlword=0x0080` with
+  `pulse_sent=1`. Subsequent reset traces used controlword `0x0000`;
+  statusword remained `0x0008` at cycles 346 and 347 and changed to
+  Switch On Disabled `0x0040` at cycle 348.
+- Final cyclic result: `cycles=349`, `statusword=0x0040`,
+  `disabled_feedback=1`, `WKC=3`, `domain_complete=1`,
+  slave `online=1`, `operational=1`, `AL=0x08 (OP)`.
+- The harness reported:
+  `PASS: wire-level CiA402 Fault Reaction Active -> Fault -> explicit one-cycle Fault Reset -> Switch On Disabled; drive was not re-enabled.`
+
+This is a successful wire-level SIL result for the deterministic patched
+KickCAT model. It is not a physical drive/HIL result. In particular, the
+simulator's mode-display echo does not prove a real drive accepted CSP or
+responded to motion commands.
+
+The runner's `slaves-verbose.log` is captured during initial discovery,
+before the cyclic harness activates the slave. Its `PREOP` state is therefore
+a discovery-time snapshot, not a contradictory post-test state. Use the
+cyclic harness's runtime health and AL-state trace for the in-test state.
+
 ## Limitations
 
 The fault model is deterministic and intentionally simple. It does not model

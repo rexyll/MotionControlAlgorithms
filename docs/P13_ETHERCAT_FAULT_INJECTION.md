@@ -15,8 +15,8 @@ fault semantics, diagnostic register behavior or safety response.
 Pinned KickCAT revision:
 `leducp/KickCAT@cb2e1a192ac11ffaa58f08945053b8129abf94cb`
 
-Patch:
-`patches/kickcat-ds402-fault-injection.patch`
+Patch helper:
+`scripts/ethercat_sil/apply_kickcat_ds402_fault_patch.py`
 
 ## Apply and build
 
@@ -29,9 +29,10 @@ KICKCAT_SOURCE_DIR="$HOME/workspace/MotionControlAlgorithms/scripts/ethercat_sil
 cmake --build "$KICKCAT_SOURCE_DIR/build" --target network_simulator -j"$(nproc)"
 ```
 
-The helper refuses a different KickCAT revision, checks that the patch applies
-cleanly, applies it once, and runs `git diff --check`. It does not fetch
-dependencies or modify the MCA production build.
+The helper refuses a different KickCAT revision, checks all source insertion
+anchors before writing either file, applies the fixture once, and runs
+`git diff --check`. The CI job compiles both modified KickCAT translation units.
+It does not fetch dependencies or modify the MCA production build.
 
 ## Simulator configuration
 

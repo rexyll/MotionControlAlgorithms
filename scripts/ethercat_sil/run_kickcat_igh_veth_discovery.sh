@@ -133,18 +133,31 @@ stop_coe_capture() {
 }
 
 start_coe_capture() {
-  # Capture both directions in one process. Avoid -Q in/out because the
-  # direction-filtered captures previously reported packets received by the
-  # filter but wrote empty pcaps on the veth/IgH path.
-  tcpdump -U -Z root -i "$MASTER_IF" -nn -s 0 -w \
-    "$ARTIFACT_DIR/coe-master.pcap" 'ether proto 0x88a4' \
-    >"$ARTIFACT_DIR/coe-master-capture.log" 2>&1 &
+  # Capture at the simulator endpoint, where KickCAT receives raw frames.
+  # IgH's ec_generic path may bypass packet-socket capture on MASTER_IF.
+  # The veth pair is isolated, so capture all Ethernet frames and avoid
+  # relying on EtherType/direction metadata at the master endpoint.
+  tcpdump -U -Z root -i "$SIM_IF" -nn -s 0 -w \
+    "$ARTIFACT_DIR/coe-simulator.pcap" \
+    >"$ARTIFACT_DIR/coe-simulator-capture.log" 2>&1 &
   COE_CAPTURE_PID=$!
   sleep 0.5
   kill -0 "$COE_CAPTURE_PID" 2>/dev/null || {
-    cat "$ARTIFACT_DIR/coe-master-capture.log" >&2 || true
+    cat "$ARTIFACT_DIR/coe-simulator-capture.log" >&2 || true
     fail "EtherCAT CoE packet capture did not stay running"
   }
+}
+
+stop_coe_capture() {
+  if [[ -n "$COE_CAPTURE_PID" ]]; then
+    kill -INT "$COE_CAPTURE_PID" 2>/dev/null || true
+    wait "$COE_CAPTURE_PID" 2>/dev/null || true
+    COE_CAPTURE_PID=""
+  fi
+  if [[ -f "$ARTIFACT_DIR/coe-simulator.pcap" ]]; then
+    tcpdump -nn -e -vvv -XX -r "$ARTIFACT_DIR/coe-simulator.pcap" \
+      >"$ARTIFACT_DIR/coe-simulator.log" 2>&1 || true
+  fi
 }
 
 cleanup() {

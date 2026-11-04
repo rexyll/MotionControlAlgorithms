@@ -24,13 +24,18 @@ trap cleanup EXIT
 [[ -n "$BASE_CONFIG" && -f "$BASE_CONFIG" ]] || fail "set KICKCAT_SLAVE_CONFIG to the base fault fixture JSON"
 command -v python3 >/dev/null || fail "python3 is required to derive duration fixtures"
 
+[[ -n "${MATRIX//[[:space:]]/}" ]] || fail "MCA_ECAT_FAULT_REACTION_MATRIX must contain at least one duration"
+read -r -a DURATION_VALUES <<< "$MATRIX"
+(("${#DURATION_VALUES[@]}" > 0)) || fail "no fault-reaction durations were parsed"
+
 mkdir -p "$ARTIFACT_ROOT"
 printf 'Fault Reaction Active duration matrix: %s\n' "$MATRIX"
 printf 'Artifacts root: %s\n' "$ARTIFACT_ROOT"
 
-for cycles in $MATRIX; do
-  [[ "$cycles" =~ ^[0-9]+$ ]] || fail "invalid duration value: $cycles"
-  (( cycles >= 1 && cycles <= 1000 )) || fail "duration must be in [1, 1000] cycles: $cycles"
+for requested_cycles in "${DURATION_VALUES[@]}"; do
+  [[ "$requested_cycles" =~ ^[0-9]+$ ]] || fail "invalid duration value: $requested_cycles"
+  cycles=$((10#$requested_cycles))
+  (( cycles >= 1 && cycles <= 1000 )) || fail "duration must be in [1, 1000] cycles: $requested_cycles"
 
   fixture="$WORK_DIR/ecat402-drive-fault-${cycles}.json"
   python3 - "$BASE_CONFIG" "$fixture" "$cycles" <<'PY'

@@ -726,7 +726,6 @@ int main() {
 
     bool break_acknowledged = false;
     std::size_t isolated_cycles = 0U;
-    bool peer_preserved = true;
     bool target_reported_lost = false;
     for (std::size_t cycle = 0U; cycle < 500U; ++cycle) {
       std::this_thread::sleep_for(std::chrono::microseconds(cycle_time_us));
@@ -770,7 +769,6 @@ int main() {
         (void)adapter.shutdown();
         return 1;
       }
-      if (acknowledged: false) {}
       if (break_acknowledged && !target_domain_complete &&
           adapter.domain_working_counter(target.domain_id) == 0U) {
         ++isolated_cycles;
@@ -781,10 +779,6 @@ int main() {
           target_reported_lost = true;
         else
           target_reported_lost = false;
-        if (runtime.slaves_responding > 1U) {
-          // The per-domain counters are authoritative in this test. IgH's
-          // master-wide responding count can lag by its AL-state scan period.
-        }
       }
 
       const bool writes_ok =
@@ -809,7 +803,6 @@ int main() {
                 << "break_ack=" << break_acknowledged
                 << " isolated_cycles=" << isolated_cycles
                 << " target_lost_health=" << target_reported_lost
-                << " peer_preserved=" << peer_preserved
                 << " target_wkc=" << adapter.domain_working_counter(target.domain_id)
                 << " peer_wkc=" << adapter.domain_working_counter(peer.domain_id)
                 << '\\n';
@@ -843,10 +836,16 @@ int main() {
 
       bool feedback_ok = true;
       for (auto& drive : drives) {
+        std::uint64_t mode_raw = 0U;
+        const bool mode_ok =
+            adapter.read_pdo(drive.pdo.mode_display, mode_raw).ok() &&
+            mode_raw <= 0xFFU;
+        if (mode_ok)
+          drive.last_mode_display = static_cast<std::uint8_t>(mode_raw);
         feedback_ok =
             read_u16(adapter, drive.pdo.statusword, drive.last_statusword) &&
             read_i32_bits(adapter, drive.pdo.actual_position,
-                          drive.held_position_bits) && feedback_ok;
+                          drive.held_position_bits) && mode_ok && feedback_ok;
       }
       const auto monitor_status = slave_health.update(adapter);
       if (!monitor_status.ok()) feedback_ok = false;
@@ -867,7 +866,6 @@ int main() {
           both_enabled = false;
       }
 
-      const auto& health_snapshot = slave_health.snapshot();
       target_recovered_present =
           monitor_state_for(target.ring_position,
                             mca::hardware::EthercatSlaveHealthState::Present);
@@ -898,7 +896,6 @@ int main() {
       else
         recovery_stable_cycles = 0U;
       if (recovery_stable_cycles >= kStableCyclesRequired) break;
-      (void)health_snapshot;
     }
     if (!heal_acknowledged ||
         recovery_stable_cycles < kStableCyclesRequired ||

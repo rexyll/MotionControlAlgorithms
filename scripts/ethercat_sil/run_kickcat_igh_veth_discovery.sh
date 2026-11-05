@@ -55,6 +55,32 @@ capture_kernel_diagnostics() {
       grep -Ei 'EtherCAT|ec_master|ec_generic|SDO|mailbox|CoE|EoE' |
       tail -n 250 || true
   } >"$ARTIFACT_DIR/kernel-$label-ethercat.log" 2>&1 || true
+} 
+
+capture_runtime_host_diagnostics() {
+  local label="$1" iface
+  {
+    printf 'capture=%s\n' "$label"
+    date --iso-8601=ns 2>&1 || date
+    printf '\n--- veth interface counters ---\n'
+    for iface in "$MASTER_IF" "$SIM_IF"; do
+      ip -s link show dev "$iface" 2>&1 || true
+    done
+    printf '\n--- KickCAT simulator process ---\n'
+    if [[ -n "$SIM_PID" ]] && kill -0 "$SIM_PID" 2>/dev/null; then
+      ps -p "$SIM_PID" -o pid=,stat=,psr=,pcpu=,etime=,nlwp=,comm= 2>&1 || true
+      if [[ -r "/proc/$SIM_PID/schedstat" ]]; then
+        printf 'schedstat: '
+        cat "/proc/$SIM_PID/schedstat" 2>&1 || true
+      fi
+      if [[ -r "/proc/$SIM_PID/status" ]]; then
+        grep -E '^(State|Threads|voluntary_ctxt_switches|nonvoluntary_ctxt_switches):' \
+          "/proc/$SIM_PID/status" 2>&1 || true
+      fi
+    else
+      printf 'KickCAT simulator process is no longer running\n'
+    fi
+  } >"$ARTIFACT_DIR/runtime-host-$label.log" 2>&1 || true
 }
 
 # Read a typed CoE object through the IgH CLI. The CLI supports explicit
@@ -475,6 +501,10 @@ if [[ "$CYCLIC_SIL" == "1" ]]; then
       "$CYCLIC_BUILD_DIR/$CYCLIC_TARGET" \
       >"$ARTIFACT_DIR/cyclic-pdo-wkc.log" 2>&1; then
     cat "$ARTIFACT_DIR/cyclic-pdo-wkc.log" >&2
+    # Preserve the final kernel and host evidence before cleanup unloads IgH
+    # and removes the temporary veth pair.
+    capture_kernel_diagnostics "after-cyclic-failure"
+    capture_runtime_host_diagnostics "after-cyclic-failure"
     fail "cyclic PDO/WKC/OP SIL failed"
   fi
   cat "$ARTIFACT_DIR/cyclic-pdo-wkc.log"

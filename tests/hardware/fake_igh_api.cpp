@@ -209,6 +209,14 @@ std::size_t activate_calls() noexcept { return activations; }
 void record_activate() noexcept { ++activations; }
 bool activation_fails() noexcept { return activate_failure; }
 bool domain_data_fails() noexcept { return domain_data_failure; }
+void set_domain_byte(std::size_t domain, std::size_t offset, std::uint8_t value) noexcept {
+  if (domain < domains.size() && offset < domains[domain].data.size())
+    domains[domain].data[offset] = value;
+}
+std::uint8_t get_domain_byte(std::size_t domain, std::size_t offset) noexcept {
+  return domain < domains.size() && offset < domains[domain].data.size()
+      ? domains[domain].data[offset] : 0U;
+}
 bool domain_size_is_zero() noexcept { return zero_size; }
 bool deactivation_fails() noexcept { return deactivate_failure; }
 

@@ -58,6 +58,7 @@ bool zero_size = false;
 bool deactivate_failure = false;
 bool master_state_failure = false;
 bool slave_state_failure = false;
+std::size_t sync_manager_failure = static_cast<std::size_t>(-1);
 bool receive_failure = false;
 bool domain_process_failure = false;
 bool domain_queue_failure = false;
@@ -93,6 +94,7 @@ void reset() noexcept {
   domain_data_failure = false;
   zero_size = false; deactivate_failure = false;
   master_state_failure = false; slave_state_failure = false;
+  sync_manager_failure = static_cast<std::size_t>(-1);
   receive_failure = false; domain_process_failure = false;
   domain_queue_failure = false; send_failure = false;
   master_link_up = true; master_responding = 1U; master_al_states = EC_AL_STATE_OP;
@@ -168,6 +170,7 @@ void set_domain_working_counter_complete_at(std::size_t index,
 }
 void fail_master_state(bool enabled) noexcept { master_state_failure = enabled; }
 void fail_slave_state(bool enabled) noexcept { slave_state_failure = enabled; }
+void fail_sync_manager_at(std::size_t sync_index) noexcept { sync_manager_failure = sync_index; }
 void fail_receive(bool enabled) noexcept { receive_failure = enabled; }
 void fail_domain_process(bool enabled) noexcept { domain_process_failure = enabled; }
 void fail_domain_queue(bool enabled) noexcept { domain_queue_failure = enabled; }
@@ -285,8 +288,18 @@ int ecrt_slave_config_pdos(ec_slave_config_t*, unsigned int count,
 }
 int ecrt_master_get_sync_manager(ec_master_t*, uint16_t station,
                                 uint8_t sync_index, ec_sync_info_t* sync) {
-  if (station != 0U || sync == nullptr) return -1;
+  if (station != 0U || sync == nullptr ||
+      sync_index >= 4U || sync_index == sync_manager_failure) return -1;
   *sync = {};
+  sync->index = sync_index;
+  // All SII-declared SyncManagers are queryable. Mailbox SM0/SM1 have no
+  // cyclic PDO assignments in this fixture; their successful zero-PDO
+  // responses are distinct from an API read failure.
+  if (sync_index == 0U || sync_index == 1U) {
+    sync->dir = sync_index == 0U ? EC_DIR_OUTPUT : EC_DIR_INPUT;
+    sync->n_pdos = 0U;
+    return 0;
+  }
   if (sync_index == 2U) {
     sync->index = 2U; sync->dir = EC_DIR_INPUT; sync->n_pdos = 2U;
     return 0;

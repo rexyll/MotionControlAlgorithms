@@ -59,6 +59,11 @@ bool deactivate_failure = false;
 bool master_state_failure = false;
 bool slave_state_failure = false;
 std::size_t sync_manager_failure = static_cast<std::size_t>(-1);
+std::size_t pdo_failure_sync = static_cast<std::size_t>(-1);
+std::size_t pdo_failure_position = static_cast<std::size_t>(-1);
+std::size_t pdo_entry_failure_sync = static_cast<std::size_t>(-1);
+std::size_t pdo_entry_failure_position = static_cast<std::size_t>(-1);
+std::size_t pdo_entry_failure_entry = static_cast<std::size_t>(-1);
 bool receive_failure = false;
 bool domain_process_failure = false;
 bool domain_queue_failure = false;
@@ -95,6 +100,11 @@ void reset() noexcept {
   zero_size = false; deactivate_failure = false;
   master_state_failure = false; slave_state_failure = false;
   sync_manager_failure = static_cast<std::size_t>(-1);
+  pdo_failure_sync = static_cast<std::size_t>(-1);
+  pdo_failure_position = static_cast<std::size_t>(-1);
+  pdo_entry_failure_sync = static_cast<std::size_t>(-1);
+  pdo_entry_failure_position = static_cast<std::size_t>(-1);
+  pdo_entry_failure_entry = static_cast<std::size_t>(-1);
   receive_failure = false; domain_process_failure = false;
   domain_queue_failure = false; send_failure = false;
   master_link_up = true; master_responding = 1U; master_al_states = EC_AL_STATE_OP;
@@ -171,6 +181,16 @@ void set_domain_working_counter_complete_at(std::size_t index,
 void fail_master_state(bool enabled) noexcept { master_state_failure = enabled; }
 void fail_slave_state(bool enabled) noexcept { slave_state_failure = enabled; }
 void fail_sync_manager_at(std::size_t sync_index) noexcept { sync_manager_failure = sync_index; }
+void fail_pdo_query_at(std::size_t sync_index, std::size_t pdo_position) noexcept {
+  pdo_failure_sync = sync_index;
+  pdo_failure_position = pdo_position;
+}
+void fail_pdo_entry_query_at(std::size_t sync_index, std::size_t pdo_position,
+                             std::size_t entry_position) noexcept {
+  pdo_entry_failure_sync = sync_index;
+  pdo_entry_failure_position = pdo_position;
+  pdo_entry_failure_entry = entry_position;
+}
 void fail_receive(bool enabled) noexcept { receive_failure = enabled; }
 void fail_domain_process(bool enabled) noexcept { domain_process_failure = enabled; }
 void fail_domain_queue(bool enabled) noexcept { domain_queue_failure = enabled; }
@@ -312,7 +332,9 @@ int ecrt_master_get_sync_manager(ec_master_t*, uint16_t station,
 }
 int ecrt_master_get_pdo(ec_master_t*, uint16_t station, uint8_t sync_index,
                         uint16_t pdo_pos, ec_pdo_info_t* pdo) {
-  if (station != 0U || pdo == nullptr) return -1;
+  if (station != 0U || pdo == nullptr ||
+      (sync_index == pdo_failure_sync && pdo_pos == pdo_failure_position))
+    return -1;
   *pdo = {};
   if (sync_index == 2U && pdo_pos == 0U) {
     pdo->index = 0x1A00U; pdo->n_entries = 3U; return 0;
@@ -328,7 +350,11 @@ int ecrt_master_get_pdo(ec_master_t*, uint16_t station, uint8_t sync_index,
 int ecrt_master_get_pdo_entry(ec_master_t*, uint16_t station, uint8_t sync_index,
                               uint16_t pdo_pos, uint16_t entry_pos,
                               ec_pdo_entry_info_t* entry) {
-  if (station != 0U || entry == nullptr) return -1;
+  if (station != 0U || entry == nullptr ||
+      (sync_index == pdo_entry_failure_sync &&
+       pdo_pos == pdo_entry_failure_position &&
+       entry_pos == pdo_entry_failure_entry))
+    return -1;
   if (sync_index == 2U && pdo_pos == 0U && entry_pos == 0U)
     *entry = {0x6041U, 0U, 16U};
   else if (sync_index == 2U && pdo_pos == 0U && entry_pos == 1U)

@@ -128,6 +128,26 @@ class EsiToProfileTests(unittest.TestCase):
                 device, [0x1600, 0x1601], [0x1A00, 0x1A01]
             )
 
+
+    def test_incomplete_optional_mode_pair_is_not_reported_as_supported(self):
+        self.path.write_text(ESI_WITH_VELOCITY, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        velocity_feedback = next(
+            pdo for pdo in device["pdos"] if pdo["index"] == 0x1A01
+        )
+        velocity_feedback["entries"] = []
+        # An unselected/empty optional PDO is not part of the candidate map.
+        device["pdos"] = [
+            pdo for pdo in device["pdos"] if pdo["index"] != 0x1A01
+        ]
+        result = esi_to_profile.resolve_cia402_candidate(
+            device, [0x1600, 0x1601], [0x1A00]
+        )
+        self.assertIn("target_velocity", result["bindings"])
+        self.assertNotIn("actual_velocity", result["bindings"])
+        self.assertFalse(result["supports"]["profile_velocity"])
+        self.assertFalse(result["supports"]["cyclic_synchronous_velocity"])
+
     def test_rejects_duplicate_object_across_selected_pdos(self):
         duplicate = ESI_WITH_VELOCITY.replace(
             '<Entry><Index>#x60FF</Index><SubIndex>0</SubIndex><BitLen>32</BitLen><Name>Target velocity</Name><DataType>DINT</DataType></Entry>',

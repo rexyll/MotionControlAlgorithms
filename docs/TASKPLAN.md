@@ -53,6 +53,7 @@ Acceptance rule: root Configure/Build/Test remains independent of ROS 2 and Gaze
 - [x] IgH EtherCAT Master 1.6.13 adapter implemented behind `MCA_ENABLE_IGH`.
 - [x] IgH 1.6.13 API compile passed.
 - [x] Deterministic IgH fake-API coverage passed for cyclic exchange, topology/health, PDO mapping and asynchronous SDO lifecycle, including busy-slot isolation, timeout quarantine, terminal-buffer relocation and response-capacity checks.
+- [x] IgH SyncManager/PDO/PDO-entry inspection distinguishes API read failures from malformed successful data; fake API fault injection covers fail-closed behavior and transactional discovery output.
 - [x] KickCAT wire-level two-slave SIL baseline: CoE PDO assignment/entry readback, independent per-slave domains, DS402 Operation Enabled, downstream link isolation, link healing, IgH topology rescan recovery, 10 stable health cycles and safe return to Switch On Disabled. Accepted from operator run `/tmp/mca-ethercat-sil-20261105-132751`; see `P14_ETHERCAT_MULTI_SLAVE_HEALTH.md`.
 - [ ] Broader slave-simulator/device-profile coverage, target-NIC timing/jitter, physical-bus fault behavior and physical-bus/HIL validation remain open.
 - [ ] SOEM 2.0 integration remains blocked pending licensing/redistribution approval and separate dependency packaging; no SOEM dependency enters the root build.
@@ -84,7 +85,7 @@ Acceptance rule: root Configure/Build/Test remains independent of ROS 2 and Gaze
 
 ## Current next gate
 
-1. Continue auditing the IgH adapter against the master-neutral contract and close only concrete deterministic gaps found in the fake API.
+1. Continue auditing the IgH adapter against the master-neutral contract and close only concrete deterministic gaps found in the fake API. The SyncManager/PDO/PDO-entry query error taxonomy and fail-closed regression coverage are implemented; confirm the new CI run before advancing.
 2. Build generic CiA 402/CoE interoperability fixtures from public EDS/ESI/object-dictionary data for representative vendor profiles; keep vendor identity/scaling/fault extensions explicit and testable.
    - Offline ESI parser now supports explicit RxPDO/TxPDO selection and emits a CiA 402 candidate with object identity, PDO/SyncManager provenance, bit offsets and mode-pair capabilities. Synthetic tests cover velocity-only selection and malformed mappings; actual SDO assignment readback and vendor files remain separate pending gates.
    - [x] Offline ESI normalizer and explicit PDO-selection CiA 402 candidate resolver; synthetic parser/error fixtures committed.

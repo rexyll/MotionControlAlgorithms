@@ -170,9 +170,13 @@ TEST(EthercatIghFakeApi, FailsPdoDiscoveryWhenSyncManagerQueryFails) {
   ASSERT_TRUE(adapter.discover().ok());
 
   Adapter::PdoMappingProfile discovered{};
+  ASSERT_TRUE(discovered.add({0U, 0x2U, 0x1234U, 2U, 0x1A00U,
+      0x6041U, 0U, 16U, mca::hardware::EthercatPdoDirection::Input}));
   fake_igh::fail_sync_manager_at(3U);
   EXPECT_FALSE(adapter.discover_pdo_mapping(discovered).ok());
-  EXPECT_EQ(discovered.size(), 0U);
+  ASSERT_EQ(discovered.size(), 1U);
+  EXPECT_EQ(discovered[0].index, 0x6041U);
+  EXPECT_EQ(discovered[0].pdo_index, 0x1A00U);
 }
 
 TEST(EthercatIghFakeApi, FailsDiscoveredMappingVerificationWhenUnlistedSyncManagerCannotBeRead) {

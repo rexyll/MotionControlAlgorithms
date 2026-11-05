@@ -161,6 +161,50 @@ TEST(EthercatIghFakeApi, VerifiesDiscoveredSmPdoAndEntryTreeWithoutApplyingConfi
   ASSERT_TRUE(adapter.activate().ok());
 }
 
+TEST(EthercatIghFakeApi, FailsPdoDiscoveryWhenSyncManagerQueryFails) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(adapter.request_master().ok());
+  ASSERT_TRUE(adapter.discover().ok());
+
+  Adapter::PdoMappingProfile discovered{};
+  fake_igh::fail_sync_manager_at(3U);
+  EXPECT_FALSE(adapter.discover_pdo_mapping(discovered).ok());
+  EXPECT_EQ(discovered.size(), 0U);
+}
+
+TEST(EthercatIghFakeApi, FailsDiscoveredMappingVerificationWhenUnlistedSyncManagerCannotBeRead) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(adapter.request_master().ok());
+  ASSERT_TRUE(adapter.discover().ok());
+
+  std::array<Adapter::PdoBinding, 128U> bindings{};
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  Adapter::PdoMappingProfile mapping{};
+  ASSERT_TRUE(mapping.add({0U, 0x2U, 0x1234U, 2U, 0x1A00U,
+      0x6041U, 0U, 16U, mca::hardware::EthercatPdoDirection::Input}));
+  ASSERT_TRUE(mapping.add({0U, 0x2U, 0x1234U, 2U, 0x1A00U,
+      0x6064U, 0U, 32U, mca::hardware::EthercatPdoDirection::Input}));
+  ASSERT_TRUE(mapping.add({0U, 0x2U, 0x1234U, 2U, 0x1A00U,
+      0x0000U, 0U, 8U, mca::hardware::EthercatPdoDirection::Input}));
+  ASSERT_TRUE(mapping.add({0U, 0x2U, 0x1234U, 2U, 0x1A01U,
+      0x606CU, 0U, 32U, mca::hardware::EthercatPdoDirection::Input}));
+
+  // The supplied profile describes SM2 only. SM3 has an additional PDO in
+  // the fake slave. A failed SM3 read must not be mistaken for no extra SM.
+  fake_igh::fail_sync_manager_at(3U);
+  EXPECT_FALSE(adapter.configure(bindings, 1U, mapping,
+      mca::hardware::EthercatPdoMappingPolicy::UseDiscoveredMapping).ok());
+  EXPECT_EQ(fake_igh::pdo_registration_calls(), 0U);
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+}
+
 TEST(EthercatIghFakeApi, RejectsDiscoveredMappingBitWidthMismatchBeforeRegistration) {
   fake_igh::reset();
   Adapter::Config config{};

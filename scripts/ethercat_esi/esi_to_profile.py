@@ -68,6 +68,13 @@ def _number(value: str | None, field: str, *, required: bool = True) -> int | No
     raise EsiError(f"invalid {field}: {value!r}")
 
 
+
+def _require_range(value: int, field: str, maximum: int) -> int:
+    if not 0 <= value <= maximum:
+        raise EsiError(f"{field} value {value} is outside 0..{maximum}")
+    return value
+
+
 def _required_child_number(parent: ET.Element, child_name: str, field: str) -> int:
     child = _one(parent, child_name, required=True)
     assert child is not None
@@ -94,11 +101,11 @@ def _parse_sync_managers(device: ET.Element) -> list[dict[str, Any]]:
 
 
 def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
-    pdo_index = _required_child_number(pdo, "Index", f"{direction}PDO.Index")
+    pdo_index = _require_range(_required_child_number(pdo, "Index", f"{direction}PDO.Index"), f"{direction}PDO.Index", 0xFFFF)
     entries: list[dict[str, Any]] = []
     for entry in _children(pdo, "Entry"):
-        index = _required_child_number(entry, "Index", f"{direction}PDO.Entry.Index")
-        sub_index = _required_child_number(entry, "SubIndex", f"{direction}PDO.Entry.SubIndex")
+        index = _require_range(_required_child_number(entry, "Index", f"{direction}PDO.Entry.Index"), f"{direction}PDO.Entry.Index", 0xFFFF)
+        sub_index = _require_range(_required_child_number(entry, "SubIndex", f"{direction}PDO.Entry.SubIndex"), f"{direction}PDO.Entry.SubIndex", 0xFF)
         bit_length = _required_child_number(entry, "BitLen", f"{direction}PDO.Entry.BitLen")
         if not 1 <= bit_length <= 64:
             raise EsiError(f"{direction}PDO entry 0x{index:04X}:{sub_index:02X} has unsupported bit length {bit_length}")
@@ -127,8 +134,8 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
 def _parse_device(device: ET.Element, vendor_id: int) -> dict[str, Any]:
     type_element = _one(device, "Type", required=True)
     assert type_element is not None
-    product_code = _number(type_element.attrib.get("ProductCode"), "Device.Type.ProductCode")
-    revision = _number(type_element.attrib.get("RevisionNo"), "Device.Type.RevisionNo")
+    product_code = _require_range(_number(type_element.attrib.get("ProductCode"), "Device.Type.ProductCode"), "Device.Type.ProductCode", 0xFFFFFFFF)
+    revision = _require_range(_number(type_element.attrib.get("RevisionNo"), "Device.Type.RevisionNo"), "Device.Type.RevisionNo", 0xFFFFFFFF)
     assert product_code is not None and revision is not None
     device_name = _text(_one(device, "Name"), "Device.Name") or _text(type_element, "Device.Type") or ""
     if not device_name:
@@ -280,7 +287,7 @@ def parse_esi(path: Path) -> dict[str, Any]:
 
     vendor = _one(root, "Vendor", required=True)
     assert vendor is not None
-    vendor_id = _required_child_number(vendor, "Id", "Vendor.Id")
+    vendor_id = _require_range(_required_child_number(vendor, "Id", "Vendor.Id"), "Vendor.Id", 0xFFFFFFFF)
     vendor_name = _text(_one(vendor, "Name"), "Vendor.Name")
     descriptions = _one(root, "Descriptions", required=True)
     assert descriptions is not None

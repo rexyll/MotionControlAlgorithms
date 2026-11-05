@@ -132,11 +132,7 @@ class EsiToProfileTests(unittest.TestCase):
     def test_incomplete_optional_mode_pair_is_not_reported_as_supported(self):
         self.path.write_text(ESI_WITH_VELOCITY, encoding="utf-8")
         device = esi_to_profile.parse_esi(self.path)["devices"][0]
-        velocity_feedback = next(
-            pdo for pdo in device["pdos"] if pdo["index"] == 0x1A01
-        )
-        velocity_feedback["entries"] = []
-        # An unselected/empty optional PDO is not part of the candidate map.
+        # The device declares velocity feedback, but this selected mapping omits it.
         device["pdos"] = [
             pdo for pdo in device["pdos"] if pdo["index"] != 0x1A01
         ]

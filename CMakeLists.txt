@@ -70,15 +70,13 @@ if(MCA_BUILD_IGH_KICKCAT_SIL)
     target_link_libraries(mca_ethercat_igh_kickcat_multi_slave_cyclic_sil PRIVATE
       ${MCA_KICKCAT_LIBRARY} rt)
   endif()
-  add_executable(mca_ethercat_kickcat_sim_control_shm
-    tests/integration/ethercat_kickcat_sim_control_shm.cpp)
   if(MCA_KICKCAT_SOURCE_DIR)
+    add_executable(mca_ethercat_kickcat_sim_control_shm
+      tests/integration/ethercat_kickcat_sim_control_shm.cpp)
     target_include_directories(mca_ethercat_kickcat_sim_control_shm PRIVATE
       "${MCA_KICKCAT_SOURCE_DIR}/lib/include")
     target_link_libraries(mca_ethercat_kickcat_sim_control_shm PRIVATE
       ${MCA_KICKCAT_LIBRARY} Threads::Threads rt)
-  else()
-    message(FATAL_ERROR "MCA_KICKCAT_SOURCE_DIR is required for the simulator control helper")
   endif()
 endif()
 if(MCA_BUILD_TESTS)

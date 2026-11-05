@@ -109,8 +109,12 @@ class EsiToProfileTests(unittest.TestCase):
         device = esi_to_profile.parse_esi(self.path)["devices"][0]
         with self.assertRaisesRegex(esi_to_profile.EsiError, "both required"):
             esi_to_profile.resolve_cia402_candidate(device, [0x1600], [])
+        device["pdos"][1]["entries"] = [
+            entry for entry in device["pdos"][1]["entries"]
+            if entry["index"] != 0x6041
+        ]
         with self.assertRaisesRegex(esi_to_profile.EsiError, "missing required"):
-            esi_to_profile.resolve_cia402_candidate(device, [], [0x1A00])
+            esi_to_profile.resolve_cia402_candidate(device, [0x1600], [0x1A00])
 
     def test_rejects_wrong_direction_or_width_for_cia402_objects(self):
         wrong_width = ESI_WITH_VELOCITY.replace(

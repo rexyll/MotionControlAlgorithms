@@ -94,14 +94,14 @@ configuration files after `-s/--slaves`. The veth runner now accepts
 expected slave count plus vendor/product/revision identity on every station.
 CoE PDO assignment/entry readback runs at each IgH ring position.
 
-The new `mca_ethercat_igh_kickcat_multi_slave_cyclic_sil` target independently
+The `mca_ethercat_igh_kickcat_multi_slave_cyclic_sil` target independently
 maps each discovered drive to a dedicated process-data domain
 (`domain_id = topology_slot + 1`). It resolves the CiA 402 PDO binding set
 separately by ring position, brings both drives to stable Operation Enabled
 while holding each actual position, then disables both and checks feedback.
-The runner selects this target when exactly two config files are supplied.
-The existing fault-injection mode remains deliberately restricted to one
-slave until independent multi-drive fault sequencing is implemented.
+The multi-slave runner selects this target when exactly two config files are
+supplied. The opt-in independent multi-drive fault mode is implemented below;
+it does not reuse the single-slave fault harness.
 
 Run the two-drive baseline with the same known-good DS402 simulator JSON twice.
 KickCAT creates two distinct simulated slaves from the two config arguments;
@@ -167,7 +167,42 @@ By default the script runs the FRA-duration matrix `1,2,3,5` for both ring
 positions (eight independent runs). Override it with
 `MCA_ECAT_MULTI_FAULT_REACTION_MATRIX=3` to run only the three-cycle cases.
 Artifacts are stored under `/tmp/mca-ethercat-multi-fault-*/fra-N/ring-M`.
-This is KickCAT
-SIL only: vendor-specific fault semantics, distributed-clock timing, real-drive
-fault behavior and physical HIL remain unvalidated. Peer preservation in this
-simulator is not a safety-rated isolation function.
+
+### Ubuntu wire-level results
+
+The following results were executed on Ubuntu 24.04 / Linux 7.0.0-42-generic
+with IgH 1.6.13, a veth pair, and two KickCAT DS402 simulator instances. Each
+case includes CoE RxPDO/TxPDO assignment and mapping SDO readback at both ring
+positions, two independent PDO domains, stable Operation Enabled feedback,
+per-cycle WKC checks, the injected FRA/Fault sequence, one reset pulse, target
+Switch On Disabled feedback, peer preservation, and final two-drive disable.
+
+| FRA duration | Target ring 0 | Target ring 1 | Result |
+| --- | --- | --- | --- |
+| 1 cycle | PASS | PASS | Both directions verified |
+| 2 cycles | PASS | PASS | Matrix script completed both targets |
+| 3 cycles | PASS | PASS | Both directions verified |
+| 5 cycles | Pending | Pending | Not yet run |
+
+For the FRA=2 run on 2026-11-05, the script completed the full two-target
+matrix at artifact root
+`/tmp/mca-ethercat-multi-fault-20261105-102956`. The captured ring-1 trace
+showed target Statusword `0x0F` for cycles 205 and 206, followed by Fault
+(`0x08`) at cycle 207. The peer remained Operation Enabled (`0x37`) and
+both domains remained at WKC 3. The reset sequencer reported exactly one
+reset pulse; target returned to Switch On Disabled (`0x40`), peer remained
+`0x37`, and final health reported total WKC 6 with both domains complete,
+online, and operational before both drives were confirmed disabled.
+
+The earlier FRA=1 and FRA=3 runs also completed in both ring-position
+directions. The previous FRA=1 CoE readback failure was traced to an expired
+IgH datagram transaction: the expected SDO response reached the master after
+the 500 microsecond datagram timeout and was logged as an unmatched datagram.
+The test harness now defaults IgH debug logging to level 0 and captures raw
+pcap files during SDO readback, rendering text dumps only after the capture
+stops. The subsequent FRA=2 matrix passed, but this correlation alone does
+not prove that capture overhead was the sole cause of the earlier timeout.
+
+This is KickCAT SIL only: vendor-specific fault semantics, distributed-clock
+timing, real-drive fault behavior and physical HIL remain unvalidated. Peer
+preservation in this simulator is not a safety-rated isolation function.

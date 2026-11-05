@@ -16,6 +16,18 @@ git -C "$KICKCAT_SOURCE_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1 || 
 [[ -f "$BASE_CONFIG" ]] || fail "base DS402 config not found: $BASE_CONFIG"
 [[ -f "$KICKCAT_SOURCE_DIR/lib/include/kickcat/SimulatorControl.h" ]] || fail "pinned KickCAT simulator-control API not found"
 [[ -f "$KICKCAT_SOURCE_DIR/build/lib/libkickcat.a" ]] || fail "build KickCAT libkickcat.a first"
+command -v python3 >/dev/null || fail "python3 is required to validate the DS402 fixture"
+python3 - "$BASE_CONFIG" <<'PY'
+import json
+import pathlib
+import sys
+
+config = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+if not isinstance(config, dict) or not bool(config.get("ds402_motor", False)):
+    raise SystemExit("base fixture must be a DS402 motor configuration")
+if int(config.get("fault_after_cycles", 0)) != 0:
+    raise SystemExit("communication-fault SIL requires fault_after_cycles=0")
+PY
 
 export KICKCAT_SOURCE_DIR
 export KICKCAT_SIMULATOR

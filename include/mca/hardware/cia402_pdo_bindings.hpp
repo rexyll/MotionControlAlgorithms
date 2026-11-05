@@ -33,20 +33,16 @@ struct Cia402PdoBindings {
     if (controlword == kInvalid || statusword == kInvalid ||
         mode_of_operation == kInvalid || mode_display == kInvalid)
       return false;
-    const std::array<std::size_t, 8U> values{
+    const std::array<std::size_t, 10U> values{
         controlword, target_position, target_velocity, mode_of_operation,
-        statusword, actual_position, actual_velocity, mode_display};
+        statusword, actual_position, actual_velocity, mode_display,
+        target_torque, actual_torque};
     for (std::size_t i = 0; i < values.size(); ++i) {
       if (values[i] == kInvalid) continue;
       for (std::size_t j = 0; j < i; ++j)
-        if (values[i] != kInvalid && values[i] == values[j]) return false;
+        if (values[i] == values[j]) return false;
     }
-    return target_torque == kInvalid ||
-        (target_torque != controlword && target_torque != target_position &&
-         target_torque != target_velocity && target_torque != mode_of_operation &&
-         target_torque != statusword && target_torque != actual_position &&
-         target_torque != actual_velocity && target_torque != mode_display &&
-         target_torque != actual_torque);
+    return true;
   }
 
   [[nodiscard]] constexpr bool supports(DriveOperationMode mode) const noexcept {

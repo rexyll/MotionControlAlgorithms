@@ -85,7 +85,7 @@ Acceptance rule: root Configure/Build/Test remains independent of ROS 2 and Gaze
 
 ## Current next gate
 
-1. Continue auditing the IgH adapter against the master-neutral contract and close only concrete deterministic gaps found in the fake API. The SyncManager/PDO/PDO-entry query error taxonomy and fail-closed regression coverage are implemented; confirm the new CI run before advancing.
+1. IgH adapter audit: SyncManager/PDO/PDO-entry query failures now have explicit RuntimeError handling and fail-closed regression coverage. PDO registration byte/bit offsets are range-checked before narrowing into the master-neutral layout; boundary tests run with valid cycle configuration. Linux/Windows full CI #1974 and IgH compile #425 pass. Continue with domain-image extent, alignment, and multi-domain isolation tests; these remain open until exercised.
 2. Build generic CiA 402/CoE interoperability fixtures from public EDS/ESI/object-dictionary data for representative vendor profiles; keep vendor identity/scaling/fault extensions explicit and testable.
    - Offline ESI parser now supports explicit RxPDO/TxPDO selection and emits a CiA 402 candidate with object identity, PDO/SyncManager provenance, bit offsets and mode-pair capabilities. Synthetic tests cover velocity-only selection and malformed mappings; actual SDO assignment readback and vendor files remain separate pending gates.
    - [x] Offline ESI normalizer and explicit PDO-selection CiA 402 candidate resolver; synthetic parser/error fixtures committed.

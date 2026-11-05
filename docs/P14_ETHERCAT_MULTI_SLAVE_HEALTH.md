@@ -291,11 +291,34 @@ link-heal acknowledgement and ten or more stable cycles with both domains
 WKC 3 and both drives Operation Enabled. The complete cyclic test then
 performs its normal safe disable.
 
+The first Ubuntu run on 2026-11-05 reached and passed the link-break
+isolation phase. Artifact root:
+`/tmp/mca-ethercat-sil-20261105-112056`. It confirmed ten isolated cycles
+with ring 1 WKC 0 and ring 0 WKC 3 while the upstream peer remained Operation
+Enabled. The link-heal command was acknowledged and both Domain WKC values
+returned to 3, but the run failed its recovery gate:
+`recovery_stable_cycles=0` and the downstream health state was not Present.
+This is a partial pass only; the downstream AL-OP/CiA402 recovery is not
+established. The captured cyclic log has no per-cycle recovery-state trace,
+and the post-failure kernel messages were captured after adapter shutdown,
+so they cannot identify whether the downstream slave remained outside AL-OP,
+whether the IgH per-slave state read was invalid, or whether a drive feedback
+condition blocked the gate.
+
+The recovery loop now emits bounded `COMM_RECOVERY_TRACE` samples (first 20
+cycles, then every 100 cycles) containing receive/monitor status, master link
+and responding count, per-slave online/operational/AL state and state-read
+error, per-domain WKC, DS402 Statusword/Mode Display, feedback-read results,
+health state, and send result. The next Ubuntu run should use these traces to
+identify the exact recovery blocker before changing recovery logic or weakening
+the acceptance criteria.
+
 The CI syntax/build gate compiles this mode with
 `MCA_ENABLE_KICKCAT_SIM_CONTROL=1` and builds the pinned KickCAT core library.
-That is not a substitute for the Ubuntu wire-level run. Until an artifact root
-and both break/heal traces are recorded, communication-loss SIL remains
-pending; no communication fault or recovery pass is claimed here.
+That is not a substitute for the Ubuntu wire-level run. Communication-loss SIL
+remains incomplete until both break and heal phases pass on the wire-level
+runner.
+
 
 This is KickCAT SIL only: vendor-specific fault semantics, distributed-clock
 timing, real-drive fault behavior and physical HIL remain unvalidated. Peer

@@ -157,3 +157,8 @@ This design document accepts architecture/research scope only. No physical devic
 ### IgH PDO inspection error semantics
 
 The adapter distinguishes a failed inspection API call from a successful query that returns malformed or inconsistent mapping data. Failures from `ecrt_master_get_sync_manager()`, `ecrt_master_get_pdo()` and `ecrt_master_get_pdo_entry()` are runtime errors; structural mismatches remain constraint violations. Discovery builds a temporary profile and commits it to the caller's output only after complete success. Discovered-mapping verification fails closed and releases the inactive master before any PDO registration when an inspection call fails. Fake IgH fault injection covers each query layer.
+
+
+### IgH PDO registration offset validation
+
+The IgH PDO registration API returns a byte offset and a bit position in the range 0–7. The adapter rejects out-of-range bit positions and checks the byte-to-bit conversion in 64-bit arithmetic before storing the master-neutral 32-bit bit offset. Fake IgH tests inject an invalid bit position and a byte offset that would overflow the 32-bit bit-offset representation; both must fail configuration and release the partially configured master.

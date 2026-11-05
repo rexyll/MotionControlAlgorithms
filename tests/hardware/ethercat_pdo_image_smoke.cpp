@@ -28,6 +28,32 @@ int main() {
   if (round_trip != 0x2A5U) return 11;
   if ((unaligned[1] & 0xC0U) != 0x40U || (unaligned[0] & 0x07U) != 0x05U || unaligned[2] != 0xC3U) return 12;
 
+  std::array<std::uint8_t, 1> final_byte{0x2AU};
+  if (!mca::hardware::ethercat_write_pdo_bits(
+          final_byte.data(), final_byte.size(), 7U, 1U, 1U)) return 13;
+  if (final_byte[0] != 0xAAU) return 14;
+  if (!mca::hardware::ethercat_read_pdo_bits(
+          final_byte.data(), final_byte.size(), 7U, 1U, round_trip)) return 15;
+  if (round_trip != 1U) return 16;
+  if (!mca::hardware::ethercat_write_pdo_bits(
+          final_byte.data(), final_byte.size(), 7U, 1U, 0U)) return 17;
+  if (final_byte[0] != 0x2AU) return 18;
+
+  const auto before_final_byte_reject = final_byte;
+  if (mca::hardware::ethercat_write_pdo_bits(
+          final_byte.data(), final_byte.size(), 7U, 2U, 0U)) return 19;
+  if (final_byte != before_final_byte_reject) return 20;
+  round_trip = 0x55U;
+  if (mca::hardware::ethercat_read_pdo_bits(
+          final_byte.data(), final_byte.size(), 7U, 2U, round_trip)) return 21;
+  if (round_trip != 0x55U) return 22;
+
+  if (mca::hardware::ethercat_read_pdo_bits(
+          final_byte.data(), final_byte.size(), UINT32_MAX, 1U, round_trip)) return 23;
+  if (mca::hardware::ethercat_write_pdo_bits(
+          final_byte.data(), final_byte.size(), UINT32_MAX, 1U, 0U)) return 24;
+  if (final_byte != before_final_byte_reject) return 25;
+
   std::cout << "EtherCAT PDO image smoke passed\n";
   return 0;
 }

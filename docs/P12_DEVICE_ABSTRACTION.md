@@ -68,6 +68,22 @@ Do not assume every drive supports every mode/object or identical PDO defaults. 
 
 For EtherCAT CoE, keep EtherCAT master state (INIT/PRE-OP/SAFE-OP/OP), slave AL status, mailbox SDO, process-data mapping, working counter and distributed-clock health distinct from the CiA 402 drive state. An EtherCAT slave may be OP while its drive is not Operation Enabled. Never collapse these state machines.
 
+### Offline ESI normalization boundary
+
+The developer utility `scripts/ethercat_esi/esi_to_profile.py` converts an ESI XML file into a normalized JSON inventory using only Python's standard library. It is deliberately outside `include/mca/**`, the root C++ build, and all cyclic runtime paths.
+
+```bash
+python scripts/ethercat_esi/esi_to_profile.py vendor-device.xml --output vendor-device.profile.json
+python scripts/ethercat_esi/esi_to_profile.py vendor-device.xml --product-code '#x00001001'
+python -m unittest discover -s tests/ethercat_esi -v
+```
+
+The inventory preserves the vendor ID, each device's product code/revision, ordered SyncManager declarations, RxPDO/TxPDO declarations, PDO index, declared SyncManager association, Fixed/Mandatory flags, and each entry's index/sub-index/bit length/name/data type. Padding entries (index zero) are retained explicitly. The input file's SHA-256 is recorded so a fixture can be tied to the exact source bytes.
+
+This is an **offline declaration parser**, not an ESI XSD validator, online CoE scanner, active PDO assignment readback, or proof that a drive supports a declared feature at runtime. ESI files may contain multiple devices. The current normalizer intentionally does not resolve modular-device slots, vendor-specific XML extensions, scaling, firmware compatibility, CoE object access attributes, or dynamic PDO remapping. It does not generate a production adapter or infer CiA 402 capability solely from a matching object index. Those checks remain separate gates.
+
+Do not commit vendor ESI files until the exact model/firmware revision, official source URL, file hash, and redistribution terms are recorded and reviewed. Until then, synthetic fixtures exercise parser behavior; vendor-specific data must remain an explicitly sourced external input. A normalized PDO inventory is only a candidate input to a later generic CiA 402 mapping resolver, not an online configuration.
+
 ## Technology and vendor evaluation shortlist
 
 This is a research shortlist, not a claim that adapters or SDKs are implemented.

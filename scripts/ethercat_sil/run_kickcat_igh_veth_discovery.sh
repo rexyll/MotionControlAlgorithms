@@ -11,6 +11,7 @@ readonly MASTER_MAC="${MCA_ECAT_MASTER_MAC:-02:4d:43:41:45:01}"
 readonly SIM_MAC="${MCA_ECAT_SIM_MAC:-02:4d:43:41:45:02}"
 readonly TIMEOUT_SEC="${MCA_ECAT_TIMEOUT_SEC:-20}"
 readonly KICKCAT_SIMULATOR="${KICKCAT_SIMULATOR:-}"
+readonly KICKCAT_SOURCE_DIR="${KICKCAT_SOURCE_DIR:-}"
 readonly KICKCAT_SLAVE_CONFIG="${KICKCAT_SLAVE_CONFIG:-}"
 readonly KICKCAT_SLAVE_CONFIGS="${KICKCAT_SLAVE_CONFIGS:-}"
 readonly EXPECTED_SLAVES_OVERRIDE="${MCA_ECAT_EXPECTED_SLAVES:-}"
@@ -21,6 +22,7 @@ readonly DISABLE_EOE="${MCA_ECAT_DISABLE_EOE:-0}"
 readonly CYCLIC_SIL="${MCA_ECAT_CYCLIC_SIL:-0}"
 readonly FAULT_SIL="${MCA_ECAT_FAULT_SIL:-0}"
 readonly MULTI_FAULT_SIL="${MCA_ECAT_MULTI_FAULT_SIL:-0}"
+readonly COMM_FAULT_SIL="${MCA_ECAT_COMM_FAULT_SIL:-0}"
 readonly CYCLIC_TIMEOUT_SEC="${MCA_ECAT_CYCLIC_TIMEOUT_SEC:-20}"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -32,6 +34,9 @@ RX_PID=""
 COE_CAPTURE_IN_PID=""
 COE_CAPTURE_OUT_PID=""
 MASTER_CAPTURE_IN_PID=""
+SIM_CONTROL_CLI=""
+SIM_CONTROL_SHM=""
+SIM_CONTROL_CREATED=0
 LOADED_MASTER=0
 LOADED_GENERIC=0
 VETH_CREATED=0
@@ -251,6 +256,11 @@ cleanup() {
   if [[ -n "$TX_PID" ]]; then kill "$TX_PID" 2>/dev/null || true; wait "$TX_PID" 2>/dev/null || true; fi
   if [[ -n "$RX_PID" ]]; then kill "$RX_PID" 2>/dev/null || true; wait "$RX_PID" 2>/dev/null || true; fi
   if [[ -n "$SIM_PID" ]]; then kill -TERM "$SIM_PID" 2>/dev/null || true; wait "$SIM_PID" 2>/dev/null || true; fi
+  if (( SIM_CONTROL_CREATED )) && [[ -x "$SIM_CONTROL_CLI" ]]; then
+    "$SIM_CONTROL_CLI" unlink "$SIM_CONTROL_SHM" \
+      >>"$ARTIFACT_DIR/sim-control-cleanup.log" 2>&1 || true
+    SIM_CONTROL_CREATED=0
+  fi
   if (( VETH_CREATED )); then ip link del "$MASTER_IF" 2>/dev/null || true; fi
   if (( LOADED_GENERIC )); then modprobe -r ec_generic 2>/dev/null || true; fi
   if (( LOADED_MASTER )); then modprobe -r ec_master 2>/dev/null || true; fi
@@ -292,6 +302,17 @@ if [[ "$FAULT_SIL" != "0" && "$FAULT_SIL" != "1" ]]; then
 fi
 if [[ "$MULTI_FAULT_SIL" != "0" && "$MULTI_FAULT_SIL" != "1" ]]; then
   fail "MCA_ECAT_MULTI_FAULT_SIL must be 0 or 1"
+fi
+if [[ "$COMM_FAULT_SIL" != "0" && "$COMM_FAULT_SIL" != "1" ]]; then
+  fail "MCA_ECAT_COMM_FAULT_SIL must be 0 or 1"
+fi
+if [[ "$COMM_FAULT_SIL" == "1" ]]; then
+  [[ "$EXPECTED_SLAVES" == "2" ]] || fail "multi-slave communication fault SIL requires exactly two configured slaves"
+  [[ "$CYCLIC_SIL" == "1" ]] || fail "multi-slave communication fault SIL requires MCA_ECAT_CYCLIC_SIL=1"
+  [[ "$FAULT_SIL" == "0" && "$MULTI_FAULT_SIL" == "0" ]] || fail "link-break SIL cannot be combined with DS402 fault injection"
+  [[ -n "$KICKCAT_SOURCE_DIR" && -f "$KICKCAT_SOURCE_DIR/lib/include/kickcat/SimulatorControl.h" ]] || fail "set KICKCAT_SOURCE_DIR to the pinned KickCAT checkout"
+  [[ -f "$KICKCAT_SOURCE_DIR/build/lib/libkickcat.a" ]] || fail "build the pinned KickCAT libkickcat.a before communication fault SIL"
+  "$KICKCAT_SIMULATOR" --help 2>&1 | grep -q -- "--control" || fail "KICKCAT_SIMULATOR does not expose the --control shared-memory option"
 fi
 if [[ "$MULTI_FAULT_SIL" == "1" ]]; then
   [[ "$EXPECTED_SLAVES" == "2" ]] || fail "multi-slave fault SIL requires exactly two configured slaves"
@@ -344,6 +365,26 @@ modinfo ec_generic >/dev/null 2>&1 || fail "IgH ec_generic module is not install
 
 mkdir -p "$ARTIFACT_DIR"
 chmod 700 "$ARTIFACT_DIR"
+if [[ "$COMM_FAULT_SIL" == "1" ]]; then
+  SIM_CONTROL_CLI="$ARTIFACT_DIR/mca-ethercat-control-shm"
+  SIM_CONTROL_SHM="/mca_ethercat_${BASHPID}_$(date +%s)"
+  if ! c++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow \
+      -I"$KICKCAT_SOURCE_DIR/lib/include" \
+      "$REPO_ROOT/tests/integration/ethercat_kickcat_sim_control_shm.cpp" \
+      "$KICKCAT_SOURCE_DIR/build/lib/libkickcat.a" -pthread -lrt \
+      -o "$SIM_CONTROL_CLI" \
+      >"$ARTIFACT_DIR/sim-control-build.log" 2>&1; then
+    cat "$ARTIFACT_DIR/sim-control-build.log" >&2
+    fail "KickCAT simulator control shared-memory helper build failed"
+  fi
+  if ! "$SIM_CONTROL_CLI" init "$SIM_CONTROL_SHM" \
+      >"$ARTIFACT_DIR/sim-control-init.log" 2>&1; then
+    cat "$ARTIFACT_DIR/sim-control-init.log" >&2
+    fail "KickCAT simulator control channel initialisation failed"
+  fi
+  SIM_CONTROL_CREATED=1
+  export MCA_ECAT_SIM_CONTROL_SHM="$SIM_CONTROL_SHM"
+fi
 {
   uname -a
   printf '\n'
@@ -352,6 +393,7 @@ chmod 700 "$ARTIFACT_DIR"
   printf 'master_if=%s\nsim_if=%s\nmaster_mac=%s\nsim_mac=%s\nexpected_slaves=%s\n' "$MASTER_IF" "$SIM_IF" "$MASTER_MAC" "$SIM_MAC" "$EXPECTED_SLAVES"
   printf 'slave_config=%s\n' "${SLAVE_CONFIGS[*]}"
   printf 'igh_debug_level=%s\ncoe_readback=%s\ndisable_eoe=%s\n' "$IGH_DEBUG_LEVEL" "$COE_READBACK" "$DISABLE_EOE"
+  printf 'comm_fault_sil=%s\nsim_control_shm=%s\nkickcat_source_dir=%s\n' "$COMM_FAULT_SIL" "$SIM_CONTROL_SHM" "$KICKCAT_SOURCE_DIR"
   printf '\nIgH module parameters:\n'
   modinfo ec_master 2>&1 | grep -E '^(version|parm):' || true
 } >"$ARTIFACT_DIR/environment.txt"
@@ -370,7 +412,12 @@ modprobe ec_generic
 LOADED_GENERIC=1
 
 # KickCAT uses its Linux PF_PACKET/SOCK_RAW backend on the peer veth endpoint.
-"$KICKCAT_SIMULATOR" -i "$SIM_IF" -s "${SLAVE_CONFIGS[@]}" \
+SIM_ARGS=(-i "$SIM_IF")
+if [[ "$COMM_FAULT_SIL" == "1" ]]; then
+  SIM_ARGS+=(--control "$SIM_CONTROL_SHM")
+fi
+SIM_ARGS+=(-s "${SLAVE_CONFIGS[@]}")
+"$KICKCAT_SIMULATOR" "${SIM_ARGS[@]}" \
   >"$ARTIFACT_DIR/kickcat-simulator.log" 2>&1 &
 SIM_PID=$!
 sleep 1
@@ -485,8 +532,11 @@ if [[ "$CYCLIC_SIL" == "1" ]]; then
   elif [[ "$EXPECTED_SLAVES" != "1" ]]; then
     fail "cyclic SIL supports one or two slaves; found $EXPECTED_SLAVES"
   fi
-  if ! cmake -S "$REPO_ROOT" -B "$CYCLIC_BUILD_DIR" \
-      -DMCA_BUILD_TESTS=OFF -DMCA_BUILD_IGH_KICKCAT_SIL=ON \
+  CYCLIC_CMAKE_ARGS=(-DMCA_BUILD_TESTS=OFF -DMCA_BUILD_IGH_KICKCAT_SIL=ON)
+  if [[ "$COMM_FAULT_SIL" == "1" ]]; then
+    CYCLIC_CMAKE_ARGS+=(-DMCA_KICKCAT_SOURCE_DIR="$KICKCAT_SOURCE_DIR")
+  fi
+  if ! cmake -S "$REPO_ROOT" -B "$CYCLIC_BUILD_DIR" "${CYCLIC_CMAKE_ARGS[@]}" \
       >"$ARTIFACT_DIR/cyclic-cmake-configure.log" 2>&1; then
     cat "$ARTIFACT_DIR/cyclic-cmake-configure.log" >&2
     fail "real-IgH cyclic SIL target configuration failed (check ecrt.h, libethercat and Eigen3)"

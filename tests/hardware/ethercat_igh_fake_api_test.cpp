@@ -1,4 +1,5 @@
 #include <array>
+#include <limits>
 #include <cstdint>
 
 #include <gtest/gtest.h>
@@ -825,6 +826,41 @@ TEST(EthercatIghFakeApi, ZeroDomainSizeDiscardsMaster) {
   fake_igh::zero_domain_size(false);
   EXPECT_FALSE(adapter.activate().ok());
   EXPECT_TRUE(adapter.shutdown().ok());
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+}
+
+TEST(EthercatIghFakeApi, RejectsRegistrationOffsetThatCannotFitMasterNeutralLayout) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(adapter.request_master().ok());
+  ASSERT_TRUE(adapter.discover().ok());
+
+  std::array<Adapter::PdoBinding, 128U> bindings{};
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6064U, 0U, 64U, 7U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  fake_igh::set_pdo_registration_result_at(
+      0U, std::numeric_limits<int>::max(), 0U);
+  EXPECT_FALSE(adapter.configure(bindings, 1U).ok());
+  EXPECT_EQ(adapter.state().state(), mca::hardware::EthercatMasterState::Offline);
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+}
+
+TEST(EthercatIghFakeApi, RejectsRegistrationBitPositionOutsideIgHContract) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(adapter.request_master().ok());
+  ASSERT_TRUE(adapter.discover().ok());
+
+  std::array<Adapter::PdoBinding, 128U> bindings{};
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6064U, 0U, 32U, 7U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  fake_igh::set_pdo_registration_result_at(0U, 0, 8U);
+  EXPECT_FALSE(adapter.configure(bindings, 1U).ok());
+  EXPECT_EQ(adapter.state().state(), mca::hardware::EthercatMasterState::Offline);
   EXPECT_EQ(fake_igh::release_calls(), 1U);
 }
 

@@ -182,7 +182,7 @@ Switch On Disabled feedback, peer preservation, and final two-drive disable.
 | 1 cycle | PASS | PASS | Both directions verified |
 | 2 cycles | PASS | PASS | Matrix script completed both targets |
 | 3 cycles | PASS | PASS | Both directions verified |
-| 5 cycles | PASS | Blocked before fault injection by transport/WKC loss | Incomplete; ring-1 FRA=5 not exercised |
+| 5 cycles | PASS | PASS | Both directions verified on 2026-11-05 |
 
 For the FRA=2 run on 2026-11-05, the script completed the full two-target
 matrix at artifact root
@@ -194,29 +194,32 @@ reset pulse; target returned to Switch On Disabled (`0x40`), peer remained
 `0x37`, and final health reported total WKC 6 with both domains complete,
 online, and operational before both drives were confirmed disabled.
 
-For FRA=5 on 2026-11-05, target ring 0 passed at
-`/tmp/mca-ethercat-multi-fault-20261105-103236/fra-5/ring-0`: the target
-reported five Fault Reaction Active cycles, one reset pulse, and returned to
-Switch On Disabled while ring 1 remained Operation Enabled. Target ring 1 did
-not reach the fault-injection phase. CoE readback passed for both drives and
-the cyclic harness reported healthy startup after 151 cycles, but the next
-two-drive enable loop failed with
-`transport/WKC lost during two-drive enable sequence`; the
-`MULTI_FAULT` phase banner was never printed. This is not a FRA=5 ring-1
-result and must not be counted as a fault-isolation pass.
+The first FRA=5 attempt on 2026-11-05 passed target ring 0 but failed
+before fault injection on target ring 1 during the two-drive enable phase.
+That first attempt is retained as a transient transport/WKC failure sample,
+not a fault-isolation verdict.
 
-The ring-1 pre-cyclic diagnostics show 8 lost frames in the IgH master
-snapshot (2784 transmitted, 2776 received; 0.4% frame loss), an AL-state
-datagram timeout for slave 1 followed by master-link DOWN/UP transitions, and
-KickCAT frame-processing spikes (up to 23.48 ms; early 1000-frame windows
-averaged about 1.0–1.28 ms). However, these were captured before the cyclic
-application ran. They are evidence of setup-time transport/scheduling
-instability, not proof of the exact cause of the later enable-stage WKC loss.
-The previous harness did not emit its existing per-slave transport diagnostic
-at this enable-stage failure, nor did the wrapper capture kernel and veth
-counters after cyclic failure. The failure path now records those diagnostics
-without relaxing the WKC or Operation Enabled acceptance criteria; rerun is
-required to identify the first failing runtime domain/state.
+The diagnostic-instrumented rerun completed both directions at artifact root
+`/tmp/mca-ethercat-multi-fault-20261105-104820`. For target ring 0, the
+five consecutive FRA samples were cycles 199–203 (`0x0F`), followed by
+Fault (`0x08`) at cycle 204. For target ring 1, the equivalent five FRA
+samples were also cycles 199–203, followed by Fault at cycle 204. In both
+directions the peer remained Operation Enabled (`0x37`), and each target
+and peer domain reported WKC 3 throughout the observed fault sequence. Each
+run sent exactly one Fault Reset pulse; the target returned to Switch On
+Disabled (`0x40`) while the peer remained `0x37`. Final health in both
+runs reported total WKC 6, link up, two responding slaves, and both domains
+complete/online/operational, followed by successful disable feedback.
+
+The prior ring-1 attempt's pre-cyclic diagnostics showed 8 lost frames in
+the IgH master snapshot (2784 transmitted, 2776 received; 0.4% frame loss),
+an AL-state datagram timeout for slave 1 followed by master-link DOWN/UP
+transitions, and KickCAT frame-processing spikes up to 23.48 ms. These were
+setup-time observations, not proof of the later cyclic failure's cause.
+The added failure-path diagnostics remain useful for future intermittent
+transport regressions; the subsequent complete FRA=5 rerun establishes that
+both ring-position fault-isolation cases now pass without relaxing any WKC or
+Operation Enabled acceptance criteria.
 
 The earlier FRA=1 and FRA=3 runs also completed in both ring-position
 directions. The previous FRA=1 CoE readback failure was traced to an expired

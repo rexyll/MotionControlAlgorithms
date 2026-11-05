@@ -105,6 +105,24 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertFalse(result["supports"]["homing"])
         self.assertFalse(result["is_runtime_readback"])
 
+
+    def test_cpp_fixture_is_generated_from_the_same_normalized_candidate(self):
+        self.path.write_text(ESI_WITH_VELOCITY, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        candidate = esi_to_profile.resolve_cia402_candidate(
+            device, [0x1600, 0x1601], [0x1A00, 0x1A01]
+        )
+        generated = esi_to_profile.render_cia402_cpp_fixture(candidate)
+        fixture_path = (
+            Path(__file__).resolve().parents[1]
+            / "fixtures" / "ethercat_esi" / "cia402_bindings_fixture.hpp"
+        )
+        self.assertEqual(generated, fixture_path.read_text(encoding="utf-8"))
+        self.assertEqual(len(candidate["ordered_entries"]), 7)
+        self.assertTrue(candidate["ordered_entries"][2]["is_padding"])
+        self.assertEqual(candidate["ordered_entries"][3]["bit_offset"], 32)
+        self.assertEqual(candidate["ordered_entries"][6]["bit_offset"], 24)
+
     def test_requires_explicit_selection_and_all_core_objects(self):
         device = esi_to_profile.parse_esi(self.path)["devices"][0]
         with self.assertRaisesRegex(esi_to_profile.EsiError, "both required"):

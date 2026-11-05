@@ -26,6 +26,9 @@ constexpr std::size_t kDriveCount = 2U;
 constexpr std::size_t kStableCyclesRequired = 10U;
 constexpr std::size_t kStartupCyclesMaximum = 5'000U;
 constexpr std::size_t kStateCyclesMaximum = 5'000U;
+constexpr unsigned long kDefaultCommRecoveryTimeoutMs = 5'000UL;
+constexpr unsigned long kMinCommRecoveryTimeoutMs = 100UL;
+constexpr unsigned long kMaxCommRecoveryTimeoutMs = 60'000UL;
 constexpr std::uint8_t kCspMode = 8U;
 
 struct Drive {
@@ -660,6 +663,21 @@ int main() {
     (void)adapter.shutdown();
     return 1;
 #else
+    unsigned long recovery_timeout_ms = kDefaultCommRecoveryTimeoutMs;
+    if (const char* timeout_text =
+            std::getenv("MCA_ECAT_COMM_RECOVERY_TIMEOUT_MS")) {
+      char* timeout_end = nullptr;
+      const unsigned long parsed_timeout =
+          std::strtoul(timeout_text, &timeout_end, 10);
+      if (timeout_end == timeout_text || *timeout_end != '\0' ||
+          parsed_timeout < kMinCommRecoveryTimeoutMs ||
+          parsed_timeout > kMaxCommRecoveryTimeoutMs) {
+        std::cerr << "FAIL: MCA_ECAT_COMM_RECOVERY_TIMEOUT_MS must be in [100, 60000]\\n";
+        (void)adapter.shutdown();
+        return 1;
+      }
+      recovery_timeout_ms = parsed_timeout;
+    }
     const char* control_name = std::getenv("MCA_ECAT_SIM_CONTROL_SHM");
     if (control_name == nullptr || control_name[0] != '/') {
       std::cerr << "FAIL: MCA_ECAT_SIM_CONTROL_SHM must name the initialised "
@@ -826,10 +844,17 @@ int main() {
       (void)adapter.shutdown();
       return 1;
     }
+    std::cout << "COMM_RECOVERY_WINDOW timeout_ms=" << recovery_timeout_ms
+              << '\n';
     bool heal_acknowledged = false;
     std::size_t recovery_stable_cycles = 0U;
+    std::size_t recovery_cycles = 0U;
     bool target_recovered_present = false;
-    for (std::size_t cycle = 0U; cycle < 1'000U; ++cycle) {
+    bool peer_recovered_present = false;
+    const auto recovery_deadline = std::chrono::steady_clock::now() +
+        std::chrono::milliseconds(recovery_timeout_ms);
+    while (std::chrono::steady_clock::now() < recovery_deadline) {
+      ++recovery_cycles;
       std::this_thread::sleep_for(std::chrono::microseconds(cycle_time_us));
       const auto receive = adapter.receive_process();
       const int ack = poll_link_ack(true);
@@ -883,6 +908,11 @@ int main() {
       target_recovered_present =
           monitor_state_for(target.ring_position,
                             mca::hardware::EthercatSlaveHealthState::Present);
+      peer_recovered_present =
+          monitor_state_for(peer.ring_position,
+                            mca::hardware::EthercatSlaveHealthState::Present);
+      const bool both_slaves_recovered_present =
+          target_recovered_present && peer_recovered_present;
       const bool writes_ok =
           feedback_ok &&
           write_value(adapter, peer.pdo.controlword, 0x000FU) &&
@@ -905,7 +935,7 @@ int main() {
         return 1;
       }
 
-      if (cycle < 20U || ((cycle + 1U) % 100U) == 0U) {
+      if (recovery_cycles <= 20U || (recovery_cycles % 100U) == 0U) {
         int target_health_state = -1;
         for (std::size_t i = 0U; i < slave_health.snapshot().slave_count; ++i) {
           if (slave_health.snapshot().slaves[i].ring_position ==
@@ -916,7 +946,7 @@ int main() {
           }
         }
         std::cerr << "COMM_RECOVERY_TRACE"
-                  << " cycle=" << (cycle + 1U)
+                  << " cycle=" << recovery_cycles
                   << " sequence=" << adapter.cycle_sequence()
                   << " ack=" << ack
                   << " receive_ok=" << receive.ok()
@@ -953,6 +983,11 @@ int main() {
                   << std::dec
                   << " target_state_valid=" << runtime.slaves[1].state_valid
                   << " target_state_error=" << runtime.slaves[1].state_error
+                  << " peer_configured=" << runtime.slaves[0].configured
+                  << " peer_state_valid=" << runtime.slaves[0].state_valid
+                  << " peer_state_error=" << runtime.slaves[0].state_error
+                  << " peer_present=" << peer_recovered_present
+                  << " both_present=" << both_slaves_recovered_present
                   << " feedback_ok=" << feedback_ok
                   << " both_enabled=" << both_enabled
                   << " target_present=" << target_recovered_present
@@ -961,7 +996,7 @@ int main() {
                   << '\n';
       }
 
-      if (both_enabled && target_recovered_present && heal_acknowledged)
+      if (both_enabled && both_slaves_recovered_present && heal_acknowledged)
         ++recovery_stable_cycles;
       else
         recovery_stable_cycles = 0U;
@@ -969,11 +1004,14 @@ int main() {
     }
     if (!heal_acknowledged ||
         recovery_stable_cycles < kStableCyclesRequired ||
-        !target_recovered_present) {
+        !target_recovered_present || !peer_recovered_present) {
       std::cerr << "FAIL: downstream slave did not recover after link heal; "
                 << "heal_ack=" << heal_acknowledged
+                << " recovery_timeout_ms=" << recovery_timeout_ms
+                << " recovery_cycles=" << recovery_cycles
                 << " recovery_stable_cycles=" << recovery_stable_cycles
                 << " target_present=" << target_recovered_present
+                << " peer_present=" << peer_recovered_present
                 << " target_wkc=" << adapter.domain_working_counter(target.domain_id)
                 << " peer_wkc=" << adapter.domain_working_counter(peer.domain_id)
                 << '\n';
@@ -981,8 +1019,9 @@ int main() {
       return 1;
     }
     std::cout << "PASS: downstream link healed target_ring=1 "
-                 "peer_ring=0 both_domain_wkc=3 target_operation_enabled=1 "
-                 "recovery_stable_cycles="
+                 "peer_ring=0 both_domain_wkc=3 both_operation_enabled=1 "
+                 "both_slaves_present=1 recovery_cycles="
+              << recovery_cycles << " recovery_stable_cycles="
               << recovery_stable_cycles << '\n';
 #endif
   }

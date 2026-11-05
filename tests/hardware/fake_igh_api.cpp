@@ -58,6 +58,10 @@ bool zero_size = false;
 bool deactivate_failure = false;
 bool master_state_failure = false;
 bool slave_state_failure = false;
+bool receive_failure = false;
+bool domain_process_failure = false;
+bool domain_queue_failure = false;
+bool send_failure = false;
 bool master_link_up = true;
 unsigned int master_responding = 1U;
 unsigned int master_al_states = EC_AL_STATE_OP;
@@ -89,6 +93,8 @@ void reset() noexcept {
   domain_data_failure = false;
   zero_size = false; deactivate_failure = false;
   master_state_failure = false; slave_state_failure = false;
+  receive_failure = false; domain_process_failure = false;
+  domain_queue_failure = false; send_failure = false;
   master_link_up = true; master_responding = 1U; master_al_states = EC_AL_STATE_OP;
   configured_slave_count = 1U; created_domain_count = 0U;
   slave_online.fill(true); slave_operational.fill(true);
@@ -162,6 +168,10 @@ void set_domain_working_counter_complete_at(std::size_t index,
 }
 void fail_master_state(bool enabled) noexcept { master_state_failure = enabled; }
 void fail_slave_state(bool enabled) noexcept { slave_state_failure = enabled; }
+void fail_receive(bool enabled) noexcept { receive_failure = enabled; }
+void fail_domain_process(bool enabled) noexcept { domain_process_failure = enabled; }
+void fail_domain_queue(bool enabled) noexcept { domain_queue_failure = enabled; }
+void fail_send(bool enabled) noexcept { send_failure = enabled; }
 std::size_t queue_calls() noexcept { return queues; }
 std::size_t send_calls() noexcept { return sends; }
 std::size_t activate_calls() noexcept { return activations; }
@@ -358,8 +368,8 @@ uint8_t* ecrt_domain_data(ec_domain_t* d) {
 size_t ecrt_domain_size(const ec_domain_t* d) {
   return fake_igh::domain_size_is_zero() || d == nullptr ? 0U : d->data.size();
 }
-int ecrt_master_receive(ec_master_t*) { return 0; }
-int ecrt_domain_process(ec_domain_t*) { return 0; }
+int ecrt_master_receive(ec_master_t*) { return receive_failure ? -1 : 0; }
+int ecrt_domain_process(ec_domain_t*) { return domain_process_failure ? -1 : 0; }
 int ecrt_domain_state(const ec_domain_t* domain, ec_domain_state_t* state) {
   if (domain == nullptr || domain->index >= created_domain_count || state == nullptr) return -1;
   const bool complete = domain_wkc_complete_by_index[domain->index];
@@ -367,6 +377,6 @@ int ecrt_domain_state(const ec_domain_t* domain, ec_domain_state_t* state) {
   state->wc_state = complete ? EC_WC_COMPLETE : EC_WC_INCOMPLETE;
   return 0;
 }
-int ecrt_domain_queue(ec_domain_t*) { ++queues; return 0; }
-int ecrt_master_send(ec_master_t*) { ++sends; return 0; }
+int ecrt_domain_queue(ec_domain_t*) { ++queues; return domain_queue_failure ? -1 : 0; }
+int ecrt_master_send(ec_master_t*) { ++sends; return send_failure ? -1 : 0; }
 }

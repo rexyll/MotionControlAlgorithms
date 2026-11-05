@@ -842,17 +842,24 @@ int main() {
       if (ack > 0) heal_acknowledged = true;
 
       bool feedback_ok = true;
-      for (auto& drive : drives) {
+      std::array<bool, kDriveCount> status_read_ok{};
+      std::array<bool, kDriveCount> position_read_ok{};
+      std::array<bool, kDriveCount> mode_read_ok{};
+      for (std::size_t i = 0U; i < drives.size(); ++i) {
+        auto& drive = drives[i];
         std::uint64_t mode_raw = 0U;
-        const bool mode_ok =
+        mode_read_ok[i] =
             adapter.read_pdo(drive.pdo.mode_display, mode_raw).ok() &&
             mode_raw <= 0xFFU;
-        if (mode_ok)
+        if (mode_read_ok[i])
           drive.last_mode_display = static_cast<std::uint8_t>(mode_raw);
-        feedback_ok =
-            read_u16(adapter, drive.pdo.statusword, drive.last_statusword) &&
+        status_read_ok[i] =
+            read_u16(adapter, drive.pdo.statusword, drive.last_statusword);
+        position_read_ok[i] =
             read_i32_bits(adapter, drive.pdo.actual_position,
-                          drive.held_position_bits) && mode_ok && feedback_ok;
+                          drive.held_position_bits);
+        feedback_ok = status_read_ok[i] && position_read_ok[i] &&
+                      mode_read_ok[i] && feedback_ok;
       }
       const auto monitor_status = slave_health.update(adapter);
       if (!monitor_status.ok()) feedback_ok = false;
@@ -896,6 +903,62 @@ int main() {
         print_transport_diagnostics(adapter, receive);
         (void)adapter.shutdown();
         return 1;
+      }
+
+      if (cycle < 20U || ((cycle + 1U) % 100U) == 0U) {
+        int target_health_state = -1;
+        for (std::size_t i = 0U; i < slave_health.snapshot().slave_count; ++i) {
+          if (slave_health.snapshot().slaves[i].ring_position ==
+              target.ring_position) {
+            target_health_state = static_cast<int>(
+                slave_health.snapshot().slaves[i].state);
+            break;
+          }
+        }
+        std::cerr << "COMM_RECOVERY_TRACE"
+                  << " cycle=" << (cycle + 1U)
+                  << " sequence=" << adapter.cycle_sequence()
+                  << " ack=" << ack
+                  << " receive_ok=" << receive.ok()
+                  << " monitor_ok=" << monitor_status.ok()
+                  << " runtime_valid=" << runtime.valid()
+                  << " master_state_valid=" << runtime.master_state_valid
+                  << " master_state_error=" << runtime.master_state_error
+                  << " link_up=" << runtime.link_up
+                  << " responding=" << runtime.slaves_responding
+                  << " target_health=" << target_health_state
+                  << " target_wkc=" << adapter.domain_working_counter(target.domain_id)
+                  << " target_complete="
+                  << adapter.domain_working_counter_complete(target.domain_id)
+                  << " target_statusword=0x" << std::hex
+                  << target.last_statusword
+                  << " target_mode=0x"
+                  << static_cast<unsigned int>(target.last_mode_display)
+                  << std::dec
+                  << " target_status_read=" << status_read_ok[1]
+                  << " target_position_read=" << position_read_ok[1]
+                  << " target_mode_read=" << mode_read_ok[1]
+                  << " peer_wkc=" << adapter.domain_working_counter(peer.domain_id)
+                  << " peer_statusword=0x" << std::hex << peer.last_statusword
+                  << std::dec
+                  << " peer_online=" << runtime.slaves[0].online
+                  << " peer_operational=" << runtime.slaves[0].operational
+                  << " peer_al_state=0x" << std::hex
+                  << static_cast<unsigned int>(runtime.slaves[0].al_state)
+                  << std::dec
+                  << " target_online=" << runtime.slaves[1].online
+                  << " target_operational=" << runtime.slaves[1].operational
+                  << " target_al_state=0x" << std::hex
+                  << static_cast<unsigned int>(runtime.slaves[1].al_state)
+                  << std::dec
+                  << " target_state_valid=" << runtime.slaves[1].state_valid
+                  << " target_state_error=" << runtime.slaves[1].state_error
+                  << " feedback_ok=" << feedback_ok
+                  << " both_enabled=" << both_enabled
+                  << " target_present=" << target_recovered_present
+                  << " stable=" << recovery_stable_cycles
+                  << " send_ok=" << send.ok()
+                  << '\n';
       }
 
       if (both_enabled && target_recovered_present && heal_acknowledged)

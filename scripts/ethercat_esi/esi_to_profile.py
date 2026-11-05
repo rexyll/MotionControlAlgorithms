@@ -82,7 +82,7 @@ def _parse_sync_managers(device: ET.Element) -> list[dict[str, Any]]:
     for index, sm in enumerate(_children(device, "Sm")):
         result.append({
             "index": index,
-            "name": _text(sm, "SyncManager"),
+            "name": (sm.text or "").strip() or None,
             "start_address": _number(sm.attrib.get("StartAddress"), "Sm.StartAddress", required=False),
             "control_byte": _number(sm.attrib.get("ControlByte"), "Sm.ControlByte", required=False),
             "enable": _number(sm.attrib.get("Enable"), "Sm.Enable", required=False),

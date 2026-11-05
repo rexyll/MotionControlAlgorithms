@@ -780,6 +780,12 @@ int main() {
                               mca::hardware::EthercatSlaveHealthState::Lost) &&
             monitor_state_for(peer.ring_position,
                               mca::hardware::EthercatSlaveHealthState::Present);
+      } else if (break_acknowledged) {
+        // Require ten consecutive complete observations of the isolated state;
+        // a transient WKC=0 followed by a recovered/incomplete sample must not
+        // accumulate toward the acceptance threshold.
+        isolated_cycles = 0U;
+        target_reported_lost = false;
       }
 
       const bool writes_ok =

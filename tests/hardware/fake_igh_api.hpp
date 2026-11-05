@@ -37,6 +37,7 @@ void fail_sync_manager_at(std::size_t sync_index) noexcept;
 void fail_pdo_query_at(std::size_t sync_index, std::size_t pdo_position) noexcept;
 void fail_pdo_entry_query_at(std::size_t sync_index, std::size_t pdo_position,
                              std::size_t entry_position) noexcept;
+void set_pdo_registration_result(int byte_offset, unsigned int bit_position) noexcept;
 void fail_receive(bool enabled) noexcept;
 void fail_domain_process(bool enabled) noexcept;
 void fail_domain_queue(bool enabled) noexcept;

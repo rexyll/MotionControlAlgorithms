@@ -282,6 +282,7 @@ sudo -E env \
   KICKCAT_SLAVE_CONFIG="$KICKCAT_SOURCE_DIR/simulation/slave_configs/ecat402-drive.json" \
   MCA_ECAT_CYCLE_TIME_US=1000 \
   MCA_ECAT_DEBUG_LEVEL=0 \
+  MCA_ECAT_COMM_RECOVERY_TIMEOUT_MS=5000 \
   bash scripts/ethercat_sil/run_kickcat_igh_multi_slave_communication_fault.sh
 ```
 
@@ -305,13 +306,55 @@ so they cannot identify whether the downstream slave remained outside AL-OP,
 whether the IgH per-slave state read was invalid, or whether a drive feedback
 condition blocked the gate.
 
-The recovery loop now emits bounded `COMM_RECOVERY_TRACE` samples (first 20
+The recovery loop emits bounded `COMM_RECOVERY_TRACE` samples (first 20
 cycles, then every 100 cycles) containing receive/monitor status, master link
 and responding count, per-slave online/operational/AL state and state-read
 error, per-domain WKC, DS402 Statusword/Mode Display, feedback-read results,
-health state, and send result. The next Ubuntu run should use these traces to
-identify the exact recovery blocker before changing recovery logic or weakening
-the acceptance criteria.
+health state, and send result.
+
+### IgH rescan behavior and recovery timeout
+
+The second instrumented run at
+`/tmp/mca-ethercat-sil-20261105-124321` exposed the interaction between a
+topology change and IgH's master scan FSM. The kernel log records:
+
+- At 12:43:23.435833, the master observed one responding slave and started a
+  rescan.
+- That scan completed at 12:43:23.992980.
+- At 12:43:23.995868, the master observed two responding slaves and immediately
+  started another rescan at 12:43:24.005278.
+- The cyclic application reached its fixed 1,000-cycle recovery limit and
+  shut down at 12:43:24.537124. The second scan did not complete until
+  12:43:24.560812, after the application had already begun shutdown.
+
+IgH 1.6.13's master FSM detects a changed responding-slave count in its
+broadcast-state phase and requests a topology rescan. The rescan clears the
+current slave objects; this detaches the corresponding `ec_slave_config`
+references. Once the scan discovers the current topology, IgH reattaches the
+configured slave configs. While a config is detached,
+`ecrt_slave_config_state()` still returns success but reports
+`online=0`, `operational=0`, and AL state `0x00` (UNKNOWN). This explains
+why both configured stations changed to offline together even though PDO
+WKC and the old process-image contents could still appear valid. It is not
+evidence that either drive transitioned to AL INIT.
+
+The prior 1,000-cycle wait was approximately one second at the configured
+1 ms cycle and expired about 23 ms before the second scan completed. The
+timeout, not a relaxed protocol criterion, was the immediate test-harness
+limitation. The recovery phase now uses a monotonic wall-clock deadline of
+5 seconds by default, configurable with
+`MCA_ECAT_COMM_RECOVERY_TIMEOUT_MS` (valid range 100–60,000 ms). It keeps
+the cyclic exchange active while IgH completes its rescan and configuration
+reattachment. Acceptance remains strict: both independent domains must have
+complete WKC=3, both drives must report DS402 Operation Enabled in CSP mode,
+the master must report two responding slaves, and **both** per-slave health
+states must be Present for ten consecutive samples. The trace also prints
+the peer's configuration/state-read validity, not only the downstream target.
+
+This timing correction is based on the observed IgH rescan chronology; it does
+not yet establish that the wire-level recovery test passes. The next Ubuntu
+run must show the second scan has completed, both slave configs are online and
+operational, and all ten stable acceptance samples have been reached.
 
 The CI syntax/build gate compiles this mode with
 `MCA_ENABLE_KICKCAT_SIM_CONTROL=1` and builds the pinned KickCAT core library.

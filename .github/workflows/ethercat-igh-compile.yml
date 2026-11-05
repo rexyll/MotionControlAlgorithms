@@ -16,6 +16,7 @@ jobs:
           bash -n scripts/ethercat_sil/run_kickcat_igh_veth_discovery.sh
           bash -n scripts/ethercat_sil/run_kickcat_igh_fault_duration_matrix.sh
           bash -n scripts/ethercat_sil/run_kickcat_igh_multi_slave_fault_isolation.sh
+          bash -n scripts/ethercat_sil/run_kickcat_igh_multi_slave_communication_fault.sh
       - name: Install Eigen
         run: sudo apt-get update && sudo apt-get install -y libeigen3-dev
       - name: Fetch pinned IgH 1.6.13 headers
@@ -37,3 +38,30 @@ jobs:
           g++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow \
             -DMCA_ENABLE_IGH=1 -Iinclude -I/usr/include/eigen3 -I/tmp/ethercat/include \
             -fsyntax-only tests/integration/ethercat_igh_kickcat_multi_slave_cyclic_sil.cpp
+      - name: Fetch pinned KickCAT simulator-control API
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/leducp/KickCAT.git /tmp/KickCAT-control
+          git -C /tmp/KickCAT-control checkout --detach cb2e1a192ac11ffaa58f08945053b8129abf94cb
+          test -f /tmp/KickCAT-control/lib/include/kickcat/SimulatorControl.h
+      - name: Build pinned KickCAT core library
+        run: |
+          cmake -S /tmp/KickCAT-control -B /tmp/KickCAT-control/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_MASTER_EXAMPLES=OFF \
+            -DBUILD_SLAVE_EXAMPLES=OFF \
+            -DBUILD_UNIT_TESTS=OFF \
+            -DBUILD_SIMULATION=OFF \
+            -DBUILD_TOOLS=OFF \
+            -DENABLE_ESI_PARSER=OFF
+          cmake --build /tmp/KickCAT-control/build --target kickcat --parallel 2
+          test -f /tmp/KickCAT-control/build/lib/libkickcat.a
+      - name: Compile multi-slave link-fault SIL with KickCAT control enabled
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow \
+            -DMCA_ENABLE_IGH=1 -DMCA_ENABLE_KICKCAT_SIM_CONTROL=1 \
+            -Iinclude -I/usr/include/eigen3 -I/tmp/ethercat/include \
+            -I/tmp/KickCAT-control/lib/include \
+            -fsyntax-only tests/integration/ethercat_igh_kickcat_multi_slave_cyclic_sil.cpp
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow \
+            -I/tmp/KickCAT-control/lib/include \
+            -fsyntax-only tests/integration/ethercat_kickcat_sim_control_shm.cpp

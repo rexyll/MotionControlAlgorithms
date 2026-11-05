@@ -1011,6 +1011,64 @@ TEST(EthercatIghFakeApi, FaultResetAbortsAfterPulseWhenWkcDrops) {
   EXPECT_EQ(plan.phase, mca::hardware::Cia402FaultResetPhase::Failed);
 }
 
+TEST(EthercatIghFakeApi, IsolatesUnalignedPdoBindingsWithinOneDomain) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(adapter.request_master().ok());
+  ASSERT_TRUE(adapter.discover().ok());
+
+  std::array<Adapter::PdoBinding, 128U> bindings{};
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6041U, 0U, 11U, 7U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  bindings[1] = {0U, 0x2U, 0x1234U, 0x6064U, 0U, 13U, 7U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  bindings[2] = {0U, 0x2U, 0x1234U, 0x6040U, 0U, 9U, 7U,
+                 mca::hardware::EthercatPdoDirection::Output};
+  bindings[3] = {0U, 0x2U, 0x1234U, 0x607AU, 0U, 10U, 7U,
+                 mca::hardware::EthercatPdoDirection::Output};
+
+  // IgH reports byte offset plus bit position per registered entry.
+  // The resulting absolute bit offsets are 3, 19, 35 and 51.
+  fake_igh::set_pdo_registration_result_at(0U, 0, 3U);
+  fake_igh::set_pdo_registration_result_at(1U, 2, 3U);
+  fake_igh::set_pdo_registration_result_at(2U, 4, 3U);
+  fake_igh::set_pdo_registration_result_at(3U, 6, 3U);
+  ASSERT_TRUE(adapter.configure(bindings, 4U).ok());
+  ASSERT_TRUE(adapter.activate().ok());
+  ASSERT_EQ(fake_igh::pdo_registration_calls(), 4U);
+
+  std::array<std::uint8_t, 8U> expected{
+      0xA5U, 0x5AU, 0xC3U, 0x3CU, 0x96U, 0x69U, 0xF0U, 0x0FU};
+  std::uint64_t expected_first = 0U;
+  std::uint64_t expected_second = 0U;
+  ASSERT_TRUE(mca::hardware::ethercat_read_pdo_bits(
+      expected.data(), expected.size(), 3U, 11U, expected_first));
+  ASSERT_TRUE(mca::hardware::ethercat_read_pdo_bits(
+      expected.data(), expected.size(), 19U, 13U, expected_second));
+  for (std::size_t i = 0U; i < expected.size(); ++i)
+    fake_igh::set_domain_byte(0U, i, expected[i]);
+
+  std::uint64_t actual_first = 0U;
+  std::uint64_t actual_second = 0U;
+  ASSERT_TRUE(adapter.read_pdo(0U, actual_first).ok());
+  ASSERT_TRUE(adapter.read_pdo(1U, actual_second).ok());
+  EXPECT_EQ(actual_first, expected_first);
+  EXPECT_EQ(actual_second, expected_second);
+
+  ASSERT_TRUE(mca::hardware::ethercat_write_pdo_bits(
+      expected.data(), expected.size(), 35U, 9U, 0x12AU));
+  ASSERT_TRUE(mca::hardware::ethercat_write_pdo_bits(
+      expected.data(), expected.size(), 51U, 10U, 0x2D3U));
+  ASSERT_TRUE(adapter.write_pdo(2U, 0x12AU).ok());
+  ASSERT_TRUE(adapter.write_pdo(3U, 0x2D3U).ok());
+
+  for (std::size_t i = 0U; i < expected.size(); ++i)
+    EXPECT_EQ(fake_igh::get_domain_byte(0U, i), expected[i])
+        << "unexpected byte mutation at offset " << i;
+}
+
 TEST(EthercatIghFakeApi, KeepsPdoReadWriteImagesIsolatedAcrossSlaveDomains) {
   fake_igh::reset();
   Adapter::Config config{};

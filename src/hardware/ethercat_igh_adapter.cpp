@@ -784,7 +784,12 @@ mca::core::Status EthercatIghAdapter<S, D, E>::activate() noexcept {
   for (std::size_t d = 0; d < domain_count_; ++d) {
     domain_data_[d] = ecrt_domain_data(domains_[d]);
     domain_size_[d] = ecrt_domain_size(domains_[d]);
-    if (domain_data_[d] == nullptr || domain_size_[d] == 0U) {
+    const auto& domain_layout = state_.layout().domains[d];
+    const std::uint64_t required_bits =
+        std::max(domain_layout.input_bit_size, domain_layout.output_bit_size);
+    const std::uint64_t required_bytes = (required_bits + 7U) / 8U;
+    if (domain_data_[d] == nullptr || domain_size_[d] == 0U ||
+        static_cast<std::uint64_t>(domain_size_[d]) < required_bytes) {
       const int deactivate_result = ecrt_master_deactivate(master_);
       for (std::size_t i = 0; i < domain_count_; ++i) {
         domain_data_[i] = nullptr;

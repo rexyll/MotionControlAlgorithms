@@ -243,6 +243,24 @@ TEST(EthercatPdoLayout, AcceptsBitPreciseMappingsAndRejectsInvalidRanges) {
   EXPECT_FALSE(layout.valid(1U));
 }
 
+TEST(EthercatPdoLayout, RejectsPartialOverlapAndAcceptsAdjacentBitRanges) {
+  auto layout = make_valid_layout();
+  layout.domains[0].input_bit_size = 24U;
+  layout.entries[0].bit_length = 11U;
+  layout.entries[1].direction = EthercatPdoDirection::Input;
+  layout.entries[1].bit_offset = 10U;
+  layout.entries[1].bit_length = 13U;
+  EXPECT_FALSE(layout.valid(1U));
+
+  // Half-open ranges [0, 11) and [11, 24) are adjacent, not overlapping.
+  layout.entries[1].bit_offset = 11U;
+  EXPECT_TRUE(layout.valid(1U));
+
+  // The last bit may end exactly at the declared domain boundary.
+  layout.domains[0].input_bit_size = 23U;
+  EXPECT_FALSE(layout.valid(1U));
+}
+
 TEST(EthercatPdoLayout, RejectsDuplicateDomainIdsAndOverlappingEntries) {
   auto layout = make_valid_layout();
   layout.domain_count = 2U;

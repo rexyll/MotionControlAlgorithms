@@ -929,6 +929,8 @@ TEST(EthercatIghFakeApi, AcceptsIndependentUnequalDomainImageSizes) {
   std::uint64_t second = 0U;
   EXPECT_TRUE(adapter.read_pdo(0U, first).ok());
   EXPECT_TRUE(adapter.read_pdo(1U, second).ok());
+  EXPECT_EQ(first, 2933U);
+  EXPECT_EQ(second, 181U);
   EXPECT_TRUE(adapter.shutdown().ok());
 }
 

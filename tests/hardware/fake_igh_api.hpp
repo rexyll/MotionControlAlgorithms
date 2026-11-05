@@ -21,6 +21,8 @@ std::size_t configured_entry_count(std::size_t sync, std::size_t pdo) noexcept;
 std::uint16_t configured_entry_index(std::size_t sync, std::size_t pdo, std::size_t entry) noexcept;
 std::uint8_t configured_entry_width(std::size_t sync, std::size_t pdo, std::size_t entry) noexcept;
 void fail_domain_data(bool enabled) noexcept;
+void set_domain_byte(std::size_t domain, std::size_t offset, std::uint8_t value) noexcept;
+std::uint8_t get_domain_byte(std::size_t domain, std::size_t offset) noexcept;
 void zero_domain_size(bool enabled) noexcept;
 void fail_deactivate(bool enabled) noexcept;
 void set_master_state(bool link_up, unsigned int slaves_responding, unsigned int al_states) noexcept;

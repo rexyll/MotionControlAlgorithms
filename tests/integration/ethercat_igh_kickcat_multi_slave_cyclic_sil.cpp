@@ -919,7 +919,6 @@ int main() {
   }
 
   bool all_disabled = false;
-  bool all_disabled = false;
   for (std::size_t cycle = 0U; cycle < 100U; ++cycle) {
     std::this_thread::sleep_for(std::chrono::microseconds(cycle_time_us));
     const auto receive = adapter.receive_process();

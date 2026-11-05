@@ -152,3 +152,8 @@ Requires selected drive/motor, bus interface, safe test fixture, independent STO
 8. P12-05d / P12-06: select hardware and perform HIL only when hardware is available.
 
 This design document accepts architecture/research scope only. No physical device backend is accepted and existing P12-05a.4 remains simulation-only evidence.
+
+
+### IgH PDO inspection error semantics
+
+The adapter distinguishes a failed inspection API call from a successful query that returns malformed or inconsistent mapping data. Failures from `ecrt_master_get_sync_manager()`, `ecrt_master_get_pdo()` and `ecrt_master_get_pdo_entry()` are runtime errors; structural mismatches remain constraint violations. Discovery builds a temporary profile and commits it to the caller's output only after complete success. Discovered-mapping verification fails closed and releases the inactive master before any PDO registration when an inspection call fails. Fake IgH fault injection covers each query layer.

@@ -64,6 +64,8 @@ std::size_t pdo_failure_position = static_cast<std::size_t>(-1);
 std::size_t pdo_entry_failure_sync = static_cast<std::size_t>(-1);
 std::size_t pdo_entry_failure_position = static_cast<std::size_t>(-1);
 std::size_t pdo_entry_failure_entry = static_cast<std::size_t>(-1);
+int pdo_registration_offset = 0;
+unsigned int pdo_registration_bit = 0U;
 bool receive_failure = false;
 bool domain_process_failure = false;
 bool domain_queue_failure = false;
@@ -105,6 +107,8 @@ void reset() noexcept {
   pdo_entry_failure_sync = static_cast<std::size_t>(-1);
   pdo_entry_failure_position = static_cast<std::size_t>(-1);
   pdo_entry_failure_entry = static_cast<std::size_t>(-1);
+  pdo_registration_offset = 0;
+  pdo_registration_bit = 0U;
   receive_failure = false; domain_process_failure = false;
   domain_queue_failure = false; send_failure = false;
   master_link_up = true; master_responding = 1U; master_al_states = EC_AL_STATE_OP;
@@ -190,6 +194,10 @@ void fail_pdo_entry_query_at(std::size_t sync_index, std::size_t pdo_position,
   pdo_entry_failure_sync = sync_index;
   pdo_entry_failure_position = pdo_position;
   pdo_entry_failure_entry = entry_position;
+}
+void set_pdo_registration_result(int byte_offset, unsigned int bit_position) noexcept {
+  pdo_registration_offset = byte_offset;
+  pdo_registration_bit = bit_position;
 }
 void fail_receive(bool enabled) noexcept { receive_failure = enabled; }
 void fail_domain_process(bool enabled) noexcept { domain_process_failure = enabled; }
@@ -373,7 +381,8 @@ int ecrt_slave_config_reg_pdo_entry(ec_slave_config_t*, uint16_t, uint8_t,
                                      ec_domain_t*, unsigned int* bit) {
   registration_seen = true;
   ++pdo_registrations;
-  *bit = 0U; return 0;
+  if (bit != nullptr) *bit = pdo_registration_bit;
+  return pdo_registration_offset;
 }
 ec_sdo_request_t* ecrt_slave_config_create_sdo_request(ec_slave_config_t*, uint16_t,
                                                         uint8_t, size_t capacity) {

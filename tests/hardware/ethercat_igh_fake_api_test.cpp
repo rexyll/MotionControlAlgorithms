@@ -94,6 +94,38 @@ bool configure_with_mapping(Adapter& adapter) {
 }
 }  // namespace
 
+TEST(EthercatIghFakeApi, RejectsPdoRegistrationBitPositionOutsideIgHRange) {
+  fake_igh::reset();
+  Adapter adapter;
+  ASSERT_TRUE(adapter.request_master().ok());
+  ASSERT_TRUE(adapter.discover().ok());
+  std::array<Adapter::PdoBinding, 128U> bindings{};
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  fake_igh::set_pdo_registration_result(0, 8U);
+  const auto status = adapter.configure(bindings, 1U);
+  EXPECT_EQ(status.code, mca::core::StatusCode::ConstraintViolation);
+  EXPECT_EQ(fake_igh::pdo_registration_calls(), 1U);
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+  EXPECT_EQ(adapter.state().state(), mca::hardware::EthercatMasterState::Offline);
+}
+
+TEST(EthercatIghFakeApi, RejectsPdoRegistrationBitOffsetOverflowBeforeLayoutCommit) {
+  fake_igh::reset();
+  Adapter adapter;
+  ASSERT_TRUE(adapter.request_master().ok());
+  ASSERT_TRUE(adapter.discover().ok());
+  std::array<Adapter::PdoBinding, 128U> bindings{};
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  fake_igh::set_pdo_registration_result(0x20000000, 7U);
+  const auto status = adapter.configure(bindings, 1U);
+  EXPECT_EQ(status.code, mca::core::StatusCode::ConstraintViolation);
+  EXPECT_EQ(fake_igh::pdo_registration_calls(), 1U);
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+  EXPECT_EQ(adapter.state().state(), mca::hardware::EthercatMasterState::Offline);
+}
+
 TEST(EthercatIghFakeApi, AppliesSyncManagerPdoAndEntryTreeBeforeRegistration) {
   fake_igh::reset();
   Adapter::Config config{};

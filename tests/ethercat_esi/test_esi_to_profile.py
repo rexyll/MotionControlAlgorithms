@@ -235,6 +235,25 @@ class EsiToProfileTests(unittest.TestCase):
                 device, [0x1600, 0x1601], [0x1A00, 0x1A01]
             )
 
+    def test_rejects_out_of_range_sync_manager_index(self):
+        malformed = ESI.replace('<RxPdo Sm="2"', '<RxPdo Sm="256"', 1)
+        self.path.write_text(malformed, encoding="utf-8")
+        with self.assertRaisesRegex(esi_to_profile.EsiError, "RxPDO.Sm value 256"):
+            esi_to_profile.parse_esi(self.path)
+
+    def test_candidate_requires_selected_pdo_sync_manager_association(self):
+        malformed = ESI_WITH_VELOCITY.replace(
+            '<RxPdo Sm="2"><Index>#x1601</Index>',
+            '<RxPdo><Index>#x1601</Index>',
+            1,
+        )
+        self.path.write_text(malformed, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        with self.assertRaisesRegex(esi_to_profile.EsiError, "no SyncManager association"):
+            esi_to_profile.resolve_cia402_candidate(
+                device, [0x1600, 0x1601], [0x1A00, 0x1A01]
+            )
+
     def test_rejects_wrong_root(self):
         self.path.write_text("<NotEsi/>", encoding="utf-8")
         with self.assertRaisesRegex(esi_to_profile.EsiError, "root element"):

@@ -163,8 +163,11 @@ sudo -E env \
   bash scripts/ethercat_sil/run_kickcat_igh_multi_slave_fault_isolation.sh
 ```
 
-The script runs ring position 0 and ring position 1 as separate cases and
-stores artifacts under `/tmp/mca-ethercat-multi-fault-*`. This is KickCAT
+By default the script runs the FRA-duration matrix `1,2,3,5` for both ring
+positions (eight independent runs). Override it with
+`MCA_ECAT_MULTI_FAULT_REACTION_MATRIX=3` to run only the three-cycle cases.
+Artifacts are stored under `/tmp/mca-ethercat-multi-fault-*/fra-N/ring-M`.
+This is KickCAT
 SIL only: vendor-specific fault semantics, distributed-clock timing, real-drive
 fault behavior and physical HIL remain unvalidated. Peer preservation in this
 simulator is not a safety-rated isolation function.

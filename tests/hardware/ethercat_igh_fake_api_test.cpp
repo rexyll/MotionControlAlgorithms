@@ -6,6 +6,7 @@
 #include "fake_igh_api.hpp"
 #include "mca/hardware/cia402_pds_controller.hpp"
 #include "mca/hardware/ethercat_igh_adapter.hpp"
+#include "mca/hardware/ethercat_pdo_image.hpp"
 #include "mca/hardware/ethercat_igh_health_monitor.hpp"
 
 namespace {

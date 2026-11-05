@@ -185,6 +185,29 @@ class EsiToProfileTests(unittest.TestCase):
             )
 
 
+    def test_rejects_duplicate_selected_pdo_indices(self):
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        with self.assertRaisesRegex(esi_to_profile.EsiError, "duplicate RXPDO selection"):
+            esi_to_profile.resolve_cia402_candidate(
+                device, [0x1600, 0x1600], [0x1A00]
+            )
+
+    def test_rejects_cia402_object_declared_in_wrong_pdo_direction(self):
+        self.path.write_text(ESI_WITH_VELOCITY, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        rx_velocity = next(
+            pdo for pdo in device["pdos"] if pdo["index"] == 0x1601
+        )
+        velocity_entry = rx_velocity["entries"].pop()
+        tx_velocity = next(
+            pdo for pdo in device["pdos"] if pdo["index"] == 0x1A01
+        )
+        tx_velocity["entries"].append(velocity_entry)
+        with self.assertRaisesRegex(esi_to_profile.EsiError, "must be RXPDO/32-bit"):
+            esi_to_profile.resolve_cia402_candidate(
+                device, [0x1600, 0x1601], [0x1A00, 0x1A01]
+            )
+
     def test_incomplete_optional_mode_pair_is_not_reported_as_supported(self):
         self.path.write_text(ESI_WITH_VELOCITY, encoding="utf-8")
         device = esi_to_profile.parse_esi(self.path)["devices"][0]

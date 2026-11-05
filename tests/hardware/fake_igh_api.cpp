@@ -6,6 +6,7 @@
 struct ec_master {};
 struct ec_domain {
   std::array<std::uint8_t, 8> data{};
+  std::size_t reported_size{8U};
   std::size_t index{0U};
 };
 struct ec_slave_config { std::size_t index{0U}; };
@@ -163,6 +164,10 @@ std::uint8_t configured_entry_width(std::size_t i, std::size_t p, std::size_t e)
 }
 void fail_domain_data(bool enabled) noexcept { domain_data_failure = enabled; }
 void zero_domain_size(bool enabled) noexcept { zero_size = enabled; }
+void set_domain_size(std::size_t domain, std::size_t size) noexcept {
+  if (domain < domains.size() && size <= domains[domain].data.size())
+    domains[domain].reported_size = size;
+}
 void fail_deactivate(bool enabled) noexcept { deactivate_failure = enabled; }
 void set_master_state(bool link_up, unsigned int responding, unsigned int al_states) noexcept {
   master_link_up = link_up; master_responding = responding; master_al_states = al_states;
@@ -439,7 +444,7 @@ uint8_t* ecrt_domain_data(ec_domain_t* d) {
   return fake_igh::domain_data_fails() || d == nullptr ? nullptr : d->data.data();
 }
 size_t ecrt_domain_size(const ec_domain_t* d) {
-  return fake_igh::domain_size_is_zero() || d == nullptr ? 0U : d->data.size();
+  return fake_igh::domain_size_is_zero() || d == nullptr ? 0U : d->reported_size;
 }
 int ecrt_master_receive(ec_master_t*) { return receive_failure ? -1 : 0; }
 int ecrt_domain_process(ec_domain_t*) { return domain_process_failure ? -1 : 0; }

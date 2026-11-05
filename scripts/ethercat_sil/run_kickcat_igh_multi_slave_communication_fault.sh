@@ -11,7 +11,7 @@ fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 [[ $EUID -eq 0 ]] || fail "run as root (sudo -E)"
 [[ -x "$RUNNER" ]] || fail "veth discovery runner not found"
-[[ -d "$KICKCAT_SOURCE_DIR/.git" ]] || fail "KickCAT checkout not found: $KICKCAT_SOURCE_DIR"
+git -C "$KICKCAT_SOURCE_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1 || fail "KickCAT Git checkout not found: $KICKCAT_SOURCE_DIR"
 [[ -x "$KICKCAT_SIMULATOR" ]] || fail "KickCAT network_simulator not found: $KICKCAT_SIMULATOR"
 [[ -f "$BASE_CONFIG" ]] || fail "base DS402 config not found: $BASE_CONFIG"
 [[ -f "$KICKCAT_SOURCE_DIR/lib/include/kickcat/SimulatorControl.h" ]] || fail "pinned KickCAT simulator-control API not found"

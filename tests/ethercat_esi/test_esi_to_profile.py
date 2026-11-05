@@ -241,6 +241,15 @@ class EsiToProfileTests(unittest.TestCase):
         with self.assertRaisesRegex(esi_to_profile.EsiError, "rxPDO.Sm value 256"):
             esi_to_profile.parse_esi(self.path)
 
+    def test_rejects_pdo_reference_to_undeclared_sync_manager(self):
+        malformed = ESI.replace('<RxPdo Sm="2"', '<RxPdo Sm="4"', 1)
+        self.path.write_text(malformed, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "references SyncManager 4, but the device declares only 4",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
     def test_candidate_requires_selected_pdo_sync_manager_association(self):
         malformed = ESI_WITH_VELOCITY.replace(
             '<RxPdo Sm="2"><Index>#x1601</Index>',

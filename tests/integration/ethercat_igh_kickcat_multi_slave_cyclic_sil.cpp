@@ -672,7 +672,8 @@ int main() {
       if (timeout_end == timeout_text || *timeout_end != '\0' ||
           parsed_timeout < kMinCommRecoveryTimeoutMs ||
           parsed_timeout > kMaxCommRecoveryTimeoutMs) {
-        std::cerr << "FAIL: MCA_ECAT_COMM_RECOVERY_TIMEOUT_MS must be in [100, 60000]\n";
+        std::cerr << "FAIL: MCA_ECAT_COMM_RECOVERY_TIMEOUT_MS must be "
+                     "in [100, 60000]\n";
         (void)adapter.shutdown();
         return 1;
       }
@@ -852,7 +853,8 @@ int main() {
     bool target_recovered_present = false;
     bool peer_recovered_present = false;
     const auto recovery_deadline = std::chrono::steady_clock::now() +
-        std::chrono::milliseconds(recovery_timeout_ms);
+        std::chrono::milliseconds(
+            static_cast<std::chrono::milliseconds::rep>(recovery_timeout_ms));
     while (std::chrono::steady_clock::now() < recovery_deadline) {
       ++recovery_cycles;
       std::this_thread::sleep_for(std::chrono::microseconds(cycle_time_us));

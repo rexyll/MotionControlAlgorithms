@@ -213,6 +213,7 @@ def resolve_cia402_candidate(
                 "bit_length": entry["bit_length"],
                 "direction": direction,
                 "pdo_index": pdo["index"],
+                "sync_manager": pdo["sync_manager"],
                 "entry_number": entry_number,
                 "bit_offset": bit_offsets[direction],
                 "is_padding": entry["is_padding"],

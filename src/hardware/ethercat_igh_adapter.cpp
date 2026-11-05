@@ -526,6 +526,19 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
     if (offset < 0)
       return fail_configuration(
           {mca::core::StatusCode::RuntimeError});
+    // IgH reports a byte offset and an optional bit position within that
+    // byte. Validate the API contract and the conversion before narrowing
+    // the absolute bit offset into the master-neutral uint32_t layout.
+    if (bit > 7U)
+      return fail_configuration(
+          {mca::core::StatusCode::ConstraintViolation});
+    const auto absolute_bit_offset =
+        static_cast<std::uint64_t>(static_cast<unsigned int>(offset)) * 8U +
+        static_cast<std::uint64_t>(bit);
+    if (absolute_bit_offset >
+        static_cast<std::uint64_t>(UINT32_MAX))
+      return fail_configuration(
+          {mca::core::StatusCode::ConstraintViolation});
     offsets_[i] = static_cast<unsigned int>(offset);
     bit_positions_[i] = bit;
   }
@@ -548,7 +561,8 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
     entry.subindex = binding.subindex;
     entry.bit_length = binding.bit_length;
     entry.direction = binding.direction;
-    entry.bit_offset = offsets_[i] * 8U + bit_positions_[i];
+    entry.bit_offset = static_cast<std::uint32_t>(
+        static_cast<std::uint64_t>(offsets_[i]) * 8U + bit_positions_[i]);
     for (std::size_t d = 0; d < domain_count_; ++d) {
       if (layout.domains[d].id != binding.domain_id) continue;
       const std::uint32_t bit_end =

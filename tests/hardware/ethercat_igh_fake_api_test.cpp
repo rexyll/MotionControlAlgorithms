@@ -828,6 +828,51 @@ TEST(EthercatIghFakeApi, ZeroDomainSizeDiscardsMaster) {
   EXPECT_EQ(fake_igh::release_calls(), 1U);
 }
 
+TEST(EthercatIghFakeApi, RejectsDomainImageSmallerThanRegisteredPdoExtent) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(adapter.request_master().ok());
+  ASSERT_TRUE(adapter.discover().ok());
+
+  std::array<Adapter::PdoBinding, 128U> bindings{};
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6064U, 0U, 13U, 7U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  // IgH's registration result is byte offset 2 + bit position 3:
+  // the 13-bit field ends at bit 32, requiring exactly four image bytes.
+  fake_igh::set_pdo_registration_result_at(0U, 2, 3U);
+  ASSERT_TRUE(adapter.configure(bindings, 1U).ok());
+  fake_igh::set_domain_size(0U, 3U);
+  EXPECT_FALSE(adapter.activate().ok());
+  EXPECT_EQ(adapter.state().state(), mca::hardware::EthercatMasterState::Offline);
+  EXPECT_EQ(fake_igh::deactivate_calls(), 1U);
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+}
+
+TEST(EthercatIghFakeApi, AcceptsPdoExtentExactlyAtDomainImageBoundary) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(adapter.request_master().ok());
+  ASSERT_TRUE(adapter.discover().ok());
+
+  std::array<Adapter::PdoBinding, 128U> bindings{};
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6064U, 0U, 13U, 7U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  fake_igh::set_pdo_registration_result_at(0U, 2, 3U);
+  ASSERT_TRUE(adapter.configure(bindings, 1U).ok());
+  fake_igh::set_domain_size(0U, 4U);
+  ASSERT_TRUE(adapter.activate().ok());
+
+  std::uint64_t value = 0U;
+  fake_igh::set_domain_byte(0U, 2U, 0xA8U);
+  fake_igh::set_domain_byte(0U, 3U, 0x5BU);
+  EXPECT_TRUE(adapter.read_pdo(0U, value).ok());
+  EXPECT_TRUE(adapter.shutdown().ok());
+}
+
 TEST(EthercatIghFakeApi, FailedActivationRollbackReleasesUncertainMaster) {
   fake_igh::reset();
   Adapter::Config config{}; config.cycle_time_ns = 1'000'000U;

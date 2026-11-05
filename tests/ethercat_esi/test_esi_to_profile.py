@@ -58,6 +58,20 @@ ESI_WITH_VELOCITY = ESI.replace(
 )
 
 
+ESI_WITH_ALL_MODES = ESI_WITH_VELOCITY.replace(
+    "      </Device>",
+    """        <RxPdo Sm="2"><Index>#x1602</Index><Name>Position and torque commands</Name>
+          <Entry><Index>#x607A</Index><SubIndex>0</SubIndex><BitLen>32</BitLen><Name>Target position</Name><DataType>DINT</DataType></Entry>
+          <Entry><Index>#x6071</Index><SubIndex>0</SubIndex><BitLen>16</BitLen><Name>Target torque</Name><DataType>INT</DataType></Entry>
+        </RxPdo>
+        <TxPdo Sm="3"><Index>#x1A02</Index><Name>Position and torque feedback</Name>
+          <Entry><Index>#x6064</Index><SubIndex>0</SubIndex><BitLen>32</BitLen><Name>Actual position</Name><DataType>DINT</DataType></Entry>
+          <Entry><Index>#x6077</Index><SubIndex>0</SubIndex><BitLen>16</BitLen><Name>Actual torque</Name><DataType>INT</DataType></Entry>
+        </TxPdo>
+      </Device>""",
+    1,
+)
+
 class EsiToProfileTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -122,6 +136,30 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertTrue(candidate["ordered_entries"][2]["is_padding"])
         self.assertEqual(candidate["ordered_entries"][3]["bit_offset"], 32)
         self.assertEqual(candidate["ordered_entries"][6]["bit_offset"], 24)
+
+
+    def test_cpp_all_modes_fixture_matches_python_candidate(self):
+        self.path.write_text(ESI_WITH_ALL_MODES, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        candidate = esi_to_profile.resolve_cia402_candidate(
+            device, [0x1600, 0x1601, 0x1602], [0x1A00, 0x1A01, 0x1A02]
+        )
+        self.assertTrue(candidate["supports"]["cyclic_synchronous_position"])
+        self.assertTrue(candidate["supports"]["cyclic_synchronous_velocity"])
+        self.assertTrue(candidate["supports"]["cyclic_synchronous_torque"])
+        self.assertEqual(candidate["bindings"]["target_position"]["bit_offset"], 64)
+        self.assertEqual(candidate["bindings"]["target_torque"]["bit_offset"], 96)
+        self.assertEqual(candidate["bindings"]["actual_position"]["bit_offset"], 56)
+        self.assertEqual(candidate["bindings"]["actual_torque"]["bit_offset"], 88)
+        generated = esi_to_profile.render_cia402_cpp_fixture(candidate)
+        fixture_path = (
+            Path(__file__).resolve().parents[1]
+            / "fixtures" / "ethercat_esi" / "cia402_all_modes_fixture.hpp"
+        )
+        generated = generated.replace(
+            "kEsiCia402PdoEntries", "kEsiCia402AllModesEntries"
+        )
+        self.assertEqual(generated, fixture_path.read_text(encoding="utf-8"))
 
     def test_requires_explicit_selection_and_all_core_objects(self):
         device = esi_to_profile.parse_esi(self.path)["devices"][0]

@@ -73,6 +73,36 @@ bool transport_healthy(const Adapter& adapter) {
   return true;
 }
 
+void print_transport_diagnostics(const Adapter& adapter,
+                                 const mca::core::Status& receive) {
+  const auto& health = adapter.runtime_health();
+  std::cerr << "TRANSPORT_DIAGNOSTIC"
+            << " receive_ok=" << receive.ok()
+            << " runtime_valid=" << health.valid()
+            << " master_state_valid=" << health.master_state_valid
+            << " master_state_error=" << health.master_state_error
+            << " link_up=" << health.link_up
+            << " responding=" << health.slaves_responding
+            << " observed_wkc=" << adapter.observed_wkc()
+            << " cycle_sequence=" << adapter.cycle_sequence();
+  for (std::size_t i = 0U; i < kDriveCount; ++i) {
+    const auto& slave = health.slaves[i];
+    const auto domain = static_cast<std::uint16_t>(i + 1U);
+    std::cerr << " slave[" << i << "]"
+              << "{ring=" << slave.ring_position
+              << ",configured=" << slave.configured
+              << ",state_valid=" << slave.state_valid
+              << ",state_error=" << slave.state_error
+              << ",online=" << slave.online
+              << ",operational=" << slave.operational
+              << ",al_state=" << static_cast<unsigned int>(slave.al_state)
+              << ",domain_wkc=" << adapter.domain_working_counter(domain)
+              << ",domain_complete="
+              << adapter.domain_working_counter_complete(domain) << "}";
+  }
+  std::cerr << '\n';
+}
+
 bool write_safe_outputs(Adapter& adapter,
                         const std::array<Drive, kDriveCount>& drives) {
   bool ok = true;
@@ -88,10 +118,22 @@ bool write_safe_outputs(Adapter& adapter,
 }  // namespace
 
 int main() {
+  unsigned long cycle_time_us = 1'000UL;
+  if (const char* cycle_text = std::getenv("MCA_ECAT_CYCLE_TIME_US")) {
+    char* end = nullptr;
+    const unsigned long parsed = std::strtoul(cycle_text, &end, 10);
+    if (end == cycle_text || *end != '\0' ||
+        parsed < 100UL || parsed > 100'000UL) {
+      std::cerr << "FAIL: MCA_ECAT_CYCLE_TIME_US must be in [100, 100000]\n";
+      return 1;
+    }
+    cycle_time_us = parsed;
+  }
+
   Adapter::Config config{};
   config.master_index = 0U;
-  config.cycle_time_ns = 1'000'000U;
-  config.send_interval_us = 1'000U;
+  config.cycle_time_ns = static_cast<std::uint32_t>(cycle_time_us * 1'000UL);
+  config.send_interval_us = static_cast<std::uint32_t>(cycle_time_us);
   Adapter adapter(config);
 
   if (!adapter.request_master().ok() || !adapter.discover().ok()) {
@@ -193,7 +235,7 @@ int main() {
   bool startup_output_write_failed = false;
   bool startup_frame_send_failed = false;
   for (std::size_t cycle = 0U; cycle < kStartupCyclesMaximum; ++cycle) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    std::this_thread::sleep_for(std::chrono::microseconds(cycle_time_us));
     const auto previous_sequence = adapter.cycle_sequence();
     const auto receive = adapter.receive_process();
     const auto health_status = slave_health.update(adapter);
@@ -255,7 +297,7 @@ int main() {
 
   bool all_enabled = false;
   for (std::size_t cycle = 0U; cycle < kStateCyclesMaximum; ++cycle) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    std::this_thread::sleep_for(std::chrono::microseconds(cycle_time_us));
     const auto receive = adapter.receive_process();
     if (!receive.ok() || !transport_healthy(adapter)) {
       (void)adapter.queue_send();
@@ -394,9 +436,10 @@ int main() {
               << " expected_reaction_cycles=" << reaction_value << '\n';
 
     for (std::size_t cycle = 0U; cycle < 2'000U; ++cycle) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      std::this_thread::sleep_for(std::chrono::microseconds(cycle_time_us));
       const auto receive = adapter.receive_process();
       if (!receive.ok() || !transport_healthy(adapter)) {
+        print_transport_diagnostics(adapter, receive);
         (void)adapter.queue_send();
         std::cerr << "FAIL: transport/domain health lost during independent fault wait\n";
         (void)adapter.shutdown();
@@ -484,7 +527,7 @@ int main() {
     }
 
     // Confirm a fresh Fault feedback sample immediately before arming reset.
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    std::this_thread::sleep_for(std::chrono::microseconds(cycle_time_us));
     const auto confirm_receive = adapter.receive_process();
     std::uint16_t confirmed_fault = 0U;
     std::uint16_t confirmed_peer = 0U;
@@ -526,7 +569,7 @@ int main() {
 
     bool reset_complete = false;
     for (std::size_t cycle = 0U; cycle < 100U; ++cycle) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      std::this_thread::sleep_for(std::chrono::microseconds(cycle_time_us));
       const auto receive = adapter.receive_process();
       std::uint16_t target_status = 0U;
       std::uint16_t peer_status = 0U;
@@ -593,7 +636,7 @@ int main() {
 
   bool all_disabled = false;
   for (std::size_t cycle = 0U; cycle < 100U; ++cycle) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    std::this_thread::sleep_for(std::chrono::microseconds(cycle_time_us));
     const auto receive = adapter.receive_process();
     if (!receive.ok() || !transport_healthy(adapter)) {
       (void)adapter.queue_send();

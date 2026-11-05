@@ -536,7 +536,8 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
         static_cast<std::uint64_t>(static_cast<unsigned int>(offset)) * 8U +
         static_cast<std::uint64_t>(bit);
     if (absolute_bit_offset >
-        static_cast<std::uint64_t>(UINT32_MAX))
+        static_cast<std::uint64_t>(UINT32_MAX) -
+            static_cast<std::uint64_t>(binding.bit_length))
       return fail_configuration(
           {mca::core::StatusCode::ConstraintViolation});
     offsets_[i] = static_cast<unsigned int>(offset);

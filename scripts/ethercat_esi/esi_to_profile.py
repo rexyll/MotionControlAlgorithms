@@ -158,7 +158,7 @@ def _parse_device(device: ET.Element, vendor_id: int) -> dict[str, Any]:
     sync_managers = _parse_sync_managers(device)
     for pdo in pdos:
         sync_manager = pdo["sync_manager"]
-        if sync_manager is not None and sync_manager >= len(sync_managers):
+        if sync_managers and sync_manager is not None and sync_manager >= len(sync_managers):
             raise EsiError(
                 f"{pdo['direction']}PDO 0x{pdo['index']:04X} references "
                 f"SyncManager {sync_manager}, but the device declares "

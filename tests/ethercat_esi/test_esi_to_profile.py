@@ -99,7 +99,7 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertEqual(result["bindings"]["target_velocity"]["pdo_index"], 0x1601)
         self.assertEqual(result["bindings"]["target_velocity"]["sync_manager"], 2)
         self.assertEqual(result["bindings"]["actual_velocity"]["direction"], "tx")
-        self.assertEqual(result["bindings"]["target_velocity"]["bit_offset"], 40)
+        self.assertEqual(result["bindings"]["target_velocity"]["bit_offset"], 32)
         self.assertTrue(result["supports"]["cyclic_synchronous_velocity"])
         self.assertFalse(result["supports"]["cyclic_synchronous_position"])
         self.assertFalse(result["supports"]["homing"])

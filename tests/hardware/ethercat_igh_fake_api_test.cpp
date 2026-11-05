@@ -873,6 +873,65 @@ TEST(EthercatIghFakeApi, AcceptsPdoExtentExactlyAtDomainImageBoundary) {
   EXPECT_TRUE(adapter.shutdown().ok());
 }
 
+TEST(EthercatIghFakeApi, RejectsUndersizedLaterDomainImageAndReleasesMaster) {
+  fake_igh::reset();
+  fake_igh::set_slave_count(2U);
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(adapter.request_master().ok());
+  ASSERT_TRUE(adapter.discover().ok());
+
+  std::array<Adapter::PdoBinding, 128U> bindings{};
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6064U, 0U, 13U, 7U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  bindings[1] = {1U, 0x2U, 0x1234U, 0x6064U, 0U, 9U, 8U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  fake_igh::set_pdo_registration_result_at(0U, 0, 3U);
+  fake_igh::set_pdo_registration_result_at(1U, 1, 2U);
+  ASSERT_TRUE(adapter.configure(bindings, 2U).ok());
+
+  // Domain 0 needs 2 bytes; Domain 1 ends at bit 19 and needs 3 bytes.
+  fake_igh::set_domain_size(0U, 2U);
+  fake_igh::set_domain_size(1U, 2U);
+  EXPECT_FALSE(adapter.activate().ok());
+  EXPECT_EQ(adapter.state().state(), mca::hardware::EthercatMasterState::Offline);
+  EXPECT_EQ(fake_igh::deactivate_calls(), 1U);
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+}
+
+TEST(EthercatIghFakeApi, AcceptsIndependentUnequalDomainImageSizes) {
+  fake_igh::reset();
+  fake_igh::set_slave_count(2U);
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(adapter.request_master().ok());
+  ASSERT_TRUE(adapter.discover().ok());
+
+  std::array<Adapter::PdoBinding, 128U> bindings{};
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6064U, 0U, 13U, 7U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  bindings[1] = {1U, 0x2U, 0x1234U, 0x6064U, 0U, 9U, 8U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  fake_igh::set_pdo_registration_result_at(0U, 0, 3U);
+  fake_igh::set_pdo_registration_result_at(1U, 1, 2U);
+  ASSERT_TRUE(adapter.configure(bindings, 2U).ok());
+  fake_igh::set_domain_size(0U, 2U);
+  fake_igh::set_domain_size(1U, 3U);
+  ASSERT_TRUE(adapter.activate().ok());
+
+  fake_igh::set_domain_byte(0U, 0U, 0xA8U);
+  fake_igh::set_domain_byte(0U, 1U, 0x5BU);
+  fake_igh::set_domain_byte(1U, 1U, 0xD4U);
+  fake_igh::set_domain_byte(1U, 2U, 0x02U);
+  std::uint64_t first = 0U;
+  std::uint64_t second = 0U;
+  EXPECT_TRUE(adapter.read_pdo(0U, first).ok());
+  EXPECT_TRUE(adapter.read_pdo(1U, second).ok());
+  EXPECT_TRUE(adapter.shutdown().ok());
+}
+
 TEST(EthercatIghFakeApi, FailedActivationRollbackReleasesUncertainMaster) {
   fake_igh::reset();
   Adapter::Config config{}; config.cycle_time_ns = 1'000'000U;

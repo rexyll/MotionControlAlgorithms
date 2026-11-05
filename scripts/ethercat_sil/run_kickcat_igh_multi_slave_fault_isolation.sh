@@ -6,7 +6,7 @@ readonly RUNNER="$SCRIPT_DIR/run_kickcat_igh_veth_discovery.sh"
 BASE_CONFIG="${KICKCAT_SLAVE_CONFIG:-}"
 readonly ARTIFACT_ROOT="${MCA_ECAT_MULTI_FAULT_ARTIFACT_ROOT:-/tmp/mca-ethercat-multi-fault-$(date +%Y%m%d-%H%M%S)}"
 readonly FAULT_AFTER_CYCLES="${MCA_ECAT_MULTI_FAULT_AFTER_CYCLES:-40}"
-readonly REACTION_CYCLES="${MCA_ECAT_MULTI_FAULT_REACTION_CYCLES:-3}"
+readonly REACTION_MATRIX="${MCA_ECAT_MULTI_FAULT_REACTION_MATRIX:-1,2,3,5}"
 FIXTURES=()
 
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -18,7 +18,11 @@ trap cleanup EXIT
 [[ -n "${KICKCAT_SIMULATOR:-}" && -x "$KICKCAT_SIMULATOR" ]] || fail "set KICKCAT_SIMULATOR to the patched simulator"
 [[ -n "$BASE_CONFIG" && -f "$BASE_CONFIG" ]] || fail "set KICKCAT_SLAVE_CONFIG to the known-good DS402 JSON"
 [[ "$FAULT_AFTER_CYCLES" =~ ^[0-9]+$ ]] && (( FAULT_AFTER_CYCLES >= 20 && FAULT_AFTER_CYCLES <= 100000 )) || fail "fault-after cycles must be in [20, 100000]"
-[[ "$REACTION_CYCLES" =~ ^[0-9]+$ ]] && (( REACTION_CYCLES >= 1 && REACTION_CYCLES <= 1000 )) || fail "reaction cycles must be in [1, 1000]"
+IFS=',' read -r -a reaction_cycles <<< "$REACTION_MATRIX"
+(( ${#reaction_cycles[@]} > 0 )) || fail "reaction matrix must not be empty"
+for reaction in "${reaction_cycles[@]}"; do
+  [[ "$reaction" =~ ^[0-9]+$ ]] && (( reaction >= 1 && reaction <= 1000 )) || fail "each reaction duration must be in [1, 1000]"
+done
 command -v python3 >/dev/null || fail "python3 is required"
 command -v realpath >/dev/null || fail "realpath is required"
 
@@ -26,12 +30,13 @@ BASE_CONFIG="$(realpath -- "$BASE_CONFIG")"
 CONFIG_DIR="$(dirname -- "$BASE_CONFIG")"
 mkdir -p "$ARTIFACT_ROOT"
 
+for reaction in "${reaction_cycles[@]}"; do
 for target in 0 1; do
   configs=()
   for slot in 0 1; do
-    fixture="$(mktemp --tmpdir="$CONFIG_DIR" ".ecat402-drive-multifault-${target}-${slot}.XXXXXX")"
+    fixture="$(mktemp --tmpdir="$CONFIG_DIR" ".ecat402-drive-multifault-${reaction}-${target}-${slot}.XXXXXX")"
     FIXTURES+=("$fixture")
-    python3 - "$BASE_CONFIG" "$fixture" "$slot" "$target" "$FAULT_AFTER_CYCLES" "$REACTION_CYCLES" <<'PY'
+    python3 - "$BASE_CONFIG" "$fixture" "$slot" "$target" "$FAULT_AFTER_CYCLES" "$reaction" <<'PY'
 import json
 import pathlib
 import sys
@@ -51,19 +56,21 @@ PY
     configs+=("$fixture")
   done
 
-  printf '\n=== Independent fault isolation: inject ring position %s ===\n' "$target"
+  printf '\n=== Independent fault isolation: FRA=%s cycles, inject ring position %s ===\n' "$reaction" "$target"
   export KICKCAT_SLAVE_CONFIGS="${configs[0]} ${configs[1]}"
   export MCA_ECAT_EXPECTED_SLAVES=2
   export MCA_ECAT_MULTI_FAULT_SIL=1
   export MCA_ECAT_MULTI_FAULT_RING_POSITION="$target"
+  export MCA_ECAT_MULTI_FAULT_REACTION_CYCLES="$reaction"
   export MCA_ECAT_CYCLIC_SIL=1
   export MCA_ECAT_COE_READBACK="${MCA_ECAT_COE_READBACK:-1}"
   export MCA_ECAT_DISABLE_EOE="${MCA_ECAT_DISABLE_EOE:-1}"
   export MCA_ECAT_CYCLIC_TIMEOUT_SEC="${MCA_ECAT_CYCLIC_TIMEOUT_SEC:-60}"
-  export MCA_ECAT_ARTIFACT_DIR="$ARTIFACT_ROOT/ring-$target"
+  export MCA_ECAT_ARTIFACT_DIR="$ARTIFACT_ROOT/fra-$reaction/ring-$target"
   bash "$RUNNER"
-  printf 'PASS: independent fault isolation for target ring position %s\n' "$target"
+  printf 'PASS: independent fault isolation FRA=%s target ring=%s\n' "$reaction" "$target"
+done
 done
 
-printf '\nPASS: both dual-slave fault-isolation directions completed.\n'
+printf '\nPASS: dual-slave fault-isolation matrix completed (FRA durations: %s; targets: ring 0 and 1).\n' "$REACTION_MATRIX"
 printf 'Artifacts: %s\n' "$ARTIFACT_ROOT"

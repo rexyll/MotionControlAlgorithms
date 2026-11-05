@@ -155,6 +155,14 @@ class EsiToProfileTests(unittest.TestCase):
         with self.assertRaisesRegex(esi_to_profile.EsiError, "RevisionNo"):
             esi_to_profile.parse_esi(self.path)
 
+
+    def test_rejects_out_of_range_object_dictionary_fields(self):
+        self.path.write_text(ESI.replace(
+            "<Index>#x6040</Index>", "<Index>#x160040</Index>", 1
+        ), encoding="utf-8")
+        with self.assertRaisesRegex(esi_to_profile.EsiError, "outside 0..65535"):
+            esi_to_profile.parse_esi(self.path)
+
     def test_rejects_invalid_pdo_entry_bit_length(self):
         self.path.write_text(ESI.replace("<BitLen>16</BitLen>", "<BitLen>128</BitLen>", 1), encoding="utf-8")
         with self.assertRaisesRegex(esi_to_profile.EsiError, "unsupported bit length"):

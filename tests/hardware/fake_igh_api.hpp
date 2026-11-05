@@ -24,6 +24,7 @@ void fail_domain_data(bool enabled) noexcept;
 void set_domain_byte(std::size_t domain, std::size_t offset, std::uint8_t value) noexcept;
 std::uint8_t get_domain_byte(std::size_t domain, std::size_t offset) noexcept;
 void zero_domain_size(bool enabled) noexcept;
+void set_domain_size(std::size_t domain, std::size_t size) noexcept;
 void fail_deactivate(bool enabled) noexcept;
 void set_master_state(bool link_up, unsigned int slaves_responding, unsigned int al_states) noexcept;
 void set_slave_state(bool online, bool operational, std::uint8_t al_state) noexcept;

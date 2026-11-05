@@ -2,6 +2,9 @@
 #include "mca/hardware/cia402_pdo_bindings.hpp"
 #include "mca/hardware/cia402_pds_controller.hpp"
 #include "mca/hardware/ethercat_igh_health_monitor.hpp"
+#if defined(MCA_ENABLE_KICKCAT_SIM_CONTROL)
+#include "kickcat/SimulatorControl.h"
+#endif
 
 #include <array>
 #include <chrono>
@@ -646,6 +649,275 @@ int main() {
               << " reset_pulses=" << pulse_count
               << " target_statusword=0x" << std::hex << target.last_statusword
               << std::dec << " peer_remained_operation_enabled=1\n";
+  }
+
+  const char* comm_fault_flag = std::getenv("MCA_ECAT_COMM_FAULT_SIL");
+  if (comm_fault_flag != nullptr && std::string(comm_fault_flag) == "1") {
+#if !defined(MCA_ENABLE_KICKCAT_SIM_CONTROL)
+    std::cerr << "FAIL: communication-fault SIL requires the KickCAT control "
+                 "channel build option\\n";
+    (void)adapter.shutdown();
+    return 1;
+#else
+    const char* control_name = std::getenv("MCA_ECAT_SIM_CONTROL_SHM");
+    if (control_name == nullptr || control_name[0] != '/') {
+      std::cerr << "FAIL: MCA_ECAT_SIM_CONTROL_SHM must name the initialised "
+                   "KickCAT shared-memory control channel\\n";
+      (void)adapter.shutdown();
+      return 1;
+    }
+    if (drives[0].ring_position != 0U || drives[1].ring_position != 1U) {
+      std::cerr << "FAIL: communication-fault SIL requires the default "
+                   "two-node daisy-chain order (ring positions 0 and 1)\\n";
+      (void)adapter.shutdown();
+      return 1;
+    }
+
+    kickcat::sim::ControlChannel sim_control;
+    try {
+      sim_control.attach(control_name);
+    } catch (const std::exception& error) {
+      std::cerr << "FAIL: attach KickCAT simulator control channel: "
+                << error.what() << '\\n';
+      (void)adapter.shutdown();
+      return 1;
+    }
+
+    const auto send_link_command = [&](bool up) {
+      kickcat::sim::ControlCommand command{};
+      command.type = kickcat::sim::ControlCommand::Type::SetLink;
+      command.payload.set_link = {0U, 1U, static_cast<std::uint8_t>(up ? 1U : 0U)};
+      return sim_control.sendCommand(command);
+    };
+    const auto poll_link_ack = [&](bool expected_up) {
+      kickcat::sim::ControlEvent event{};
+      while (sim_control.nextEvent(event)) {
+        if (event.type != kickcat::sim::ControlEvent::Type::SetLinkAck)
+          continue;
+        const auto& ack = event.payload.set_link_ack;
+        if (ack.ok == 0U || ack.link.node_a != 0U ||
+            ack.link.node_b != 1U ||
+            ack.link.up != static_cast<std::uint8_t>(expected_up ? 1U : 0U))
+          return -1;
+        return 1;
+      }
+      return 0;
+    };
+    const auto monitor_state_for = [&](std::uint16_t ring_position,
+                                       mca::hardware::EthercatSlaveHealthState expected) {
+      const auto& snapshot = slave_health.snapshot();
+      for (std::size_t i = 0U; i < snapshot.slave_count; ++i) {
+        if (snapshot.slaves[i].ring_position == ring_position)
+          return snapshot.slaves[i].state == expected;
+      }
+      return false;
+    };
+
+    auto& peer = drives[0];
+    auto& target = drives[1];
+    std::cout << "COMM_FAULT target_ring=" << target.ring_position
+              << " peer_ring=" << peer.ring_position
+              << " link=0:1\\n";
+    if (!send_link_command(false)) {
+      std::cerr << "FAIL: enqueue KickCAT link-break command\\n";
+      (void)adapter.shutdown();
+      return 1;
+    }
+
+    bool break_acknowledged = false;
+    std::size_t isolated_cycles = 0U;
+    bool peer_preserved = true;
+    bool target_reported_lost = false;
+    for (std::size_t cycle = 0U; cycle < 500U; ++cycle) {
+      std::this_thread::sleep_for(std::chrono::microseconds(cycle_time_us));
+      const auto receive = adapter.receive_process();
+      const int ack = poll_link_ack(false);
+      if (ack < 0) {
+        std::cerr << "FAIL: KickCAT rejected the link-break command\\n";
+        (void)adapter.queue_send();
+        (void)adapter.shutdown();
+        return 1;
+      }
+      if (ack > 0) break_acknowledged = true;
+
+      const auto& runtime = adapter.runtime_health();
+      const bool peer_domain_complete =
+          adapter.domain_working_counter_complete(peer.domain_id);
+      const bool target_domain_complete =
+          adapter.domain_working_counter_complete(target.domain_id);
+      std::uint16_t peer_status = 0U;
+      std::uint32_t peer_position = 0U;
+      const bool peer_feedback_ok =
+          peer_domain_complete &&
+          read_u16(adapter, peer.pdo.statusword, peer_status) &&
+          read_i32_bits(adapter, peer.pdo.actual_position, peer_position);
+      if (!runtime.master_state_valid || !runtime.link_up ||
+          !peer_domain_complete || !peer_feedback_ok ||
+          mca::hardware::decode_cia402_pds_state(peer_status) !=
+              Cia402PdsState::OperationEnabled) {
+        print_transport_diagnostics(adapter, receive);
+        std::cerr << "FAIL: upstream peer/domain lost during downstream link break\\n";
+        (void)adapter.queue_send();
+        (void)adapter.shutdown();
+        return 1;
+      }
+
+      const auto monitor_status = slave_health.update(adapter);
+      if (!monitor_status.ok()) {
+        std::cerr << "FAIL: per-slave health monitor could not classify "
+                     "the communication fault\\n";
+        (void)adapter.queue_send();
+        (void)adapter.shutdown();
+        return 1;
+      }
+      if (acknowledged: false) {}
+      if (break_acknowledged && !target_domain_complete &&
+          adapter.domain_working_counter(target.domain_id) == 0U) {
+        ++isolated_cycles;
+        if (monitor_state_for(target.ring_position,
+                              mca::hardware::EthercatSlaveHealthState::Lost) &&
+            monitor_state_for(peer.ring_position,
+                              mca::hardware::EthercatSlaveHealthState::Present))
+          target_reported_lost = true;
+        else
+          target_reported_lost = false;
+        if (runtime.slaves_responding > 1U) {
+          // The per-domain counters are authoritative in this test. IgH's
+          // master-wide responding count can lag by its AL-state scan period.
+        }
+      }
+
+      const bool writes_ok =
+          write_value(adapter, peer.pdo.controlword, 0x000FU) &&
+          write_value(adapter, peer.pdo.target_position, peer_position) &&
+          write_value(adapter, peer.pdo.target_velocity, 0U) &&
+          write_value(adapter, peer.pdo.mode_of_operation, kCspMode);
+      const auto previous_sequence = adapter.cycle_sequence();
+      const auto send = adapter.queue_send();
+      (void)send;  // An incomplete target domain is expected while its wire is broken.
+      if (!writes_ok || adapter.cycle_sequence() == previous_sequence) {
+        std::cerr << "FAIL: could not continue cyclic PDO transmission to "
+                     "the unaffected peer\\n";
+        (void)adapter.shutdown();
+        return 1;
+      }
+      if (isolated_cycles >= kStableCyclesRequired) break;
+    }
+    if (!break_acknowledged || isolated_cycles < kStableCyclesRequired ||
+        !target_reported_lost) {
+      std::cerr << "FAIL: downstream communication loss was not isolated; "
+                << "break_ack=" << break_acknowledged
+                << " isolated_cycles=" << isolated_cycles
+                << " target_lost_health=" << target_reported_lost
+                << " peer_preserved=" << peer_preserved
+                << " target_wkc=" << adapter.domain_working_counter(target.domain_id)
+                << " peer_wkc=" << adapter.domain_working_counter(peer.domain_id)
+                << '\\n';
+      (void)adapter.shutdown();
+      return 1;
+    }
+    std::cout << "PASS: downstream communication isolated target_ring=1 "
+                 "target_domain_wkc=0 peer_ring=0 peer_domain_wkc=3 "
+                 "peer_operation_enabled=1 lost_cycles="
+              << isolated_cycles << '\\n';
+
+    if (!send_link_command(true)) {
+      std::cerr << "FAIL: enqueue KickCAT link-heal command\\n";
+      (void)adapter.shutdown();
+      return 1;
+    }
+    bool heal_acknowledged = false;
+    std::size_t recovery_stable_cycles = 0U;
+    bool target_recovered_present = false;
+    for (std::size_t cycle = 0U; cycle < 1'000U; ++cycle) {
+      std::this_thread::sleep_for(std::chrono::microseconds(cycle_time_us));
+      const auto receive = adapter.receive_process();
+      const int ack = poll_link_ack(true);
+      if (ack < 0) {
+        std::cerr << "FAIL: KickCAT rejected the link-heal command\\n";
+        (void)adapter.queue_send();
+        (void)adapter.shutdown();
+        return 1;
+      }
+      if (ack > 0) heal_acknowledged = true;
+
+      bool feedback_ok = true;
+      for (auto& drive : drives) {
+        feedback_ok =
+            read_u16(adapter, drive.pdo.statusword, drive.last_statusword) &&
+            read_i32_bits(adapter, drive.pdo.actual_position,
+                          drive.held_position_bits) && feedback_ok;
+      }
+      const auto monitor_status = slave_health.update(adapter);
+      if (!monitor_status.ok()) feedback_ok = false;
+
+      const bool both_domains_complete =
+          adapter.domain_working_counter_complete(peer.domain_id) &&
+          adapter.domain_working_counter_complete(target.domain_id) &&
+          adapter.domain_working_counter(peer.domain_id) == 3U &&
+          adapter.domain_working_counter(target.domain_id) == 3U;
+      const auto& runtime = adapter.runtime_health();
+      bool both_enabled = feedback_ok && both_domains_complete &&
+                          receive.ok() && runtime.valid() && runtime.link_up &&
+                          runtime.slaves_responding == kDriveCount;
+      for (const auto& drive : drives) {
+        if (mca::hardware::decode_cia402_pds_state(drive.last_statusword) !=
+                Cia402PdsState::OperationEnabled ||
+            drive.last_mode_display != kCspMode)
+          both_enabled = false;
+      }
+
+      const auto& health_snapshot = slave_health.snapshot();
+      target_recovered_present =
+          monitor_state_for(target.ring_position,
+                            mca::hardware::EthercatSlaveHealthState::Present);
+      const bool writes_ok =
+          feedback_ok &&
+          write_value(adapter, peer.pdo.controlword, 0x000FU) &&
+          write_value(adapter, peer.pdo.target_position,
+                      peer.held_position_bits) &&
+          write_value(adapter, peer.pdo.target_velocity, 0U) &&
+          write_value(adapter, peer.pdo.mode_of_operation, kCspMode) &&
+          write_value(adapter, target.pdo.controlword, 0x000FU) &&
+          write_value(adapter, target.pdo.target_position,
+                      target.held_position_bits) &&
+          write_value(adapter, target.pdo.target_velocity, 0U) &&
+          write_value(adapter, target.pdo.mode_of_operation, kCspMode);
+      const auto previous_sequence = adapter.cycle_sequence();
+      const auto send = adapter.queue_send();
+      if (adapter.cycle_sequence() == previous_sequence || !writes_ok ||
+          (both_enabled && !send.ok())) {
+        std::cerr << "FAIL: PDO transmission failed during link recovery\\n";
+        print_transport_diagnostics(adapter, receive);
+        (void)adapter.shutdown();
+        return 1;
+      }
+
+      if (both_enabled && target_recovered_present && heal_acknowledged)
+        ++recovery_stable_cycles;
+      else
+        recovery_stable_cycles = 0U;
+      if (recovery_stable_cycles >= kStableCyclesRequired) break;
+      (void)health_snapshot;
+    }
+    if (!heal_acknowledged ||
+        recovery_stable_cycles < kStableCyclesRequired ||
+        !target_recovered_present) {
+      std::cerr << "FAIL: downstream slave did not recover after link heal; "
+                << "heal_ack=" << heal_acknowledged
+                << " recovery_stable_cycles=" << recovery_stable_cycles
+                << " target_present=" << target_recovered_present
+                << " target_wkc=" << adapter.domain_working_counter(target.domain_id)
+                << " peer_wkc=" << adapter.domain_working_counter(peer.domain_id)
+                << '\\n';
+      (void)adapter.shutdown();
+      return 1;
+    }
+    std::cout << "PASS: downstream link healed target_ring=1 "
+                 "peer_ring=0 both_domain_wkc=3 target_operation_enabled=1 "
+                 "recovery_stable_cycles="
+              << recovery_stable_cycles << '\\n';
+#endif
   }
 
   bool all_disabled = false;

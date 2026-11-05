@@ -45,6 +45,19 @@ ESI = """<?xml version="1.0"?>
 """
 
 
+ESI_WITH_VELOCITY = ESI.replace(
+    "      </Device>",
+    """        <RxPdo Sm="2"><Index>#x1601</Index><Name>Velocity command</Name>
+          <Entry><Index>#x60FF</Index><SubIndex>0</SubIndex><BitLen>32</BitLen><Name>Target velocity</Name><DataType>DINT</DataType></Entry>
+        </RxPdo>
+        <TxPdo Sm="3"><Index>#x1A01</Index><Name>Velocity feedback</Name>
+          <Entry><Index>#x606C</Index><SubIndex>0</SubIndex><BitLen>32</BitLen><Name>Actual velocity</Name><DataType>DINT</DataType></Entry>
+        </TxPdo>
+      </Device>""",
+    1,
+)
+
+
 class EsiToProfileTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -73,6 +86,53 @@ class EsiToProfileTests(unittest.TestCase):
         second = esi_to_profile.parse_esi(self.path)["devices"][1]
         self.assertEqual(second["identity"]["product_code"], 4098)
         self.assertEqual(second["identity"]["revision"], 3)
+
+
+    def test_resolves_cia402_candidate_from_explicit_pdo_selection(self):
+        self.path.write_text(ESI_WITH_VELOCITY, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        result = esi_to_profile.resolve_cia402_candidate(
+            device, [0x1600, 0x1601], [0x1A00, 0x1A01]
+        )
+        self.assertEqual(result["profile"], "CiA402")
+        self.assertEqual(result["bindings"]["controlword"]["index"], 0x6040)
+        self.assertEqual(result["bindings"]["target_velocity"]["pdo_index"], 0x1601)
+        self.assertEqual(result["bindings"]["actual_velocity"]["direction"], "tx")
+        self.assertTrue(result["supports"]["cyclic_synchronous_velocity"])
+        self.assertFalse(result["supports"]["cyclic_synchronous_position"])
+        self.assertFalse(result["supports"]["homing"])
+        self.assertFalse(result["is_runtime_readback"])
+
+    def test_requires_explicit_selection_and_all_core_objects(self):
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        with self.assertRaisesRegex(esi_to_profile.EsiError, "both required"):
+            esi_to_profile.resolve_cia402_candidate(device, [0x1600], [])
+        with self.assertRaisesRegex(esi_to_profile.EsiError, "missing required"):
+            esi_to_profile.resolve_cia402_candidate(device, [], [0x1A00])
+
+    def test_rejects_wrong_direction_or_width_for_cia402_objects(self):
+        wrong_width = ESI_WITH_VELOCITY.replace(
+            "<BitLen>32</BitLen><Name>Target velocity</Name>",
+            "<BitLen>16</BitLen><Name>Target velocity</Name>",
+        )
+        self.path.write_text(wrong_width, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        with self.assertRaisesRegex(esi_to_profile.EsiError, "must be RXPDO/32-bit"):
+            esi_to_profile.resolve_cia402_candidate(
+                device, [0x1600, 0x1601], [0x1A00, 0x1A01]
+            )
+
+    def test_rejects_duplicate_object_across_selected_pdos(self):
+        duplicate = ESI_WITH_VELOCITY.replace(
+            '<Entry><Index>#x60FF</Index><SubIndex>0</SubIndex><BitLen>32</BitLen><Name>Target velocity</Name><DataType>DINT</DataType></Entry>',
+            '<Entry><Index>#x6040</Index><SubIndex>0</SubIndex><BitLen>16</BitLen><Name>Duplicate controlword</Name><DataType>UINT</DataType></Entry>',
+        )
+        self.path.write_text(duplicate, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        with self.assertRaisesRegex(esi_to_profile.EsiError, "duplicate selected object"):
+            esi_to_profile.resolve_cia402_candidate(
+                device, [0x1600, 0x1601], [0x1A00, 0x1A01]
+            )
 
     def test_rejects_wrong_root(self):
         self.path.write_text("<NotEsi/>", encoding="utf-8")

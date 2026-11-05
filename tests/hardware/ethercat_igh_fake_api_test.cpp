@@ -1006,3 +1006,42 @@ TEST(EthercatIghFakeApi, SplitsReceiveProcessFromQueueAndSendPhases) {
   EXPECT_EQ(fake_igh::queue_calls(), 1U);
   EXPECT_EQ(fake_igh::send_calls(), 1U);
 }
+
+TEST(EthercatIghFakeApi, KeepsCyclicPipelineMovingAcrossBackendCallFailures) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slots(adapter));
+
+  auto expect_failed_cycle_is_sent = [&adapter](auto inject_failure) {
+    const auto queued_before = fake_igh::queue_calls();
+    const auto sent_before = fake_igh::send_calls();
+    const auto sequence_before = adapter.cycle_sequence();
+    inject_failure(true);
+    EXPECT_FALSE(adapter.exchange().ok());
+    EXPECT_EQ(fake_igh::queue_calls(), queued_before + 1U);
+    EXPECT_EQ(fake_igh::send_calls(), sent_before + 1U);
+    EXPECT_EQ(adapter.cycle_sequence(), sequence_before + 1U);
+    inject_failure(false);
+  };
+
+  // Receive/process/queue errors must not strand the cyclic datagram pipeline.
+  expect_failed_cycle_is_sent(fake_igh::fail_receive);
+  expect_failed_cycle_is_sent(fake_igh::fail_domain_process);
+  expect_failed_cycle_is_sent(fake_igh::fail_domain_queue);
+
+  // If the send itself fails, the cycle is not counted as transmitted.
+  const auto queued_before = fake_igh::queue_calls();
+  const auto sent_before = fake_igh::send_calls();
+  const auto sequence_before = adapter.cycle_sequence();
+  fake_igh::fail_send(true);
+  EXPECT_FALSE(adapter.exchange().ok());
+  EXPECT_EQ(fake_igh::queue_calls(), queued_before + 1U);
+  EXPECT_EQ(fake_igh::send_calls(), sent_before + 1U);
+  EXPECT_EQ(adapter.cycle_sequence(), sequence_before);
+  fake_igh::fail_send(false);
+
+  EXPECT_TRUE(adapter.exchange().ok());
+  EXPECT_EQ(adapter.cycle_sequence(), sequence_before + 1U);
+}

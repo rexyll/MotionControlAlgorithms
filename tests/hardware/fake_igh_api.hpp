@@ -33,6 +33,10 @@ void set_domain_working_counter_complete_at(std::size_t index,
 void set_domain_working_counter_complete(bool complete) noexcept;
 void fail_master_state(bool enabled) noexcept;
 void fail_slave_state(bool enabled) noexcept;
+void fail_receive(bool enabled) noexcept;
+void fail_domain_process(bool enabled) noexcept;
+void fail_domain_queue(bool enabled) noexcept;
+void fail_send(bool enabled) noexcept;
 std::size_t queue_calls() noexcept;
 std::size_t send_calls() noexcept;
 std::size_t activate_calls() noexcept;

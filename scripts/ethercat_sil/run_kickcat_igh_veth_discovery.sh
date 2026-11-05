@@ -312,7 +312,8 @@ if [[ "$COMM_FAULT_SIL" == "1" ]]; then
   [[ "$FAULT_SIL" == "0" && "$MULTI_FAULT_SIL" == "0" ]] || fail "link-break SIL cannot be combined with DS402 fault injection"
   [[ -n "$KICKCAT_SOURCE_DIR" && -f "$KICKCAT_SOURCE_DIR/lib/include/kickcat/SimulatorControl.h" ]] || fail "set KICKCAT_SOURCE_DIR to the pinned KickCAT checkout"
   [[ -f "$KICKCAT_SOURCE_DIR/build/lib/libkickcat.a" ]] || fail "build the pinned KickCAT libkickcat.a before communication fault SIL"
-  "$KICKCAT_SIMULATOR" --help 2>&1 | grep -q -- "--control" || fail "KICKCAT_SIMULATOR does not expose the --control shared-memory option"
+  simulator_help="$("$KICKCAT_SIMULATOR" --help 2>&1)" || fail "KICKCAT_SIMULATOR --help failed"
+  [[ "$simulator_help" == *"--control"* ]] || fail "KICKCAT_SIMULATOR does not expose the --control shared-memory option"
 fi
 if [[ "$MULTI_FAULT_SIL" == "1" ]]; then
   [[ "$EXPECTED_SLAVES" == "2" ]] || fail "multi-slave fault SIL requires exactly two configured slaves"

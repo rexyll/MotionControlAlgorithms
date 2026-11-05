@@ -1011,6 +1011,35 @@ TEST(EthercatIghFakeApi, FaultResetAbortsAfterPulseWhenWkcDrops) {
   EXPECT_EQ(plan.phase, mca::hardware::Cia402FaultResetPhase::Failed);
 }
 
+TEST(EthercatIghFakeApi, KeepsPdoReadWriteImagesIsolatedAcrossSlaveDomains) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(activate_with_two_slaves(adapter));
+
+  // Each slave has its own Domain image. Identical local PDO offsets must
+  // address different buffers rather than aliasing the first Domain.
+  fake_igh::set_domain_byte(0U, 0U, 0x34U);
+  fake_igh::set_domain_byte(0U, 1U, 0x12U);
+  fake_igh::set_domain_byte(1U, 0U, 0x78U);
+  fake_igh::set_domain_byte(1U, 1U, 0x56U);
+
+  std::uint64_t first_input = 0U;
+  std::uint64_t second_input = 0U;
+  ASSERT_TRUE(adapter.read_pdo(0U, first_input).ok());
+  ASSERT_TRUE(adapter.read_pdo(2U, second_input).ok());
+  EXPECT_EQ(first_input, 0x1234U);
+  EXPECT_EQ(second_input, 0x5678U);
+
+  ASSERT_TRUE(adapter.write_pdo(1U, 0xA1B2U).ok());
+  ASSERT_TRUE(adapter.write_pdo(3U, 0xC3D4U).ok());
+  EXPECT_EQ(fake_igh::get_domain_byte(0U, 0U), 0xB2U);
+  EXPECT_EQ(fake_igh::get_domain_byte(0U, 1U), 0xA1U);
+  EXPECT_EQ(fake_igh::get_domain_byte(1U, 0U), 0xD4U);
+  EXPECT_EQ(fake_igh::get_domain_byte(1U, 1U), 0xC3U);
+}
+
 TEST(EthercatIghFakeApi, IsolatesOneSlaveLossAndRecoversWithoutLosingPeer) {
   fake_igh::reset();
   Adapter::Config adapter_config{};

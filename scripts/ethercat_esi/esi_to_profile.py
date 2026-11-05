@@ -155,6 +155,15 @@ def _parse_device(device: ET.Element, vendor_id: int) -> dict[str, Any]:
 
     if not pdos:
         raise EsiError(f"device {device_name!r} has no RxPdo/TxPdo declarations")
+    sync_managers = _parse_sync_managers(device)
+    for pdo in pdos:
+        sync_manager = pdo["sync_manager"]
+        if sync_manager is not None and sync_manager >= len(sync_managers):
+            raise EsiError(
+                f"{pdo['direction']}PDO 0x{pdo['index']:04X} references "
+                f"SyncManager {sync_manager}, but the device declares "
+                f"only {len(sync_managers)} SyncManager entries"
+            )
     return {
         "identity": {
             "vendor_id": vendor_id,
@@ -163,7 +172,7 @@ def _parse_device(device: ET.Element, vendor_id: int) -> dict[str, Any]:
         },
         "name": device_name,
         "type_name": _text(type_element, "Device.Type"),
-        "sync_managers": _parse_sync_managers(device),
+        "sync_managers": sync_managers,
         "pdos": pdos,
     }
 

@@ -300,8 +300,22 @@ int main() {
     std::this_thread::sleep_for(std::chrono::microseconds(cycle_time_us));
     const auto receive = adapter.receive_process();
     if (!receive.ok() || !transport_healthy(adapter)) {
+      // Preserve the exact first failing cycle before queue_send() advances the
+      // adapter again. An incomplete WKC remains a hard acceptance failure.
+      print_transport_diagnostics(adapter, receive);
+      std::cerr << "ENABLE_SEQUENCE_LAST_FEEDBACK";
+      for (const auto& drive : drives) {
+        std::cerr << " ring=" << drive.ring_position
+                  << " last_statusword=0x" << std::hex
+                  << drive.last_statusword << std::dec
+                  << " enabled_stable_cycles=" << drive.enabled_stable_cycles;
+      }
+      std::cerr << '\n';
       (void)adapter.queue_send();
-      std::cerr << "FAIL: transport/WKC lost during two-drive enable sequence\n";
+      std::cerr << "FAIL: transport/WKC lost during two-drive enable sequence"
+                << " receive_ok=" << receive.ok()
+                << " transport_healthy=" << transport_healthy(adapter)
+                << '\n';
       break;
     }
     if (!slave_health.update(adapter).ok()) {

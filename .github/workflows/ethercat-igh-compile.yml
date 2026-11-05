@@ -64,4 +64,9 @@ jobs:
             -fsyntax-only tests/integration/ethercat_igh_kickcat_multi_slave_cyclic_sil.cpp
           g++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow \
             -I/tmp/KickCAT-control/lib/include \
-            -fsyntax-only tests/integration/ethercat_kickcat_sim_control_shm.cpp
+            tests/integration/ethercat_kickcat_sim_control_shm.cpp \
+            /tmp/KickCAT-control/build/lib/libkickcat.a -pthread -lrt \
+            -o /tmp/mca-ethercat-control-shm
+          control_name="/mca_ethercat_ci_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
+          /tmp/mca-ethercat-control-shm init "$control_name"
+          /tmp/mca-ethercat-control-shm unlink "$control_name"

@@ -106,8 +106,9 @@ mca::core::Status EthercatIghAdapter<S, D, E>::discover_pdo_mapping(
         const auto pdo_position = static_cast<std::uint16_t>(pdo_pos);
         ec_pdo_info_t pdo{};
         if (ecrt_master_get_pdo(master_, slave.ring_position, sm, pdo_position,
-                                &pdo) != 0 ||
-            pdo.index == 0U || pdo.n_entries == 0U ||
+                                &pdo) != 0)
+          return {mca::core::StatusCode::RuntimeError};
+        if (pdo.index == 0U || pdo.n_entries == 0U ||
             pdo.n_entries > E || pdo.n_entries > 65535U)
           return {mca::core::StatusCode::ConstraintViolation};
 
@@ -389,8 +390,9 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
             ec_pdo_info_t actual_pdo{};
             if (ecrt_master_get_pdo(master_, ring_position, sync_index,
                                     static_cast<std::uint16_t>(pdo_pos),
-                                    &actual_pdo) != 0 ||
-                actual_pdo.index != pdo_index ||
+                                    &actual_pdo) != 0)
+              return fail_configuration({mca::core::StatusCode::RuntimeError});
+            if (actual_pdo.index != pdo_index ||
                 actual_pdo.n_entries != pdo_cursor - pdo_begin)
               return fail_configuration({mca::core::StatusCode::ConstraintViolation});
             for (std::size_t entry_pos = 0; entry_pos < pdo_cursor - pdo_begin;
@@ -401,8 +403,9 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
                       master_, ring_position, sync_index,
                       static_cast<std::uint16_t>(pdo_pos),
                       static_cast<std::uint16_t>(entry_pos),
-                      &actual_entry) != 0 ||
-                  actual_entry.index != expected.index ||
+                      &actual_entry) != 0)
+                return fail_configuration({mca::core::StatusCode::RuntimeError});
+              if (actual_entry.index != expected.index ||
                   actual_entry.subindex != expected.subindex ||
                   actual_entry.bit_length != expected.bit_length)
                 return fail_configuration({mca::core::StatusCode::ConstraintViolation});

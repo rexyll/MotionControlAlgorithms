@@ -157,6 +157,106 @@ def _parse_device(device: ET.Element, vendor_id: int) -> dict[str, Any]:
     }
 
 
+
+CIA402_OBJECTS = {
+    "controlword": (0x6040, 0, 16, "rx", True),
+    "target_position": (0x607A, 0, 32, "rx", False),
+    "target_velocity": (0x60FF, 0, 32, "rx", False),
+    "mode_of_operation": (0x6060, 0, 8, "rx", True),
+    "statusword": (0x6041, 0, 16, "tx", True),
+    "actual_position": (0x6064, 0, 32, "tx", False),
+    "actual_velocity": (0x606C, 0, 32, "tx", False),
+    "mode_display": (0x6061, 0, 8, "tx", True),
+    "target_torque": (0x6071, 0, 16, "rx", False),
+    "actual_torque": (0x6077, 0, 16, "tx", False),
+}
+
+
+def resolve_cia402_candidate(
+    device: dict[str, Any], rx_pdo_indices: list[int], tx_pdo_indices: list[int]
+) -> dict[str, Any]:
+    """Resolve CiA 402 objects only from explicitly selected PDO declarations.
+
+    ESI may describe alternative PDOs. The caller must select the PDO indices
+    that represent the intended mapping; declarations alone are not active
+    assignment readback or proof of runtime capability.
+    """
+    if not rx_pdo_indices or not tx_pdo_indices:
+        raise EsiError("explicit RxPDO and TxPDO selections are both required")
+    selected: list[dict[str, Any]] = []
+    for direction, indices in (("rx", rx_pdo_indices), ("tx", tx_pdo_indices)):
+        if len(indices) != len(set(indices)):
+            raise EsiError(f"duplicate {direction.upper()}PDO selection")
+        for pdo_index in indices:
+            matches = [pdo for pdo in device["pdos"]
+                       if pdo["direction"] == direction and pdo["index"] == pdo_index]
+            if len(matches) != 1:
+                raise EsiError(
+                    f"selected {direction.upper()}PDO 0x{pdo_index:04X} "
+                    f"has {len(matches)} matching declarations"
+                )
+            selected.append(matches[0])
+
+    found: dict[tuple[int, int], dict[str, Any]] = {}
+    bit_offsets = {"rx": 0, "tx": 0}
+    for pdo in selected:
+        direction = pdo["direction"]
+        for entry_number, entry in enumerate(pdo["entries"]):
+            key = (entry["index"], entry["sub_index"])
+            if entry["index"] != 0 and key in found:
+                raise EsiError(
+                    f"duplicate selected object 0x{key[0]:04X}:{key[1]:02X}"
+                )
+            normalized = {
+                "index": entry["index"],
+                "sub_index": entry["sub_index"],
+                "bit_length": entry["bit_length"],
+                "direction": direction,
+                "pdo_index": pdo["index"],
+                "entry_number": entry_number,
+                "bit_offset": bit_offsets[direction],
+                "is_padding": entry["is_padding"],
+            }
+            if entry["index"] != 0:
+                found[key] = normalized
+            bit_offsets[direction] += entry["bit_length"]
+
+    resolved: dict[str, Any] = {}
+    for name, (index, subindex, width, direction, required) in CIA402_OBJECTS.items():
+        match = found.get((index, subindex))
+        if match is None:
+            if required:
+                raise EsiError(f"selected mapping is missing required CiA 402 object 0x{index:04X}:{subindex:02X}")
+            continue
+        if match["direction"] != direction or match["bit_length"] != width:
+            raise EsiError(
+                f"CiA 402 object {name} 0x{index:04X}:{subindex:02X} "
+                f"must be {direction.upper()}PDO/{width}-bit"
+            )
+        resolved[name] = match
+
+    def has_pair(command: str, feedback: str) -> bool:
+        return command in resolved and feedback in resolved
+
+    return {
+        "profile": "CiA402",
+        "identity": device["identity"],
+        "selected_rx_pdo_indices": rx_pdo_indices,
+        "selected_tx_pdo_indices": tx_pdo_indices,
+        "bindings": resolved,
+        "supports": {
+            "profile_position": has_pair("target_position", "actual_position"),
+            "cyclic_synchronous_position": has_pair("target_position", "actual_position"),
+            "profile_velocity": has_pair("target_velocity", "actual_velocity"),
+            "cyclic_synchronous_velocity": has_pair("target_velocity", "actual_velocity"),
+            "profile_torque": has_pair("target_torque", "actual_torque"),
+            "cyclic_synchronous_torque": has_pair("target_torque", "actual_torque"),
+            "homing": False,
+        },
+        "is_runtime_readback": False,
+    }
+
+
 def parse_esi(path: Path) -> dict[str, Any]:
     try:
         raw = path.read_bytes()
@@ -201,6 +301,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("esi", type=Path, help="input EtherCAT ESI XML file")
     parser.add_argument("-o", "--output", type=Path, help="write JSON to this path (default: stdout)")
     parser.add_argument("--product-code", help="include only devices matching this decimal, 0x..., or #x... product code")
+    parser.add_argument("--rx-pdo", action="append", default=[], help="select an RxPDO index (repeatable; decimal, 0x..., or #x...) for CiA 402 candidate resolution")
+    parser.add_argument("--tx-pdo", action="append", default=[], help="select a TxPDO index (repeatable; decimal, 0x..., or #x...) for CiA 402 candidate resolution")
     args = parser.parse_args(argv)
     try:
         document = parse_esi(args.esi)
@@ -212,6 +314,14 @@ def main(argv: list[str] | None = None) -> int:
             ]
             if not document["devices"]:
                 raise EsiError(f"no device has product code 0x{wanted:08X}")
+        if args.rx_pdo or args.tx_pdo:
+            if len(document["devices"]) != 1:
+                raise EsiError("CiA 402 candidate resolution requires exactly one selected device; use --product-code")
+            rx_indices = [_number(value, "--rx-pdo") for value in args.rx_pdo]
+            tx_indices = [_number(value, "--tx-pdo") for value in args.tx_pdo]
+            document["cia402_candidate"] = resolve_cia402_candidate(
+                document["devices"][0], rx_indices, tx_indices
+            )
         rendered = json.dumps(document, indent=2, sort_keys=True) + "\n"
         if args.output:
             args.output.write_text(rendered, encoding="utf-8")

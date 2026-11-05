@@ -68,6 +68,8 @@ Do not assume every drive supports every mode/object or identical PDO defaults. 
 
 For EtherCAT CoE, keep EtherCAT master state (INIT/PRE-OP/SAFE-OP/OP), slave AL status, mailbox SDO, process-data mapping, working counter and distributed-clock health distinct from the CiA 402 drive state. An EtherCAT slave may be OP while its drive is not Operation Enabled. Never collapse these state machines.
 
+For the IgH inspection API, `ec_slave_info_t::sync_count` bounds the SyncManager indices to query. A successful `ecrt_master_get_sync_manager()` response with `n_pdos == 0` means that the queried SM has no cyclic PDO assignment; a nonzero API return is an inspection failure, not an empty SM. PDO discovery and `UseDiscoveredMapping` verification must fail closed on that error rather than silently omitting an SM. The fake IgH backend models empty mailbox SMs as successful zero-PDO responses and injects a selected-SM query failure to exercise both discovery and complete-profile verification paths.
+
 ### Offline ESI normalization boundary
 
 The developer utility `scripts/ethercat_esi/esi_to_profile.py` converts an ESI XML file into a normalized JSON inventory using only Python's standard library. It is deliberately outside `include/mca/**`, the root C++ build, and all cyclic runtime paths.

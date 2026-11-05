@@ -206,6 +206,7 @@ def resolve_cia402_candidate(
 
     found: dict[tuple[int, int], dict[str, Any]] = {}
     bit_offsets = {"rx": 0, "tx": 0}
+    ordered_entries: list[dict[str, Any]] = []
     for pdo in selected:
         direction = pdo["direction"]
         for entry_number, entry in enumerate(pdo["entries"]):
@@ -225,6 +226,7 @@ def resolve_cia402_candidate(
                 "bit_offset": bit_offsets[direction],
                 "is_padding": entry["is_padding"],
             }
+            ordered_entries.append(normalized)
             if entry["index"] != 0:
                 found[key] = normalized
             bit_offsets[direction] += entry["bit_length"]
@@ -252,6 +254,7 @@ def resolve_cia402_candidate(
         "selected_rx_pdo_indices": rx_pdo_indices,
         "selected_tx_pdo_indices": tx_pdo_indices,
         "bindings": resolved,
+        "ordered_entries": ordered_entries,
         "supports": {
             "profile_position": has_pair("target_position", "actual_position"),
             "cyclic_synchronous_position": has_pair("target_position", "actual_position"),
@@ -264,6 +267,44 @@ def resolve_cia402_candidate(
         "is_runtime_readback": False,
     }
 
+
+
+def render_cia402_cpp_fixture(candidate: dict[str, Any]) -> str:
+    """Render a deterministic C++ fixture from the normalized selected PDO map."""
+    identity = candidate["identity"]
+    lines = [
+        "#pragma once",
+        "",
+        "#include <array>",
+        "#include <cstdint>",
+        "",
+        "namespace mca::test_fixtures {",
+        "struct EsiCia402PdoEntry {",
+        "  std::uint16_t index;",
+        "  std::uint8_t subindex;",
+        "  std::uint8_t bit_length;",
+        "  std::uint8_t direction;  // 0 = RxPDO/output, 1 = TxPDO/input",
+        "  std::uint8_t sync_manager;",
+        "  std::uint16_t pdo_index;",
+        "  std::uint32_t bit_offset;",
+        "};",
+        f"inline constexpr std::uint32_t kVendorId = 0x{identity['vendor_id']:08X}U;",
+        f"inline constexpr std::uint32_t kProductCode = 0x{identity['product_code']:08X}U;",
+        "inline constexpr std::array<EsiCia402PdoEntry, "
+        f"{len(candidate['ordered_entries'])}U> kEsiCia402PdoEntries{{{{",
+    ]
+    for entry in candidate["ordered_entries"]:
+        direction = 0 if entry["direction"] == "rx" else 1
+        lines.append(
+            "    {"
+            f"0x{entry['index']:04X}U, {entry['sub_index']}U, "
+            f"{entry['bit_length']}U, {direction}U, "
+            f"{entry['sync_manager']}U, 0x{entry['pdo_index']:04X}U, "
+            f"{entry['bit_offset']}U"
+            "},"
+        )
+    lines.extend(["}};", "}  // namespace mca::test_fixtures", ""])
+    return "\n".join(lines)
 
 def parse_esi(path: Path) -> dict[str, Any]:
     try:
@@ -311,6 +352,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--product-code", help="include only devices matching this decimal, 0x..., or #x... product code")
     parser.add_argument("--rx-pdo", action="append", default=[], help="select an RxPDO index (repeatable; decimal, 0x..., or #x...) for CiA 402 candidate resolution")
     parser.add_argument("--tx-pdo", action="append", default=[], help="select a TxPDO index (repeatable; decimal, 0x..., or #x...) for CiA 402 candidate resolution")
+    parser.add_argument("--emit-cpp-fixture", action="store_true", help="emit a C++ golden fixture instead of normalized JSON; requires explicit PDO selections")
     args = parser.parse_args(argv)
     try:
         document = parse_esi(args.esi)
@@ -330,7 +372,12 @@ def main(argv: list[str] | None = None) -> int:
             document["cia402_candidate"] = resolve_cia402_candidate(
                 document["devices"][0], rx_indices, tx_indices
             )
-        rendered = json.dumps(document, indent=2, sort_keys=True) + "\n"
+        if args.emit_cpp_fixture:
+            if "cia402_candidate" not in document:
+                raise EsiError("--emit-cpp-fixture requires explicit --rx-pdo and --tx-pdo selections")
+            rendered = render_cia402_cpp_fixture(document["cia402_candidate"])
+        else:
+            rendered = json.dumps(document, indent=2, sort_keys=True) + "\n"
         if args.output:
             args.output.write_text(rendered, encoding="utf-8")
         else:

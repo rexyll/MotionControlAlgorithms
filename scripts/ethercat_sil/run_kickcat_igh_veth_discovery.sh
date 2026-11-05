@@ -16,7 +16,7 @@ readonly KICKCAT_SLAVE_CONFIGS="${KICKCAT_SLAVE_CONFIGS:-}"
 readonly EXPECTED_SLAVES_OVERRIDE="${MCA_ECAT_EXPECTED_SLAVES:-}"
 readonly ETHERCAT_CLI="${ETHERCAT_CLI:-ethercat}"
 readonly COE_READBACK="${MCA_ECAT_COE_READBACK:-0}"
-readonly IGH_DEBUG_LEVEL="${MCA_ECAT_DEBUG_LEVEL:-$(if [[ "$COE_READBACK" == "1" ]]; then printf '1'; else printf '0'; fi)}"
+readonly IGH_DEBUG_LEVEL="${MCA_ECAT_DEBUG_LEVEL:-0}"
 readonly DISABLE_EOE="${MCA_ECAT_DISABLE_EOE:-0}"
 readonly CYCLIC_SIL="${MCA_ECAT_CYCLIC_SIL:-0}"
 readonly FAULT_SIL="${MCA_ECAT_FAULT_SIL:-0}"
@@ -153,33 +153,45 @@ run_coe_readback() {
 }
 
 start_coe_capture() {
-  # Capture both directions independently at the simulator veth endpoint.
-  # EtherCAT responses retain the master's Ethernet source address after
-  # in-place slave processing, so MAC addresses alone cannot identify direction.
-  tcpdump -l -Q in -i "$SIM_IF" -nn -e -vvv -XX \
-    'ether proto 0x88a4' >"$ARTIFACT_DIR/coe-simulator-ingress.log" 2>&1 &
+  # Capture raw packets on the hot path. Formatting every frame with -vvv -XX
+  # while the VM runs IgH/KickCAT adds avoidable scheduler and I/O pressure.
+  # Text logs are rendered from the pcap files only after SDO readback stops.
+  tcpdump -U -Q in -i "$SIM_IF" -nn -s 0 -w \
+    "$ARTIFACT_DIR/coe-simulator-ingress.pcap" \
+    'ether proto 0x88a4' 2>"$ARTIFACT_DIR/coe-simulator-ingress-capture.log" &
   COE_CAPTURE_IN_PID=$!
-  tcpdump -l -Q out -i "$SIM_IF" -nn -e -vvv -XX \
-    'ether proto 0x88a4' >"$ARTIFACT_DIR/coe-simulator-egress.log" 2>&1 &
+  tcpdump -U -Q out -i "$SIM_IF" -nn -s 0 -w \
+    "$ARTIFACT_DIR/coe-simulator-egress.pcap" \
+    'ether proto 0x88a4' 2>"$ARTIFACT_DIR/coe-simulator-egress-capture.log" &
   COE_CAPTURE_OUT_PID=$!
   # Capture the return path at the IgH-facing veth endpoint as well. A frame
   # observed leaving the simulator NIC is not proof that the master received it.
-  tcpdump -l -Q in -i "$MASTER_IF" -nn -e -vvv -XX \
-    'ether proto 0x88a4' >"$ARTIFACT_DIR/coe-master-ingress.log" 2>&1 &
+  tcpdump -U -Q in -i "$MASTER_IF" -nn -s 0 -w \
+    "$ARTIFACT_DIR/coe-master-ingress.pcap" \
+    'ether proto 0x88a4' 2>"$ARTIFACT_DIR/coe-master-ingress-capture.log" &
   MASTER_CAPTURE_IN_PID=$!
   sleep 0.5
   kill -0 "$COE_CAPTURE_IN_PID" 2>/dev/null || {
-    cat "$ARTIFACT_DIR/coe-simulator-ingress.log" >&2 || true
+    cat "$ARTIFACT_DIR/coe-simulator-ingress-capture.log" >&2 || true
     fail "EtherCAT simulator ingress capture did not stay running"
   }
   kill -0 "$COE_CAPTURE_OUT_PID" 2>/dev/null || {
-    cat "$ARTIFACT_DIR/coe-simulator-egress.log" >&2 || true
+    cat "$ARTIFACT_DIR/coe-simulator-egress-capture.log" >&2 || true
     fail "EtherCAT simulator egress capture did not stay running"
   }
   kill -0 "$MASTER_CAPTURE_IN_PID" 2>/dev/null || {
-    cat "$ARTIFACT_DIR/coe-master-ingress.log" >&2 || true
+    cat "$ARTIFACT_DIR/coe-master-ingress-capture.log" >&2 || true
     fail "EtherCAT master ingress capture did not stay running"
   }
+}
+
+render_coe_capture() {
+  local pcap="$1" text_log="$2"
+  if [[ -s "$pcap" ]]; then
+    tcpdump -nn -e -vvv -XX -r "$pcap" >"$text_log" 2>&1 || true
+  else
+    : >"$text_log"
+  fi
 }
 
 stop_coe_capture() {
@@ -198,6 +210,12 @@ stop_coe_capture() {
     wait "$MASTER_CAPTURE_IN_PID" 2>/dev/null || true
     MASTER_CAPTURE_IN_PID=""
   fi
+  render_coe_capture "$ARTIFACT_DIR/coe-simulator-ingress.pcap" \
+    "$ARTIFACT_DIR/coe-simulator-ingress.log"
+  render_coe_capture "$ARTIFACT_DIR/coe-simulator-egress.pcap" \
+    "$ARTIFACT_DIR/coe-simulator-egress.log"
+  render_coe_capture "$ARTIFACT_DIR/coe-master-ingress.pcap" \
+    "$ARTIFACT_DIR/coe-master-ingress.log"
 }
 
 cleanup() {
@@ -307,6 +325,7 @@ chmod 700 "$ARTIFACT_DIR"
   printf '\n'
   printf 'master_if=%s\nsim_if=%s\nmaster_mac=%s\nsim_mac=%s\nexpected_slaves=%s\n' "$MASTER_IF" "$SIM_IF" "$MASTER_MAC" "$SIM_MAC" "$EXPECTED_SLAVES"
   printf 'slave_config=%s\n' "${SLAVE_CONFIGS[*]}"
+  printf 'igh_debug_level=%s\ncoe_readback=%s\ndisable_eoe=%s\n' "$IGH_DEBUG_LEVEL" "$COE_READBACK" "$DISABLE_EOE"
   printf '\nIgH module parameters:\n'
   modinfo ec_master 2>&1 | grep -E '^(version|parm):' || true
 } >"$ARTIFACT_DIR/environment.txt"

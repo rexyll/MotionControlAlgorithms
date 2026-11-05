@@ -230,6 +230,73 @@ pcap files during SDO readback, rendering text dumps only after the capture
 stops. The subsequent FRA=2 matrix passed, but this correlation alone does
 not prove that capture overhead was the sole cause of the earlier timeout.
 
+## Downstream communication-loss and link-recovery SIL
+
+A separate communication-fault mode uses the pinned KickCAT simulator's
+out-of-band `SimulatorControl` channel to break and heal the physical link
+between node 0 and node 1 while the IgH cyclic application remains active.
+This is distinct from the DS402 Fault Reaction Active fixture: it changes the
+emulated EtherCAT physical topology rather than injecting a CiA 402 Statusword.
+
+The initial test is deliberately scoped to the default two-node daisy chain:
+
+- ring position 0 is upstream and remains connected to the master;
+- ring position 1 is downstream and is isolated by breaking link 0:1;
+- while the link is broken, ring 0 must retain WKC 3 and remain Operation
+  Enabled, while ring 1 must report WKC 0/incomplete and the per-slave health
+  monitor must report Lost;
+- after a control-channel acknowledgement for healing link 0:1, both domains
+  must return to WKC 3, both drives must report Operation Enabled, and the
+  downstream health state must recover to Present for at least ten consecutive
+  cycles.
+
+This test does not claim that a break at every physical cable location has the
+same outcome, nor does it test cable redundancy. In a daisy chain, a break
+between upstream and downstream slaves physically partitions the downstream
+segment; the peer-preservation assertion applies only to the upstream drive.
+
+### Build prerequisites
+
+Use the same pinned KickCAT checkout used by the DS402 fault fixture. Its
+`network_simulator` must be built with the simulator-control option enabled,
+and the static `libkickcat.a` must exist under `$KICKCAT_SOURCE_DIR/build/lib`.
+The communication SIL runner creates a per-run shared-memory control channel,
+passes its name to `network_simulator --control`, builds a small channel
+initialiser, and unlinks the shared-memory object during cleanup.
+
+### Ubuntu wire-level command
+
+After pulling `main`, applying the existing DS402 fixture patch if needed,
+and rebuilding the KickCAT simulator:
+
+```bash
+cd ~/workspace/MotionControlAlgorithms
+git pull --ff-only origin main
+
+export KICKCAT_SOURCE_DIR="$HOME/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT"
+cmake --build "$KICKCAT_SOURCE_DIR/build" --target kickcat network_simulator -j"$(nproc)"
+
+sudo -E env \
+  KICKCAT_SOURCE_DIR="$KICKCAT_SOURCE_DIR" \
+  KICKCAT_SIMULATOR="$KICKCAT_SOURCE_DIR/build/simulation/network_simulator" \
+  KICKCAT_SLAVE_CONFIG="$KICKCAT_SOURCE_DIR/simulation/slave_configs/ecat402-drive.json" \
+  MCA_ECAT_CYCLE_TIME_US=1000 \
+  MCA_ECAT_DEBUG_LEVEL=0 \
+  bash scripts/ethercat_sil/run_kickcat_igh_multi_slave_communication_fault.sh
+```
+
+Expected output includes a link-break acknowledgement, ten or more cycles with
+ring-1 domain WKC 0 while ring 0 remains WKC 3/Operation Enabled, then a
+link-heal acknowledgement and ten or more stable cycles with both domains
+WKC 3 and both drives Operation Enabled. The complete cyclic test then
+performs its normal safe disable.
+
+The CI syntax/build gate compiles this mode with
+`MCA_ENABLE_KICKCAT_SIM_CONTROL=1` and builds the pinned KickCAT core library.
+That is not a substitute for the Ubuntu wire-level run. Until an artifact root
+and both break/heal traces are recorded, communication-loss SIL remains
+pending; no communication fault or recovery pass is claimed here.
+
 This is KickCAT SIL only: vendor-specific fault semantics, distributed-clock
 timing, real-drive fault behavior and physical HIL remain unvalidated. Peer
 preservation in this simulator is not a safety-rated isolation function.

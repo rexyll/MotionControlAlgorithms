@@ -238,7 +238,7 @@ class EsiToProfileTests(unittest.TestCase):
     def test_rejects_out_of_range_sync_manager_index(self):
         malformed = ESI.replace('<RxPdo Sm="2"', '<RxPdo Sm="256"', 1)
         self.path.write_text(malformed, encoding="utf-8")
-        with self.assertRaisesRegex(esi_to_profile.EsiError, "RxPDO.Sm value 256"):
+        with self.assertRaisesRegex(esi_to_profile.EsiError, "rxPDO.Sm value 256"):
             esi_to_profile.parse_esi(self.path)
 
     def test_candidate_requires_selected_pdo_sync_manager_association(self):

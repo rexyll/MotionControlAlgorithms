@@ -672,7 +672,7 @@ int main() {
       if (timeout_end == timeout_text || *timeout_end != '\0' ||
           parsed_timeout < kMinCommRecoveryTimeoutMs ||
           parsed_timeout > kMaxCommRecoveryTimeoutMs) {
-        std::cerr << "FAIL: MCA_ECAT_COMM_RECOVERY_TIMEOUT_MS must be in [100, 60000]\\n";
+        std::cerr << "FAIL: MCA_ECAT_COMM_RECOVERY_TIMEOUT_MS must be in [100, 60000]\n";
         (void)adapter.shutdown();
         return 1;
       }

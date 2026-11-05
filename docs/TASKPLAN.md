@@ -47,13 +47,14 @@ Acceptance rule: root Configure/Build/Test remains independent of ROS 2 and Gaze
 
 ### P12-05c.2 — EtherCAT SIL/master comparison
 
-- [ ] Full EtherCAT SIL/master acceptance remains open.
+- [ ] Full EtherCAT SIL/master acceptance remains open; the KickCAT two-slave daisy-chain link break/heal baseline is now accepted, while target-NIC timing, broader topology/fixture coverage and physical-bus/HIL remain open.
 - [x] Master-neutral fixed-capacity topology/PDO/WKC/DC/cycle-timing contracts and deterministic fake-master tests implemented.
 - [x] Bounded asynchronous SDO request/result and mailbox queue lifecycle implemented.
 - [x] IgH EtherCAT Master 1.6.13 adapter implemented behind `MCA_ENABLE_IGH`.
 - [x] IgH 1.6.13 API compile passed.
 - [x] Deterministic IgH fake-API coverage passed for cyclic exchange, topology/health, PDO mapping and asynchronous SDO lifecycle, including busy-slot isolation, timeout quarantine, terminal-buffer relocation and response-capacity checks.
-- [ ] Wire-level EtherCAT SIL, slave-simulator validation, target-NIC timing and physical-bus/HIL validation remain open.
+- [x] KickCAT wire-level two-slave SIL baseline: CoE PDO assignment/entry readback, independent per-slave domains, DS402 Operation Enabled, downstream link isolation, link healing, IgH topology rescan recovery, 10 stable health cycles and safe return to Switch On Disabled. Accepted from operator run `/tmp/mca-ethercat-sil-20261105-132751`; see `P14_ETHERCAT_MULTI_SLAVE_HEALTH.md`.
+- [ ] Broader slave-simulator/device-profile coverage, target-NIC timing/jitter, physical-bus fault behavior and physical-bus/HIL validation remain open.
 - [ ] SOEM 2.0 integration remains blocked pending licensing/redistribution approval and separate dependency packaging; no SOEM dependency enters the root build.
 
 ### P12-05c.3 — Vendor SDK adapters
@@ -84,6 +85,6 @@ Acceptance rule: root Configure/Build/Test remains independent of ROS 2 and Gaze
 ## Current next gate
 
 1. Continue auditing the IgH adapter against the master-neutral contract and close only concrete deterministic gaps found in the fake API.
-2. Keep SOEM and proprietary vendor SDKs out of the root build until their licensing/package constraints are resolved.
-3. Complete generic CiA 402/CoE interoperability fixtures before selecting a physical drive.
+2. Build generic CiA 402/CoE interoperability fixtures from public EDS/ESI/object-dictionary data for representative vendor profiles; keep vendor identity/scaling/fault extensions explicit and testable.
+3. Keep SOEM and proprietary vendor SDKs out of the root build until their licensing/package constraints are resolved.
 4. When a real drive is selected, add the model-specific EDS/ESI/scaling/fault mapping and then perform HIL with an independent STO/E-stop fixture.

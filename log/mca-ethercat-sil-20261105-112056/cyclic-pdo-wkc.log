@@ -1,0 +1,9 @@
+Discovered 2 drive slaves
+Drive slot=0 ring_position=0 domain=1 bindings={cw:0,sw:4,target_pos:1,actual_pos:5}
+Drive slot=1 ring_position=1 domain=2 bindings={cw:8,sw:12,target_pos:9,actual_pos:13}
+Startup transport and per-slave health ready after 152 cycles
+PASS: ring_position=0 Operation Enabled stable_cycles=10 statusword=0x37 mode_display=0x8 domain_wkc=3
+PASS: ring_position=1 Operation Enabled stable_cycles=10 statusword=0x37 mode_display=0x8 domain_wkc=3
+COMM_FAULT target_ring=1 peer_ring=0 link=0:1
+PASS: downstream communication isolated target_ring=1 target_domain_wkc=0 peer_ring=0 peer_domain_wkc=3 peer_operation_enabled=1 lost_cycles=10
+FAIL: downstream slave did not recover after link heal; heal_ack=1 recovery_stable_cycles=0 target_present=0 target_wkc=3 peer_wkc=3

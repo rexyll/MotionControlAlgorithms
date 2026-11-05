@@ -269,30 +269,34 @@ def resolve_cia402_candidate(
 
 
 
-def render_cia402_cpp_fixture(candidate: dict[str, Any]) -> str:
+def render_cia402_cpp_fixture(
+    candidate: dict[str, Any], *, array_name: str = "kEsiCia402PdoEntries",
+    include_common_declarations: bool = True,
+) -> str:
     """Render a deterministic C++ fixture from the normalized selected PDO map."""
     identity = candidate["identity"]
-    lines = [
-        "#pragma once",
-        "",
-        "#include <array>",
-        "#include <cstdint>",
-        "",
-        "namespace mca::test_fixtures {",
-        "struct EsiCia402PdoEntry {",
-        "  std::uint16_t index;",
-        "  std::uint8_t subindex;",
-        "  std::uint8_t bit_length;",
-        "  std::uint8_t direction;  // 0 = RxPDO/output, 1 = TxPDO/input",
-        "  std::uint8_t sync_manager;",
-        "  std::uint16_t pdo_index;",
-        "  std::uint32_t bit_offset;",
-        "};",
-        f"inline constexpr std::uint32_t kVendorId = 0x{identity['vendor_id']:08X}U;",
-        f"inline constexpr std::uint32_t kProductCode = 0x{identity['product_code']:08X}U;",
+    if include_common_declarations:
+        lines = [
+            "#pragma once", "", "#include <array>", "#include <cstdint>", "",
+            "namespace mca::test_fixtures {",
+            "struct EsiCia402PdoEntry {",
+            "  std::uint16_t index;", "  std::uint8_t subindex;",
+            "  std::uint8_t bit_length;",
+            "  std::uint8_t direction;  // 0 = RxPDO/output, 1 = TxPDO/input",
+            "  std::uint8_t sync_manager;", "  std::uint16_t pdo_index;",
+            "  std::uint32_t bit_offset;", "};",
+            f"inline constexpr std::uint32_t kVendorId = 0x{identity['vendor_id']:08X}U;",
+            f"inline constexpr std::uint32_t kProductCode = 0x{identity['product_code']:08X}U;",
+        ]
+    else:
+        lines = [
+            "#pragma once", "", '#include "cia402_bindings_fixture.hpp"', "",
+            "namespace mca::test_fixtures {",
+        ]
+    lines.append(
         "inline constexpr std::array<EsiCia402PdoEntry, "
-        f"{len(candidate['ordered_entries'])}U> kEsiCia402PdoEntries{{{{",
-    ]
+        f"{len(candidate['ordered_entries'])}U> {array_name}{{{{"
+    )
     for entry in candidate["ordered_entries"]:
         direction = 0 if entry["direction"] == "rx" else 1
         lines.append(

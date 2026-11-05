@@ -93,7 +93,7 @@ mca::core::Status EthercatIghAdapter<S, D, E>::discover_pdo_mapping(
                      static_cast<unsigned int>(sync.dir), sync.n_pdos);
       }
       if (sm_result != 0)
-        continue;
+        return {mca::core::StatusCode::RuntimeError};
       if (sync.n_pdos == 0U) continue;
       if (sync.n_pdos > E || sync.n_pdos > 65535U ||
           sync.index != sm ||
@@ -430,7 +430,10 @@ mca::core::Status EthercatIghAdapter<S, D, E>::configure_impl(
                          static_cast<unsigned int>(actual_sync.dir),
                          actual_sync.n_pdos);
           }
-          if (sync_result == 0 && actual_sync.n_pdos != 0U)
+          if (sync_result != 0)
+            return fail_configuration(
+                {mca::core::StatusCode::RuntimeError});
+          if (actual_sync.n_pdos != 0U)
             ++discovered_sync_count;
         }
         if (discovered_sync_count != expected_sync_count)

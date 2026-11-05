@@ -151,13 +151,13 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertEqual(candidate["bindings"]["target_torque"]["bit_offset"], 96)
         self.assertEqual(candidate["bindings"]["actual_position"]["bit_offset"], 56)
         self.assertEqual(candidate["bindings"]["actual_torque"]["bit_offset"], 88)
-        generated = esi_to_profile.render_cia402_cpp_fixture(candidate)
+        generated = esi_to_profile.render_cia402_cpp_fixture(
+            candidate, array_name="kEsiCia402AllModesEntries",
+            include_common_declarations=False,
+        )
         fixture_path = (
             Path(__file__).resolve().parents[1]
             / "fixtures" / "ethercat_esi" / "cia402_all_modes_fixture.hpp"
-        )
-        generated = generated.replace(
-            "kEsiCia402PdoEntries", "kEsiCia402AllModesEntries"
         )
         self.assertEqual(generated, fixture_path.read_text(encoding="utf-8"))
 

@@ -86,5 +86,6 @@ Acceptance rule: root Configure/Build/Test remains independent of ROS 2 and Gaze
 
 1. Continue auditing the IgH adapter against the master-neutral contract and close only concrete deterministic gaps found in the fake API.
 2. Build generic CiA 402/CoE interoperability fixtures from public EDS/ESI/object-dictionary data for representative vendor profiles; keep vendor identity/scaling/fault extensions explicit and testable.
+   - In progress: standard-library offline ESI XML normalizer and synthetic namespace/multi-device/PDO/error fixtures are committed; vendor files remain excluded pending exact firmware revision and redistribution review. The normalized inventory is not yet an active PDO assignment or runtime capability claim.
 3. Keep SOEM and proprietary vendor SDKs out of the root build until their licensing/package constraints are resolved.
 4. When a real drive is selected, add the model-specific EDS/ESI/scaling/fault mapping and then perform HIL with an independent STO/E-stop fixture.

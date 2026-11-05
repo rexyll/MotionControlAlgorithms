@@ -4,6 +4,8 @@ option(MCA_BUILD_TESTS "Build unit tests" ON)
 option(MCA_BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(MCA_ENABLE_SOCKETCAN "Enable the optional Linux SocketCAN transport" OFF)
 option(MCA_BUILD_IGH_KICKCAT_SIL "Build the optional real-IgH KickCAT cyclic PDO/WKC SIL executable" OFF)
+set(MCA_KICKCAT_SOURCE_DIR "" CACHE PATH
+    "Optional pinned KickCAT source/build used by simulator communication-fault SIL")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -50,6 +52,34 @@ if(MCA_BUILD_IGH_KICKCAT_SIL)
     mca_core ${IGH_LIBRARY} Threads::Threads)
   target_compile_options(mca_ethercat_igh_kickcat_multi_slave_cyclic_sil PRIVATE
     -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
+  if(MCA_KICKCAT_SOURCE_DIR)
+    if(NOT EXISTS "${MCA_KICKCAT_SOURCE_DIR}/lib/include/kickcat/SimulatorControl.h")
+      message(FATAL_ERROR "MCA_KICKCAT_SOURCE_DIR does not contain the pinned KickCAT SimulatorControl.h")
+    endif()
+    find_library(MCA_KICKCAT_LIBRARY NAMES kickcat
+      PATHS "${MCA_KICKCAT_SOURCE_DIR}/build/lib"
+            "${MCA_KICKCAT_SOURCE_DIR}/build"
+      NO_DEFAULT_PATH)
+    if(NOT MCA_KICKCAT_LIBRARY)
+      message(FATAL_ERROR "KickCAT libkickcat not found under ${MCA_KICKCAT_SOURCE_DIR}/build")
+    endif()
+    target_include_directories(mca_ethercat_igh_kickcat_multi_slave_cyclic_sil PRIVATE
+      "${MCA_KICKCAT_SOURCE_DIR}/lib/include")
+    target_compile_definitions(mca_ethercat_igh_kickcat_multi_slave_cyclic_sil PRIVATE
+      MCA_ENABLE_KICKCAT_SIM_CONTROL=1)
+    target_link_libraries(mca_ethercat_igh_kickcat_multi_slave_cyclic_sil PRIVATE
+      ${MCA_KICKCAT_LIBRARY} rt)
+  endif()
+  add_executable(mca_ethercat_kickcat_sim_control_shm
+    tests/integration/ethercat_kickcat_sim_control_shm.cpp)
+  if(MCA_KICKCAT_SOURCE_DIR)
+    target_include_directories(mca_ethercat_kickcat_sim_control_shm PRIVATE
+      "${MCA_KICKCAT_SOURCE_DIR}/lib/include")
+    target_link_libraries(mca_ethercat_kickcat_sim_control_shm PRIVATE
+      ${MCA_KICKCAT_LIBRARY} Threads::Threads rt)
+  else()
+    message(FATAL_ERROR "MCA_KICKCAT_SOURCE_DIR is required for the simulator control helper")
+  endif()
 endif()
 if(MCA_BUILD_TESTS)
   enable_testing()

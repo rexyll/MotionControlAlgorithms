@@ -119,7 +119,11 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
         })
     if not entries:
         raise EsiError(f"{direction}PDO 0x{pdo_index:04X} contains no entries")
-    sm_index = _number(pdo.attrib.get("Sm"), f"{direction}PDO.Sm", required=False)
+    sm_value = _number(pdo.attrib.get("Sm"), f"{direction}PDO.Sm", required=False)
+    sm_index = (
+        None if sm_value is None
+        else _require_range(sm_value, f"{direction}PDO.Sm", 0xFF)
+    )
     return {
         "direction": direction,
         "index": pdo_index,
@@ -201,6 +205,11 @@ def resolve_cia402_candidate(
                 raise EsiError(
                     f"selected {direction.upper()}PDO 0x{pdo_index:04X} "
                     f"has {len(matches)} matching declarations"
+                )
+            if matches[0]["sync_manager"] is None:
+                raise EsiError(
+                    f"selected {direction.upper()}PDO 0x{pdo_index:04X} "
+                    "has no SyncManager association"
                 )
             selected.append(matches[0])
 

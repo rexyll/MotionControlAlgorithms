@@ -1,0 +1,4 @@
+Start EtherCAT network simulator on mcaecat1 with 2 slaves
+Opening nominal interface:   mcaecat1
+Opening redundant interface: None
+frame proc: min    1  max 21870  avg   80 µs  (n=1000, t=0s)   frame proc: min    1  max  4962  avg 1101 µs  (n=1000, t=1s)   frame proc: min    1  max  4055  avg 1312 µs  (n=1000, t=3s)   frame proc: min    1  max  9357  avg  620 µs  (n=1000, t=3s)   frame proc: min    1  max   270  avg   38 µs  (n=1000, t=3s)   frame proc: min    1  max   267  avg   42 µs  (n=1000, t=3s)   frame proc: min    1  max   279  avg   35 µs  (n=1000, t=3s)   frame proc: min    1  max  2980  avg   48 µs  (n=1000, t=3s)   frame proc: min    1  max   741  avg   39 µs  (n=1000, t=3s)   frame proc: min    1  max  3056  avg  479 µs  (n=1000, t=4s)   frame proc: min  111  max  2355  avg 1097 µs  (n=1000, t=5s)   

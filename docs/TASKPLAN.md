@@ -87,6 +87,8 @@ Acceptance rule: root Configure/Build/Test remains independent of ROS 2 and Gaze
 1. Continue auditing the IgH adapter against the master-neutral contract and close only concrete deterministic gaps found in the fake API.
 2. Build generic CiA 402/CoE interoperability fixtures from public EDS/ESI/object-dictionary data for representative vendor profiles; keep vendor identity/scaling/fault extensions explicit and testable.
    - Offline ESI parser now supports explicit RxPDO/TxPDO selection and emits a CiA 402 candidate with object identity, PDO/SyncManager provenance, bit offsets and mode-pair capabilities. Synthetic tests cover velocity-only selection and malformed mappings; actual SDO assignment readback and vendor files remain separate pending gates.
-   - In progress: standard-library offline ESI XML normalizer and synthetic namespace/multi-device/PDO/error fixtures are committed; vendor files remain excluded pending exact firmware revision and redistribution review. The normalized inventory is not yet an active PDO assignment or runtime capability claim.
+   - [x] Offline ESI normalizer and explicit PDO-selection CiA 402 candidate resolver; synthetic parser/error fixtures committed.
+   - [x] Python-to-C++ golden fixture parity for velocity-only and full CSP/CSV/CST PDO maps; CI validates object identity, direction, width, PDO/SyncManager order, padding, bit offsets and C++ adapter binding indices.
+   - [ ] Vendor ESI files remain excluded pending exact firmware revision and redistribution review; actual CoE assignment/entry SDO readback remains a separate online acceptance gate. The normalized inventory is not an active PDO assignment or runtime capability claim.
 3. Keep SOEM and proprietary vendor SDKs out of the root build until their licensing/package constraints are resolved.
 4. When a real drive is selected, add the model-specific EDS/ESI/scaling/fault mapping and then perform HIL with an independent STO/E-stop fixture.

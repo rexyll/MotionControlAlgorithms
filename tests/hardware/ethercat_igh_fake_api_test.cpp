@@ -179,6 +179,82 @@ TEST(EthercatIghFakeApi, FailsPdoDiscoveryWhenSyncManagerQueryFails) {
   EXPECT_EQ(discovered[0].pdo_index, 0x1A00U);
 }
 
+TEST(EthercatIghFakeApi, ReturnsRuntimeErrorAndPreservesOutputWhenPdoQueryFails) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(adapter.request_master().ok());
+  ASSERT_TRUE(adapter.discover().ok());
+
+  Adapter::PdoMappingProfile discovered{};
+  ASSERT_TRUE(discovered.add({0U, 0x2U, 0x1234U, 2U, 0x1A00U,
+      0x6041U, 0U, 16U, mca::hardware::EthercatPdoDirection::Input}));
+  fake_igh::fail_pdo_query_at(2U, 0U);
+  const auto status = adapter.discover_pdo_mapping(discovered);
+  EXPECT_EQ(status.code, mca::core::StatusCode::RuntimeError);
+  ASSERT_EQ(discovered.size(), 1U);
+  EXPECT_EQ(discovered[0].index, 0x6041U);
+}
+
+TEST(EthercatIghFakeApi, ReturnsRuntimeErrorAndPreservesOutputWhenPdoEntryQueryFails) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(adapter.request_master().ok());
+  ASSERT_TRUE(adapter.discover().ok());
+
+  Adapter::PdoMappingProfile discovered{};
+  ASSERT_TRUE(discovered.add({0U, 0x2U, 0x1234U, 2U, 0x1A00U,
+      0x6041U, 0U, 16U, mca::hardware::EthercatPdoDirection::Input}));
+  fake_igh::fail_pdo_entry_query_at(2U, 0U, 0U);
+  const auto status = adapter.discover_pdo_mapping(discovered);
+  EXPECT_EQ(status.code, mca::core::StatusCode::RuntimeError);
+  ASSERT_EQ(discovered.size(), 1U);
+  EXPECT_EQ(discovered[0].index, 0x6041U);
+}
+
+TEST(EthercatIghFakeApi, FailsDiscoveredMappingVerificationWhenPdoQueryFailsClosed) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(adapter.request_master().ok());
+  ASSERT_TRUE(adapter.discover().ok());
+
+  std::array<Adapter::PdoBinding, 128U> bindings{};
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  const auto mapping = two_sm_mapping();
+  fake_igh::fail_pdo_query_at(2U, 0U);
+  const auto status = adapter.configure(bindings, 1U, mapping,
+      mca::hardware::EthercatPdoMappingPolicy::UseDiscoveredMapping);
+  EXPECT_EQ(status.code, mca::core::StatusCode::RuntimeError);
+  EXPECT_EQ(fake_igh::pdo_registration_calls(), 0U);
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+}
+
+TEST(EthercatIghFakeApi, FailsDiscoveredMappingVerificationWhenPdoEntryQueryFailsClosed) {
+  fake_igh::reset();
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
+  ASSERT_TRUE(adapter.request_master().ok());
+  ASSERT_TRUE(adapter.discover().ok());
+
+  std::array<Adapter::PdoBinding, 128U> bindings{};
+  bindings[0] = {0U, 0x2U, 0x1234U, 0x6041U, 0U, 16U, 7U,
+                 mca::hardware::EthercatPdoDirection::Input};
+  const auto mapping = two_sm_mapping();
+  fake_igh::fail_pdo_entry_query_at(2U, 0U, 0U);
+  const auto status = adapter.configure(bindings, 1U, mapping,
+      mca::hardware::EthercatPdoMappingPolicy::UseDiscoveredMapping);
+  EXPECT_EQ(status.code, mca::core::StatusCode::RuntimeError);
+  EXPECT_EQ(fake_igh::pdo_registration_calls(), 0U);
+  EXPECT_EQ(fake_igh::release_calls(), 1U);
+}
+
 TEST(EthercatIghFakeApi, FailsDiscoveredMappingVerificationWhenUnlistedSyncManagerCannotBeRead) {
   fake_igh::reset();
   Adapter::Config config{};

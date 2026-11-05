@@ -96,7 +96,9 @@ bool configure_with_mapping(Adapter& adapter) {
 
 TEST(EthercatIghFakeApi, RejectsPdoRegistrationBitPositionOutsideIgHRange) {
   fake_igh::reset();
-  Adapter adapter;
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
   ASSERT_TRUE(adapter.request_master().ok());
   ASSERT_TRUE(adapter.discover().ok());
   std::array<Adapter::PdoBinding, 128U> bindings{};
@@ -112,7 +114,9 @@ TEST(EthercatIghFakeApi, RejectsPdoRegistrationBitPositionOutsideIgHRange) {
 
 TEST(EthercatIghFakeApi, RejectsPdoRegistrationBitOffsetOverflowBeforeLayoutCommit) {
   fake_igh::reset();
-  Adapter adapter;
+  Adapter::Config config{};
+  config.cycle_time_ns = 1'000'000U;
+  Adapter adapter(config);
   ASSERT_TRUE(adapter.request_master().ok());
   ASSERT_TRUE(adapter.discover().ok());
   std::array<Adapter::PdoBinding, 128U> bindings{};

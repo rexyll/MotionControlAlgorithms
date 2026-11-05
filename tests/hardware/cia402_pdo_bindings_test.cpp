@@ -7,6 +7,7 @@
 #include "mca/hardware/cia402_pdo_bindings.hpp"
 #include "mca/hardware/ethercat_pdo_mapping_profile.hpp"
 #include "../fixtures/ethercat_esi/cia402_bindings_fixture.hpp"
+#include "../fixtures/ethercat_esi/cia402_all_modes_fixture.hpp"
 
 namespace {
 using namespace mca::hardware;
@@ -166,5 +167,65 @@ TEST(Cia402PdoBindings, MatchesPythonNormalizedEsiFixtureAcrossCia402AndPdoProfi
   EXPECT_EQ(fixture[4].bit_offset, 0U);
   EXPECT_EQ(fixture[5].bit_offset, 16U);
   EXPECT_EQ(fixture[6].bit_offset, 24U);
+}
+
+TEST(Cia402PdoBindings, MatchesPythonEsiFixtureWithAllCyclicModes) {
+  using Fixture = mca::test_fixtures::EsiCia402PdoEntry;
+  constexpr auto& fixture = mca::test_fixtures::kEsiCia402AllModesEntries;
+  std::array<Binding, fixture.size()> bindings{};
+  using Profile = EthercatPdoMappingProfile<fixture.size()>;
+  Profile profile{};
+
+  for (std::size_t i = 0; i < fixture.size(); ++i) {
+    const Fixture& source = fixture[i];
+    const Direction direction =
+        source.direction == 0U ? Direction::Output : Direction::Input;
+    bindings[i] = {0U, mca::test_fixtures::kVendorId,
+                   mca::test_fixtures::kProductCode, source.index,
+                   source.subindex, source.bit_length, 1U, direction};
+    ASSERT_TRUE(profile.add({0U, mca::test_fixtures::kVendorId,
+                             mca::test_fixtures::kProductCode,
+                             source.sync_manager, source.pdo_index,
+                             source.index, source.subindex,
+                             source.bit_length, direction}))
+        << "fixture entry " << i;
+  }
+
+  ASSERT_TRUE(profile.valid());
+  Cia402PdoBindings resolved{};
+  ASSERT_TRUE(resolve_cia402_pdo_bindings(
+      bindings, bindings.size(), 0U, mca::test_fixtures::kVendorId,
+      mca::test_fixtures::kProductCode, resolved));
+
+  EXPECT_EQ(resolved.controlword, 0U);
+  EXPECT_EQ(resolved.mode_of_operation, 1U);
+  EXPECT_EQ(resolved.target_velocity, 3U);
+  EXPECT_EQ(resolved.target_position, 4U);
+  EXPECT_EQ(resolved.target_torque, 5U);
+  EXPECT_EQ(resolved.statusword, 6U);
+  EXPECT_EQ(resolved.mode_display, 7U);
+  EXPECT_EQ(resolved.actual_velocity, 8U);
+  EXPECT_EQ(resolved.actual_position, 9U);
+  EXPECT_EQ(resolved.actual_torque, 10U);
+  EXPECT_TRUE(resolved.valid());
+  EXPECT_TRUE(resolved.supports(DriveOperationMode::CyclicSynchronousPosition));
+  EXPECT_TRUE(resolved.supports(DriveOperationMode::CyclicSynchronousVelocity));
+  EXPECT_TRUE(resolved.supports(DriveOperationMode::CyclicSynchronousTorque));
+
+  for (std::size_t i = 0; i < fixture.size(); ++i) {
+    EXPECT_EQ(profile[i].index, fixture[i].index);
+    EXPECT_EQ(profile[i].subindex, fixture[i].subindex);
+    EXPECT_EQ(profile[i].bit_length, fixture[i].bit_length);
+    EXPECT_EQ(profile[i].sync_manager, fixture[i].sync_manager);
+    EXPECT_EQ(profile[i].pdo_index, fixture[i].pdo_index);
+    EXPECT_EQ(profile[i].direction,
+              fixture[i].direction == 0U ? Direction::Output : Direction::Input);
+  }
+  EXPECT_EQ(fixture[3].bit_offset, 32U);
+  EXPECT_EQ(fixture[4].bit_offset, 64U);
+  EXPECT_EQ(fixture[5].bit_offset, 96U);
+  EXPECT_EQ(fixture[8].bit_offset, 24U);
+  EXPECT_EQ(fixture[9].bit_offset, 56U);
+  EXPECT_EQ(fixture[10].bit_offset, 88U);
 }
 }  // namespace

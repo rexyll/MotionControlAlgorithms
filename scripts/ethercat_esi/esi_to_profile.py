@@ -235,11 +235,17 @@ def _parse_module_mailbox(module: ET.Element) -> dict[str, Any] | None:
     if mailbox is None:
         return None
 
+    unsupported_children = [
+        _local_name(child.tag)
+        for child in list(mailbox)
+        if _local_name(child.tag) != "CoE"
+    ]
+    if unsupported_children:
+        raise EsiError(
+            "Module.Mailbox supports only the CoE child in ModuleType; "
+            f"unsupported child <{unsupported_children[0]}>"
+        )
     coe = _one(mailbox, "CoE")
-    eoe = _one(mailbox, "EoE")
-    foe = _one(mailbox, "FoE")
-    soe = _one(mailbox, "SoE")
-    voe = _one(mailbox, "VoE")
     init_commands: list[dict[str, Any]] = []
     if coe is not None:
         allowed_transitions = {"IP", "PS", "SO", "SP", "OP", "OS"}
@@ -334,33 +340,7 @@ def _parse_module_mailbox(module: ET.Element) -> dict[str, Any] | None:
             ),
         },
         "has_coe": coe is not None,
-        "protocols": {
-            "coe": coe is not None,
-            "eoe": eoe is not None,
-            "foe": foe is not None,
-            "soe": soe is not None,
-            "voe": voe is not None,
-        },
-        "eoe_attributes": (
-            None if eoe is None else {
-                "ip": _optional_boolean(eoe.attrib.get("IP"), "Module.Mailbox.EoE.IP"),
-                "mac": _optional_boolean(eoe.attrib.get("MAC"), "Module.Mailbox.EoE.MAC"),
-                "time_stamp": _optional_boolean(
-                    eoe.attrib.get("TimeStamp"), "Module.Mailbox.EoE.TimeStamp"
-                ),
-            }
-        ),
-        "soe_attributes": (
-            None if soe is None else {
-                "channel_count": _xs_integer(
-                    soe.attrib.get("ChannelCount"), "Module.Mailbox.SoE.ChannelCount"
-                ),
-                "drive_follows_bit3_support": _optional_boolean(
-                    soe.attrib.get("DriveFollowsBit3Support"),
-                    "Module.Mailbox.SoE.DriveFollowsBit3Support",
-                ),
-            }
-        ),
+        "protocols": {"coe": coe is not None},
         "coe_init_commands": init_commands,
     }
 

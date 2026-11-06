@@ -32,7 +32,7 @@ class CoeIghParityTests(unittest.TestCase):
         coe, igh = fixtures()
         result = compare_snapshots(coe, igh)
         self.assertTrue(result["match"])
-        self.assertIn("not inferred", result["limitations"][2])
+        self.assertIn("never inferred", result["limitations"][2])
 
     def test_rejects_mapping_value_mismatch(self):
         coe, igh = fixtures()

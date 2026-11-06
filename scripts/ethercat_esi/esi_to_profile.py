@@ -131,13 +131,58 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
             "data_type": _text(_one(entry, "DataType"), f"{direction}PDO.Entry.DataType"),
             "is_padding": index == 0,
         })
-    if not entries:
+    virtual = _optional_boolean(pdo.attrib.get("Virtual"), f"{direction}PDO.Virtual") or False
+    if not entries and not virtual:
         raise EsiError(f"{direction}PDO 0x{pdo_index:04X} contains no entries")
+
+    excluded_pdos: list[dict[str, Any]] = []
+    seen_excluded_pdos: set[int] = set()
+    for exclude in _children(pdo, "Exclude"):
+        value = _text(exclude, f"{direction}PDO.Exclude", required=True)
+        excluded_index = _number(value, f"{direction}PDO.Exclude")
+        assert excluded_index is not None
+        _require_range(excluded_index, f"{direction}PDO.Exclude", 0xFFFF)
+        if excluded_index in seen_excluded_pdos:
+            raise EsiError(
+                f"{direction}PDO 0x{pdo_index:04X} has duplicate Exclude "
+                f"reference 0x{excluded_index:04X}"
+            )
+        seen_excluded_pdos.add(excluded_index)
+        excluded_pdos.append({
+            "index": excluded_index,
+            "depend_on_slot": _optional_boolean(
+                exclude.attrib.get("DependOnSlot"),
+                f"{direction}PDO.Exclude.DependOnSlot",
+            ),
+            "depend_on_slot_group": _optional_boolean(
+                exclude.attrib.get("DependOnSlotGroup"),
+                f"{direction}PDO.Exclude.DependOnSlotGroup",
+            ),
+        })
+
+    excluded_sync_managers: list[int] = []
+    for excluded_sm in _children(pdo, "ExcludedSm"):
+        value = _text(excluded_sm, f"{direction}PDO.ExcludedSm", required=True)
+        excluded_sm_index = _number(value, f"{direction}PDO.ExcludedSm")
+        assert excluded_sm_index is not None
+        _require_range(excluded_sm_index, f"{direction}PDO.ExcludedSm", 0xFF)
+        if excluded_sm_index in excluded_sync_managers:
+            raise EsiError(
+                f"{direction}PDO 0x{pdo_index:04X} has duplicate ExcludedSm "
+                f"reference {excluded_sm_index}"
+            )
+        excluded_sync_managers.append(excluded_sm_index)
+
     sm_value = _number(pdo.attrib.get("Sm"), f"{direction}PDO.Sm", required=False)
     sm_index = (
         None if sm_value is None
         else _require_range(sm_value, f"{direction}PDO.Sm", 0xFF)
     )
+    if sm_index is not None and sm_index in excluded_sync_managers:
+        raise EsiError(
+            f"{direction}PDO 0x{pdo_index:04X} declares SyncManager "
+            f"{sm_index} as both its default and excluded assignment"
+        )
     return {
         "direction": direction,
         "index": pdo_index,
@@ -145,6 +190,9 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
         "sync_manager": sm_index,
         "fixed": _optional_boolean(pdo.attrib.get("Fixed"), f"{direction}PDO.Fixed") or False,
         "mandatory": _optional_boolean(pdo.attrib.get("Mandatory"), f"{direction}PDO.Mandatory") or False,
+        "virtual": virtual,
+        "excluded_pdos": excluded_pdos,
+        "excluded_sync_managers": excluded_sync_managers,
         "entries": entries,
     }
 
@@ -244,6 +292,22 @@ def resolve_cia402_candidate(
                     "has no SyncManager association"
                 )
             selected.append(matches[0])
+
+    selected_pdo_indices = {pdo["index"] for pdo in selected}
+    for pdo in selected:
+        for exclusion in pdo["excluded_pdos"]:
+            if exclusion["depend_on_slot"] or exclusion["depend_on_slot_group"]:
+                raise EsiError(
+                    f"selected {pdo['direction'].upper()}PDO 0x{pdo['index']:04X} "
+                    "has a slot-dependent Exclude reference that cannot be "
+                    "resolved by this static candidate resolver"
+                )
+            excluded_index = exclusion["index"]
+            if excluded_index in selected_pdo_indices:
+                raise EsiError(
+                    f"selected PDO 0x{pdo['index']:04X} excludes selected "
+                    f"PDO 0x{excluded_index:04X}"
+                )
 
     found: dict[tuple[int, int], dict[str, Any]] = {}
     bit_offsets = {"rx": 0, "tx": 0}

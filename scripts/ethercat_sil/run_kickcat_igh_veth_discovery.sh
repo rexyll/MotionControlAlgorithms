@@ -145,6 +145,7 @@ verify_coe_assignment() {
     printf '%s assignment count out of range: %s\n' "$label" "$pdo_count" >&2
     return 1
   }
+  printf 'C\t%s\t%s\t%s\n' "$position" "$((assignment_index))" "$pdo_count" >>"$ARTIFACT_DIR/coe-pdo-rows.tsv"
   printf '%s assignment 0x%s: %s PDO(s)\n' "$label" "${assignment_index#0x}" "$pdo_count"
   for ((pdo_pos = 1; pdo_pos <= pdo_count; ++pdo_pos)); do
     pdo_index=$(read_sdo_value "$assignment_index" "$pdo_pos" uint16 "$position") || return 1

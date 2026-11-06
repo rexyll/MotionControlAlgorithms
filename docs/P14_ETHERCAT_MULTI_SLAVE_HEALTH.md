@@ -418,3 +418,28 @@ preservation in this simulator is not a safety-rated isolation function.
 ### Successful communication-fault SIL rerun (2026-11-05)
 
 The rerun at `/tmp/mca-ethercat-sil-20261105-132751` passed the full two-slave link-break and link-heal scenario. CoE PDO mapping readback and two-drive Operation Enabled startup passed. Breaking link 0:1 isolated ring 1 for ten cycles (target WKC=0; peer WKC=3 and Operation Enabled). After healing, both independent domains returned to WKC=3, both drives were Operation Enabled in CSP mode, and both per-slave health states reached Present for ten consecutive samples. Recovery completed after 1,513 cycles (about 1.5 s at 1 ms cycle time). Both drives then returned to Switch On Disabled; final total WKC=6, two slaves responding, and both stations online/operational. The temporary AL=0x00/offline interval reappeared in the recovery trace, but the 5 s recovery window allowed the test to continue until the full health criteria passed. This verifies the pinned KickCAT SIL scenario only; real-drive HIL, vendor behavior, DC timing and physical cable validation remain outstanding.
+
+### Structured CoE PDO readback artifact
+
+When `MCA_ECAT_COE_READBACK=1`, the veth/KickCAT discovery script now
+preserves the ordered SDO reads in `coe-pdo-rows.tsv` and validates/serializes
+them with `scripts/ethercat_sil/coe_snapshot.py` into
+`coe-pdo-snapshot.json`. The versioned JSON records each ring position and
+the pinned Vendor ID/Product code, ordered `0x1C12`/`0x1C13` assignment
+subindices and PDO indices, and each PDO's ordered raw 32-bit mapping words.
+Padding entries are retained.
+
+The serializer fails closed on missing/non-contiguous ring positions,
+assignment gaps or duplicate PDO selections, unknown assignment references,
+mapping group/entry reordering, duplicate real OD objects, malformed padding,
+and missing mapping groups. It does not sort or repair malformed input.
+The raw `coe-sdo-raw.log`, text readback and packet captures remain available
+as independent audit evidence.
+
+The artifact deliberately does **not** invent SyncManager or direction fields:
+the CoE assignment/mapping SDO reads do not provide that association. Those
+fields must come from ESI expectations and/or IgH's independent
+SM→PDO→Entry discovery. The current serializer records the identity checked
+by the preceding `ethercat slaves -v` topology gate; it is not a third-party
+device identity attestation. This is a structured CoE observation, not yet a
+three-way ESI/CoE/IgH parity gate.

@@ -137,17 +137,49 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
     ) or False
     entries: list[dict[str, Any]] = []
     for entry in _children(pdo, "Entry"):
-        index = _require_range(_required_child_number(entry, "Index", f"{direction}PDO.Entry.Index"), f"{direction}PDO.Entry.Index", 0xFFFF)
+        index_element = _one(entry, "Index", required=True)
+        assert index_element is not None
+        index_text = _text(index_element, f"{direction}PDO.Entry.Index", required=True)
+        index_value = _number(index_text, f"{direction}PDO.Entry.Index")
+        assert index_value is not None
+        index = _require_range(index_value, f"{direction}PDO.Entry.Index", 0xFFFF)
+        index_depend_on_slot = _optional_boolean(
+            index_element.attrib.get("DependOnSlot"),
+            f"{direction}PDO.Entry.Index.DependOnSlot",
+        ) or False
+        index_depend_on_slot_group = _optional_boolean(
+            index_element.attrib.get("DependOnSlotGroup"),
+            f"{direction}PDO.Entry.Index.DependOnSlotGroup",
+        ) or False
         sub_index = _require_range(_required_child_number(entry, "SubIndex", f"{direction}PDO.Entry.SubIndex"), f"{direction}PDO.Entry.SubIndex", 0xFF)
         bit_length = _required_child_number(entry, "BitLen", f"{direction}PDO.Entry.BitLen")
         if not 1 <= bit_length <= 64:
             raise EsiError(f"{direction}PDO entry 0x{index:04X}:{sub_index:02X} has unsupported bit length {bit_length}")
+        data_type_element = _one(entry, "DataType")
         entries.append({
             "index": index,
+            "index_depend_on_slot": index_depend_on_slot,
+            "index_depend_on_slot_group": index_depend_on_slot_group,
             "sub_index": sub_index,
             "bit_length": bit_length,
             "name": _text(_one(entry, "Name"), f"{direction}PDO.Entry.Name"),
-            "data_type": _text(_one(entry, "DataType"), f"{direction}PDO.Entry.DataType"),
+            "data_type": _text(data_type_element, f"{direction}PDO.Entry.DataType"),
+            "data_scale": (
+                data_type_element.attrib.get("DScale")
+                if data_type_element is not None else None
+            ),
+            "swap_data": (
+                data_type_element.attrib.get("SwapData")
+                if data_type_element is not None else None
+            ),
+            "fixed": _optional_boolean(
+                entry.attrib.get("Fixed"), f"{direction}PDO.Entry.Fixed"
+            ),
+            "safety_connection_number": _number(
+                entry.attrib.get("SafetyConnNumber"),
+                f"{direction}PDO.Entry.SafetyConnNumber",
+                required=False,
+            ),
             "is_padding": index == 0,
         })
     virtual = _optional_boolean(pdo.attrib.get("Virtual"), f"{direction}PDO.Virtual") or False
@@ -382,6 +414,12 @@ def resolve_cia402_candidate(
     for pdo in selected:
         direction = pdo["direction"]
         for entry_number, entry in enumerate(pdo["entries"]):
+            if entry["index_depend_on_slot"] or entry["index_depend_on_slot_group"]:
+                raise EsiError(
+                    f"selected {pdo['direction'].upper()}PDO 0x{pdo['index']:04X} "
+                    "contains a slot-dependent object-dictionary entry index "
+                    "that cannot be resolved by the static candidate resolver"
+                )
             key = (entry["index"], entry["sub_index"])
             if entry["index"] != 0 and key in found:
                 raise EsiError(

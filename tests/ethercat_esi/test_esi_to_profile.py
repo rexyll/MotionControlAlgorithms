@@ -1916,5 +1916,37 @@ class EsiToProfileTests(unittest.TestCase):
             esi_to_profile.parse_esi(self.path)
 
 
+    def test_renders_layered_esi_expected_pdo_snapshot(self):
+        self.path.write_text(ESI_WITH_ALL_MODES, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        candidate = esi_to_profile.resolve_cia402_candidate(
+            device, [0x1600, 0x1601, 0x1602], [0x1A00, 0x1A01, 0x1A02]
+        )
+        snapshot = esi_to_profile.render_pdo_snapshot(candidate)
+        self.assertEqual(snapshot["source_kind"], "esi_expected")
+        self.assertFalse(snapshot["runtime_readback_performed"])
+        self.assertEqual(
+            [(item["assignment_object"], item["assignment_position"], item["pdo_index"])
+             for item in snapshot["assignments"]],
+            [
+                (0x1C12, 1, 0x1600), (0x1C12, 2, 0x1601),
+                (0x1C12, 3, 0x1602), (0x1C13, 1, 0x1A00),
+                (0x1C13, 2, 0x1A01), (0x1C13, 3, 0x1A02),
+            ],
+        )
+        controlword = next(
+            item for item in snapshot["mappings"]
+            if item["raw_mapping_entry"] == 0x60400010
+        )
+        self.assertEqual(controlword["assignment_object"], 0x1C12)
+        self.assertEqual(controlword["sync_manager"], 2)
+        self.assertEqual(controlword["direction"], "rx")
+        self.assertTrue(any(
+            item["raw_mapping_entry"] == 0x00000008
+            for item in snapshot["mappings"]
+        ))
+
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -598,6 +598,20 @@ if [[ "$CYCLIC_SIL" == "1" ]]; then
   fi
 fi
 
+
+if [[ "$COE_READBACK" == "1" && "$CYCLIC_SIL" == "1" ]]; then
+  if ! python3 "$SCRIPT_DIR/coe_igh_parity.py" \
+      "$ARTIFACT_DIR/coe-pdo-snapshot.json" \
+      "$ARTIFACT_DIR/igh-pdo-snapshot.json" \
+      "$ARTIFACT_DIR/coe-igh-parity.json"; then
+    cat "$ARTIFACT_DIR/coe-igh-parity.json" >&2 2>/dev/null || true
+    fail "CoE-to-IgH PDO mapping parity failed"
+  fi
+  printf 'PASS: CoE-to-IgH PDO index and ordered raw mapping parity; report: %s\\n' \
+    "$ARTIFACT_DIR/coe-igh-parity.json"
+fi
+
+
 printf '\nDiscovery-time slave snapshot (captured before cyclic SIL; not runtime AL-state evidence):\n'
 cat "$ARTIFACT_DIR/slaves-verbose.log"
 printf '\nPASS: IgH ec_generic <-> veth <-> KickCAT raw-socket slave discovery and bidirectional EtherCAT frame exchange.\n'

@@ -127,6 +127,162 @@ class EsiToProfileTests(unittest.TestCase):
         ):
             esi_to_profile.parse_esi(self.path)
 
+    def test_parses_embedded_module_catalog_and_device_slots(self):
+        modular = ESI.replace(
+            "<Vendor>",
+            '<InfoReference>VendorModules.xml</InfoReference><Vendor>',
+            1,
+        ).replace(
+            "      </Device>",
+            """        <Slots DownloadModuleIdentList="1" DownloadModuleAddressList="0"
+               MaxSlotCount="#x2" SlotPdoIncrement="#x1" SlotIndexIncrement="#x10">
+          <Slot MinInstances="1" MaxInstances="1">
+            <Name LcId="1033">FirstSlot</Name>
+            <ModuleIdent Default="1">#x00004711</ModuleIdent>
+            <ModuleIdent>#x00004712</ModuleIdent>
+          </Slot>
+          <Slot MinInstances="0" MaxInstances="1">
+            <Name>OptionalSlot</Name>
+            <ModuleIdent>#x00000000</ModuleIdent>
+            <ModuleIdent>#x00004712</ModuleIdent>
+          </Slot>
+          <SlotGroupData SlotGroup="#x1"><Name>InputGroup</Name></SlotGroupData>
+          <ModulePdoGroup Alignment="4" RxPdo="#x1600" TxPdo="#x1A00">Basic IO</ModulePdoGroup>
+          <SlotSelections>
+            <Name>Two module option</Name>
+            <ModuleIdent>#x00004711</ModuleIdent>
+            <ModuleIdent>#x00004712</ModuleIdent>
+          </SlotSelections>
+        </Slots>
+      </Device>""",
+            1,
+        ).replace(
+            "</EtherCATInfo>",
+            """  <Modules>
+    <Module Crc32="#xDEADBEEF">
+      <Type ModuleIdent="#x00004711" ModuleClass="DI" ModulePdoGroup="1"
+            SRA_ParameterSupported="true">Digital input module</Type>
+      <Name LcId="1033">2-channel input</Name>
+      <RxPdo Sm="2">
+        <Index DependOnSlot="true">#x1600</Index><Name>Module input</Name>
+        <Entry><Index>#x6000</Index><SubIndex>1</SubIndex><BitLen>16</BitLen><Name>Input bits</Name><DataType>UINT</DataType></Entry>
+      </RxPdo>
+    </Module>
+    <Module>
+      <Type ModuleIdent="18194" ModuleClass="DI">Digital input alternative</Type>
+      <Name>4-channel input</Name>
+    </Module>
+  </Modules>
+</EtherCATInfo>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        result = esi_to_profile.parse_esi(self.path)
+        self.assertEqual(result["info_references"], ["VendorModules.xml"])
+        self.assertEqual(
+            [module["module_ident"] for module in result["modules"]],
+            [0x4711, 0x4712],
+        )
+        module = result["modules"][0]
+        self.assertEqual(module["module_class"], "DI")
+        self.assertEqual(module["module_pdo_group"], 1)
+        self.assertTrue(module["sra_parameter_supported"])
+        self.assertEqual(module["crc32"], 0xDEADBEEF)
+        self.assertTrue(module["pdos"][0]["index_depend_on_slot"])
+        self.assertEqual(module["pdos"][0]["entries"][0]["index"], 0x6000)
+
+        slots = result["devices"][0]["slots"]
+        self.assertTrue(slots["download_module_ident_list"])
+        self.assertFalse(slots["download_module_address_list"])
+        self.assertEqual(slots["slot_pdo_increment"], 1)
+        self.assertEqual(slots["slot_index_increment"], 0x10)
+        self.assertEqual(slots["slots"][0]["module_list_subindex"], 1)
+        self.assertEqual(slots["slots"][0]["default_module_ident"], 0x4711)
+        self.assertEqual(
+            [item["module_ident"] for item in slots["slots"][1]["module_options"]],
+            [0, 0x4712],
+        )
+        self.assertTrue(slots["slots"][1]["module_options"][0]["is_empty_slot"])
+        self.assertEqual(slots["slot_group_data"][0]["slot_group"], 1)
+        self.assertEqual(slots["module_pdo_groups"][0]["alignment"], 4)
+        self.assertEqual(slots["module_pdo_groups"][0]["rx_pdo"], 0x1600)
+        self.assertEqual(slots["slot_selections"][0]["module_idents"], [0x4711, 0x4712])
+
+    def test_accepts_module_only_device_with_slots(self):
+        base = ESI
+        start = base.index('        <RxPdo Sm="2" Fixed="true" Mandatory="true">')
+        end = base.index("        </TxPdo>", start) + len("        </TxPdo>")
+        base = base[:start] + base[end:]
+        modular = base.replace(
+            "      </Device>",
+            """        <Slots>
+          <Slot MinInstances="1" MaxInstances="1">
+            <ModuleIdent Default="true">#x4711</ModuleIdent>
+          </Slot>
+        </Slots>
+      </Device>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        self.assertEqual(device["pdos"], [])
+        self.assertEqual(device["slots"]["slots"][0]["default_module_ident"], 0x4711)
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "module-only device requires slot-resolved module PDO mappings",
+        ):
+            esi_to_profile.resolve_cia402_candidate(device, [0x1600], [0x1A00])
+
+    def test_rejects_duplicate_module_idents(self):
+        modular = ESI.replace(
+            "</EtherCATInfo>",
+            """  <Modules>
+    <Module><Type ModuleIdent="#x4711">Module One</Type><Name>One</Name></Module>
+    <Module><Type ModuleIdent="18193">Module Duplicate</Type><Name>Duplicate</Name></Module>
+  </Modules>
+</EtherCATInfo>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "duplicate ModuleIdent 0x00004711",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
+    def test_rejects_multiple_default_module_choices_in_slot(self):
+        modular = ESI.replace(
+            "      </Device>",
+            """        <Slots><Slot MinInstances="1" MaxInstances="1">
+          <ModuleIdent Default="1">#x4711</ModuleIdent>
+          <ModuleIdent Default="true">#x4712</ModuleIdent>
+        </Slot></Slots>
+      </Device>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "more than one default ModuleIdent",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
+    def test_rejects_slot_minimum_above_maximum(self):
+        modular = ESI.replace(
+            "      </Device>",
+            """        <Slots><Slot MinInstances="2" MaxInstances="1">
+          <ModuleIdent>#x4711</ModuleIdent>
+        </Slot></Slots>
+      </Device>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "MinInstances exceeds MaxInstances",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
     def test_normalizes_vendor_multiple_devices_and_pdo_directions(self):
         result = esi_to_profile.parse_esi(self.path)
         self.assertEqual(result["vendor"]["id"], 0xAB)

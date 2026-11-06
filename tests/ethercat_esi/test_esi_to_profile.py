@@ -231,6 +231,19 @@ class EsiToProfileTests(unittest.TestCase):
                 device, [0x1600, 0x1601], [0x1A00, 0x1A01]
             )
 
+    def test_rejects_excluded_sync_manager_outside_declared_inventory(self):
+        malformed = ESI.replace(
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">',
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">\\n          <ExcludedSm>4</ExcludedSm>',
+            1,
+        )
+        self.path.write_text(malformed, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "excludes SyncManager 4, but the device declares only 4",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
     def test_rejects_mandatory_pdo_without_default_sync_manager(self):
         malformed = ESI.replace(
             '<RxPdo Sm="2" Fixed="true" Mandatory="true">',

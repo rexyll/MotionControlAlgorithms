@@ -127,11 +127,11 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
             f"{direction}PDO index 0x{pdo_index:04X} is outside the allowed "
             f"range 0x{allowed_range[0]:04X}..0x{allowed_range[1]:04X}"
         )
-    index_depend_on_slot = _optional_boolean(
+    pdo_index_depend_on_slot = _optional_boolean(
         index_element.attrib.get("DependOnSlot"),
         f"{direction}PDO.Index.DependOnSlot",
     ) or False
-    index_depend_on_slot_group = _optional_boolean(
+    pdo_index_depend_on_slot_group = _optional_boolean(
         index_element.attrib.get("DependOnSlotGroup"),
         f"{direction}PDO.Index.DependOnSlotGroup",
     ) or False
@@ -269,8 +269,8 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
     return {
         "direction": direction,
         "index": pdo_index,
-        "index_depend_on_slot": index_depend_on_slot,
-        "index_depend_on_slot_group": index_depend_on_slot_group,
+        "index_depend_on_slot": pdo_index_depend_on_slot,
+        "index_depend_on_slot_group": pdo_index_depend_on_slot_group,
         "name": _text(_one(pdo, "Name"), f"{direction}PDO.Name"),
         "sync_manager": sm_index,
         "fixed": _optional_boolean(pdo.attrib.get("Fixed"), f"{direction}PDO.Fixed") or False,

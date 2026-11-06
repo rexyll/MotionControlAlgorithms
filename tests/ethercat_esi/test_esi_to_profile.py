@@ -1942,7 +1942,7 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertEqual(snapshot["identity"]["product_code"], 0x1001)
         self.assertEqual(
             [item["raw_mapping_entry"] for item in snapshot["mappings"]],
-            [0x60400010, 0x60600008, 0x60410010, 0x60610008],
+            [0x60400010, 0x60600008, 0x00000008, 0x60410010, 0x60610008],
         )
         # The opt-in operates on a copy and must not erase source ESI metadata.
         self.assertTrue(device["pdos"][0]["index_depend_on_slot"])

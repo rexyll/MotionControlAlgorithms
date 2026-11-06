@@ -217,7 +217,7 @@ class EsiToProfileTests(unittest.TestCase):
             "</EtherCATInfo>",
             """  <Modules>
     <Module Crc32="#xDEADBEEF">
-      <Type ModuleIdent="#x00004711" ModuleClass="DI" ModulePdoGroup="1"
+      <Type ModuleIdent="#x00004711" ModuleClass="DI" ModulePdoGroup="0"
             SRA_ParameterSupported="true">Digital input module</Type>
       <Name LcId="1033">2-channel input</Name>
       <RxPdo Sm="2">
@@ -242,7 +242,7 @@ class EsiToProfileTests(unittest.TestCase):
         )
         module = result["modules"][0]
         self.assertEqual(module["module_class"], "DI")
-        self.assertEqual(module["module_pdo_group"], 1)
+        self.assertEqual(module["module_pdo_group"], 0)
         self.assertTrue(module["sra_parameter_supported"])
         self.assertEqual(module["crc32"], 0xDEADBEEF)
         self.assertTrue(module["pdos"][0]["index_depend_on_slot"])
@@ -276,6 +276,113 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertEqual(slots["module_pdo_groups"][0]["alignment"], 4)
         self.assertEqual(slots["module_pdo_groups"][0]["rx_pdo"], 0x1600)
         self.assertEqual(slots["slot_selections"][0]["module_idents"], [0x4711, 0x4712])
+
+    def test_rejects_module_pdo_group_reference_without_group_definition(self):
+        modular = ESI.replace(
+            "      </Device>",
+            """        <Slots>
+          <Slot MinInstances="1" MaxInstances="1">
+            <ModuleIdent>#x4711</ModuleIdent>
+          </Slot>
+          <ModulePdoGroup Alignment="4" RxPdo="#x1600" TxPdo="#x1A00"/>
+        </Slots>
+      </Device>""",
+            1,
+        ).replace(
+            "</EtherCATInfo>",
+            """  <Modules>
+    <Module><Type ModuleIdent="#x4711" ModulePdoGroup="1">Input module</Type>
+      <Name>Input module</Name></Module>
+  </Modules>
+</EtherCATInfo>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "ModuleIdent 0x00004711 references ModulePdoGroup 1, but Slots declares only 1 group",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
+    def test_rejects_used_module_pdo_group_with_missing_alignment_fields(self):
+        modular = ESI.replace(
+            "      </Device>",
+            """        <Slots>
+          <Slot MinInstances="1" MaxInstances="1">
+            <ModuleIdent>#x4711</ModuleIdent>
+          </Slot>
+          <ModulePdoGroup Alignment="4" RxPdo="#x1600"/>
+        </Slots>
+      </Device>""",
+            1,
+        ).replace(
+            "</EtherCATInfo>",
+            """  <Modules>
+    <Module><Type ModuleIdent="#x4711" ModulePdoGroup="0">Input module</Type>
+      <Name>Input module</Name></Module>
+  </Modules>
+</EtherCATInfo>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "Slots.ModulePdoGroup\\[0\\] is used by ModuleIdent 0x00004711 but is missing required tx_pdo",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
+    def test_rejects_duplicate_module_pdo_group_alignment_indices(self):
+        modular = ESI.replace(
+            "      </Device>",
+            """        <Slots>
+          <ModulePdoGroup Alignment="2" RxPdo="#x1600" TxPdo="#x1A00"/>
+          <ModulePdoGroup Alignment="4" RxPdo="#x1600" TxPdo="#x1A01"/>
+        </Slots>
+      </Device>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "Slots.ModulePdoGroup RxPdo 0x1600 is duplicated by groups 0 and 1",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
+    def test_validates_external_module_pdo_group_after_catalog_attachment(self):
+        modular = ESI.replace(
+            "<Vendor>",
+            '<InfoReference>vendor-modules.xml</InfoReference><Vendor>',
+            1,
+        ).replace(
+            "      </Device>",
+            """        <Slots>
+          <Slot MinInstances="1" MaxInstances="1">
+            <ModuleIdent>#x4711</ModuleIdent>
+          </Slot>
+          <ModulePdoGroup Alignment="4" RxPdo="#x1600" TxPdo="#x1A00"/>
+        </Slots>
+      </Device>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        module_path = Path(self.temp.name) / "vendor-modules.xml"
+        module_path.write_text(
+            """<EtherCATModule>
+  <Vendor><Id>#xAB</Id><Name>Example Vendor</Name></Vendor>
+  <Modules>
+    <Module><Type ModuleIdent="#x4711" ModulePdoGroup="1">Input module</Type>
+      <Name>Input module</Name></Module>
+  </Modules>
+</EtherCATModule>""",
+            encoding="utf-8",
+        )
+        document = esi_to_profile.parse_esi(self.path)
+        self.assertFalse(document["module_catalog_complete"])
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "ModuleIdent 0x00004711 references ModulePdoGroup 1, but Slots declares only 1 group",
+        ):
+            esi_to_profile.attach_external_module_files(document, [module_path])
 
     def test_parses_module_mailbox_coe_init_commands_without_executing_them(self):
         modular = ESI.replace(

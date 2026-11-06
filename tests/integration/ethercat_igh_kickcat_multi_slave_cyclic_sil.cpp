@@ -164,7 +164,10 @@ void emit_igh_pdo_snapshot(const Adapter::PdoMappingProfile& mapping) {
 }  // namespace
 
 int main() {
-  unsigned long cycle_time_us = 1'000UL;
+  // KickCAT's userspace emulator is not a hard-real-time slave. A 10 ms
+  // default avoids overrunning its observed multi-millisecond frame service
+  // time in VM-based SIL; callers can opt into faster rates explicitly.
+  unsigned long cycle_time_us = 10'000UL;
   if (const char* cycle_text = std::getenv("MCA_ECAT_CYCLE_TIME_US")) {
     char* end = nullptr;
     const unsigned long parsed = std::strtoul(cycle_text, &end, 10);
@@ -175,6 +178,8 @@ int main() {
     }
     cycle_time_us = parsed;
   }
+
+  std::cout << "KickCAT two-slave SIL cycle_time_us=" << cycle_time_us << '\n';
 
   Adapter::Config config{};
   config.master_index = 0U;

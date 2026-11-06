@@ -61,6 +61,8 @@ def parse_rows(text: str) -> dict:
     if not slaves:
         raise SnapshotError("snapshot contains no slave identity rows")
     result_slaves = []
+    if sorted(slaves) != list(range(len(slaves))):
+        raise SnapshotError("slave ring positions must be contiguous from zero")
     for ring in sorted(slaves):
         slave = slaves[ring]
         assignments = slave["assignments"]
@@ -68,6 +70,7 @@ def parse_rows(text: str) -> dict:
             raise SnapshotError(f"ring {ring}: no assignments")
         expected = {0x1C12: 1, 0x1C13: 1}
         seen_pairs = set()
+        seen_pdos = {0x1C12: set(), 0x1C13: set()}
         for item in assignments:
             obj, pos = item["assignment_object"], item["assignment_position"]
             if pos != expected[obj]:
@@ -77,16 +80,26 @@ def parse_rows(text: str) -> dict:
             if pair in seen_pairs:
                 raise SnapshotError(f"ring {ring}: duplicate assignment position")
             seen_pairs.add(pair)
+            if item["pdo_index"] in seen_pdos[obj]:
+                raise SnapshotError(f"ring {ring}: duplicate PDO index in assignment 0x{obj:04X}")
+            seen_pdos[obj].add(item["pdo_index"])
         assignment_keys = {
             (item["assignment_object"], item["assignment_position"], item["pdo_index"])
             for item in assignments
         }
         seen_entries: dict[tuple[int, int, int], int] = {}
         mapped_objects = set()
+        closed_mapping_groups = set()
+        previous_mapping_key = None
         for item in slave["mappings"]:
             key = (item["assignment_object"], item["assignment_position"], item["pdo_index"])
             if key not in assignment_keys:
                 raise SnapshotError(f"ring {ring}: mapping references unknown assignment/PDO")
+            if previous_mapping_key is not None and key != previous_mapping_key:
+                closed_mapping_groups.add(previous_mapping_key)
+            if key in closed_mapping_groups:
+                raise SnapshotError(f"ring {ring}: mapping PDO entries are not contiguous")
+            previous_mapping_key = key
             expected_entry = seen_entries.get(key, 0) + 1
             if item["entry_position"] != expected_entry:
                 raise SnapshotError(f"ring {ring}: mapping entry order/gap in PDO 0x{item['pdo_index']:04X}")

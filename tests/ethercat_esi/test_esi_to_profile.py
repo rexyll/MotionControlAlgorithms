@@ -181,6 +181,37 @@ class EsiToProfileTests(unittest.TestCase):
         ):
             esi_to_profile.parse_esi(self.path)
 
+    def test_rejects_slot_dependent_object_entry_indices_in_static_candidate(self):
+        dynamic = ESI_WITH_VELOCITY.replace(
+            "<Index>#x6040</Index>",
+            '<Index DependOnSlotGroup="true">#x6040</Index>',
+            1,
+        )
+        self.path.write_text(dynamic, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        controlword = device["pdos"][0]["entries"][0]
+        self.assertTrue(controlword["index_depend_on_slot_group"])
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "slot-dependent object-dictionary entry index",
+        ):
+            esi_to_profile.resolve_cia402_candidate(
+                device, [0x1600, 0x1601], [0x1A00, 0x1A01]
+            )
+
+    def test_preserves_entry_fixed_scaling_swap_and_safety_metadata(self):
+        annotated = ESI.replace(
+            '<Entry><Index>#x6040</Index><SubIndex>0</SubIndex><BitLen>16</BitLen><Name>Controlword</Name><DataType>UINT</DataType></Entry>',
+            '<Entry Fixed="true" SafetyConnNumber="7"><Index>#x6040</Index><SubIndex>0</SubIndex><BitLen>16</BitLen><Name>Controlword</Name><DataType DScale="+/-10" SwapData="Swap_HB_LB">UINT</DataType></Entry>',
+            1,
+        )
+        self.path.write_text(annotated, encoding="utf-8")
+        entry = esi_to_profile.parse_esi(self.path)["devices"][0]["pdos"][0]["entries"][0]
+        self.assertTrue(entry["fixed"])
+        self.assertEqual(entry["safety_connection_number"], 7)
+        self.assertEqual(entry["data_scale"], "+/-10")
+        self.assertEqual(entry["swap_data"], "Swap_HB_LB")
+
     def test_rejects_slot_dependent_pdo_indices_in_static_candidate(self):
         dynamic = ESI_WITH_VELOCITY.replace(
             "<Index>#x1601</Index>",

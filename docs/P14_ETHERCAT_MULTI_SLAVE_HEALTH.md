@@ -236,7 +236,13 @@ Each test run targets one drive:
 
 Run both directions using the same known-good base DS402 JSON. The script
 creates derived fixtures beside the source JSON so relative ESI resources
-remain resolvable:
+remain resolvable. Because the combined CoE + cyclic runner requires an
+explicit ESI expectation for three-way PDO parity, the matrix runner now
+generates the pinned KickCAT ESI PDO snapshot once under the artifact root
+(or validates and reuses a caller-supplied
+`MCA_ECAT_ESI_PDO_SNAPSHOT`) and passes it to every matrix case. The 10 ms
+KickCAT software-simulation cycle is the default; override it explicitly with
+`MCA_ECAT_CYCLE_TIME_US` only when the simulator host can sustain that rate:
 
 ```bash
 export KICKCAT_SOURCE_DIR="$HOME/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT"

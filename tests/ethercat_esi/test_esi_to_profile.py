@@ -257,6 +257,26 @@ class EsiToProfileTests(unittest.TestCase):
         ):
             esi_to_profile.parse_esi(self.path)
 
+    def test_requires_all_mandatory_pdos_in_selected_assignment(self):
+        with_mandatory_aux = ESI_WITH_VELOCITY.replace(
+            "      </Device>",
+            """        <RxPdo Sm="2" Mandatory="true"><Index>#x1604</Index>
+          <Name>Mandatory auxiliary data</Name>
+          <Entry><Index>#x2000</Index><SubIndex>1</SubIndex><BitLen>16</BitLen><Name>Aux</Name></Entry>
+        </RxPdo>
+      </Device>""",
+            1,
+        )
+        self.path.write_text(with_mandatory_aux, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "mandatory RXPDO 0x1604 is missing from the selected assignment",
+        ):
+            esi_to_profile.resolve_cia402_candidate(
+                device, [0x1600, 0x1601], [0x1A00, 0x1A01]
+            )
+
     def test_rejects_default_sync_manager_that_is_explicitly_excluded(self):
         malformed = ESI.replace(
             '<RxPdo Sm="2" Fixed="true" Mandatory="true">',

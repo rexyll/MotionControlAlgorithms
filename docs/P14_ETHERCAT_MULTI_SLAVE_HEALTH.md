@@ -586,3 +586,9 @@ wire-level run must show no EoE interfaces/unsupported-protocol mailbox
 errors, successful SDO reads through ring 1 TxPDO entries 1–4, and the complete
 FRA=3 two-direction acceptance. Until that run passes, ring-1 fault isolation
 remains unverified.
+
+The transport runner also supports `MCA_ECAT_EXPECT_NO_EOE=1`; in this mode
+it fails before CoE reads if any `eoeNsN` interface/handler is still present.
+The multi-slave fault-isolation wrapper enables this assertion and does not
+rely on bringing interfaces down as a substitute for disabling the advertised
+protocol capability.

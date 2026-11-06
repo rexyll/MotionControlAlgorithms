@@ -2151,11 +2151,11 @@ def main(argv: list[str] | None = None) -> int:
             if not document["devices"]:
                 raise EsiError(f"no device has product code 0x{wanted:08X}")
         if args.slot_config is not None:
-            if args.rx_pdo or args.tx_pdo or args.emit_cpp_fixture:
+            if args.rx_pdo or args.tx_pdo or args.emit_cpp_fixture or args.emit_pdo_snapshot:
                 raise EsiError(
                     "--slot-config cannot be combined with --rx-pdo, --tx-pdo, "
-                    "or --emit-cpp-fixture; slot-resolved CiA 402 binding is a "
-                    "separate validation stage"
+                    "--emit-cpp-fixture, or --emit-pdo-snapshot; slot-resolved "
+                    "PDO snapshot conversion is not yet complete"
                 )
             if len(document["devices"]) != 1:
                 raise EsiError(

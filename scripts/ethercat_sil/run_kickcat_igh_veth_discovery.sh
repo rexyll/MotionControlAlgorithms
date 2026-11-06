@@ -431,7 +431,29 @@ while (( SECONDS < deadline )); do
   # master twice while its idle FSM could still be scanning, and accepted
   # slaves in INIT. That allowed CoE uploads to race scan/mailbox traffic.
   "$ETHERCAT_CLI" slaves -v >"$ARTIFACT_DIR/slaves-verbose.log" 2>&1 || true
-  count=$(grep -Ec '^=== Master 0, Slave [0-9]+ ===  "$ETHERCAT_CLI" master >"$ARTIFACT_DIR/master-status.log" 2>&1 || true
+  count=$(awk '/^=== Master 0, Slave / { n++ } END { print n+0 }' "$ARTIFACT_DIR/slaves-verbose.log")
+  preop_count=$(grep -c '^State: PREOP$' "$ARTIFACT_DIR/slaves-verbose.log" || true)
+  vendor_count=$(grep -Eic 'Vendor Id:[[:space:]]*0x0*29c' "$ARTIFACT_DIR/slaves-verbose.log" || true)
+  product_count=$(grep -Eic 'Product code:[[:space:]]*0x0*3b11002' "$ARTIFACT_DIR/slaves-verbose.log" || true)
+  revision_count=$(grep -Eic 'Revision number:[[:space:]]*0x0*50005' "$ARTIFACT_DIR/slaves-verbose.log" || true)
+  if [[ "$count" == "$EXPECTED_SLAVES" ]] &&
+     [[ "$preop_count" == "$EXPECTED_SLAVES" ]] &&
+     [[ "$vendor_count" == "$EXPECTED_SLAVES" ]] &&
+     [[ "$product_count" == "$EXPECTED_SLAVES" ]] &&
+     [[ "$revision_count" == "$EXPECTED_SLAVES" ]]; then
+    stable_preop_samples=$((stable_preop_samples + 1))
+    if (( stable_preop_samples >= 3 )); then
+      found=1
+      break
+    fi
+  else
+    stable_preop_samples=0
+  fi
+  sleep 1
+done
+
+if (( ! found )); then
+  "$ETHERCAT_CLI" master >"$ARTIFACT_DIR/master-status.log" 2>&1 || true
   cat "$ARTIFACT_DIR/master-status.log" >&2 || true
   cat "$ARTIFACT_DIR/slaves-verbose.log" >&2 || true
   cat "$ARTIFACT_DIR/kickcat-simulator.log" >&2 || true

@@ -117,13 +117,13 @@ run_coe_readback() {
 }
 
 start_coe_capture() {
-  # Capture on the simulator endpoint. ec_generic binds the master endpoint
-  # with its own packet socket and can prevent an additional AF_PACKET reader
-  # there from seeing the EtherCAT stream (a 24-byte, header-only pcap).
-  # A single reader on the unbound simulator endpoint observes both directions.
-  tcpdump -U -i "$SIM_IF" -nn -s 0 -w \
+  # Capture on Linux's "any" pseudo-device: a capture on SIM_IF alone only
+  # showed master->simulator frames in prior artifacts, not simulator replies.
+  # Restrict to EtherCAT and this isolated veth pair to keep capture overhead low.
+  tcpdump -U -i any -nn -s 0 -w \
     "$ARTIFACT_DIR/coe-master.pcap" \
-    'ether proto 0x88a4' 2>"$ARTIFACT_DIR/coe-master-capture.log" &
+    "ether proto 0x88a4 and (ether src $MASTER_MAC or ether src $SIM_MAC)" \
+    2>"$ARTIFACT_DIR/coe-master-capture.log" &
   COE_CAPTURE_PID=$!
   sleep 0.5
   kill -0 "$COE_CAPTURE_PID" 2>/dev/null || {

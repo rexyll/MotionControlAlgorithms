@@ -30,6 +30,7 @@ def parse_igh_log(text: str) -> dict:
     slaves: dict[int, dict] = {}
     seen_groups: dict[int, set[tuple[int, int]]] = {}
     sm_directions: dict[tuple[int, int], str] = {}
+    mapped_objects: dict[int, set[tuple[int, int]]] = {}
     previous_key = None
     previous_entry_position = 0
     for position, item in enumerate(entries, 1):
@@ -61,8 +62,14 @@ def parse_igh_log(text: str) -> dict:
                 "mappings": [],
             }
             seen_groups[ring] = set()
+            mapped_objects[ring] = set()
         elif slaves[ring]["vendor_id"] != vendor or slaves[ring]["product_code"] != product:
             raise IghSnapshotError(f"ring {ring}: inconsistent slave identity")
+        if od_index != 0:
+            object_key = (od_index, subindex)
+            if object_key in mapped_objects[ring]:
+                raise IghSnapshotError(f"ring {ring}: duplicate mapped object 0x{od_index:04X}:{subindex:02X}")
+            mapped_objects[ring].add(object_key)
         sm_key = (ring, sm)
         prior_direction = sm_directions.get(sm_key)
         if prior_direction is not None and prior_direction != direction:

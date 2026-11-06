@@ -609,6 +609,24 @@ class EsiToProfileTests(unittest.TestCase):
         ):
             esi_to_profile.parse_esi(self.path)
 
+    def test_rejects_module_pdo_group_indices_in_wrong_direction(self):
+        malformed = ESI.replace(
+            "      </Device>",
+            """        <Slots><Slot MinInstances="0" MaxInstances="1">
+          <ModuleIdent>#x4711</ModuleIdent>
+        </Slot>
+        <ModulePdoGroup Alignment="1" RxPdo="#x1A00"/>
+        </Slots>
+      </Device>""",
+            1,
+        )
+        self.path.write_text(malformed, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "Slots.ModulePdoGroup RxPdo 0x1A00 is outside 0x1600..0x17FF",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
     def test_rejects_slot_minimum_above_maximum(self):
         modular = ESI.replace(
             "      </Device>",

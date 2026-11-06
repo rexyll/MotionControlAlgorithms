@@ -277,6 +277,19 @@ class EsiToProfileTests(unittest.TestCase):
                 device, [0x1600, 0x1601], [0x1A00, 0x1A01]
             )
 
+    def test_rejects_exclusion_reference_to_opposite_direction_pdo(self):
+        malformed = ESI.replace(
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">',
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">\\n          <Exclude>#x1A00</Exclude>',
+            1,
+        )
+        self.path.write_text(malformed, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "rxPDO 0x1600 excludes PDO index 0x1A00 outside the allowed RXPDO range",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
     def test_rejects_default_sync_manager_that_is_explicitly_excluded(self):
         malformed = ESI.replace(
             '<RxPdo Sm="2" Fixed="true" Mandatory="true">',

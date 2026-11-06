@@ -409,6 +409,32 @@ class EsiToProfileTests(unittest.TestCase):
                 device, [0x1600, 0x1601], [0x1A00, 0x1A01]
             )
 
+    def test_rejects_rxpdo_index_in_txpdo_range(self):
+        malformed = ESI.replace(
+            "<Index>#x1600</Index>",
+            "<Index>#x1A00</Index>",
+            1,
+        )
+        self.path.write_text(malformed, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "rxPDO index 0x1A00 is outside the allowed range 0x1600..0x17FF",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
+    def test_rejects_txpdo_index_in_rxpdo_range(self):
+        malformed = ESI.replace(
+            "<Index>#x1A00</Index>",
+            "<Index>#x1600</Index>",
+            1,
+        )
+        self.path.write_text(malformed, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "txPDO index 0x1600 is outside the allowed range 0x1A00..0x1BFF",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
     def test_rejects_out_of_range_sync_manager_index(self):
         malformed = ESI.replace('<RxPdo Sm="2"', '<RxPdo Sm="256"', 1)
         self.path.write_text(malformed, encoding="utf-8")

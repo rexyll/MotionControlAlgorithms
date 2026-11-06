@@ -527,7 +527,7 @@ if [[ "$COE_READBACK" == "1" ]]; then
   fi
   stop_coe_capture
   command -v python3 >/dev/null || fail "python3 is required to serialize CoE PDO snapshots"
-  if ! python3 "$SCRIPT_DIR/coe_snapshot.py" "$ARTIFACT_DIR/coe-pdo-rows.tsv" "$ARTIFACT_DIR/coe-pdo-snapshot.json"; then
+  if ! python3 "$SCRIPT_DIR/coe_snapshot.py" "$ARTIFACT_DIR/coe-pdo-rows.tsv" "$ARTIFACT_DIR/coe-pdo-snapshot.json" "$EXPECTED_SLAVES"; then
     fail "CoE PDO snapshot validation/serialization failed"
   fi
   if [[ -n "$ESI_PDO_SNAPSHOT" ]]; then

@@ -285,9 +285,10 @@ class EsiToProfileTests(unittest.TestCase):
       <Name>CoE module</Name>
       <Mailbox SdoInfo="1" PdoAssign="true" PdoConfig="0"
                PdoUpload="false" CompleteAccess="1" SegmentedSdo="true"
-               ModuleOD="1" EdsFile="module.eds">
+               ModuleOD="1" EdsFile="module.eds"
+               DS402Channels="4" DiagHistory="true">
         <CoE>
-          <InitCmd>
+          <InitCmd Fixed="true" CompleteAccess="false" OverwrittenByModule="1">
             <Transition>IP</Transition><Transition>PS</Transition>
             <Index DependOnSlot="true">#x8000</Index>
             <SubIndex>#x1</SubIndex>
@@ -314,7 +315,12 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertTrue(mailbox["attributes"]["segmented_sdo"])
         self.assertTrue(mailbox["attributes"]["module_od"])
         self.assertEqual(mailbox["attributes"]["eds_file"], "module.eds")
+        self.assertEqual(mailbox["attributes"]["ds402_channels"], 4)
+        self.assertTrue(mailbox["attributes"]["diag_history"])
         command = mailbox["coe_init_commands"][0]
+        self.assertTrue(command["fixed"])
+        self.assertFalse(command["complete_access"])
+        self.assertTrue(command["overwritten_by_module"])
         self.assertEqual(command["transitions"], ["IP", "PS"])
         self.assertEqual(command["index"], 0x8000)
         self.assertTrue(command["index_depend_on_slot"])

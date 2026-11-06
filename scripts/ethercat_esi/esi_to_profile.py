@@ -1270,6 +1270,26 @@ def resolve_slot_pdo_configuration(
     active_alignment_groups: dict[int, dict[str, Any]] = {}
     previous_descriptor_index = -1
 
+    device_group = device.get("module_pdo_group")
+    if device_group is not None:
+        definitions = slots["module_pdo_groups"]
+        if device_group >= len(definitions):
+            raise EsiError(
+                f"Device {device['name']!r} references undefined "
+                f"ModulePdoGroup {device_group}"
+            )
+        definition = definitions[device_group]
+        active_alignment_groups[device_group] = {
+            "index": device_group,
+            "alignment": definition["alignment"],
+            "rx_pdo": definition["rx_pdo"],
+            "tx_pdo": definition["tx_pdo"],
+            "device": True,
+            "device_name": device["name"],
+            "module_idents": [],
+            "slot_indices": [],
+        }
+
     max_slot_count = slots.get("max_slot_count")
     if max_slot_count is not None and len(configured_slots) > max_slot_count:
         raise EsiError(
@@ -1403,6 +1423,8 @@ def resolve_slot_pdo_configuration(
                         "alignment": definition["alignment"],
                         "rx_pdo": definition["rx_pdo"],
                         "tx_pdo": definition["tx_pdo"],
+                        "device": False,
+                        "device_name": None,
                         "module_idents": [],
                         "slot_indices": [],
                     },
@@ -1474,6 +1496,23 @@ def resolve_slot_pdo_configuration(
                     f"0x{pdo['index']:04X} is outside its allowed range"
                 )
 
+    device_pdo_by_key = {
+        (pdo["direction"], pdo["index"]): pdo
+        for pdo in device.get("pdos", [])
+    }
+    module_pdo_keys = {
+        (pdo["direction"], pdo["index"]) for pdo in flattened_pdos
+    }
+    for pdo in flattened_pdos:
+        key = (pdo["direction"], pdo["index"])
+        device_pdo = device_pdo_by_key.get(key)
+        if device_pdo is not None and not device_pdo["overwritten_by_module"]:
+            raise EsiError(
+                f"resolved module {pdo['direction'].upper()}PDO "
+                f"0x{pdo['index']:04X} collides with a device-level PDO that "
+                "is not marked OverwrittenByModule"
+            )
+
     for group_index, group in active_alignment_groups.items():
         for direction, alignment_index in (
             ("rx", group["rx_pdo"]),
@@ -1485,6 +1524,27 @@ def resolve_slot_pdo_configuration(
                     f"0x{alignment_index:04X} collides with a resolved module PDO"
                 )
 
+    device_pdos = device.get("pdos", [])
+    overridden_device_pdos = [
+        pdo for pdo in device_pdos
+        if pdo["overwritten_by_module"]
+        and (pdo["direction"], pdo["index"]) in module_pdo_keys
+    ]
+    effective_device_pdos = [
+        pdo for pdo in device_pdos
+        if pdo not in overridden_device_pdos
+    ]
+    unresolved_safety_mappings = [
+        {
+            "slot_index": slot["slot_index"],
+            "module_ident": slot["module_ident"],
+            "mappings": module_by_ident[slot["module_ident"]]["safety_parameter_mappings"],
+        }
+        for slot in resolved_slots
+        if slot["module_ident"] != 0
+        and module_by_ident[slot["module_ident"]]["safety_parameter_mappings"]
+    ]
+
     return {
         "configured_slots": resolved_slots,
         "module_pdos": flattened_pdos,
@@ -1492,8 +1552,12 @@ def resolve_slot_pdo_configuration(
             active_alignment_groups[index]
             for index in sorted(active_alignment_groups)
         ],
-        "device_pdos": device.get("pdos", []),
+        "device_pdos": device_pdos,
+        "effective_device_pdos": effective_device_pdos,
+        "overridden_device_pdos": overridden_device_pdos,
+        "unresolved_safety_parameter_mappings": unresolved_safety_mappings,
         "runtime_readback_performed": False,
+        "is_complete_process_data_mapping": False,
     }
 
 
@@ -1985,6 +2049,22 @@ def parse_esi(path: Path) -> dict[str, Any]:
     return document
 
 
+def _slot_config_integer(value: Any, field: str) -> int:
+    if isinstance(value, bool):
+        raise EsiError(f"{field} must be an integer, not a boolean")
+    if isinstance(value, int):
+        if value < 0:
+            raise EsiError(f"{field} must be non-negative")
+        return value
+    if isinstance(value, str):
+        parsed = _number(value, field)
+        assert parsed is not None
+        if parsed < 0:
+            raise EsiError(f"{field} must be non-negative")
+        return parsed
+    raise EsiError(f"{field} must be a decimal, 0x, or #x integer")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("esi", type=Path, help="input EtherCAT ESI XML file")
@@ -1993,6 +2073,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--rx-pdo", action="append", default=[], help="select an RxPDO index (repeatable; decimal, 0x..., or #x...) for CiA 402 candidate resolution")
     parser.add_argument("--tx-pdo", action="append", default=[], help="select a TxPDO index (repeatable; decimal, 0x..., or #x...) for CiA 402 candidate resolution")
     parser.add_argument("--module-esi", type=Path, action="append", default=[], help="explicitly load an EtherCATModule XML file listed by InfoReference (repeatable); references are never followed automatically")
+    parser.add_argument("--slot-config", type=Path, help="JSON array of explicit slot assignments; each item has slot_descriptor_index and module_ident (decimal, 0x, or #x)")
     parser.add_argument("--emit-cpp-fixture", action="store_true", help="emit a C++ golden fixture instead of normalized JSON; requires explicit PDO selections")
     args = parser.parse_args(argv)
     try:
@@ -2007,6 +2088,47 @@ def main(argv: list[str] | None = None) -> int:
             ]
             if not document["devices"]:
                 raise EsiError(f"no device has product code 0x{wanted:08X}")
+        if args.slot_config is not None:
+            if args.rx_pdo or args.tx_pdo or args.emit_cpp_fixture:
+                raise EsiError(
+                    "--slot-config cannot be combined with --rx-pdo, --tx-pdo, "
+                    "or --emit-cpp-fixture; slot-resolved CiA 402 binding is a "
+                    "separate validation stage"
+                )
+            if len(document["devices"]) != 1:
+                raise EsiError(
+                    "--slot-config requires exactly one selected device; use --product-code"
+                )
+            try:
+                configured_slots = json.loads(
+                    args.slot_config.read_text(encoding="utf-8")
+                )
+            except json.JSONDecodeError as exc:
+                raise EsiError(f"invalid --slot-config JSON: {exc}") from exc
+            if not isinstance(configured_slots, list):
+                raise EsiError("--slot-config JSON root must be an array")
+            normalized_slots = []
+            for index, assignment in enumerate(configured_slots):
+                if not isinstance(assignment, dict) or set(assignment) != {
+                    "slot_descriptor_index", "module_ident"
+                }:
+                    raise EsiError(
+                        f"--slot-config item[{index}] must contain exactly "
+                        "slot_descriptor_index and module_ident"
+                    )
+                normalized_slots.append({
+                    "slot_descriptor_index": _slot_config_integer(
+                        assignment["slot_descriptor_index"],
+                        f"--slot-config item[{index}].slot_descriptor_index",
+                    ),
+                    "module_ident": _slot_config_integer(
+                        assignment["module_ident"],
+                        f"--slot-config item[{index}].module_ident",
+                    ),
+                })
+            document["slot_pdo_configuration"] = resolve_slot_pdo_configuration(
+                document, document["devices"][0], normalized_slots
+            )
         if args.rx_pdo or args.tx_pdo:
             if len(document["devices"]) != 1:
                 raise EsiError("CiA 402 candidate resolution requires exactly one selected device; use --product-code")

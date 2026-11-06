@@ -35,8 +35,7 @@ mkdir -p "$ARTIFACT_ROOT"
 # snapshot, or generate the pinned KickCAT device expectation once for the
 # entire fault matrix.
 if [[ -z "${MCA_ECAT_ESI_PDO_SNAPSHOT:-}" ]]; then
-  KICKCAT_SOURCE_DIR="${KICKCAT_SOURCE_DIR:-$(dirname -- "$(dirname -- "$BASE_CONFIG")")}"
-  ESI_XML="$KICKCAT_SOURCE_DIR/simulation/slave_configs/ecat402-drive.xml"
+  ESI_XML="$(dirname -- "$BASE_CONFIG")/ecat402-drive.xml"
   ESI_RESOLVER="$SCRIPT_DIR/../ethercat_esi/esi_to_profile.py"
   [[ -f "$ESI_XML" ]] || fail "KickCAT ESI XML not found: $ESI_XML (set KICKCAT_SOURCE_DIR)"
   [[ -f "$ESI_RESOLVER" ]] || fail "ESI resolver not found: $ESI_RESOLVER"

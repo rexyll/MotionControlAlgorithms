@@ -4,6 +4,13 @@
 #include "mca/hardware/ethercat_pdo_readback.hpp"
 
 namespace {
+constexpr std::uint32_t mapping_word(std::uint16_t index,
+                                     std::uint8_t subindex,
+                                     std::uint8_t width) {
+  return (static_cast<std::uint32_t>(index) << 16U) |
+      (static_cast<std::uint32_t>(subindex) << 8U) | width;
+}
+
 using Profile = mca::hardware::EthercatPdoMappingProfile<8U>;
 using Direction = mca::hardware::EthercatPdoDirection;
 
@@ -125,13 +132,6 @@ using Readback = mca::hardware::EthercatPdoReadback<8U>;
 using ReadbackRecord = mca::hardware::EthercatPdoReadbackRecord;
 using Parity = mca::hardware::EthercatPdoParityResult;
 using Direction = mca::hardware::EthercatPdoDirection;
-
-constexpr std::uint32_t mapping_word(std::uint16_t index,
-                                     std::uint8_t subindex,
-                                     std::uint8_t width) {
-  return (static_cast<std::uint32_t>(index) << 16U) |
-      (static_cast<std::uint32_t>(subindex) << 8U) | width;
-}
 
 Readback make_readback() {
   Readback result{};

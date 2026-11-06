@@ -37,6 +37,8 @@ bool read_sdo(ec_master_t* master,
               std::uint8_t subindex,
               std::size_t width,
               ReadResult& result) {
+    result.value = 0;
+    result.size = 0;
     std::array<std::uint8_t, 4> bytes{};
     std::uint32_t abort_code = 0;
     std::size_t result_size = 0;

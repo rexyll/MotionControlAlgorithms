@@ -1742,6 +1742,67 @@ def resolve_cia402_candidate(
 
 
 
+
+def render_pdo_snapshot(candidate: dict[str, Any]) -> dict[str, Any]:
+    """Render an explicitly selected, non-slot ESI candidate as a layered snapshot.
+
+    This is an ESI expectation only. It does not imply that the selected
+    assignments are active on a slave or have been read back through CoE/IgH.
+    """
+    identity = candidate["identity"]
+    assignments: list[dict[str, int]] = []
+    mappings: list[dict[str, Any]] = []
+    for direction, assignment_object, key in (
+        ("rx", 0x1C12, "selected_rx_pdo_indices"),
+        ("tx", 0x1C13, "selected_tx_pdo_indices"),
+    ):
+        pdo_indices = candidate[key]
+        for assignment_position, pdo_index in enumerate(pdo_indices, start=1):
+            assignments.append({
+                "assignment_object": assignment_object,
+                "assignment_position": assignment_position,
+                "pdo_index": pdo_index,
+            })
+            entries = [
+                entry for entry in candidate["ordered_entries"]
+                if entry["direction"] == direction and entry["pdo_index"] == pdo_index
+            ]
+            if not entries:
+                raise EsiError(
+                    f"selected {direction.upper()}PDO 0x{pdo_index:04X} "
+                    "has no resolved mapping entries"
+                )
+            for entry_position, entry in enumerate(entries, start=1):
+                index = entry["index"]
+                subindex = entry["sub_index"]
+                width = entry["bit_length"]
+                if not 0 <= index <= 0xFFFF or not 0 <= subindex <= 0xFF:
+                    raise EsiError("PDO mapping object index/subindex is out of range")
+                if not 1 <= width <= 0xFF:
+                    raise EsiError("PDO mapping bit length is outside 1..255")
+                raw = (index << 16) | (subindex << 8) | width
+                mappings.append({
+                    "assignment_object": assignment_object,
+                    "assignment_position": assignment_position,
+                    "pdo_index": pdo_index,
+                    "sync_manager": entry["sync_manager"],
+                    "direction": direction,
+                    "entry_position": entry_position,
+                    "raw_mapping_entry": raw,
+                })
+    return {
+        "schema_version": 1,
+        "source_kind": "esi_expected",
+        "identity": {
+            "vendor_id": identity["vendor_id"],
+            "product_code": identity["product_code"],
+        },
+        "assignments": assignments,
+        "mappings": mappings,
+        "runtime_readback_performed": False,
+    }
+
+
 def render_cia402_cpp_fixture(
     candidate: dict[str, Any], *, array_name: str = "kEsiCia402PdoEntries",
     include_common_declarations: bool = True,
@@ -2075,6 +2136,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--module-esi", type=Path, action="append", default=[], help="explicitly load an EtherCATModule XML file listed by InfoReference (repeatable); references are never followed automatically")
     parser.add_argument("--slot-config", type=Path, help="JSON array of explicit slot assignments; each item has slot_descriptor_index and module_ident (decimal, 0x, or #x)")
     parser.add_argument("--emit-cpp-fixture", action="store_true", help="emit a C++ golden fixture instead of normalized JSON; requires explicit PDO selections")
+    parser.add_argument("--emit-pdo-snapshot", action="store_true", help="emit layered ESI expected assignment/mapping snapshot; requires explicit PDO selections")
     args = parser.parse_args(argv)
     try:
         document = parse_esi(args.esi)
@@ -2137,10 +2199,16 @@ def main(argv: list[str] | None = None) -> int:
             document["cia402_candidate"] = resolve_cia402_candidate(
                 document["devices"][0], rx_indices, tx_indices
             )
+        if args.emit_cpp_fixture and args.emit_pdo_snapshot:
+            raise EsiError("--emit-cpp-fixture and --emit-pdo-snapshot are mutually exclusive")
         if args.emit_cpp_fixture:
             if "cia402_candidate" not in document:
                 raise EsiError("--emit-cpp-fixture requires explicit --rx-pdo and --tx-pdo selections")
             rendered = render_cia402_cpp_fixture(document["cia402_candidate"])
+        elif args.emit_pdo_snapshot:
+            if "cia402_candidate" not in document:
+                raise EsiError("--emit-pdo-snapshot requires explicit --rx-pdo and --tx-pdo selections")
+            rendered = json.dumps(render_pdo_snapshot(document["cia402_candidate"]), indent=2, sort_keys=True) + "\n"
         else:
             rendered = json.dumps(document, indent=2, sort_keys=True) + "\n"
         if args.output:

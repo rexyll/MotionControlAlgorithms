@@ -105,10 +105,32 @@ it does not reuse the single-slave fault harness.
 
 Run the two-drive baseline with the same known-good DS402 simulator JSON twice.
 KickCAT creates two distinct simulated slaves from the two config arguments;
-the config file remains in the directory containing its relative ESI file:
+the config file remains in the directory containing its relative ESI file.
+The latest successful CoE readback for this simulator confirmed, on both
+ring positions, Rx assignment `0x1C12 → 0x1600` and Tx assignment
+`0x1C13 → 0x1A00`, with the mapping entries listed in the parity section
+below. Use those observed PDO indices rather than selecting an alternative
+PDO from the ESI.
+
+The pinned KickCAT `ecat402-drive.xml` marks these base PDO/object indices
+`DependOnSlot=true` despite declaring no `Slots` section. The resolver
+therefore keeps its default fail-closed behavior; the explicit
+`--treat-slot-dependent-indices-as-literal` override is allowed only for
+non-modular devices with no `Slots` section. It performs no index arithmetic
+and preserves the original ESI flags. This simulator-specific override is
+justified here by the independent CoE SDO readback above; do not use it for a
+modular device or without matching runtime evidence.
 
 ```bash
 export KICKCAT_SOURCE_DIR="$HOME/workspace/MotionControlAlgorithms/scripts/ethercat_sil/KickCAT"
+python3 scripts/ethercat_esi/esi_to_profile.py \
+  "$KICKCAT_SOURCE_DIR/simulation/slave_configs/ecat402-drive.xml" \
+  --product-code 0x03b11002 \
+  --rx-pdo 0x1600 --tx-pdo 0x1a00 \
+  --treat-slot-dependent-indices-as-literal \
+  --emit-pdo-snapshot -o /tmp/ecat402-drive-pdo-snapshot.json
+export MCA_ECAT_ESI_PDO_SNAPSHOT=/tmp/ecat402-drive-pdo-snapshot.json
+
 sudo -E env \
   KICKCAT_SIMULATOR="$KICKCAT_SOURCE_DIR/build/simulation/network_simulator" \
   KICKCAT_SLAVE_CONFIGS="$KICKCAT_SOURCE_DIR/simulation/slave_configs/ecat402-drive.json $KICKCAT_SOURCE_DIR/simulation/slave_configs/ecat402-drive.json" \
@@ -151,25 +173,33 @@ kind, exact slave cardinality, contiguous ring positions, and every
 pairwise/per-slave match. Any missing report or mismatch fails the combined
 SIL run. The consolidated artifact is `three-way-pdo-parity.json`.
 
-Generate the expected snapshot from the selected device's ESI XML using the
-repository resolver. The selected RxPDO and TxPDO indices must reflect the
-intended drive profile; do not guess them or use a generic fixture as a
-substitute for the device's actual ESI:
-
-```bash
-python3 scripts/ethercat_esi/esi_to_profile.py /path/to/device.xml \
-  --product-code 0xPRODUCT_CODE \
-  --rx-pdo 0xRXPDO_INDEX --tx-pdo 0xTXPDO_INDEX \
-  --emit-pdo-snapshot -o /path/to/device-pdo-snapshot.json
-
-export MCA_ECAT_ESI_PDO_SNAPSHOT=/path/to/device-pdo-snapshot.json
-```
+Generate the expected snapshot from the selected device's ESI XML
+using the repository resolver. For the pinned KickCAT Ingenia simulator,
+the last verified runtime SDO readback selects RxPDO `0x1600` and TxPDO
+`0x1A00`; the exact simulator command above includes the explicit
+non-modular literal-index override and exports the resulting snapshot path.
+For any other device/profile, select PDO indices only from that device's
+verified configuration and runtime readback; never copy the simulator values.
 
 For modular devices, the current slot resolver must not be represented as a
 complete runtime PDO mapping unless its output explicitly reports a complete
 mapping. Slot-resolved PDO snapshot conversion remains a separate limitation;
 external module ESI files must be supplied explicitly with `--module-esi`
 when required by the ESI's InfoReference list.
+
+For the pinned KickCAT Ingenia profile, both previously captured
+ring positions reported the following exact ordered maps:
+
+| Assignment | PDO | SyncManager | Ordered entries (index:subindex/bit width) |
+| --- | --- | --- | --- |
+| Rx `0x1C12:1` | `0x1600` | 2 / output | `6040:00/16, 607A:00/32, 60FF:00/32, 6060:00/8` |
+| Tx `0x1C13:1` | `0x1A00` | 3 / input | `6041:00/16, 6064:00/32, 606C:00/32, 6061:00/8` |
+
+These are prior runtime observations, not a result from the latest
+`three-way-pdo-parity` combined run. The new override makes it possible to
+render an ESI expectation for this specific non-modular simulator profile;
+the combined run must still collect fresh CoE and IgH snapshots and pass all
+three comparators before runtime parity can be accepted.
 
 The combined report is a consolidation of the three pairwise reports, not a
 fourth independent source of device evidence. It validates the pairwise

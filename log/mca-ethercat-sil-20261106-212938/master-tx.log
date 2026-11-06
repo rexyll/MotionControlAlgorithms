@@ -1,0 +1,9 @@
+tcpdump: verbose output suppressed, use -v[v]... for full protocol decode
+listening on mcaecat0, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+21:29:40.061148 02:4d:43:41:45:01 > ff:ff:ff:ff:ff:ff, ethertype Unknown (0x88a4), length 60: 
+	0x0000:  0e10 0402 0100 3001 0200 0000 0000 0000  ......0.........
+	0x0010:  0000 0000 0000 0000 0000 0000 0000 0000  ................
+	0x0020:  0000 0000 0000 0000 0000 0000 0000       ..............
+1 packet captured
+1699 packets received by filter
+0 packets dropped by kernel

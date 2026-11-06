@@ -1,0 +1,4 @@
+[ 33%] Building CXX object CMakeFiles/mca_ethercat_igh_kickcat_multi_slave_cyclic_sil.dir/src/hardware/ethercat_igh_adapter.cpp.o
+[ 66%] Building CXX object CMakeFiles/mca_ethercat_igh_kickcat_multi_slave_cyclic_sil.dir/tests/integration/ethercat_igh_kickcat_multi_slave_cyclic_sil.cpp.o
+[100%] Linking CXX executable mca_ethercat_igh_kickcat_multi_slave_cyclic_sil
+[100%] Built target mca_ethercat_igh_kickcat_multi_slave_cyclic_sil

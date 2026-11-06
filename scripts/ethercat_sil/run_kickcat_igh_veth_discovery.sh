@@ -88,105 +88,32 @@ capture_runtime_host_diagnostics() {
   } >"$ARTIFACT_DIR/runtime-host-$label.log" 2>&1 || true
 }
 
-# Read a typed CoE object through the IgH CLI. The CLI supports explicit
-# --position and --type options; parse the first numeric token from its output.
-read_sdo_value() {
-  local index="$1" subindex="$2" type="$3" position="${4:-0}" output token value
-  local command_status=0 started finished elapsed_ms started_wall finished_wall
-  started_wall=$(date --iso-8601=ns)
-  started=$(date +%s%N)
-  if output=$(timeout "$TIMEOUT_SEC" "$ETHERCAT_CLI" upload --position "$position" \
-      --type "$type" "$index" "$subindex" 2>&1); then
-    command_status=0
-  else
-    command_status=$?
-  fi
-  finished=$(date +%s%N)
-  finished_wall=$(date --iso-8601=ns)
-  elapsed_ms=$(((finished - started) / 1000000))
-  {
-    printf 'READ position=%s %s:%s type=%s exit=%s elapsed_ms=%s start_epoch_ns=%s finish_epoch_ns=%s start_wall=%s finish_wall=%s\n' \
-      "$position" "$index" "$subindex" "$type" "$command_status" "$elapsed_ms" "$started" "$finished" "$started_wall" "$finished_wall"
-    printf '%s\n' "$output"
-  } >>"$ARTIFACT_DIR/coe-sdo-raw.log"
-  if (( command_status != 0 )); then
-    printf 'SDO read failed: %s:%s (%s)\n%s\n' \
-      "$index" "$subindex" "$type" "$output" >&2
-    return 1
-  fi
-  token=$(printf '%s\n' "$output" | awk '
-    NF {
-      for (i = 1; i <= NF; ++i) {
-        if ($i ~ /^0[xX][0-9a-fA-F]+$/ || $i ~ /^[0-9]+$/) {
-          print $i
-          exit
-        }
-      }
-    }')
-  [[ -n "$token" ]] || {
-    printf 'Could not parse SDO value for %s:%s\n%s\n' \
-      "$index" "$subindex" "$output" >&2
-    return 1
-  }
-  if [[ "$token" == 0x* || "$token" == 0X* ]]; then
-    value=$((token))
-  else
-    value=$((10#$token))
-  fi
-  printf '%s\n' "$value"
-}
-
-verify_coe_assignment() {
-  local position="$1" assignment_index="$2" label="$3"
-  local pdo_count pdo_pos pdo_index entry_count entry_pos mapped
-  local object_index object_subindex bit_length
-  pdo_count=$(read_sdo_value "$assignment_index" 0 uint8 "$position") || return 1
-  (( pdo_count > 0 && pdo_count <= 16 )) || {
-    printf '%s assignment count out of range: %s\n' "$label" "$pdo_count" >&2
-    return 1
-  }
-  printf 'C\t%s\t%s\t%s\n' "$position" "$((assignment_index))" "$pdo_count" >>"$ARTIFACT_DIR/coe-pdo-rows.tsv"
-  printf '%s assignment 0x%s: %s PDO(s)\n' "$label" "${assignment_index#0x}" "$pdo_count"
-  for ((pdo_pos = 1; pdo_pos <= pdo_count; ++pdo_pos)); do
-    pdo_index=$(read_sdo_value "$assignment_index" "$pdo_pos" uint16 "$position") || return 1
-    (( pdo_index > 0 )) || {
-      printf '%s assignment contains zero PDO index at subindex %s\n' "$label" "$pdo_pos" >&2
-      return 1
-    }
-    printf 'A\t%s\t%s\t%s\t%s\n' "$position" "$((assignment_index))" "$pdo_pos" "$pdo_index" >>"$ARTIFACT_DIR/coe-pdo-rows.tsv"
-    entry_count=$(read_sdo_value "$pdo_index" 0 uint8 "$position") || return 1
-    (( entry_count > 0 && entry_count <= 64 )) || {
-      printf 'PDO 0x%04x mapping entry count out of range: %s\n' "$pdo_index" "$entry_count" >&2
-      return 1
-    }
-    printf 'P\t%s\t%s\t%s\t%s\t%s\n' "$position" "$((assignment_index))" "$pdo_pos" "$pdo_index" "$entry_count" >>"$ARTIFACT_DIR/coe-pdo-rows.tsv"
-    printf '  PDO 0x%04x: %s mapped entries\n' "$pdo_index" "$entry_count"
-    for ((entry_pos = 1; entry_pos <= entry_count; ++entry_pos)); do
-      mapped=$(read_sdo_value "$pdo_index" "$entry_pos" uint32 "$position") || return 1
-      object_index=$(((mapped >> 16) & 0xffff))
-      object_subindex=$(((mapped >> 8) & 0xff))
-      bit_length=$((mapped & 0xff))
-      (( bit_length > 0 )) || {
-        printf '  PDO 0x%04x entry %s has zero width %s\n' \
-          "$pdo_index" "$entry_pos" "$bit_length" >&2
-        return 1
-      }
-      printf 'M\t%s\t%s\t%s\t%s\t%s\t%s\n' "$position" "$((assignment_index))" "$pdo_pos" "$pdo_index" "$entry_pos" "$mapped" >>"$ARTIFACT_DIR/coe-pdo-rows.tsv"
-      printf '    %04x:%02x width=%u\n' \
-        "$object_index" "$object_subindex" "$bit_length"
-    done
-  done
-}
-
+# Use the IgH application API while the master is in OPERATION phase. This
+# waits for any idle scan to finish and disables further scans, avoiding
+# concurrent scan-FSM and user CoE uploads to the same slave mailbox.
 run_coe_readback() {
-  local position
-  : >"$ARTIFACT_DIR/coe-pdo-rows.tsv"
-  for ((position = 0; position < EXPECTED_SLAVES; ++position)); do
-    printf 'S\t%s\t%s\t%s\n' "$position" "$((0x29c))" "$((0x03b11002))" >>"$ARTIFACT_DIR/coe-pdo-rows.tsv"
-    printf 'Slave ring position %s CoE PDO mapping readback\n' "$position"
-    verify_coe_assignment "$position" 0x1C12 "RxPDO" || return 1
-    verify_coe_assignment "$position" 0x1C13 "TxPDO" || return 1
-  done
+  local helper="$ARTIFACT_DIR/coe-sdo-readback"
+  local -a ethercat_cflags=() ethercat_libs=()
+  if command -v ethercat-config >/dev/null 2>&1; then
+    read -r -a ethercat_cflags <<<"$(ethercat-config --cflags)"
+    read -r -a ethercat_libs <<<"$(ethercat-config --libs)"
+  elif pkg-config --exists ethercat 2>/dev/null; then
+    read -r -a ethercat_cflags <<<"$(pkg-config --cflags ethercat)"
+    read -r -a ethercat_libs <<<"$(pkg-config --libs ethercat)"
+  else
+    fail "IgH development linker flags unavailable (need ethercat-config or pkg-config ethercat)"
+  fi
+
+  if ! c++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow \
+      "${ethercat_cflags[@]}" "$SCRIPT_DIR/coe_sdo_readback.cpp" \
+      -o "$helper" "${ethercat_libs[@]}" \
+      >"$ARTIFACT_DIR/coe-sdo-readback-build.log" 2>&1; then
+    cat "$ARTIFACT_DIR/coe-sdo-readback-build.log" >&2
+    fail "IgH operation-phase CoE readback helper build failed"
+  fi
+
+  "$helper" "$EXPECTED_SLAVES" "$ARTIFACT_DIR/coe-pdo-rows.tsv" \
+    "$ARTIFACT_DIR/coe-sdo-raw.log"
 }
 
 start_coe_capture() {

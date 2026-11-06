@@ -70,6 +70,13 @@ class CoeSnapshotTests(unittest.TestCase):
         with self.assertRaisesRegex(SnapshotError, "contiguous from zero"):
             parse_rows(rows)
 
+    def test_rejects_mapping_cardinality_mismatch(self):
+        rows = fixture().replace("0x1600\\t2\\t0x00000008", "0x1600\\t2\\t0x00000008")
+        rows = rows.replace("P\\t0\\t0x1c12\\t1\\t0x1600\\t2",
+                            "P\\t0\\t0x1c12\\t1\\t0x1600\\t3")
+        with self.assertRaisesRegex(SnapshotError, "cardinality mismatch"):
+            parse_rows(rows)
+
     def test_rejects_missing_slave_identity(self):
         with self.assertRaisesRegex(SnapshotError, "no slave identity"):
             parse_rows("")

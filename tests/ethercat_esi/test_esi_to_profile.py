@@ -189,6 +189,19 @@ class EsiToProfileTests(unittest.TestCase):
                 device, [0x1600, 0x1601], [0x1A00, 0x1A01]
             )
 
+    def test_rejects_mandatory_pdo_without_default_sync_manager(self):
+        malformed = ESI.replace(
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">',
+            '<RxPdo Fixed="true" Mandatory="true">',
+            1,
+        )
+        self.path.write_text(malformed, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "is mandatory but has no default SyncManager assignment",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
     def test_rejects_default_sync_manager_that_is_explicitly_excluded(self):
         malformed = ESI.replace(
             '<RxPdo Sm="2" Fixed="true" Mandatory="true">',

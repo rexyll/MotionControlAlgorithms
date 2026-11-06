@@ -48,6 +48,9 @@ def parse_rows(text: str, expected_slave_count: int | None = None) -> dict:
                 raise SnapshotError(f"line {line_number}: assignment has no slave or invalid object")
             if not 1 <= position <= 16 or not 0x1000 <= pdo_index <= 0xFFFF:
                 raise SnapshotError(f"line {line_number}: assignment field out of range")
+            lower, upper = (0x1600, 0x17FF) if assignment_object == 0x1C12 else (0x1A00, 0x1BFF)
+            if not lower <= pdo_index <= upper:
+                raise SnapshotError(f"line {line_number}: PDO index outside assignment direction range")
             slaves[ring]["assignments"].append({
                 "assignment_object": assignment_object,
                 "assignment_position": position, "pdo_index": pdo_index,

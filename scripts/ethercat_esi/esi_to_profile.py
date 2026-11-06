@@ -622,7 +622,18 @@ def _parse_pdo_entry(entry: ET.Element, field: str) -> dict[str, Any]:
 
 def _parse_safety_parameter_mapping(mapping: ET.Element) -> dict[str, Any]:
     field = "Module.SafetyParaMapping"
-    index_value = _required_child_number(mapping, "Index", f"{field}.Index")
+    index_element = _one(mapping, "Index", required=True)
+    assert index_element is not None
+    index_text = _text(index_element, f"{field}.Index", required=True)
+    index_value = _number(index_text, f"{field}.Index")
+    assert index_value is not None
+    index_depend_on_slot = _optional_boolean(
+        index_element.attrib.get("DependOnSlot"), f"{field}.Index.DependOnSlot"
+    ) or False
+    index_depend_on_slot_group = _optional_boolean(
+        index_element.attrib.get("DependOnSlotGroup"),
+        f"{field}.Index.DependOnSlotGroup",
+    ) or False
     names = _localized_names(mapping, f"{field}.Name", required=True)
     entries = [
         _parse_pdo_entry(entry, f"{field}.Entry")
@@ -643,15 +654,28 @@ def _parse_safety_parameter_mapping(mapping: ET.Element) -> dict[str, Any]:
                 f"{field}.Exclude.DependOnSlotGroup",
             ),
         })
+    safety_pdo_type = mapping.attrib.get("SafetyPdoType")
+    allowed_safety_pdo_types = {
+        "FSoESlave",
+        "FSoEMultipleSlave",
+        "FSoEMaster",
+        "FSoEMultipleMaster",
+    }
+    if safety_pdo_type is not None and safety_pdo_type not in allowed_safety_pdo_types:
+        raise EsiError(
+            f"invalid {field}.SafetyPdoType: {safety_pdo_type!r}"
+        )
     return {
         "index": _require_range(index_value, f"{field}.Index", 0xFFFF),
+        "index_depend_on_slot": index_depend_on_slot,
+        "index_depend_on_slot_group": index_depend_on_slot_group,
         "name": _primary_name(names),
         "localized_names": names,
         "fixed": _optional_boolean(mapping.attrib.get("Fixed"), f"{field}.Fixed"),
         "complete_access": _optional_boolean(
             mapping.attrib.get("CompleteAccess"), f"{field}.CompleteAccess"
         ),
-        "safety_pdo_type": mapping.attrib.get("SafetyPdoType"),
+        "safety_pdo_type": safety_pdo_type,
         "safety_connection_number": _xs_integer(
             mapping.attrib.get("SafetyConnNumber"), f"{field}.SafetyConnNumber"
         ),

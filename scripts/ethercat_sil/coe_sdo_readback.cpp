@@ -241,6 +241,9 @@ int main(int argc, char** argv) {
     }
     guard.active = true;
     guard.start_io();
+    raw << "MASTER_PHASE=OPERATION io_pump_interval_ms=1\\n";
+    raw.flush();
+    std::cout << "IgH master OPERATION phase I/O pump started\\n";
 
     for (unsigned long ring_value = 0; ring_value < expected; ++ring_value) {
         const auto ring = static_cast<std::uint16_t>(ring_value);

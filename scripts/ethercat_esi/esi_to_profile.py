@@ -161,6 +161,13 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
         excluded_index = _number(value, f"{direction}PDO.Exclude")
         assert excluded_index is not None
         _require_range(excluded_index, f"{direction}PDO.Exclude", 0xFFFF)
+        if not allowed_range[0] <= excluded_index <= allowed_range[1]:
+            raise EsiError(
+                f"{direction}PDO 0x{pdo_index:04X} excludes PDO index "
+                f"0x{excluded_index:04X} outside the allowed "
+                f"{direction.upper()}PDO range "
+                f"0x{allowed_range[0]:04X}..0x{allowed_range[1]:04X}"
+            )
         if excluded_index in seen_excluded_pdos:
             raise EsiError(
                 f"{direction}PDO 0x{pdo_index:04X} has duplicate Exclude "

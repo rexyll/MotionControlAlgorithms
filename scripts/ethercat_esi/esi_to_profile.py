@@ -261,6 +261,16 @@ def _parse_module_mailbox(module: ET.Element) -> dict[str, Any] | None:
             if len(raw_data) % 2 != 0 or not re.fullmatch(r"[0-9A-Fa-f]*", raw_data):
                 raise EsiError(f"{field}.Data is not valid xs:hexBinary data")
             init_commands.append({
+                "fixed": _optional_boolean(
+                    command.attrib.get("Fixed"), f"{field}.Fixed"
+                ),
+                "complete_access": _optional_boolean(
+                    command.attrib.get("CompleteAccess"), f"{field}.CompleteAccess"
+                ),
+                "overwritten_by_module": _optional_boolean(
+                    command.attrib.get("OverwrittenByModule"),
+                    f"{field}.OverwrittenByModule",
+                ),
                 "transitions": transitions,
                 "index": index,
                 "index_depend_on_slot": _optional_boolean(
@@ -305,6 +315,12 @@ def _parse_module_mailbox(module: ET.Element) -> dict[str, Any] | None:
                 mailbox.attrib.get("ModuleOD"), "Module.Mailbox.ModuleOD"
             ),
             "eds_file": mailbox.attrib.get("EdsFile"),
+            "ds402_channels": _xs_integer(
+                mailbox.attrib.get("DS402Channels"), "Module.Mailbox.DS402Channels"
+            ),
+            "diag_history": _optional_boolean(
+                mailbox.attrib.get("DiagHistory"), "Module.Mailbox.DiagHistory"
+            ),
         },
         "has_coe": coe is not None,
         "coe_init_commands": init_commands,

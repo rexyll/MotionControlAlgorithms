@@ -826,6 +826,8 @@ class EsiToProfileTests(unittest.TestCase):
                 "alignment": 4,
                 "rx_pdo": 0x1700,
                 "tx_pdo": 0x1B80,
+                "device": False,
+                "device_name": None,
                 "module_idents": [0x4711],
                 "slot_indices": [1],
             }],

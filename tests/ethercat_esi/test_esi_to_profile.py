@@ -1181,7 +1181,7 @@ class EsiToProfileTests(unittest.TestCase):
 
     def test_candidate_requires_selected_pdo_sync_manager_association(self):
         malformed = ESI_WITH_VELOCITY.replace(
-            '<RxPdo Sm="2"><Index>#x1601</Index>',
+            '<RxPdo Sm="2" Su="5"><Index>#x1601</Index>',
             '<RxPdo><Index>#x1601</Index>',
             1,
         )

@@ -29,6 +29,7 @@ def parse_igh_log(text: str) -> dict:
         raise IghSnapshotError("IgH snapshot has no mapping entries")
     slaves: dict[int, dict] = {}
     seen_groups: dict[int, set[tuple[int, int]]] = {}
+    sm_directions: dict[tuple[int, int], str] = {}
     previous_key = None
     previous_entry_position = 0
     for position, item in enumerate(entries, 1):
@@ -62,12 +63,19 @@ def parse_igh_log(text: str) -> dict:
             seen_groups[ring] = set()
         elif slaves[ring]["vendor_id"] != vendor or slaves[ring]["product_code"] != product:
             raise IghSnapshotError(f"ring {ring}: inconsistent slave identity")
+        sm_key = (ring, sm)
+        prior_direction = sm_directions.get(sm_key)
+        if prior_direction is not None and prior_direction != direction:
+            raise IghSnapshotError(f"ring {ring}: SyncManager direction changed")
+        sm_directions[sm_key] = direction
         key = (ring, sm, pdo)
         if previous_key is None or key != previous_key:
             if previous_key is not None:
                 seen_groups[previous_key[0]].add((previous_key[1], previous_key[2]))
             if (sm, pdo) in seen_groups[ring]:
                 raise IghSnapshotError(f"ring {ring}: SM/PDO group is not contiguous")
+            if previous_key is not None and ring < previous_key[0]:
+                raise IghSnapshotError("slave ring order regressed")
             if previous_key is not None and ring == previous_key[0] and sm < previous_key[1]:
                 raise IghSnapshotError(f"ring {ring}: SyncManager order regressed")
             previous_entry_position = 0

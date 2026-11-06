@@ -1,0 +1,251 @@
+capture=before-coe
+2026-11-06T22:09:59,901727+08:00 EtherCAT 0: Re-scanning now.
+2026-11-06T22:09:59,901824+08:00 EtherCAT 0: Scanning bus.
+2026-11-06T22:10:00,054153+08:00 EtherCAT 0: Bus scanning completed in 152 ms.
+2026-11-06T22:10:00,054161+08:00 EtherCAT 0: Using slave 0 as DC reference clock.
+2026-11-06T22:10:00,054164+08:00 EtherCAT 0: Starting EoE thread.
+2026-11-06T22:10:00,055780+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-06T22:10:00,234558+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:00,234568+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:00,234775+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:00,234779+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:00,234997+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:00,234999+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:00,235342+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:00,235345+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:00,266769+08:00 EtherCAT WARNING 0-0: Failed to receive mbox check datagram for eoe0s0.
+2026-11-06T22:10:00,266778+08:00 EtherCAT WARNING 0-1: Failed to receive mbox check datagram for eoe0s1.
+2026-11-06T22:10:00,269807+08:00 EtherCAT ERROR 0-0: Failed to receive AL state datagram: Datagram timed out.
+2026-11-06T22:10:00,271729+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:00,271740+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:00,274476+08:00 EtherCAT WARNING 0-0: Failed to receive mbox check datagram for eoe0s0.
+2026-11-06T22:10:00,274485+08:00 EtherCAT WARNING 0-1: Failed to receive mbox check datagram for eoe0s1.
+2026-11-06T22:10:00,276822+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:00,276834+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-06T22:10:00,277081+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:00,277085+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-06T22:10:00,279873+08:00 EtherCAT WARNING 0-0: Failed to receive mbox fetch datagram for eoe0s0.
+2026-11-06T22:10:00,279885+08:00 EtherCAT WARNING 0-1: Failed to receive mbox check datagram for eoe0s1.
+2026-11-06T22:10:00,280199+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:00,280206+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-06T22:10:00,281946+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:00,281967+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-06T22:10:00,282063+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:00,282065+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-06T22:10:00,294840+08:00 EtherCAT WARNING 0-0: Failed to receive mbox check datagram for eoe0s0.
+2026-11-06T22:10:00,645945+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:00,645954+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:00,885864+08:00 EtherCAT WARNING 0-0: Failed to receive mbox check datagram for eoe0s0.
+2026-11-06T22:10:01,052944+08:00 EtherCAT WARNING 0-0: Failed to receive mbox check datagram for eoe0s0.
+2026-11-06T22:10:01,143080+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:01,143102+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:01,143554+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:01,143560+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-06T22:10:01,207955+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:01,207965+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-06T22:10:01,394967+08:00 EtherCAT WARNING 0-0: Failed to receive mbox check datagram for eoe0s0.
+2026-11-06T22:10:01,394979+08:00 EtherCAT WARNING 0-1: Failed to receive mbox check datagram for eoe0s1.
+2026-11-06T22:10:01,656914+08:00 EtherCAT WARNING 0-0: Failed to receive mbox check datagram for eoe0s0.
+2026-11-06T22:10:01,659166+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:01,659175+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:01,659681+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:01,659687+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:01,682527+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:01,682539+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:01,682754+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:01,682758+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:01,683281+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:01,683285+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:01,796289+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:01,796299+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:03,111319+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C32:13!
+2026-11-06T22:10:03,111332+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,111622+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C32:14!
+2026-11-06T22:10:03,111624+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,111915+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C32:15!
+2026-11-06T22:10:03,111917+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,112244+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C32:16!
+2026-11-06T22:10:03,112250+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,112703+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C32:17!
+2026-11-06T22:10:03,112709+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,113004+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C32:18!
+2026-11-06T22:10:03,113008+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,113472+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C32:19!
+2026-11-06T22:10:03,113478+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,113670+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C32:1A!
+2026-11-06T22:10:03,113673+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,114168+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C32:1B!
+2026-11-06T22:10:03,114171+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,114660+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C32:1C!
+2026-11-06T22:10:03,114664+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,115666+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C32:1D!
+2026-11-06T22:10:03,115676+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,116216+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C32:1E!
+2026-11-06T22:10:03,116220+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,116400+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C32:1F!
+2026-11-06T22:10:03,116403+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,124286+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C33:13!
+2026-11-06T22:10:03,124292+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,124554+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C33:14!
+2026-11-06T22:10:03,124556+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,124871+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C33:15!
+2026-11-06T22:10:03,124873+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,125146+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C33:16!
+2026-11-06T22:10:03,125148+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,125442+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C33:17!
+2026-11-06T22:10:03,125444+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,125723+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C33:18!
+2026-11-06T22:10:03,125724+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,126017+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C33:19!
+2026-11-06T22:10:03,126018+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,126335+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C33:1A!
+2026-11-06T22:10:03,126336+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,126648+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C33:1B!
+2026-11-06T22:10:03,126648+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,127341+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C33:1C!
+2026-11-06T22:10:03,127342+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,127626+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C33:1D!
+2026-11-06T22:10:03,127626+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,127929+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C33:1E!
+2026-11-06T22:10:03,127929+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,128194+08:00 EtherCAT WARNING 0-0: SDO information error response while fetching SDO entry 0x1C33:1F!
+2026-11-06T22:10:03,128195+08:00 EtherCAT ERROR 0-0: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,379888+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C32:13!
+2026-11-06T22:10:03,379895+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,380141+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C32:14!
+2026-11-06T22:10:03,380143+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,380425+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C32:15!
+2026-11-06T22:10:03,380426+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,380701+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C32:16!
+2026-11-06T22:10:03,380702+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,380983+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C32:17!
+2026-11-06T22:10:03,380984+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,381387+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C32:18!
+2026-11-06T22:10:03,381391+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,381713+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C32:19!
+2026-11-06T22:10:03,381714+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,382001+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C32:1A!
+2026-11-06T22:10:03,382002+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,382312+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C32:1B!
+2026-11-06T22:10:03,382315+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,382611+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C32:1C!
+2026-11-06T22:10:03,382612+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,382899+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C32:1D!
+2026-11-06T22:10:03,382900+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,383171+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C32:1E!
+2026-11-06T22:10:03,383175+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,383447+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C32:1F!
+2026-11-06T22:10:03,383448+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,387896+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C33:13!
+2026-11-06T22:10:03,387903+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,388177+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C33:14!
+2026-11-06T22:10:03,388181+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,388472+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C33:15!
+2026-11-06T22:10:03,388474+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,388759+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C33:16!
+2026-11-06T22:10:03,388760+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,389032+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C33:17!
+2026-11-06T22:10:03,389033+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,389457+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C33:18!
+2026-11-06T22:10:03,389460+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,389749+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C33:19!
+2026-11-06T22:10:03,389750+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,390045+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C33:1A!
+2026-11-06T22:10:03,390046+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,390471+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C33:1B!
+2026-11-06T22:10:03,390474+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,390775+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C33:1C!
+2026-11-06T22:10:03,390776+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,391068+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C33:1D!
+2026-11-06T22:10:03,391070+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,391357+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C33:1E!
+2026-11-06T22:10:03,391361+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:03,391759+08:00 EtherCAT WARNING 0-1: SDO information error response while fetching SDO entry 0x1C33:1F!
+2026-11-06T22:10:03,391762+08:00 EtherCAT ERROR 0-1: SDO abort message 0x06090011: "Subindex does not exist".
+2026-11-06T22:10:04,642463+08:00 EtherCAT: Requesting master 0...
+2026-11-06T22:10:04,642469+08:00 EtherCAT: Successfully requested master 0.
+2026-11-06T22:10:04,642615+08:00 EtherCAT 0: Domain0: Logical address 0x00000000, 22 byte, expected working counter 3.
+2026-11-06T22:10:04,642617+08:00 EtherCAT 0:   Datagram domain0-0-main: Logical offset 0x00000000, 22 byte, type LRW.
+2026-11-06T22:10:04,642619+08:00 EtherCAT 0: Domain1: Logical address 0x00000016, 22 byte, expected working counter 3.
+2026-11-06T22:10:04,642620+08:00 EtherCAT 0:   Datagram domain1-22-main: Logical offset 0x00000016, 22 byte, type LRW.
+2026-11-06T22:10:04,642709+08:00 EtherCAT 0: Master thread exited.
+2026-11-06T22:10:04,642714+08:00 EtherCAT 0: Stopping EoE thread.
+2026-11-06T22:10:04,642770+08:00 EtherCAT 0: EoE thread exited.
+2026-11-06T22:10:04,642772+08:00 EtherCAT 0: Starting EoE thread.
+2026-11-06T22:10:04,642908+08:00 EtherCAT 0: Starting EtherCAT-OP thread.
+2026-11-06T22:10:04,643029+08:00 EtherCAT WARNING 0: 34 datagrams TIMED OUT!
+2026-11-06T22:10:04,643032+08:00 EtherCAT WARNING 0: 23 datagrams UNMATCHED!
+2026-11-06T22:10:04,654277+08:00 EtherCAT WARNING 0: No application time received up to now, but master already active.
+2026-11-06T22:10:06,187415+08:00 EtherCAT 0: Slave states on main device: OP.
+2026-11-06T22:10:06,795523+08:00 EtherCAT 0: Master thread exited.
+2026-11-06T22:10:06,795528+08:00 EtherCAT 0: Stopping EoE thread.
+2026-11-06T22:10:06,795586+08:00 EtherCAT 0: EoE thread exited.
+2026-11-06T22:10:06,795596+08:00 EtherCAT 0: Starting EoE thread.
+2026-11-06T22:10:06,795700+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-06T22:10:06,795826+08:00 EtherCAT 0: Releasing master...
+2026-11-06T22:10:06,795829+08:00 EtherCAT 0: Released.
+2026-11-06T22:10:06,803495+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-06T22:10:07,019472+08:00 EtherCAT ERROR 0-0: Failed to receive AL state datagram: Datagram timed out.
+2026-11-06T22:10:07,021451+08:00 EtherCAT 0: Link state of ecm0 changed to DOWN.
+2026-11-06T22:10:07,023500+08:00 EtherCAT 0: 0 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-06T22:10:07,023504+08:00 EtherCAT 0: Stopping EoE thread.
+2026-11-06T22:10:07,023534+08:00 EtherCAT 0: EoE thread exited.
+2026-11-06T22:10:07,042681+08:00 EtherCAT 0: Re-scanning now.
+2026-11-06T22:10:07,047229+08:00 EtherCAT 0: Master thread exited.
+2026-11-06T22:10:07,047237+08:00 EtherCAT 0: Releasing main device 02:4D:43:41:45:01.
+2026-11-06T22:10:07,050478+08:00 ec_generic: Unloading.
+2026-11-06T22:10:07,063233+08:00 EtherCAT: Master module cleaned up.
+2026-11-06T22:10:07,267551+08:00 EtherCAT: Master driver 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-06T22:10:07,267660+08:00 EtherCAT: 1 master waiting for devices.
+2026-11-06T22:10:07,272478+08:00 ec_generic: EtherCAT master generic Ethernet device module 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-06T22:10:07,272535+08:00 EtherCAT: Accepting 02:4D:43:41:45:01 as main device for master 0.
+2026-11-06T22:10:07,272549+08:00 ec_generic: Binding socket to interface 14 (mcaecat0).
+2026-11-06T22:10:07,279656+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-06T22:10:07,280265+08:00 EtherCAT 0: Link state of ecm0 changed to UP.
+2026-11-06T22:10:07,304486+08:00 EtherCAT 0: 2 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-06T22:10:07,304491+08:00 EtherCAT 0: Slave states on main device: INIT.
+2026-11-06T22:10:07,304492+08:00 EtherCAT 0: Re-scanning now.
+2026-11-06T22:10:07,304628+08:00 EtherCAT 0: Scanning bus.
+2026-11-06T22:10:07,436034+08:00 EtherCAT 0: Bus scanning completed in 131 ms.
+2026-11-06T22:10:07,436040+08:00 EtherCAT 0: Using slave 0 as DC reference clock.
+2026-11-06T22:10:07,436042+08:00 EtherCAT 0: Starting EoE thread.
+2026-11-06T22:10:07,438480+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-06T22:10:07,530480+08:00 EtherCAT WARNING 0-0: Failed to receive mbox check datagram for eoe0s0.
+2026-11-06T22:10:07,530487+08:00 EtherCAT WARNING 0-1: Failed to receive mbox check datagram for eoe0s1.
+2026-11-06T22:10:07,531750+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:07,531759+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-06T22:10:07,531760+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:07,531762+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:07,531873+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:07,531875+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-06T22:10:07,531876+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:07,531877+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:07,531996+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:07,531997+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-06T22:10:07,531998+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:07,531999+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:07,532118+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:07,532120+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-06T22:10:07,532120+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:07,532122+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:07,532240+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:07,532242+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-06T22:10:07,532242+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:07,532244+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:07,579788+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:07,579798+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-06T22:10:07,808655+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:07,808664+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:08,182793+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:08,182802+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-06T22:10:08,182804+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:08,182806+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:08,285570+08:00 EtherCAT WARNING 0-1: Failed to receive mbox check datagram for eoe0s1.
+2026-11-06T22:10:08,694600+08:00 EtherCAT WARNING 0-1: Failed to receive mbox check datagram for eoe0s1.
+2026-11-06T22:10:09,080643+08:00 EtherCAT WARNING 0-1: Failed to receive mbox check datagram for eoe0s1.
+2026-11-06T22:10:09,206771+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:09,206780+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-06T22:10:09,206782+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:09,206784+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-06T22:10:09,220793+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-06T22:10:09,220801+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.

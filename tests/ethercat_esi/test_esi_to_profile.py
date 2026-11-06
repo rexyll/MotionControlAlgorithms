@@ -47,7 +47,7 @@ ESI = """<?xml version="1.0"?>
 
 ESI_WITH_VELOCITY = ESI.replace(
     "      </Device>",
-    """        <RxPdo Sm="2"><Index>#x1601</Index><Name>Velocity command</Name>
+    """        <RxPdo Sm="2" Su="5"><Index>#x1601</Index><Name>Velocity command</Name>
           <Entry><Index>#x60FF</Index><SubIndex>0</SubIndex><BitLen>32</BitLen><Name>Target velocity</Name><DataType>DINT</DataType></Entry>
         </RxPdo>
         <TxPdo Sm="3"><Index>#x1A01</Index><Name>Velocity feedback</Name>
@@ -836,6 +836,40 @@ class EsiToProfileTests(unittest.TestCase):
                 device, [0x1600, 0x1601], [0x1A00, 0x1A01]
             )
 
+    def test_rejects_selected_pdo_marked_overwritten_by_module(self):
+        overwritten = ESI_WITH_VELOCITY.replace(
+            '<RxPdo Sm="2" Su="5"><Index>#x1601</Index>',
+            '<RxPdo Sm="2" Su="5" OverwrittenByModule="true"><Index>#x1601</Index>',
+            1,
+        )
+        self.path.write_text(overwritten, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        velocity_pdo = next(pdo for pdo in device["pdos"] if pdo["index"] == 0x1601)
+        self.assertTrue(velocity_pdo["overwritten_by_module"])
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "OverwrittenByModule and is not an effective device PDO",
+        ):
+            esi_to_profile.resolve_cia402_candidate(
+                device, [0x1600, 0x1601], [0x1A00, 0x1A01]
+            )
+
+    def test_rejects_fsoe_or_sra_pdo_as_generic_cia402_mapping(self):
+        safety = ESI_WITH_VELOCITY.replace(
+            '<RxPdo Sm="2" Su="5"><Index>#x1601</Index>',
+            '<RxPdo Sm="2" Su="5" SafetyPdoType="FSoESlave"><Index>#x1601</Index>',
+            1,
+        )
+        self.path.write_text(safety, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "FSoE/SRA safety metadata",
+        ):
+            esi_to_profile.resolve_cia402_candidate(
+                device, [0x1600, 0x1601], [0x1A00, 0x1A01]
+            )
+
     def test_rejects_selected_mutually_exclusive_pdos(self):
         incompatible = ESI_WITH_VELOCITY.replace(
             '<RxPdo Sm="2" Fixed="true" Mandatory="true">',
@@ -969,6 +1003,7 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertEqual(result["bindings"]["controlword"]["index"], 0x6040)
         self.assertEqual(result["bindings"]["target_velocity"]["pdo_index"], 0x1601)
         self.assertEqual(result["bindings"]["target_velocity"]["sync_manager"], 2)
+        self.assertEqual(result["bindings"]["target_velocity"]["sync_unit"], 5)
         self.assertEqual(result["bindings"]["actual_velocity"]["direction"], "tx")
         self.assertEqual(result["bindings"]["target_velocity"]["bit_offset"], 32)
         self.assertTrue(result["supports"]["cyclic_synchronous_velocity"])

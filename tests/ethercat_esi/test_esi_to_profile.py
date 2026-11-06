@@ -72,6 +72,59 @@ ESI_WITH_ALL_MODES = ESI_WITH_VELOCITY.replace(
     1,
 )
 
+SLOT_RUNTIME_ESI = """<?xml version="1.0"?>
+<EtherCATInfo xmlns="https://www.ethercat.org/ESI">
+  <Vendor><Id>#x000000AB</Id><Name>Example Vendor</Name></Vendor>
+  <Descriptions><Devices><Device>
+    <Type ProductCode="#x1001" RevisionNo="#x2">Modular Device</Type>
+    <Name>Modular Device</Name>
+    <Slots MaxSlotCount="#x2" MaxSlotGroupCount="#x2"
+           SlotPdoIncrement="#x1" SlotGroupPdoIncrement="#x80"
+           SlotIndexIncrement="#x10" SlotGroupIndexIncrement="#x400">
+      <Slot SlotGroup="#x0" MinInstances="#x0" MaxInstances="#x1"
+            SlotPdoIncrement="#x2" SlotIndexIncrement="#x20">
+        <ModuleIdent>#x0</ModuleIdent>
+      </Slot>
+      <Slot SlotGroup="#x1" MinInstances="#x1" MaxInstances="#x1">
+        <ModuleClass><Class>DI</Class><VendorId>#xAB</VendorId></ModuleClass>
+      </Slot>
+      <ModulePdoGroup Alignment="4" RxPdo="#x1700" TxPdo="#x1B80">
+        Safety group
+      </ModulePdoGroup>
+    </Slots>
+  </Device></Devices></Descriptions>
+  <Modules>
+    <Module>
+      <Type ModuleIdent="#x4711" ModuleClass="DI" ModulePdoGroup="0">
+        Digital input module
+      </Type>
+      <Name>Digital input module</Name>
+      <RxPdo Sm="2">
+        <Index DependOnSlot="true">#x1600</Index>
+        <Name>Inputs</Name>
+        <Exclude DependOnSlotGroup="true">#x1602</Exclude>
+        <Entry>
+          <Index DependOnSlotGroup="true">#x6000</Index>
+          <SubIndex>1</SubIndex><BitLen>16</BitLen>
+          <Name>Input bits</Name><DataType>UINT</DataType>
+        </Entry>
+        <Entry><Index>#x0</Index><BitLen>8</BitLen><Name>Padding</Name></Entry>
+      </RxPdo>
+      <TxPdo Sm="3">
+        <Index DependOnSlotGroup="true">#x1A00</Index>
+        <Name>Status</Name>
+        <Entry>
+          <Index DependOnSlot="true">#x6041</Index>
+          <SubIndex>0</SubIndex><BitLen>16</BitLen>
+          <Name>Statusword</Name><DataType>UINT</DataType>
+        </Entry>
+      </TxPdo>
+    </Module>
+  </Modules>
+</EtherCATInfo>
+"""
+
+
 class EsiToProfileTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -734,6 +787,186 @@ class EsiToProfileTests(unittest.TestCase):
             "duplicate ModuleIdent 0x00004711 across embedded and external module catalogs",
         ):
             esi_to_profile.attach_external_module_files(document, [module_path])
+
+
+
+    def _parse_slot_runtime_fixture(self, xml=SLOT_RUNTIME_ESI):
+        self.path.write_text(xml, encoding="utf-8")
+        return esi_to_profile.parse_esi(self.path)
+
+    def test_resolves_explicit_slot_positions_groups_and_alignment_metadata(self):
+        document = self._parse_slot_runtime_fixture()
+        device = document["devices"][0]
+        resolved = esi_to_profile.resolve_slot_pdo_configuration(
+            document,
+            device,
+            [
+                {"slot_descriptor_index": 0, "module_ident": 0},
+                {"slot_descriptor_index": 1, "module_ident": 0x4711},
+            ],
+        )
+
+        self.assertEqual(
+            [item["index"] for item in resolved["module_pdos"]],
+            [0x1601, 0x1A80],
+        )
+        rx_pdo, tx_pdo = resolved["module_pdos"]
+        self.assertEqual(rx_pdo["base_index"], 0x1600)
+        self.assertEqual(rx_pdo["entries"][0]["index"], 0x6400)
+        self.assertEqual(rx_pdo["entries"][1]["index"], 0)
+        self.assertEqual(rx_pdo["excluded_pdos"][0]["index"], 0x1682)
+        self.assertEqual(tx_pdo["entries"][0]["index"], 0x6051)
+        self.assertFalse(rx_pdo["index_depend_on_slot"])
+        self.assertFalse(rx_pdo["entries"][0]["index_depend_on_slot_group"])
+        self.assertEqual(
+            resolved["module_pdo_alignment_groups"],
+            [{
+                "index": 0,
+                "alignment": 4,
+                "rx_pdo": 0x1700,
+                "tx_pdo": 0x1B80,
+                "module_idents": [0x4711],
+                "slot_indices": [1],
+            }],
+        )
+        self.assertFalse(resolved["runtime_readback_performed"])
+        self.assertEqual(resolved["configured_slots"][0]["module_ident"], 0)
+
+    def test_rejects_missing_required_slot_instance(self):
+        document = self._parse_slot_runtime_fixture()
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            r"Slots\.Slot\[1\] has 0 configured instance",
+        ):
+            esi_to_profile.resolve_slot_pdo_configuration(
+                document,
+                document["devices"][0],
+                [{"slot_descriptor_index": 0, "module_ident": 0}],
+            )
+
+    def test_rejects_module_class_choice_that_does_not_match(self):
+        xml = SLOT_RUNTIME_ESI.replace(
+            "<Class>DI</Class><VendorId>#xAB</VendorId>",
+            "<Class>AI</Class><VendorId>#xAB</VendorId>",
+            1,
+        )
+        document = self._parse_slot_runtime_fixture(xml)
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "does not match a ModuleClass choice",
+        ):
+            esi_to_profile.resolve_slot_pdo_configuration(
+                document,
+                document["devices"][0],
+                [
+                    {"slot_descriptor_index": 0, "module_ident": 0},
+                    {"slot_descriptor_index": 1, "module_ident": 0x4711},
+                ],
+            )
+
+    def test_rejects_slot_dependent_index_when_increment_is_missing(self):
+        xml = SLOT_RUNTIME_ESI.replace(
+            'SlotIndexIncrement="#x10" ',
+            "",
+            1,
+        )
+        document = self._parse_slot_runtime_fixture(xml)
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "slot_index_increment is not defined",
+        ):
+            esi_to_profile.resolve_slot_pdo_configuration(
+                document,
+                document["devices"][0],
+                [
+                    {"slot_descriptor_index": 0, "module_ident": 0},
+                    {"slot_descriptor_index": 1, "module_ident": 0x4711},
+                ],
+            )
+
+    def test_rejects_combined_slot_and_slot_group_index_flags(self):
+        xml = SLOT_RUNTIME_ESI.replace(
+            '<Index DependOnSlotGroup="true">#x6000</Index>',
+            '<Index DependOnSlot="true" DependOnSlotGroup="true">#x6000</Index>',
+            1,
+        )
+        document = self._parse_slot_runtime_fixture(xml)
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "combined offset semantics are not implemented",
+        ):
+            esi_to_profile.resolve_slot_pdo_configuration(
+                document,
+                document["devices"][0],
+                [
+                    {"slot_descriptor_index": 0, "module_ident": 0},
+                    {"slot_descriptor_index": 1, "module_ident": 0x4711},
+                ],
+            )
+
+    def test_rejects_group_dependent_index_without_slot_group(self):
+        xml = SLOT_RUNTIME_ESI.replace(
+            '<Slot SlotGroup="#x1" MinInstances="#x1" MaxInstances="#x1">',
+            '<Slot MinInstances="#x1" MaxInstances="#x1">',
+            1,
+        )
+        document = self._parse_slot_runtime_fixture(xml)
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "selected slot has no SlotGroup",
+        ):
+            esi_to_profile.resolve_slot_pdo_configuration(
+                document,
+                document["devices"][0],
+                [
+                    {"slot_descriptor_index": 0, "module_ident": 0},
+                    {"slot_descriptor_index": 1, "module_ident": 0x4711},
+                ],
+            )
+
+    def test_rejects_duplicate_resolved_module_pdo_indices(self):
+        xml = SLOT_RUNTIME_ESI.replace(
+            'MinInstances="#x1" MaxInstances="#x1">',
+            'MinInstances="#x1" MaxInstances="#x2">',
+            1,
+        ).replace(
+            '<Index DependOnSlot="true">#x1600</Index>',
+            '<Index>#x1600</Index>',
+            1,
+        )
+        document = self._parse_slot_runtime_fixture(xml)
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "collides between configured slots",
+        ):
+            esi_to_profile.resolve_slot_pdo_configuration(
+                document,
+                document["devices"][0],
+                [
+                    {"slot_descriptor_index": 1, "module_ident": 0x4711},
+                    {"slot_descriptor_index": 1, "module_ident": 0x4711},
+                ],
+            )
+
+    def test_rejects_resolved_pdo_index_outside_direction_range(self):
+        xml = SLOT_RUNTIME_ESI.replace(
+            '<Index DependOnSlot="true">#x1600</Index>',
+            '<Index DependOnSlot="true">#x17FF</Index>',
+            1,
+        )
+        document = self._parse_slot_runtime_fixture(xml)
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "resolved RXPDO index 0x1800 is outside",
+        ):
+            esi_to_profile.resolve_slot_pdo_configuration(
+                document,
+                document["devices"][0],
+                [
+                    {"slot_descriptor_index": 0, "module_ident": 0},
+                    {"slot_descriptor_index": 1, "module_ident": 0x4711},
+                ],
+            )
 
     def test_accepts_module_only_device_with_slots(self):
         base = ESI

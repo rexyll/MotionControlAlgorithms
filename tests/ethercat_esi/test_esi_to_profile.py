@@ -927,6 +927,19 @@ class EsiToProfileTests(unittest.TestCase):
         ):
             esi_to_profile.parse_esi(self.path)
 
+    def test_rejects_hex_lexical_form_for_xs_int_excluded_sm(self):
+        malformed = ESI.replace(
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">',
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">\\n          <ExcludedSm>#x3</ExcludedSm>',
+            1,
+        )
+        self.path.write_text(malformed, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "invalid rxPDO.ExcludedSm",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
     def test_rejects_default_sync_manager_that_is_explicitly_excluded(self):
         malformed = ESI.replace(
             '<RxPdo Sm="2" Fixed="true" Mandatory="true">',

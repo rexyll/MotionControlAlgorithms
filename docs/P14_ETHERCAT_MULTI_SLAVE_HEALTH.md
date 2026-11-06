@@ -454,3 +454,17 @@ The script extracts and validates `igh-pdo-snapshot.json`, then writes
 `esi-igh-parity.json` and fails on identity, SM, direction, PDO, Entry-order or
 raw mapping-word mismatch. IgH's SM-major sequence is compared with the ESI
 expectation grouped by SM while preserving PDO/Entry order within each SM.
+
+
+The same combined SIL run now performs a third, independent CoE-to-IgH
+cross-check when both MCA_ECAT_COE_READBACK=1 and
+MCA_ECAT_CYCLIC_SIL=1 are enabled. The coe_igh_parity.py comparator joins
+records by ring position, Vendor ID/Product code and PDO index, then compares
+each PDO's ordered raw 32-bit mapping entries (including padding). It verifies
+that both sources expose the same slave set and PDO set; it never derives CoE
+assignment subindices from IgH's SM-major discovery order. The report is
+coe-igh-parity.json, and a mismatch fails the SIL script. This direct
+cross-check supplements rather than replaces the two ESI comparisons:
+CoE does not expose SM/direction, while IgH does not expose assignment
+objects/subindices. The three reports therefore prove separate, explicitly
+bounded relationships, not a physical-drive HIL result.

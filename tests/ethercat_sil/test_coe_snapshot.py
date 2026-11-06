@@ -9,6 +9,8 @@ from coe_snapshot import SnapshotError, parse_rows
 def fixture():
     rows = [
         "S\t0\t0x29c\t0x03b11002",
+        "C\t0\t0x1c12\t1",
+        "C\t0\t0x1c13\t1",
         "A\t0\t0x1c12\t1\t0x1600",
         "A\t0\t0x1c13\t1\t0x1a00",
         "P\t0\t0x1c12\t1\t0x1600\t2",
@@ -70,6 +72,11 @@ class CoeSnapshotTests(unittest.TestCase):
             "M\\t0\\t", "M\\t1\\t"
         )
         with self.assertRaisesRegex(SnapshotError, "contiguous from zero"):
+            parse_rows(rows)
+
+    def test_rejects_assignment_cardinality_mismatch(self):
+        rows = fixture().replace("C\\t0\\t0x1c12\\t1", "C\\t0\\t0x1c12\\t2")
+        with self.assertRaisesRegex(SnapshotError, "assignment cardinality mismatch"):
             parse_rows(rows)
 
     def test_rejects_mapping_cardinality_mismatch(self):

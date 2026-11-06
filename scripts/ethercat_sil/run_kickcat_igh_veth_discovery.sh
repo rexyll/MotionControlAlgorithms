@@ -112,8 +112,8 @@ run_coe_readback() {
     fail "IgH operation-phase CoE readback helper build failed"
   fi
 
-  "$helper" "$EXPECTED_SLAVES" "$ARTIFACT_DIR/coe-pdo-rows.tsv" \
-    "$ARTIFACT_DIR/coe-sdo-raw.log"
+  timeout "$TIMEOUT_SEC" "$helper" "$EXPECTED_SLAVES" \
+    "$ARTIFACT_DIR/coe-pdo-rows.tsv" "$ARTIFACT_DIR/coe-sdo-raw.log"
 }
 
 start_coe_capture() {

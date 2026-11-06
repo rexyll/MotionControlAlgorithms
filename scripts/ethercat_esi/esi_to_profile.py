@@ -247,27 +247,10 @@ def _parse_module(module: ET.Element) -> dict[str, Any]:
             pdos.append(_parse_pdo(child, "tx"))
     _validate_static_pdo_indices(pdos, f"Module 0x{module_ident:08X}")
 
-    safety_mappings: list[dict[str, Any]] = []
-    for mapping in _children(module, "SafetyParaMapping"):
-        mapping_index = _required_child_number(
-            mapping, "Index", "Module.SafetyParaMapping.Index"
-        )
-        mapping_names = _localized_names(
-            mapping, "Module.SafetyParaMapping.Name"
-        )
-        safety_mappings.append({
-            "index": _require_range(
-                mapping_index, "Module.SafetyParaMapping.Index", 0xFFFF
-            ),
-            "name": _primary_name(mapping_names),
-            "localized_names": mapping_names,
-            "fixed": _optional_boolean(
-                mapping.attrib.get("Fixed"), "Module.SafetyParaMapping.Fixed"
-            ),
-            "mandatory": _optional_boolean(
-                mapping.attrib.get("Mandatory"), "Module.SafetyParaMapping.Mandatory"
-            ),
-        })
+    safety_mappings = [
+        _parse_safety_parameter_mapping(mapping)
+        for mapping in _children(module, "SafetyParaMapping")
+    ]
 
     crc32 = _number(module.attrib.get("Crc32"), "Module.Crc32", required=False)
     if crc32 is not None:
@@ -288,6 +271,7 @@ def _parse_module(module: ET.Element) -> dict[str, Any]:
         "crc32": crc32,
         "pdos": pdos,
         "safety_parameter_mappings": safety_mappings,
+        "is_safety_relevant": bool(safety_mappings),
         "has_mailbox": _one(module, "Mailbox") is not None,
     }
 
@@ -568,6 +552,115 @@ def _parse_slots(
 
 
 
+def _parse_pdo_entry(entry: ET.Element, field: str) -> dict[str, Any]:
+    index_element = _one(entry, "Index", required=True)
+    assert index_element is not None
+    index_text = _text(index_element, f"{field}.Index", required=True)
+    index_value = _number(index_text, f"{field}.Index")
+    assert index_value is not None
+    index = _require_range(index_value, f"{field}.Index", 0xFFFF)
+    index_depend_on_slot = _optional_boolean(
+        index_element.attrib.get("DependOnSlot"),
+        f"{field}.Index.DependOnSlot",
+    ) or False
+    index_depend_on_slot_group = _optional_boolean(
+        index_element.attrib.get("DependOnSlotGroup"),
+        f"{field}.Index.DependOnSlotGroup",
+    ) or False
+
+    sub_index_element = _one(entry, "SubIndex")
+    sub_index_present = sub_index_element is not None
+    if sub_index_element is None:
+        # SubIndex is optional in EntryType. Preserve its omission separately,
+        # while using the standard zero value for an omitted sub-index.
+        sub_index = 0
+    else:
+        sub_index_text = _text(
+            sub_index_element, f"{field}.SubIndex", required=True
+        )
+        sub_index_value = _number(sub_index_text, f"{field}.SubIndex")
+        assert sub_index_value is not None
+        sub_index = _require_range(sub_index_value, f"{field}.SubIndex", 0xFF)
+
+    bit_length = _required_child_number(entry, "BitLen", f"{field}.BitLen")
+    if not 1 <= bit_length <= 64:
+        raise EsiError(
+            f"{field} 0x{index:04X}:{sub_index:02X} has unsupported bit length {bit_length}"
+        )
+
+    name_values = _localized_names(entry, f"{field}.Name")
+    data_type_element = _one(entry, "DataType")
+    data_type_value = _text(data_type_element, f"{field}.DataType")
+    return {
+        "index": index,
+        "index_depend_on_slot": index_depend_on_slot,
+        "index_depend_on_slot_group": index_depend_on_slot_group,
+        "sub_index": sub_index,
+        "sub_index_present": sub_index_present,
+        "bit_length": bit_length,
+        "name": _primary_name(name_values),
+        "localized_names": name_values,
+        "data_type": data_type_value,
+        "data_scale": (
+            data_type_element.attrib.get("DScale")
+            if data_type_element is not None else None
+        ),
+        "swap_data": (
+            data_type_element.attrib.get("SwapData")
+            if data_type_element is not None else None
+        ),
+        "fixed": _optional_boolean(
+            entry.attrib.get("Fixed"), f"{field}.Fixed"
+        ),
+        "safety_connection_number": _xs_integer(
+            entry.attrib.get("SafetyConnNumber"), f"{field}.SafetyConnNumber"
+        ),
+        "comment": _text(_one(entry, "Comment"), f"{field}.Comment"),
+        "is_padding": index == 0,
+    }
+
+
+def _parse_safety_parameter_mapping(mapping: ET.Element) -> dict[str, Any]:
+    field = "Module.SafetyParaMapping"
+    index_value = _required_child_number(mapping, "Index", f"{field}.Index")
+    names = _localized_names(mapping, f"{field}.Name", required=True)
+    entries = [
+        _parse_pdo_entry(entry, f"{field}.Entry")
+        for entry in _children(mapping, "Entry")
+    ]
+    exclusions: list[dict[str, Any]] = []
+    for exclude in _children(mapping, "Exclude"):
+        value = _text(exclude, f"{field}.Exclude", required=True)
+        excluded_index = _number(value, f"{field}.Exclude")
+        assert excluded_index is not None
+        exclusions.append({
+            "index": _require_range(excluded_index, f"{field}.Exclude", 0xFFFF),
+            "depend_on_slot": _optional_boolean(
+                exclude.attrib.get("DependOnSlot"), f"{field}.Exclude.DependOnSlot"
+            ),
+            "depend_on_slot_group": _optional_boolean(
+                exclude.attrib.get("DependOnSlotGroup"),
+                f"{field}.Exclude.DependOnSlotGroup",
+            ),
+        })
+    return {
+        "index": _require_range(index_value, f"{field}.Index", 0xFFFF),
+        "name": _primary_name(names),
+        "localized_names": names,
+        "fixed": _optional_boolean(mapping.attrib.get("Fixed"), f"{field}.Fixed"),
+        "complete_access": _optional_boolean(
+            mapping.attrib.get("CompleteAccess"), f"{field}.CompleteAccess"
+        ),
+        "safety_pdo_type": mapping.attrib.get("SafetyPdoType"),
+        "safety_connection_number": _xs_integer(
+            mapping.attrib.get("SafetyConnNumber"), f"{field}.SafetyConnNumber"
+        ),
+        "entries": entries,
+        "excluded_pdos": exclusions,
+        "is_safety_relevant": True,
+    }
+
+
 def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
     index_element = _one(pdo, "Index", required=True)
     assert index_element is not None
@@ -590,77 +683,10 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
         f"{direction}PDO.Index.DependOnSlotGroup",
     ) or False
     pdo_names = _localized_names(pdo, f"{direction}PDO.Name", required=True)
-    entries: list[dict[str, Any]] = []
-    for entry in _children(pdo, "Entry"):
-        index_element = _one(entry, "Index", required=True)
-        assert index_element is not None
-        index_text = _text(index_element, f"{direction}PDO.Entry.Index", required=True)
-        index_value = _number(index_text, f"{direction}PDO.Entry.Index")
-        assert index_value is not None
-        index = _require_range(index_value, f"{direction}PDO.Entry.Index", 0xFFFF)
-        index_depend_on_slot = _optional_boolean(
-            index_element.attrib.get("DependOnSlot"),
-            f"{direction}PDO.Entry.Index.DependOnSlot",
-        ) or False
-        index_depend_on_slot_group = _optional_boolean(
-            index_element.attrib.get("DependOnSlotGroup"),
-            f"{direction}PDO.Entry.Index.DependOnSlotGroup",
-        ) or False
-        sub_index_element = _one(entry, "SubIndex")
-        if sub_index_element is None:
-            if index != 0:
-                raise EsiError(
-                    f"{direction}PDO entry 0x{index:04X} is missing required SubIndex"
-                )
-            sub_index = 0
-        else:
-            sub_index_text = _text(
-                sub_index_element, f"{direction}PDO.Entry.SubIndex", required=True
-            )
-            sub_index_value = _number(
-                sub_index_text, f"{direction}PDO.Entry.SubIndex"
-            )
-            assert sub_index_value is not None
-            sub_index = _require_range(
-                sub_index_value, f"{direction}PDO.Entry.SubIndex", 0xFF
-            )
-        bit_length = _required_child_number(entry, "BitLen", f"{direction}PDO.Entry.BitLen")
-        if not 1 <= bit_length <= 64:
-            raise EsiError(f"{direction}PDO entry 0x{index:04X}:{sub_index:02X} has unsupported bit length {bit_length}")
-        name_values = _localized_names(
-            entry, f"{direction}PDO.Entry.Name", required=index != 0
-        )
-        data_type_element = _one(entry, "DataType")
-        data_type_value = _text(
-            data_type_element, f"{direction}PDO.Entry.DataType", required=index != 0
-        )
-        entries.append({
-            "index": index,
-            "index_depend_on_slot": index_depend_on_slot,
-            "index_depend_on_slot_group": index_depend_on_slot_group,
-            "sub_index": sub_index,
-            "bit_length": bit_length,
-            "name": _primary_name(name_values),
-            "localized_names": name_values,
-            "data_type": data_type_value,
-            "data_scale": (
-                data_type_element.attrib.get("DScale")
-                if data_type_element is not None else None
-            ),
-            "swap_data": (
-                data_type_element.attrib.get("SwapData")
-                if data_type_element is not None else None
-            ),
-            "fixed": _optional_boolean(
-                entry.attrib.get("Fixed"), f"{direction}PDO.Entry.Fixed"
-            ),
-            "safety_connection_number": _number(
-                entry.attrib.get("SafetyConnNumber"),
-                f"{direction}PDO.Entry.SafetyConnNumber",
-                required=False,
-            ),
-            "is_padding": index == 0,
-        })
+    entries = [
+        _parse_pdo_entry(entry, f"{direction}PDO.Entry")
+        for entry in _children(pdo, "Entry")
+    ]
     virtual = _optional_boolean(pdo.attrib.get("Virtual"), f"{direction}PDO.Virtual") or False
     if not entries and not virtual:
         raise EsiError(f"{direction}PDO 0x{pdo_index:04X} contains no entries")

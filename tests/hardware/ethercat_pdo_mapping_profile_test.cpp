@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "mca/hardware/ethercat_pdo_mapping_profile.hpp"
+#include "mca/hardware/ethercat_pdo_readback.hpp"
 
 namespace {
 using Profile = mca::hardware::EthercatPdoMappingProfile<8U>;
@@ -118,8 +119,6 @@ TEST(EthercatPdoSnapshot, ComparesAssignmentAndMappingLayersIndependently) {
 
 }  // namespace
 
-
-#include "mca/hardware/ethercat_pdo_readback.hpp"
 
 namespace {
 using Readback = mca::hardware::EthercatPdoReadback<8U>;

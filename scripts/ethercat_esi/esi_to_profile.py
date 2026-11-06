@@ -223,6 +223,13 @@ def _validate_static_pdo_indices(
         seen[pdo["index"]] = pdo["direction"]
 
 
+def _optional_nonnegative_xs_integer(value: str | None, field: str) -> int | None:
+    result = _xs_integer(value, field)
+    if result is not None and result < 0:
+        raise EsiError(f"{field} value {result} must be non-negative")
+    return result
+
+
 def _parse_module_mailbox(module: ET.Element) -> dict[str, Any] | None:
     mailbox = _one(module, "Mailbox")
     if mailbox is None:
@@ -397,7 +404,7 @@ def _parse_module(module: ET.Element) -> dict[str, Any]:
         "name": _primary_name(names),
         "localized_names": names,
         "module_class": type_element.attrib.get("ModuleClass"),
-        "module_pdo_group": _xs_integer(
+        "module_pdo_group": _optional_nonnegative_xs_integer(
             type_element.attrib.get("ModulePdoGroup"), "Module.Type.ModulePdoGroup"
         ),
         "sra_parameter_supported": _optional_boolean(
@@ -605,7 +612,16 @@ def _parse_slots(
         })
 
     module_pdo_groups: list[dict[str, Any]] = []
-    for group in _children(slots_element, "ModulePdoGroup"):
+    seen_alignment_rx_pdos: dict[int, int] = {}
+    seen_alignment_tx_pdos: dict[int, int] = {}
+    for group_ordinal, group in enumerate(_children(slots_element, "ModulePdoGroup")):
+        alignment = _xs_integer(
+            group.attrib.get("Alignment"), "Slots.ModulePdoGroup.Alignment"
+        )
+        if alignment is not None and alignment < 0:
+            raise EsiError(
+                f"Slots.ModulePdoGroup[{group_ordinal}] Alignment must be non-negative"
+            )
         rx_pdo = _number(
             group.attrib.get("RxPdo"), "Slots.ModulePdoGroup.RxPdo", required=False
         )
@@ -622,11 +638,28 @@ def _parse_slots(
                 f"Slots.ModulePdoGroup TxPdo 0x{tx_pdo:04X} is outside "
                 "0x1A00..0x1BFF"
             )
+        if rx_pdo is not None:
+            previous = seen_alignment_rx_pdos.get(rx_pdo)
+            if previous is not None:
+                raise EsiError(
+                    f"Slots.ModulePdoGroup RxPdo 0x{rx_pdo:04X} is duplicated "
+                    f"by groups {previous} and {group_ordinal}; alignment PDO "
+                    "indices must be unique"
+                )
+            seen_alignment_rx_pdos[rx_pdo] = group_ordinal
+        if tx_pdo is not None:
+            previous = seen_alignment_tx_pdos.get(tx_pdo)
+            if previous is not None:
+                raise EsiError(
+                    f"Slots.ModulePdoGroup TxPdo 0x{tx_pdo:04X} is duplicated "
+                    f"by groups {previous} and {group_ordinal}; alignment PDO "
+                    "indices must be unique"
+                )
+            seen_alignment_tx_pdos[tx_pdo] = group_ordinal
         module_pdo_groups.append({
+            "index": group_ordinal,
             "name": _text(group, "Slots.ModulePdoGroup"),
-            "alignment": _xs_integer(
-                group.attrib.get("Alignment"), "Slots.ModulePdoGroup.Alignment"
-            ),
+            "alignment": alignment,
             "rx_pdo": (
                 None if rx_pdo is None
                 else _require_range(rx_pdo, "Slots.ModulePdoGroup.RxPdo", 0xFFFF)
@@ -1031,7 +1064,7 @@ def _parse_device(device: ET.Element, vendor_id: int) -> dict[str, Any]:
         "name": device_name,
         "localized_names": device_names,
         "type_name": _text(type_element, "Device.Type"),
-        "module_pdo_group": _xs_integer(
+        "module_pdo_group": _optional_nonnegative_xs_integer(
             type_element.attrib.get("ModulePdoGroup"), "Device.Type.ModulePdoGroup"
         ),
         "sync_managers": sync_managers,
@@ -1371,6 +1404,78 @@ def _validate_slot_module_references(document: dict[str, Any]) -> None:
                     )
 
 
+def _validate_module_pdo_group_references(document: dict[str, Any]) -> None:
+    """Validate module PDO-group references against the ordered Slots descriptors."""
+    modules = document.get("modules", [])
+    for device in document.get("devices", []):
+        slots = device.get("slots")
+        device_group = device.get("module_pdo_group")
+        if slots is None:
+            if device_group is not None:
+                raise EsiError(
+                    f"Device {device['name']!r} uses ModulePdoGroup {device_group} "
+                    "without a Slots/ModulePdoGroup description"
+                )
+            continue
+
+        group_descriptions = slots["module_pdo_groups"]
+        referenced_ids = {
+            option["module_ident"]
+            for slot in slots["slots"]
+            for option in slot["module_options"]
+            if option["module_ident"] != 0
+        }
+        referenced_ids.update(
+            ident
+            for selection in slots["slot_selections"]
+            for ident in selection["module_idents"]
+            if ident != 0
+        )
+        referenced_classes = {
+            (option["class"], option["vendor_id"])
+            for slot in slots["slots"]
+            for option in slot["module_class_options"]
+        }
+
+        used_groups: dict[int, list[str]] = {}
+        if device_group is not None:
+            used_groups.setdefault(device_group, []).append(
+                f"Device {device['name']!r}"
+            )
+        for module in modules:
+            ident = module["module_ident"]
+            module_class = module.get("module_class")
+            is_referenced = ident in referenced_ids or (
+                module_class is not None
+                and (module_class, document["vendor"]["id"]) in referenced_classes
+            )
+            if not is_referenced:
+                continue
+            group = module.get("module_pdo_group")
+            if group is not None:
+                used_groups.setdefault(group, []).append(
+                    f"ModuleIdent 0x{ident:08X}"
+                )
+
+        for group_index, owners in sorted(used_groups.items()):
+            if group_index >= len(group_descriptions):
+                raise EsiError(
+                    f"{owners[0]} references ModulePdoGroup {group_index}, but "
+                    f"Slots declares only {len(group_descriptions)} group(s)"
+                )
+            description = group_descriptions[group_index]
+            missing = [
+                field for field in ("alignment", "rx_pdo", "tx_pdo")
+                if description[field] is None
+            ]
+            if missing:
+                raise EsiError(
+                    f"Slots.ModulePdoGroup[{group_index}] is used by "
+                    f"{', '.join(owners)} but is missing required "
+                    f"{', '.join(missing)}"
+                )
+
+
 def attach_external_module_files(
     document: dict[str, Any],
     module_paths: list[Path],
@@ -1419,6 +1524,7 @@ def attach_external_module_files(
     provided_names = {path.name for path in module_paths}
     document["module_catalog_complete"] = referenced_names.issubset(provided_names)
     _validate_slot_module_references(document)
+    _validate_module_pdo_group_references(document)
 
 
 def parse_esi(path: Path) -> dict[str, Any]:
@@ -1466,6 +1572,7 @@ def parse_esi(path: Path) -> dict[str, Any]:
         "devices": devices,
     }
     _validate_slot_module_references(document)
+    _validate_module_pdo_group_references(document)
     return document
 
 

@@ -43,6 +43,36 @@ jobs:
           git clone --filter=blob:none --no-checkout https://github.com/leducp/KickCAT.git /tmp/KickCAT-control
           git -C /tmp/KickCAT-control checkout --detach cb2e1a192ac11ffaa58f08945053b8129abf94cb
           test -f /tmp/KickCAT-control/lib/include/kickcat/SimulatorControl.h
+      - name: Resolve pinned KickCAT Ingenia ESI PDO expectation
+        run: |
+          python3 scripts/ethercat_esi/esi_to_profile.py \
+            /tmp/KickCAT-control/simulation/slave_configs/ecat402-drive.xml \
+            --product-code 0x03b11002 \
+            --rx-pdo 0x1600 --tx-pdo 0x1a00 \
+            --treat-slot-dependent-indices-as-literal \
+            --emit-pdo-snapshot -o /tmp/kickcat-ingenia-pdo-snapshot.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          snapshot = json.loads(Path("/tmp/kickcat-ingenia-pdo-snapshot.json").read_text())
+          assert snapshot["identity"] == {"vendor_id": 0x29c, "product_code": 0x03b11002}
+          assert snapshot["selection_policy"] == "literal_base_indices_explicit_override"
+          assert [(item["assignment_object"], item["assignment_position"], item["pdo_index"])
+                  for item in snapshot["assignments"]] == [
+              (0x1c12, 1, 0x1600), (0x1c13, 1, 0x1a00)]
+          assert [(item["sync_manager"], item["direction"], item["pdo_index"],
+                   item["entry_position"], item["raw_mapping_entry"])
+                  for item in snapshot["mappings"]] == [
+              (2, "rx", 0x1600, 1, 0x60400010),
+              (2, "rx", 0x1600, 2, 0x607a0020),
+              (2, "rx", 0x1600, 3, 0x60ff0020),
+              (2, "rx", 0x1600, 4, 0x60600008),
+              (3, "tx", 0x1a00, 1, 0x60410010),
+              (3, "tx", 0x1a00, 2, 0x60640020),
+              (3, "tx", 0x1a00, 3, 0x606c0020),
+              (3, "tx", 0x1a00, 4, 0x60610008)]
+          print("PASS: pinned KickCAT Ingenia ESI resolved to the CoE-observed PDO profile")
+          PY
       - name: Build pinned KickCAT core library
         run: |
           cmake -S /tmp/KickCAT-control -B /tmp/KickCAT-control/build \

@@ -109,12 +109,12 @@ TEST(EthercatPdoReadback, MatchesExactOrderedAssignmentAndEntrySequence) {
 TEST(EthercatPdoReadback, RejectsSlaveIdentityAndMappingWidthMismatch) {
   const auto expected = make_readback();
   auto wrong_identity = make_readback();
-  auto wrong = wrong_identity[0U];
-  wrong.vendor_id = 0x99U;
   Readback changed_identity{};
-  ASSERT_TRUE(changed_identity.add(wrong));
-  ASSERT_TRUE(changed_identity.add(wrong_identity[1U]));
-  ASSERT_TRUE(changed_identity.add(wrong_identity[2U]));
+  for (std::size_t i = 0U; i < wrong_identity.size(); ++i) {
+    auto wrong = wrong_identity[i];
+    wrong.vendor_id = 0x99U;
+    ASSERT_TRUE(changed_identity.add(wrong));
+  }
   EXPECT_EQ(expected.compare(changed_identity), Parity::RecordMismatch);
 
   auto wrong_width = make_readback();

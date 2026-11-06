@@ -939,6 +939,39 @@ class EsiToProfileTests(unittest.TestCase):
         ])
         self.assertEqual(result, 2)
 
+    def test_applies_all_slot_level_increments_over_root_increments(self):
+        xml = SLOT_RUNTIME_ESI.replace(
+            '<Slot SlotGroup="#x1" MinInstances="#x1" MaxInstances="#x1">',
+            '<Slot SlotGroup="#x1" MinInstances="#x1" MaxInstances="#x1" '
+            'SlotPdoIncrement="#x3" SlotGroupPdoIncrement="#x40" '
+            'SlotIndexIncrement="#x20" SlotGroupIndexIncrement="#x200">',
+            1,
+        )
+        document = self._parse_slot_runtime_fixture(xml)
+        resolved = esi_to_profile.resolve_slot_pdo_configuration(
+            document,
+            document["devices"][0],
+            [
+                {"slot_descriptor_index": 0, "module_ident": 0},
+                {"slot_descriptor_index": 1, "module_ident": 0x4711},
+            ],
+        )
+        rx_pdo, tx_pdo = resolved["module_pdos"]
+        self.assertEqual(rx_pdo["index"], 0x1603)
+        self.assertEqual(tx_pdo["index"], 0x1A40)
+        self.assertEqual(rx_pdo["entries"][0]["index"], 0x6200)
+        self.assertEqual(rx_pdo["excluded_pdos"][0]["index"], 0x1642)
+        self.assertEqual(tx_pdo["entries"][0]["index"], 0x6061)
+        self.assertEqual(
+            resolved["configured_slots"][1]["effective_increments"],
+            {
+                "slot_pdo_increment": 3,
+                "slot_group_pdo_increment": 0x40,
+                "slot_index_increment": 0x20,
+                "slot_group_index_increment": 0x200,
+            },
+        )
+
     def test_rejects_missing_required_slot_instance(self):
         document = self._parse_slot_runtime_fixture()
         with self.assertRaisesRegex(

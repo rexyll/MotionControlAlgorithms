@@ -38,15 +38,24 @@ def compare_snapshots(esi: dict, igh: dict) -> dict:
         direction = {"rx": "output", "tx": "input"}.get(item["direction"])
         if direction is None:
             raise IghParityError("ESI mapping has unsupported direction")
+        numeric = (item["sync_manager"], item["pdo_index"],
+                   item["entry_position"], item["raw_mapping_entry"])
+        if any(not isinstance(value, int) for value in numeric):
+            raise IghParityError("ESI mapping contains a non-integer field")
+        if not 0 <= numeric[0] <= 255 or not 0x1000 <= numeric[1] <= 0xFFFF:
+            raise IghParityError("ESI mapping SM/PDO index is out of range")
+        if not 1 <= numeric[2] <= 64 or not 0 <= numeric[3] <= 0xFFFFFFFF:
+            raise IghParityError("ESI mapping entry position/raw word is out of range")
         expected_entries.append((
-            item["sync_manager"], direction, item["pdo_index"],
-            item["entry_position"], item["raw_mapping_entry"],
+            numeric[0], direction, numeric[1], numeric[2], numeric[3],
         ))
     # IgH exposes SM-major order. Preserve ESI's original PDO/entry order within
     # each SM while grouping the ESI expectation into that independently exposed order.
     expected_entries = sorted(expected_entries, key=lambda entry: entry[0])
 
     ring_positions = [slave.get("ring_position") for slave in slaves]
+    if any(not isinstance(ring, int) or ring < 0 for ring in ring_positions):
+        raise IghParityError("IgH slave has invalid ring_position")
     if sorted(ring_positions) != list(range(len(slaves))) or len(set(ring_positions)) != len(ring_positions):
         raise IghParityError("IgH slave ring positions must be unique and contiguous from zero")
 

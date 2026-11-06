@@ -155,6 +155,13 @@ class EthercatPdoReadback final {
           static_cast<std::uint16_t>(a.assignment_position + 1U) &&
           b.pdo_position == 0U && b.entry_position == 0U;
     }
+    if (b.ring_position == a.ring_position &&
+        b.assignment_object != a.assignment_object) {
+      return a.assignment_object == 0x1C12U &&
+          b.assignment_object == 0x1C13U &&
+          b.assignment_position == 0U && b.pdo_position == 0U &&
+          b.entry_position == 0U;
+    }
     if (b.ring_position > a.ring_position)
       return b.assignment_position == 0U && b.pdo_position == 0U &&
           b.entry_position == 0U;

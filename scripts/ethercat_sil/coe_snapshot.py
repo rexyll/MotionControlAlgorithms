@@ -30,26 +30,24 @@ def parse_rows(text: str) -> dict:
                 "ring_position": ring, "vendor_id": vendor, "product_code": product,
                 "assignments": [], "mappings": [],
             }
-        elif kind == "A" and len(nums) == 5:
-            ring, assignment_object, position, pdo_index, _reserved = nums
+        elif kind == "A" and len(nums) == 4:
+            ring, assignment_object, position, pdo_index = nums
             if ring not in slaves or assignment_object not in (0x1C12, 0x1C13):
                 raise SnapshotError(f"line {line_number}: assignment has no slave or invalid object")
             if not 1 <= position <= 16 or not 0x1000 <= pdo_index <= 0xFFFF:
                 raise SnapshotError(f"line {line_number}: assignment field out of range")
-            if _reserved != 0:
-                raise SnapshotError(f"line {line_number}: reserved field must be zero")
             slaves[ring]["assignments"].append({
                 "assignment_object": assignment_object,
                 "assignment_position": position, "pdo_index": pdo_index,
             })
-        elif kind == "M" and len(nums) == 7:
-            ring, assignment_object, assignment_position, pdo_index, entry_position, raw_word, _reserved = nums
+        elif kind == "M" and len(nums) == 6:
+            ring, assignment_object, assignment_position, pdo_index, entry_position, raw_word = nums
             if ring not in slaves or assignment_object not in (0x1C12, 0x1C13):
                 raise SnapshotError(f"line {line_number}: mapping has no slave or invalid assignment object")
             if not 1 <= assignment_position <= 16 or not 1 <= entry_position <= 64:
                 raise SnapshotError(f"line {line_number}: mapping position out of range")
-            if not 0 <= raw_word <= 0xFFFFFFFF or _reserved != 0:
-                raise SnapshotError(f"line {line_number}: mapping word/reserved field invalid")
+            if not 0 <= raw_word <= 0xFFFFFFFF:
+                raise SnapshotError(f"line {line_number}: mapping word out of range")
             index, subindex, width = (raw_word >> 16) & 0xFFFF, (raw_word >> 8) & 0xFF, raw_word & 0xFF
             if width == 0 or (index == 0 and subindex != 0):
                 raise SnapshotError(f"line {line_number}: malformed mapping entry/padding")

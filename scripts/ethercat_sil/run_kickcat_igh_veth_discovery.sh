@@ -20,6 +20,7 @@ readonly COE_READBACK="${MCA_ECAT_COE_READBACK:-0}"
 readonly ESI_PDO_SNAPSHOT="${MCA_ECAT_ESI_PDO_SNAPSHOT:-}"
 readonly IGH_DEBUG_LEVEL="${MCA_ECAT_DEBUG_LEVEL:-0}"
 readonly DISABLE_EOE="${MCA_ECAT_DISABLE_EOE:-0}"
+readonly EXPECT_NO_EOE="${MCA_ECAT_EXPECT_NO_EOE:-0}"
 readonly CYCLIC_SIL="${MCA_ECAT_CYCLIC_SIL:-0}"
 readonly FAULT_SIL="${MCA_ECAT_FAULT_SIL:-0}"
 readonly MULTI_FAULT_SIL="${MCA_ECAT_MULTI_FAULT_SIL:-0}"
@@ -311,6 +312,9 @@ command -v tcpdump >/dev/null || fail "tcpdump is required to prove bidirectiona
 if [[ "$DISABLE_EOE" != "0" && "$DISABLE_EOE" != "1" ]]; then
   fail "MCA_ECAT_DISABLE_EOE must be 0 or 1"
 fi
+if [[ "$EXPECT_NO_EOE" != "0" && "$EXPECT_NO_EOE" != "1" ]]; then
+  fail "MCA_ECAT_EXPECT_NO_EOE must be 0 or 1"
+fi
 if [[ "$FAULT_SIL" != "0" && "$FAULT_SIL" != "1" ]]; then
   fail "MCA_ECAT_FAULT_SIL must be 0 or 1"
 fi
@@ -407,7 +411,7 @@ fi
   printf '\n'
   printf 'master_if=%s\nsim_if=%s\nmaster_mac=%s\nsim_mac=%s\nexpected_slaves=%s\n' "$MASTER_IF" "$SIM_IF" "$MASTER_MAC" "$SIM_MAC" "$EXPECTED_SLAVES"
   printf 'slave_config=%s\n' "${SLAVE_CONFIGS[*]}"
-  printf 'igh_debug_level=%s\ncoe_readback=%s\ndisable_eoe=%s\n' "$IGH_DEBUG_LEVEL" "$COE_READBACK" "$DISABLE_EOE"
+  printf 'igh_debug_level=%s\ncoe_readback=%s\ndisable_eoe=%s\nexpect_no_eoe=%s\n' "$IGH_DEBUG_LEVEL" "$COE_READBACK" "$DISABLE_EOE" "$EXPECT_NO_EOE"
   printf 'comm_fault_sil=%s\nsim_control_shm=%s\nkickcat_source_dir=%s\n' "$COMM_FAULT_SIL" "$SIM_CONTROL_SHM" "$KICKCAT_SOURCE_DIR"
   printf 'cycle_time_us=%s\n' "${MCA_ECAT_CYCLE_TIME_US:-10000}"
   printf '\nIgH module parameters:\n'
@@ -498,6 +502,11 @@ if [[ "$COE_READBACK" == "1" ]]; then
     ip -o link show
     "$ETHERCAT_CLI" eoe 2>&1 || true
   } >"$ARTIFACT_DIR/eoe-before-coe.log" 2>&1
+  if [[ "$EXPECT_NO_EOE" == "1" ]] &&
+     grep -Eq '(^|[[:space:]])eoe[0-9]+s[0-9]+([[:space:]]|$)' "$ARTIFACT_DIR/eoe-before-coe.log"; then
+    cat "$ARTIFACT_DIR/eoe-before-coe.log" >&2
+    fail "CoE-only SIL ESI was expected to suppress all IgH EoE handlers"
+  fi
   if [[ "$DISABLE_EOE" == "1" ]]; then
     # Opt-in isolation experiment: close auto-created EoE interfaces.
     while IFS= read -r eoe_if; do

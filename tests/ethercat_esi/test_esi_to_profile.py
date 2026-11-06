@@ -157,6 +157,30 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertTrue(first["pdos"][-1]["virtual"])
         self.assertEqual(first["pdos"][-1]["entries"], [])
 
+    def test_rejects_duplicate_static_indices_after_dynamic_declaration(self):
+        dynamic = ESI.replace(
+            "<Index>#x1600</Index>",
+            '<Index DependOnSlot="true">#x1600</Index>',
+            1,
+        )
+        malformed = dynamic.replace(
+            "      </Device>",
+            """        <RxPdo Sm="2"><Index>#x1600</Index><Name>Static duplicate A</Name>
+          <Entry><Index>#x6040</Index><SubIndex>0</SubIndex><BitLen>16</BitLen></Entry>
+        </RxPdo>
+        <RxPdo Sm="2"><Index>#x1600</Index><Name>Static duplicate B</Name>
+          <Entry><Index>#x6041</Index><SubIndex>0</SubIndex><BitLen>16</BitLen></Entry>
+        </RxPdo>
+      </Device>""",
+            1,
+        )
+        self.path.write_text(malformed, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "duplicate PDO index 0x1600 declared by RXPDO and RXPDO",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
     def test_rejects_slot_dependent_pdo_indices_in_static_candidate(self):
         dynamic = ESI_WITH_VELOCITY.replace(
             "<Index>#x1601</Index>",

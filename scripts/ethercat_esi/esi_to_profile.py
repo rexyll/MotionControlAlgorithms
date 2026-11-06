@@ -993,7 +993,7 @@ def render_cia402_cpp_fixture(
     lines.extend(["}};", "}  // namespace mca::test_fixtures", ""])
     return "\n".join(lines)
 
-def parse_esi(path: Path) -> dict[str, Any]:
+def _read_xml_document(path: Path, expected_root: str) -> tuple[bytes, ET.Element]:
     try:
         raw = path.read_bytes()
     except OSError as exc:
@@ -1010,8 +1010,100 @@ def parse_esi(path: Path) -> dict[str, Any]:
         root = ET.fromstring(raw)
     except ET.ParseError as exc:
         raise EsiError(f"invalid ESI XML: {exc}") from exc
-    if _local_name(root.tag) != "EtherCATInfo":
-        raise EsiError("root element must be <EtherCATInfo>")
+    actual_root = _local_name(root.tag)
+    if actual_root != expected_root:
+        raise EsiError(f"root element must be <{expected_root}>")
+    return raw, root
+
+
+def parse_module_esi(path: Path) -> dict[str, Any]:
+    """Parse one explicitly supplied EtherCATModule XML document."""
+    raw, root = _read_xml_document(path, "EtherCATModule")
+    vendor = _one(root, "Vendor", required=True)
+    assert vendor is not None
+    vendor_id = _require_range(
+        _required_child_number(vendor, "Id", "Vendor.Id"),
+        "Vendor.Id",
+        0xFFFFFFFF,
+    )
+    vendor_names = _localized_names(vendor, "Vendor.Name", required=True)
+    modules_element = _one(root, "Modules", required=True)
+    assert modules_element is not None
+    modules = [
+        _parse_module(node)
+        for node in _children(modules_element, "Module")
+    ]
+    seen_module_idents: set[int] = set()
+    for module in modules:
+        ident = module["module_ident"]
+        if ident in seen_module_idents:
+            raise EsiError(
+                f"duplicate ModuleIdent 0x{ident:08X} in EtherCATModule catalog"
+            )
+        seen_module_idents.add(ident)
+    return {
+        "source": {
+            "file_name": path.name,
+            "sha256": hashlib.sha256(raw).hexdigest(),
+        },
+        "vendor": {
+            "id": vendor_id,
+            "name": _primary_name(vendor_names),
+            "localized_names": vendor_names,
+        },
+        "modules": modules,
+    }
+
+
+def attach_external_module_files(
+    document: dict[str, Any],
+    module_paths: list[Path],
+) -> None:
+    """Merge only explicitly provided files named by the ESI InfoReference list.
+
+    InfoReference values are never opened automatically. Callers must explicitly
+    provide the module files, preventing path traversal or implicit file access.
+    """
+    if not module_paths:
+        return
+
+    def reference_name(value: str) -> str:
+        return value.replace("\\", "/").rsplit("/", 1)[-1]
+
+    referenced_names = {reference_name(value) for value in document["info_references"]}
+    sources: list[dict[str, Any]] = []
+    all_modules = list(document["modules"])
+    existing_idents = {item["module_ident"] for item in all_modules}
+
+    for path in module_paths:
+        if path.name not in referenced_names:
+            raise EsiError(
+                f"external module file {path.name!r} is not listed in InfoReference"
+            )
+        external = parse_module_esi(path)
+        if external["vendor"]["id"] != document["vendor"]["id"]:
+            raise EsiError(
+                f"external module file {path.name!r} Vendor ID "
+                f"0x{external['vendor']['id']:08X} does not match ESI Vendor ID "
+                f"0x{document['vendor']['id']:08X}"
+            )
+        for module in external["modules"]:
+            ident = module["module_ident"]
+            if ident in existing_idents:
+                raise EsiError(
+                    f"duplicate ModuleIdent 0x{ident:08X} across embedded and "
+                    "external module catalogs"
+                )
+            existing_idents.add(ident)
+            all_modules.append(module)
+        sources.append(external["source"])
+
+    document["modules"] = all_modules
+    document["external_module_sources"] = sources
+
+
+def parse_esi(path: Path) -> dict[str, Any]:
+    raw, root = _read_xml_document(path, "EtherCATInfo")
 
     vendor = _one(root, "Vendor", required=True)
     assert vendor is not None
@@ -1062,10 +1154,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--product-code", help="include only devices matching this decimal, 0x..., or #x... product code")
     parser.add_argument("--rx-pdo", action="append", default=[], help="select an RxPDO index (repeatable; decimal, 0x..., or #x...) for CiA 402 candidate resolution")
     parser.add_argument("--tx-pdo", action="append", default=[], help="select a TxPDO index (repeatable; decimal, 0x..., or #x...) for CiA 402 candidate resolution")
+    parser.add_argument("--module-esi", type=Path, action="append", default=[], help="explicitly load an EtherCATModule XML file listed by InfoReference (repeatable); references are never followed automatically")
     parser.add_argument("--emit-cpp-fixture", action="store_true", help="emit a C++ golden fixture instead of normalized JSON; requires explicit PDO selections")
     args = parser.parse_args(argv)
     try:
         document = parse_esi(args.esi)
+        if args.module_esi:
+            attach_external_module_files(document, args.module_esi)
         if args.product_code:
             wanted = _number(args.product_code, "--product-code")
             document["devices"] = [

@@ -179,4 +179,211 @@ class EthercatPdoReadback final {
   std::size_t count_{0U};
 };
 
+
+// Two-layer representation of CoE PDO configuration. Assignment objects
+// (0x1C12/0x1C13) are independent from the mapping objects (0x1600..0x1BFF).
+// This avoids inferring assignment boundaries from flattened mapping rows.
+struct EthercatPdoAssignmentRecord {
+  std::uint16_t ring_position{0U};
+  std::uint32_t vendor_id{0U};
+  std::uint32_t product_code{0U};
+  std::uint16_t assignment_object{0U};
+  std::uint16_t assignment_position{0U};
+  std::uint16_t pdo_index{0U};
+};
+
+struct EthercatPdoMappingRecord {
+  std::uint16_t ring_position{0U};
+  std::uint32_t vendor_id{0U};
+  std::uint32_t product_code{0U};
+  std::uint16_t assignment_object{0U};
+  std::uint16_t assignment_position{0U};
+  std::uint16_t pdo_index{0U};
+  std::uint8_t sync_manager{0U};
+  EthercatPdoDirection direction{EthercatPdoDirection::Input};
+  std::uint16_t entry_position{0U};
+  std::uint32_t raw_mapping_entry{0U};
+};
+
+enum class EthercatPdoSnapshotResult : std::uint8_t {
+  Match, Empty, CapacityExceeded, InvalidAssignment, InvalidMapping,
+  AssignmentMismatch, MappingMismatch, CardinalityMismatch
+};
+
+template <std::size_t MaxAssignments, std::size_t MaxEntries>
+class EthercatPdoSnapshot final {
+ public:
+  [[nodiscard]] bool add_assignment(
+      const EthercatPdoAssignmentRecord& record) noexcept {
+    if (assignment_count_ >= MaxAssignments) return false;
+    assignments_[assignment_count_++] = record;
+    return true;
+  }
+
+  [[nodiscard]] bool add_mapping(
+      const EthercatPdoMappingRecord& record) noexcept {
+    if (mapping_count_ >= MaxEntries) return false;
+    mappings_[mapping_count_++] = record;
+    return true;
+  }
+
+  [[nodiscard]] std::size_t assignment_count() const noexcept {
+    return assignment_count_;
+  }
+  [[nodiscard]] std::size_t mapping_count() const noexcept {
+    return mapping_count_;
+  }
+  [[nodiscard]] const EthercatPdoAssignmentRecord& assignment(
+      std::size_t i) const noexcept { return assignments_[i]; }
+  [[nodiscard]] const EthercatPdoMappingRecord& mapping(
+      std::size_t i) const noexcept { return mappings_[i]; }
+
+  [[nodiscard]] bool assignments_valid() const noexcept {
+    if (assignment_count_ == 0U) return false;
+    for (std::size_t i = 0U; i < assignment_count_; ++i) {
+      const auto& r = assignments_[i];
+      if ((r.assignment_object != 0x1C12U &&
+           r.assignment_object != 0x1C13U) || r.pdo_index == 0U)
+        return false;
+      if (i == 0U) {
+        if (r.assignment_position != 0U) return false;
+      } else {
+        const auto& p = assignments_[i - 1U];
+        if (r.ring_position < p.ring_position) return false;
+        if (r.ring_position == p.ring_position) {
+          if (r.vendor_id != p.vendor_id || r.product_code != p.product_code)
+            return false;
+          if (r.assignment_object == p.assignment_object) {
+            if (r.assignment_position !=
+                static_cast<std::uint16_t>(p.assignment_position + 1U))
+              return false;
+          } else if (p.assignment_object != 0x1C12U ||
+                     r.assignment_object != 0x1C13U ||
+                     r.assignment_position != 0U) {
+            return false;
+          }
+        } else if (r.assignment_position != 0U) {
+          return false;
+        }
+      }
+      for (std::size_t j = 0U; j < i; ++j) {
+        const auto& p = assignments_[j];
+        if (p.ring_position == r.ring_position &&
+            p.assignment_object == r.assignment_object &&
+            p.pdo_index == r.pdo_index) return false;
+      }
+    }
+    return true;
+  }
+
+  [[nodiscard]] bool mappings_valid() const noexcept {
+    if (mapping_count_ == 0U) return true;
+    if (!assignments_valid()) return false;
+    for (std::size_t i = 0U; i < mapping_count_; ++i) {
+      const auto& r = mappings_[i];
+      if (r.assignment_object != 0x1C12U &&
+          r.assignment_object != 0x1C13U) return false;
+      if ((r.assignment_object == 0x1C12U &&
+           r.direction != EthercatPdoDirection::Output) ||
+          (r.assignment_object == 0x1C13U &&
+           r.direction != EthercatPdoDirection::Input)) return false;
+      const auto index = r.raw_mapping_entry >> 16U;
+      const auto sub = (r.raw_mapping_entry >> 8U) & 0xFFU;
+      const auto width = r.raw_mapping_entry & 0xFFU;
+      if (width == 0U || (index == 0U && sub != 0U)) return false;
+      bool assignment_found = false;
+      for (std::size_t a = 0U; a < assignment_count_; ++a) {
+        const auto& assigned = assignments_[a];
+        if (assigned.ring_position == r.ring_position &&
+            assigned.assignment_object == r.assignment_object &&
+            assigned.assignment_position == r.assignment_position &&
+            assigned.pdo_index == r.pdo_index &&
+            assigned.vendor_id == r.vendor_id &&
+            assigned.product_code == r.product_code) {
+          assignment_found = true;
+          break;
+        }
+      }
+      if (!assignment_found) return false;
+      if (i == 0U) {
+        if (r.entry_position != 0U) return false;
+      } else {
+        const auto& p = mappings_[i - 1U];
+        if (r.ring_position < p.ring_position) return false;
+        if (r.ring_position == p.ring_position) {
+          if (r.vendor_id != p.vendor_id || r.product_code != p.product_code)
+            return false;
+          const bool same_pdo = r.assignment_object == p.assignment_object &&
+              r.assignment_position == p.assignment_position &&
+              r.pdo_index == p.pdo_index;
+          if (same_pdo) {
+            if (r.sync_manager != p.sync_manager ||
+                r.direction != p.direction ||
+                r.entry_position !=
+                    static_cast<std::uint16_t>(p.entry_position + 1U))
+              return false;
+          } else if (r.entry_position != 0U) {
+            return false;
+          }
+        } else if (r.entry_position != 0U) {
+          return false;
+        }
+      }
+      for (std::size_t j = 0U; j < i; ++j) {
+        const auto& p = mappings_[j];
+        if (p.ring_position == r.ring_position &&
+            p.assignment_object == r.assignment_object &&
+            p.assignment_position == r.assignment_position &&
+            p.pdo_index == r.pdo_index &&
+            p.raw_mapping_entry == r.raw_mapping_entry &&
+            (r.raw_mapping_entry >> 16U) != 0U) return false;
+      }
+    }
+    return true;
+  }
+
+  template <std::size_t OA, std::size_t OE>
+  [[nodiscard]] EthercatPdoSnapshotResult compare(
+      const EthercatPdoSnapshot<OA, OE>& other) const noexcept {
+    if (assignment_count_ == 0U || other.assignment_count() == 0U)
+      return EthercatPdoSnapshotResult::Empty;
+    if (!assignments_valid() || !other.assignments_valid())
+      return EthercatPdoSnapshotResult::InvalidAssignment;
+    if (!mappings_valid() || !other.mappings_valid())
+      return EthercatPdoSnapshotResult::InvalidMapping;
+    if (assignment_count_ != other.assignment_count() ||
+        mapping_count_ != other.mapping_count())
+      return EthercatPdoSnapshotResult::CardinalityMismatch;
+    for (std::size_t i = 0U; i < assignment_count_; ++i) {
+      const auto& a = assignments_[i];
+      const auto& b = other.assignment(i);
+      if (a.ring_position != b.ring_position || a.vendor_id != b.vendor_id ||
+          a.product_code != b.product_code ||
+          a.assignment_object != b.assignment_object ||
+          a.assignment_position != b.assignment_position ||
+          a.pdo_index != b.pdo_index)
+        return EthercatPdoSnapshotResult::AssignmentMismatch;
+    }
+    for (std::size_t i = 0U; i < mapping_count_; ++i) {
+      const auto& a = mappings_[i];
+      const auto& b = other.mapping(i);
+      if (a.ring_position != b.ring_position || a.vendor_id != b.vendor_id ||
+          a.product_code != b.product_code ||
+          a.assignment_object != b.assignment_object ||
+          a.assignment_position != b.assignment_position ||
+          a.pdo_index != b.pdo_index || a.sync_manager != b.sync_manager ||
+          a.direction != b.direction || a.entry_position != b.entry_position ||
+          a.raw_mapping_entry != b.raw_mapping_entry)
+        return EthercatPdoSnapshotResult::MappingMismatch;
+    }
+    return EthercatPdoSnapshotResult::Match;
+  }
+
+ private:
+  std::array<EthercatPdoAssignmentRecord, MaxAssignments> assignments_{};
+  std::array<EthercatPdoMappingRecord, MaxEntries> mappings_{};
+  std::size_t assignment_count_{0U};
+  std::size_t mapping_count_{0U};
+};
+
 }  // namespace mca::hardware

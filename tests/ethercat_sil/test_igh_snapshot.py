@@ -45,6 +45,12 @@ class IghSnapshotTests(unittest.TestCase):
         with self.assertRaisesRegex(IghSnapshotError, "entry position gap"):
             parse_igh_log("MCA_IGH_PDO_SNAPSHOT=" + json.dumps(rows))
 
+    def test_rejects_duplicate_real_mapping_object(self):
+        rows = json.loads(fixture().split("MCA_IGH_PDO_SNAPSHOT=")[1])
+        rows["entries"][1]["raw_mapping_entry"] = 0x60400010
+        with self.assertRaisesRegex(IghSnapshotError, "duplicate mapped object"):
+            parse_igh_log("MCA_IGH_PDO_SNAPSHOT=" + json.dumps(rows))
+
     def test_rejects_sync_manager_direction_change(self):
         rows = json.loads(fixture().split("MCA_IGH_PDO_SNAPSHOT=")[1])
         rows["entries"][1]["direction"] = "input"

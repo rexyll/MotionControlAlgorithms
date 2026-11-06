@@ -426,8 +426,11 @@ preserves the ordered SDO reads in `coe-pdo-rows.tsv` and validates/serializes
 them with `scripts/ethercat_sil/coe_snapshot.py` into
 `coe-pdo-snapshot.json`. The versioned JSON records each ring position and
 the pinned Vendor ID/Product code, ordered `0x1C12`/`0x1C13` assignment
-subindices and PDO indices, and each PDO's ordered raw 32-bit mapping words.
-Padding entries are retained.
+subindices and PDO indices, the SDO-reported assignment/PDO entry
+cardinalities, and each PDO's ordered raw 32-bit mapping words. Padding entries
+are retained. The serializer compares observed row counts against the reported
+SDO cardinalities, so truncated TSV data cannot silently become a smaller valid
+snapshot.
 
 The serializer fails closed on missing/non-contiguous ring positions,
 assignment gaps or duplicate PDO selections, unknown assignment references,

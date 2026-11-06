@@ -499,6 +499,30 @@ class EsiToProfileTests(unittest.TestCase):
         ):
             esi_to_profile.parse_esi(self.path)
 
+    def test_accepts_padding_entry_without_subindex(self):
+        valid = ESI.replace(
+            '<Entry><Index>#x0000</Index><SubIndex>0</SubIndex>',
+            '<Entry><Index>#x0000</Index>',
+            1,
+        )
+        self.path.write_text(valid, encoding="utf-8")
+        padding = esi_to_profile.parse_esi(self.path)["devices"][0]["pdos"][0]["entries"][2]
+        self.assertTrue(padding["is_padding"])
+        self.assertEqual(padding["sub_index"], 0)
+
+    def test_rejects_non_padding_entry_without_subindex(self):
+        malformed = ESI.replace(
+            '<Entry><Index>#x6040</Index><SubIndex>0</SubIndex>',
+            '<Entry><Index>#x6040</Index>',
+            1,
+        )
+        self.path.write_text(malformed, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "rxPDO entry 0x6040 is missing required SubIndex",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
     def test_rejects_out_of_range_sync_manager_index(self):
         malformed = ESI.replace('<RxPdo Sm="2"', '<RxPdo Sm="256"', 1)
         self.path.write_text(malformed, encoding="utf-8")

@@ -444,5 +444,10 @@ the CoE assignment/mapping SDO reads do not provide that association. Those
 fields must come from ESI expectations and/or IgH's independent
 SM→PDO→Entry discovery. The current serializer records the identity checked
 by the preceding `ethercat slaves -v` topology gate; it is not a third-party
-device identity attestation. This is a structured CoE observation, not yet a
-three-way ESI/CoE/IgH parity gate.
+device identity attestation. Set `MCA_ECAT_ESI_PDO_SNAPSHOT` to a previously generated
+`--emit-pdo-snapshot` JSON file to enable the additional fail-closed
+ESI-to-CoE comparison. This writes `esi-coe-parity.json` and fails the SIL
+run on identity, assignment-order, PDO-index, entry-order or raw mapping-word
+mismatch. The option requires `MCA_ECAT_COE_READBACK=1`. This is a two-source
+ESI/CoE gate only; it does not yet include IgH's independently discovered
+SM→PDO→Entry mapping.

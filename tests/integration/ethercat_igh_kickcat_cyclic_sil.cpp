@@ -68,6 +68,45 @@ std::size_t environment_size(const char* name, std::size_t fallback) {
   return static_cast<std::size_t>(parsed);
 }
 
+void emit_igh_pdo_snapshot(const Adapter::PdoMappingProfile& mapping) {
+  std::cout << "MCA_IGH_PDO_SNAPSHOT={\"schema_version\":1,"
+               "\"source_kind\":\"igh_discovery\",\"entries\":[";
+  bool first = true;
+  std::uint16_t previous_ring = 0U;
+  std::uint8_t previous_sm = 0U;
+  std::uint16_t previous_pdo = 0U;
+  std::uint16_t entry_position = 0U;
+  for (std::size_t i = 0U; i < mapping.size(); ++i) {
+    const auto& entry = mapping[i];
+    const bool same_pdo = i != 0U &&
+        entry.ring_position == previous_ring &&
+        entry.sync_manager == previous_sm &&
+        entry.pdo_index == previous_pdo;
+    entry_position = same_pdo
+        ? static_cast<std::uint16_t>(entry_position + 1U) : 1U;
+    const std::uint32_t raw_mapping_entry =
+        (static_cast<std::uint32_t>(entry.index) << 16U) |
+        (static_cast<std::uint32_t>(entry.subindex) << 8U) |
+        static_cast<std::uint32_t>(entry.bit_length);
+    if (!first) std::cout << ',';
+    first = false;
+    std::cout << "{\"ring_position\":" << static_cast<unsigned int>(entry.ring_position)
+              << ",\"vendor_id\":" << entry.vendor_id
+              << ",\"product_code\":" << entry.product_code
+              << ",\"sync_manager\":" << static_cast<unsigned int>(entry.sync_manager)
+              << ",\"direction\":\""
+              << (entry.direction == mca::hardware::EthercatPdoDirection::Output
+                      ? "output" : "input")
+              << "\",\"pdo_index\":" << entry.pdo_index
+              << ",\"entry_position\":" << entry_position
+              << ",\"raw_mapping_entry\":" << raw_mapping_entry << '}';
+    previous_ring = entry.ring_position;
+    previous_sm = entry.sync_manager;
+    previous_pdo = entry.pdo_index;
+  }
+  std::cout << "]}\n";
+}
+
 }  // namespace
 
 int main() {
@@ -104,6 +143,7 @@ int main() {
     std::cerr << "FAIL: discover_pdo_mapping (capacity or unsupported map)\n";
     return 1;
   }
+  emit_igh_pdo_snapshot(mapping);
 
   std::array<Adapter::PdoBinding, 128U> bindings{};
   std::size_t binding_count = 0U;

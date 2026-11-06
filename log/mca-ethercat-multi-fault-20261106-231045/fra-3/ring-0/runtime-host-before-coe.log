@@ -1,0 +1,24 @@
+capture=before-coe
+2026-11-06T23:10:58,472717223+08:00
+
+--- veth interface counters ---
+20: mcaecat0@mcaecat1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 02:4d:43:41:45:01 brd ff:ff:ff:ff:ff:ff
+    RX:  bytes packets errors dropped  missed   mcast           
+        568866    9170      0       0       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+        571521    9206      0       0       0       0 
+19: mcaecat1@mcaecat0: <BROADCAST,MULTICAST,PROMISC,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 02:4d:43:41:45:02 brd ff:ff:ff:ff:ff:ff
+    RX:  bytes packets errors dropped  missed   mcast           
+        571641    9208      0      33       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+        569046    9173      0       0       0       0 
+
+--- KickCAT simulator process ---
+  49710 R+     2  3.2       00:10    1 network_simulat
+schedstat: 372967958 5518863335 50038
+State:	R (running)
+Threads:	1
+voluntary_ctxt_switches:	49843
+nonvoluntary_ctxt_switches:	229

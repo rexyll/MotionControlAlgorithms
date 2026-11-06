@@ -1,0 +1,2 @@
+READ position=0 0x1C12:0 type=uint8 exit=1 elapsed_ms=27 start_epoch_ns=1793977859082658331 finish_epoch_ns=1793977859110593241 start_wall=2026-11-06T23:10:59,074296979+08:00 finish_wall=2026-11-06T23:10:59,121410601+08:00
+Failed to upload SDO: Input/output error

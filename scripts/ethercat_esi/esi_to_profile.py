@@ -151,7 +151,24 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
             index_element.attrib.get("DependOnSlotGroup"),
             f"{direction}PDO.Entry.Index.DependOnSlotGroup",
         ) or False
-        sub_index = _require_range(_required_child_number(entry, "SubIndex", f"{direction}PDO.Entry.SubIndex"), f"{direction}PDO.Entry.SubIndex", 0xFF)
+        sub_index_element = _one(entry, "SubIndex")
+        if sub_index_element is None:
+            if index != 0:
+                raise EsiError(
+                    f"{direction}PDO entry 0x{index:04X} is missing required SubIndex"
+                )
+            sub_index = 0
+        else:
+            sub_index_text = _text(
+                sub_index_element, f"{direction}PDO.Entry.SubIndex", required=True
+            )
+            sub_index_value = _number(
+                sub_index_text, f"{direction}PDO.Entry.SubIndex"
+            )
+            assert sub_index_value is not None
+            sub_index = _require_range(
+                sub_index_value, f"{direction}PDO.Entry.SubIndex", 0xFF
+            )
         bit_length = _required_child_number(entry, "BitLen", f"{direction}PDO.Entry.BitLen")
         if not 1 <= bit_length <= 64:
             raise EsiError(f"{direction}PDO entry 0x{index:04X}:{sub_index:02X} has unsupported bit length {bit_length}")

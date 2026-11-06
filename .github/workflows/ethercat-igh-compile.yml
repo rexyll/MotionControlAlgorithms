@@ -38,6 +38,9 @@ jobs:
           g++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow \
             -DMCA_ENABLE_IGH=1 -Iinclude -I/usr/include/eigen3 -I/tmp/ethercat/include \
             -fsyntax-only tests/integration/ethercat_igh_kickcat_multi_slave_cyclic_sil.cpp
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow \
+            -I/tmp/ethercat/include -fsyntax-only \
+            scripts/ethercat_sil/coe_sdo_readback.cpp
       - name: Fetch pinned KickCAT simulator-control API
         run: |
           git clone --filter=blob:none --no-checkout https://github.com/leducp/KickCAT.git /tmp/KickCAT-control

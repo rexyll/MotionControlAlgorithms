@@ -263,6 +263,14 @@ def _parse_device(device: ET.Element, vendor_id: int) -> dict[str, Any]:
                 f"SyncManager {sync_manager}, but the device declares "
                 f"only {len(sync_managers)} SyncManager entries"
             )
+        if sync_managers:
+            for excluded_sm in pdo["excluded_sync_managers"]:
+                if excluded_sm >= len(sync_managers):
+                    raise EsiError(
+                        f"{pdo['direction']}PDO 0x{pdo['index']:04X} excludes "
+                        f"SyncManager {excluded_sm}, but the device declares "
+                        f"only {len(sync_managers)} SyncManager entries"
+                    )
     return {
         "identity": {
             "vendor_id": vendor_id,

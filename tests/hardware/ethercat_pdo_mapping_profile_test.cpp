@@ -162,6 +162,7 @@ TEST(EthercatPdoReadback, RejectsMissingAndExtraRecordsAndCapacityOverflow) {
   ASSERT_TRUE(extra.add(expected[2U]));
   auto duplicate = expected[2U];
   duplicate.entry_position = 1U;
+  duplicate.raw_mapping_entry = mapping_word(0x606CU, 0U, 32U);
   ASSERT_TRUE(extra.add(duplicate));
   EXPECT_EQ(expected.compare(extra), Parity::CardinalityMismatch);
 

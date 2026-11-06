@@ -7,6 +7,7 @@ Python standard library and does not download, execute, or modify vendor files.
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import re
@@ -1562,13 +1563,32 @@ def resolve_slot_pdo_configuration(
 
 
 def resolve_cia402_candidate(
-    device: dict[str, Any], rx_pdo_indices: list[int], tx_pdo_indices: list[int]
+    device: dict[str, Any],
+    rx_pdo_indices: list[int],
+    tx_pdo_indices: list[int],
+    *,
+    treat_slot_dependent_indices_as_literal: bool = False,
 ) -> dict[str, Any]:
     if device.get("slots") is not None:
         raise EsiError(
             "slot-configurable device requires an explicit slot-resolved PDO map; "
             "static CiA 402 candidate resolution cannot infer installed modules"
         )
+    if treat_slot_dependent_indices_as_literal:
+        # Narrow compatibility escape hatch for non-modular simulator/device
+        # profiles whose ESI marks base indices DependOnSlot despite declaring
+        # no Slots section. The caller must independently verify these literal
+        # indices against runtime CoE readback; this flag performs no arithmetic.
+        device = copy.deepcopy(device)
+        for pdo in device["pdos"]:
+            pdo["index_depend_on_slot"] = False
+            pdo["index_depend_on_slot_group"] = False
+            for entry in pdo["entries"]:
+                entry["index_depend_on_slot"] = False
+                entry["index_depend_on_slot_group"] = False
+            for exclusion in pdo["excluded_pdos"]:
+                exclusion["depend_on_slot"] = False
+                exclusion["depend_on_slot_group"] = False
     """Resolve CiA 402 objects only from explicitly selected PDO declarations.
 
     ESI may describe alternative PDOs. The caller must select the PDO indices
@@ -1577,7 +1597,7 @@ def resolve_cia402_candidate(
     """
     if not rx_pdo_indices or not tx_pdo_indices:
         raise EsiError("explicit RxPDO and TxPDO selections are both required")
-    if any(
+    if not treat_slot_dependent_indices_as_literal and any(
         pdo["index_depend_on_slot"] or pdo["index_depend_on_slot_group"]
         for pdo in device["pdos"]
     ):
@@ -1738,7 +1758,13 @@ def resolve_cia402_candidate(
             "homing": False,
         },
         "is_runtime_readback": False,
+        "index_resolution_policy": (
+            "literal_base_indices_explicit_override"
+            if treat_slot_dependent_indices_as_literal
+            else "esi_declared_indices"
+        ),
     }
+
 
 
 
@@ -1800,6 +1826,9 @@ def render_pdo_snapshot(candidate: dict[str, Any]) -> dict[str, Any]:
         "assignments": assignments,
         "mappings": mappings,
         "runtime_readback_performed": False,
+        "selection_policy": candidate.get(
+            "index_resolution_policy", "esi_declared_indices"
+        ),
     }
 
 
@@ -2137,6 +2166,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--slot-config", type=Path, help="JSON array of explicit slot assignments; each item has slot_descriptor_index and module_ident (decimal, 0x, or #x)")
     parser.add_argument("--emit-cpp-fixture", action="store_true", help="emit a C++ golden fixture instead of normalized JSON; requires explicit PDO selections")
     parser.add_argument("--emit-pdo-snapshot", action="store_true", help="emit layered ESI expected assignment/mapping snapshot; requires explicit PDO selections")
+    parser.add_argument(
+        "--treat-slot-dependent-indices-as-literal",
+        action="store_true",
+        help=(
+            "explicitly treat ESI base PDO/object indices as literal only for a "
+            "non-modular device with no Slots section; use only when runtime CoE "
+            "readback independently confirms those exact indices"
+        ),
+    )
     args = parser.parse_args(argv)
     try:
         document = parse_esi(args.esi)
@@ -2197,7 +2235,12 @@ def main(argv: list[str] | None = None) -> int:
             rx_indices = [_number(value, "--rx-pdo") for value in args.rx_pdo]
             tx_indices = [_number(value, "--tx-pdo") for value in args.tx_pdo]
             document["cia402_candidate"] = resolve_cia402_candidate(
-                document["devices"][0], rx_indices, tx_indices
+                document["devices"][0],
+                rx_indices,
+                tx_indices,
+                treat_slot_dependent_indices_as_literal=(
+                    args.treat_slot_dependent_indices_as_literal
+                ),
             )
         if args.emit_cpp_fixture and args.emit_pdo_snapshot:
             raise EsiError("--emit-cpp-fixture and --emit-pdo-snapshot are mutually exclusive")

@@ -849,9 +849,9 @@ CIA402_OBJECTS = {
 def resolve_cia402_candidate(
     device: dict[str, Any], rx_pdo_indices: list[int], tx_pdo_indices: list[int]
 ) -> dict[str, Any]:
-    if not device["pdos"] and device.get("slots") is not None:
+    if device.get("slots") is not None:
         raise EsiError(
-            "module-only device requires slot-resolved module PDO mappings; "
+            "slot-configurable device requires an explicit slot-resolved PDO map; "
             "static CiA 402 candidate resolution cannot infer installed modules"
         )
     """Resolve CiA 402 objects only from explicitly selected PDO declarations.

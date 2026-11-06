@@ -911,6 +911,39 @@ class EsiToProfileTests(unittest.TestCase):
                 device, [0x1600, 0x1601], [0x1A00, 0x1A01]
             )
 
+    def test_rejects_oversampling_pdo_in_static_candidate(self):
+        oversampled = ESI_WITH_VELOCITY.replace(
+            '<RxPdo Sm="2" Su="5"><Index>#x1601</Index>',
+            '<RxPdo Sm="2" Su="5" OSFac="2"><Index>#x1601</Index>',
+            1,
+        )
+        self.path.write_text(oversampled, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "oversampling metadata that the static CiA 402 candidate resolver does not expand",
+        ):
+            esi_to_profile.resolve_cia402_candidate(
+                device, [0x1600, 0x1601], [0x1A00, 0x1A01]
+            )
+
+    def test_applies_sync_manager_range_to_safety_parameter_mapping(self):
+        malformed = ESI.replace(
+            "</EtherCATInfo>",
+            """  <Modules><Module><Type ModuleIdent="#x4711">Safety module</Type>
+      <Name>Safety module</Name>
+      <SafetyParaMapping Sm="256"><Index>#x8000</Index><Name>Safety map</Name></SafetyParaMapping>
+    </Module></Modules>
+</EtherCATInfo>""",
+            1,
+        )
+        self.path.write_text(malformed, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "Module.SafetyParaMapping.Sm value 256 is outside 0..255",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
     def test_rejects_fsoe_or_sra_pdo_as_generic_cia402_mapping(self):
         safety = ESI_WITH_VELOCITY.replace(
             '<RxPdo Sm="2" Su="5"><Index>#x1601</Index>',

@@ -152,6 +152,7 @@ verify_coe_assignment() {
       printf '%s assignment contains zero PDO index at subindex %s\n' "$label" "$pdo_pos" >&2
       return 1
     }
+    printf 'A\t%s\t%s\t%s\t%s\n' "$position" "$((assignment_index))" "$pdo_pos" "$pdo_index" >>"$ARTIFACT_DIR/coe-pdo-rows.tsv"
     entry_count=$(read_sdo_value "$pdo_index" 0 uint8 "$position") || return 1
     (( entry_count > 0 && entry_count <= 64 )) || {
       printf 'PDO 0x%04x mapping entry count out of range: %s\n' "$pdo_index" "$entry_count" >&2
@@ -168,6 +169,7 @@ verify_coe_assignment() {
           "$pdo_index" "$entry_pos" "$bit_length" >&2
         return 1
       }
+      printf 'M\t%s\t%s\t%s\t%s\t%s\t%s\n' "$position" "$((assignment_index))" "$pdo_pos" "$pdo_index" "$entry_pos" "$mapped" >>"$ARTIFACT_DIR/coe-pdo-rows.tsv"
       printf '    %04x:%02x width=%u\n' \
         "$object_index" "$object_subindex" "$bit_length"
     done
@@ -176,7 +178,9 @@ verify_coe_assignment() {
 
 run_coe_readback() {
   local position
+  : >"$ARTIFACT_DIR/coe-pdo-rows.tsv"
   for ((position = 0; position < EXPECTED_SLAVES; ++position)); do
+    printf 'S\t%s\t%s\t%s\n' "$position" "$((0x29c))" "$((0x03b11002))" >>"$ARTIFACT_DIR/coe-pdo-rows.tsv"
     printf 'Slave ring position %s CoE PDO mapping readback\n' "$position"
     verify_coe_assignment "$position" 0x1C12 "RxPDO" || return 1
     verify_coe_assignment "$position" 0x1C13 "TxPDO" || return 1
@@ -516,11 +520,15 @@ if [[ "$COE_READBACK" == "1" ]]; then
     fail "CoE PDO assignment/mapping readback failed"
   fi
   stop_coe_capture
+  command -v python3 >/dev/null || fail "python3 is required to serialize CoE PDO snapshots"
+  if ! python3 "$SCRIPT_DIR/coe_snapshot.py" "$ARTIFACT_DIR/coe-pdo-rows.tsv" "$ARTIFACT_DIR/coe-pdo-snapshot.json"; then
+    fail "CoE PDO snapshot validation/serialization failed"
+  fi
   {
     ip -o link show
     "$ETHERCAT_CLI" eoe 2>&1 || true
   } >"$ARTIFACT_DIR/eoe-after-coe.log" 2>&1
-  printf '\nPASS: CoE SDO readback of RxPDO/TxPDO assignments and PDO entries.\n'
+  printf '\nPASS: CoE SDO readback of RxPDO/TxPDO assignments and PDO entries; structured snapshot: %s\n' "$ARTIFACT_DIR/coe-pdo-snapshot.json"
 fi
 
 if [[ "$CYCLIC_SIL" == "1" ]]; then

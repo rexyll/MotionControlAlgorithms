@@ -49,7 +49,7 @@ class CoeSnapshotTests(unittest.TestCase):
             parse_rows(rows)
 
     def test_rejects_malformed_padding(self):
-        rows = fixture().replace("0x00000008", "0x00010008")
+        rows = fixture().replace("0x00000008", "0x00000108")
         with self.assertRaisesRegex(SnapshotError, "malformed mapping entry/padding"):
             parse_rows(rows)
 

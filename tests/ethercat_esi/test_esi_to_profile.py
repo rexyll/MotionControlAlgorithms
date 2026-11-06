@@ -36,7 +36,7 @@ ESI = """<?xml version="1.0"?>
         <Type ProductCode="4098" RevisionNo="3">Servo-B</Type>
         <Name>Servo B</Name>
         <RxPdo Sm="2"><Index>5632</Index><Name>Rx</Name>
-          <Entry><Index>24640</Index><SubIndex>0</SubIndex><BitLen>16</BitLen><Name>CW</Name></Entry>
+          <Entry><Index>24640</Index><SubIndex>0</SubIndex><BitLen>16</BitLen><Name>CW</Name><DataType>UINT</DataType></Entry>
         </RxPdo>
       </Device>
     </Devices>
@@ -129,7 +129,8 @@ class EsiToProfileTests(unittest.TestCase):
 
     def test_normalizes_vendor_multiple_devices_and_pdo_directions(self):
         result = esi_to_profile.parse_esi(self.path)
-        self.assertEqual(result["vendor"], {"id": 0xAB, "name": "Example Vendor"})
+        self.assertEqual(result["vendor"]["id"], 0xAB)
+        self.assertEqual(result["vendor"]["name"], "Example Vendor")
         self.assertEqual(len(result["devices"]), 2)
         first = result["devices"][0]
         self.assertEqual(first["identity"], {
@@ -148,7 +149,7 @@ class EsiToProfileTests(unittest.TestCase):
         malformed = ESI.replace(
             "      </Device>",
             """        <RxPdo Sm="2"><Index>#x1600</Index><Name>Duplicate RxPDO</Name>
-          <Entry><Index>#x6040</Index><SubIndex>0</SubIndex><BitLen>16</BitLen><Name>Controlword</Name></Entry>
+          <Entry><Index>#x6040</Index><SubIndex>0</SubIndex><BitLen>16</BitLen><Name>Controlword</Name><DataType>UINT</DataType></Entry>
         </RxPdo>
       </Device>""",
             1,
@@ -214,10 +215,10 @@ class EsiToProfileTests(unittest.TestCase):
         malformed = dynamic.replace(
             "      </Device>",
             """        <RxPdo Sm="2"><Index>#x1600</Index><Name>Static duplicate A</Name>
-          <Entry><Index>#x6040</Index><SubIndex>0</SubIndex><BitLen>16</BitLen></Entry>
+          <Entry><Index>#x6040</Index><SubIndex>0</SubIndex><BitLen>16</BitLen><Name>Duplicate A entry</Name><DataType>UINT</DataType></Entry>
         </RxPdo>
         <RxPdo Sm="2"><Index>#x1600</Index><Name>Static duplicate B</Name>
-          <Entry><Index>#x6041</Index><SubIndex>0</SubIndex><BitLen>16</BitLen></Entry>
+          <Entry><Index>#x6041</Index><SubIndex>0</SubIndex><BitLen>16</BitLen><Name>Duplicate B entry</Name><DataType>UINT</DataType></Entry>
         </RxPdo>
       </Device>""",
             1,
@@ -341,7 +342,7 @@ class EsiToProfileTests(unittest.TestCase):
             "      </Device>",
             """        <RxPdo Sm="2" Mandatory="true"><Index>#x1604</Index>
           <Name>Mandatory auxiliary data</Name>
-          <Entry><Index>#x2000</Index><SubIndex>1</SubIndex><BitLen>16</BitLen><Name>Aux</Name></Entry>
+          <Entry><Index>#x2000</Index><SubIndex>1</SubIndex><BitLen>16</BitLen><Name>Aux</Name><DataType>UINT</DataType></Entry>
         </RxPdo>
       </Device>""",
             1,

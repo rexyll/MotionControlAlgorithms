@@ -281,6 +281,10 @@ trap 'exit 143' TERM
 if [[ -n "$ESI_PDO_SNAPSHOT" && "$COE_READBACK" != "1" ]]; then
   fail "MCA_ECAT_ESI_PDO_SNAPSHOT requires MCA_ECAT_COE_READBACK=1"
 fi
+if [[ "$COE_READBACK" == "1" && "$CYCLIC_SIL" == "1" ]]; then
+  [[ -n "$ESI_PDO_SNAPSHOT" ]] || fail "combined CoE + cyclic SIL requires MCA_ECAT_ESI_PDO_SNAPSHOT for the complete three-way parity gate"
+  [[ -f "$ESI_PDO_SNAPSHOT" ]] || fail "ESI PDO snapshot not found: $ESI_PDO_SNAPSHOT"
+fi
 [[ $EUID -eq 0 ]] || fail "run as root (sudo -E) because veth, IgH modules and AF_PACKET need privileges"
 [[ -n "$KICKCAT_SIMULATOR" && -x "$KICKCAT_SIMULATOR" ]] || fail "set KICKCAT_SIMULATOR to the executable network_simulator"
 SLAVE_CONFIGS=()

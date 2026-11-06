@@ -86,6 +86,10 @@ class CoeSnapshotTests(unittest.TestCase):
         with self.assertRaisesRegex(SnapshotError, "cardinality mismatch"):
             parse_rows(rows)
 
+    def test_rejects_missing_expected_slave(self):
+        with self.assertRaisesRegex(SnapshotError, "expected 2 slave identities"):
+            parse_rows(fixture(), expected_slave_count=2)
+
     def test_rejects_missing_slave_identity(self):
         with self.assertRaisesRegex(SnapshotError, "no slave identity"):
             parse_rows("")

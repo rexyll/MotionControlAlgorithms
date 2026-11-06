@@ -42,6 +42,15 @@ def compare_snapshots(esi: dict, coe: dict) -> dict:
         raise ParityError("ESI snapshot has no mapping records")
     if not isinstance(slaves, list) or not slaves:
         raise ParityError("CoE snapshot has no slave records")
+    if any(not isinstance(item, dict) for item in expected_assignments + expected_mappings):
+        raise ParityError("ESI assignment/mapping records must be objects")
+    if any(not isinstance(item, dict) for item in slaves):
+        raise ParityError("CoE slave records must be objects")
+    ring_positions = [item.get("ring_position") for item in slaves]
+    if any(not isinstance(ring, int) or ring < 0 for ring in ring_positions):
+        raise ParityError("CoE slave has invalid ring_position")
+    if sorted(ring_positions) != list(range(len(slaves))) or len(set(ring_positions)) != len(ring_positions):
+        raise ParityError("CoE slave ring positions must be unique and contiguous from zero")
 
     def assignment_tuple(item: dict) -> tuple:
         return (item.get("assignment_object"), item.get("assignment_position"), item.get("pdo_index"))
@@ -61,11 +70,7 @@ def compare_snapshots(esi: dict, coe: dict) -> dict:
 
     results = []
     for slave in slaves:
-        if not isinstance(slave, dict):
-            raise ParityError("CoE slave record must be an object")
-        ring = slave.get("ring_position")
-        if not isinstance(ring, int) or ring < 0:
-            raise ParityError("CoE slave has invalid ring_position")
+        ring = slave["ring_position"]
         observed_identity = {
             "vendor_id": slave.get("vendor_id"),
             "product_code": slave.get("product_code"),
@@ -80,6 +85,8 @@ def compare_snapshots(esi: dict, coe: dict) -> dict:
         mappings = slave.get("mappings")
         if not isinstance(assignments, list) or not isinstance(mappings, list):
             raise ParityError(f"ring {ring}: CoE assignments/mappings must be arrays")
+        if any(not isinstance(item, dict) for item in assignments + mappings):
+            raise ParityError(f"ring {ring}: CoE assignment/mapping records must be objects")
         observed_assignment_order = [assignment_tuple(item) for item in assignments]
         observed_mapping_order = [mapping_tuple(item) for item in mappings]
         mismatches = []

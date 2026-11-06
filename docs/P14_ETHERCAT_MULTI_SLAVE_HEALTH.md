@@ -555,3 +555,34 @@ drive behavior, independent per-drive fault handling, distributed-clock
 accuracy, motion trajectory performance, or physical-drive HIL. The
 discovery-time PREOP snapshot is not runtime AL-state evidence; runtime
 OP/health acceptance comes from the cyclic SIL result above.
+
+
+### CoE-only ESI profile for KickCAT fault-isolation SIL
+
+The 2026-11-06 ring-1 FRA=3 run exposed unsupported mailbox services in the
+pinned KickCAT simulator fixture. Its source ESI advertises both EoE and
+CoE SDO Information, but the simulator responds to EoE mailbox requests with
+`MBXERR_UNSUPPORTEDPROTOCOL` and does not reliably answer SDO Information
+description requests. The IgH master consequently starts EoE handlers for
+both stations and emits repeated SDO-description timeout diagnostics while
+the test is trying to read PDO mapping objects.
+
+The multi-slave fault-isolation runner now creates a temporary, SIL-only ESI
+beside the KickCAT JSON fixture. It removes the unsupported `<EoE />`
+capability and changes only `CoE SdoInfo` to `false`. CoE itself remains
+advertised, including SDO, PDO assignment and PDO configuration support.
+The helper validates the transformed XML and compares all `RxPdo`,
+`TxPdo` and `Sm` declarations before/after; any mapping or SyncManager
+change fails preparation. The simulator JSON fixtures point to this temporary
+ESI, while ESI-to-CoE and three-way PDO parity continue to use the original,
+unmodified device ESI as the independent expectation. Temporary ESI and JSON
+fixtures are removed by the runner's cleanup trap.
+
+This is a simulator capability declaration, not a modification to the
+vendor's production ESI and not a relaxation of PDO readback. All assignment
+counts, PDO indices, entry counts, ordered raw mapping words (including
+padding), WKC, AL-OP and fault-isolation checks remain mandatory. The next
+wire-level run must show no EoE interfaces/unsupported-protocol mailbox
+errors, successful SDO reads through ring 1 TxPDO entries 1–4, and the complete
+FRA=3 two-direction acceptance. Until that run passes, ring-1 fault isolation
+remains unverified.

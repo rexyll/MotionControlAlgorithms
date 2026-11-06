@@ -567,6 +567,57 @@ class EsiToProfileTests(unittest.TestCase):
         ):
             esi_to_profile.resolve_cia402_candidate(device, [0x1600], [0x1A00])
 
+    def test_rejects_slot_module_ident_missing_from_complete_embedded_catalog(self):
+        modular = ESI.replace(
+            "      </Device>",
+            """        <Slots><Slot MinInstances="0" MaxInstances="1">
+          <ModuleIdent>#x4712</ModuleIdent>
+        </Slot></Slots>
+      </Device>""",
+            1,
+        ).replace(
+            "</EtherCATInfo>",
+            """  <Modules><Module><Type ModuleIdent="#x4711">Known module</Type>
+    <Name>Known module</Name></Module></Modules>
+</EtherCATInfo>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "Slots.Slot\\[0\\] references unknown ModuleIdent 0x00004712",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
+    def test_validates_slot_module_ident_after_all_external_catalogs_are_attached(self):
+        modular = ESI.replace(
+            "<Vendor>",
+            '<InfoReference>external-modules.xml</InfoReference><Vendor>',
+            1,
+        ).replace(
+            "      </Device>",
+            """        <Slots><Slot MinInstances="0" MaxInstances="1">
+          <ModuleIdent>#x4711</ModuleIdent>
+        </Slot></Slots>
+      </Device>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        external = Path(self.temp.name) / "external-modules.xml"
+        external.write_text(
+            """<EtherCATModule><Vendor><Id>#xAB</Id><Name>Example Vendor</Name></Vendor>
+<Modules><Module><Type ModuleIdent="#x4712">Different module</Type>
+<Name>Different module</Name></Module></Modules></EtherCATModule>""",
+            encoding="utf-8",
+        )
+        document = esi_to_profile.parse_esi(self.path)
+        self.assertFalse(document["module_catalog_complete"])
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "Slots.Slot\\[0\\] references unknown ModuleIdent 0x00004711",
+        ):
+            esi_to_profile.attach_external_module_files(document, [external])
+
     def test_rejects_duplicate_module_idents(self):
         modular = ESI.replace(
             "</EtherCATInfo>",

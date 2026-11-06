@@ -229,6 +229,10 @@ def _parse_module_mailbox(module: ET.Element) -> dict[str, Any] | None:
         return None
 
     coe = _one(mailbox, "CoE")
+    eoe = _one(mailbox, "EoE")
+    foe = _one(mailbox, "FoE")
+    soe = _one(mailbox, "SoE")
+    voe = _one(mailbox, "VoE")
     init_commands: list[dict[str, Any]] = []
     if coe is not None:
         allowed_transitions = {"IP", "PS", "SO", "SP", "OP", "OS"}
@@ -323,6 +327,33 @@ def _parse_module_mailbox(module: ET.Element) -> dict[str, Any] | None:
             ),
         },
         "has_coe": coe is not None,
+        "protocols": {
+            "coe": coe is not None,
+            "eoe": eoe is not None,
+            "foe": foe is not None,
+            "soe": soe is not None,
+            "voe": voe is not None,
+        },
+        "eoe_attributes": (
+            None if eoe is None else {
+                "ip": _optional_boolean(eoe.attrib.get("IP"), "Module.Mailbox.EoE.IP"),
+                "mac": _optional_boolean(eoe.attrib.get("MAC"), "Module.Mailbox.EoE.MAC"),
+                "time_stamp": _optional_boolean(
+                    eoe.attrib.get("TimeStamp"), "Module.Mailbox.EoE.TimeStamp"
+                ),
+            }
+        ),
+        "soe_attributes": (
+            None if soe is None else {
+                "channel_count": _xs_integer(
+                    soe.attrib.get("ChannelCount"), "Module.Mailbox.SoE.ChannelCount"
+                ),
+                "drive_follows_bit3_support": _optional_boolean(
+                    soe.attrib.get("DriveFollowsBit3Support"),
+                    "Module.Mailbox.SoE.DriveFollowsBit3Support",
+                ),
+            }
+        ),
         "coe_init_commands": init_commands,
     }
 
@@ -641,6 +672,13 @@ def _parse_slots(
         raise EsiError(
             f"invalid Slots.DownloadModuleListTransition: {transition!r}"
         )
+    identify_module_by = slots_element.attrib.get("IdentifyModuleBy")
+    if identify_module_by is not None and identify_module_by not in {
+        "ModuleIdent", "IdentityObjekt"
+    }:
+        raise EsiError(
+            f"invalid Slots.IdentifyModuleBy: {identify_module_by!r}"
+        )
 
     return {
         "download_module_ident_list": _optional_boolean(
@@ -659,7 +697,7 @@ def _parse_slots(
             slots_element, "MaxSlotGroupCount", "Slots.MaxSlotGroupCount"
         ),
         **root_increments,
-        "identify_module_by": slots_element.attrib.get("IdentifyModuleBy"),
+        "identify_module_by": identify_module_by,
         "slots": parsed_slots,
         "slot_group_data": slot_group_data,
         "module_pdo_groups": module_pdo_groups,

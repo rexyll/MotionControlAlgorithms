@@ -155,6 +155,15 @@ def _parse_device(device: ET.Element, vendor_id: int) -> dict[str, Any]:
 
     if not pdos:
         raise EsiError(f"device {device_name!r} has no RxPdo/TxPdo declarations")
+    seen_pdo_indices: dict[int, str] = {}
+    for pdo in pdos:
+        previous_direction = seen_pdo_indices.get(pdo["index"])
+        if previous_direction is not None:
+            raise EsiError(
+                f"duplicate PDO index 0x{pdo['index']:04X} declared by "
+                f"{previous_direction.upper()}PDO and {pdo['direction'].upper()}PDO"
+            )
+        seen_pdo_indices[pdo["index"]] = pdo["direction"]
     sync_managers = _parse_sync_managers(device)
     for pdo in pdos:
         sync_manager = pdo["sync_manager"]

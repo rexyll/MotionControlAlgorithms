@@ -138,6 +138,70 @@ class EsiToProfileTests(unittest.TestCase):
         ):
             esi_to_profile.parse_esi(self.path)
 
+    def test_parses_pdo_exclusion_and_virtual_metadata(self):
+        valid = ESI.replace(
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">',
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">\\n          <ExcludedSm>3</ExcludedSm>',
+            1,
+        ).replace(
+            "      </Device>",
+            """        <RxPdo Sm="2" Virtual="1">
+          <Index>#x1603</Index><Name>Virtual register mapping</Name>
+        </RxPdo>
+      </Device>""",
+            1,
+        )
+        self.path.write_text(valid, encoding="utf-8")
+        first = esi_to_profile.parse_esi(self.path)["devices"][0]
+        self.assertEqual(first["pdos"][0]["excluded_sync_managers"], [3])
+        self.assertTrue(first["pdos"][-1]["virtual"])
+        self.assertEqual(first["pdos"][-1]["entries"], [])
+
+    def test_rejects_selected_mutually_exclusive_pdos(self):
+        incompatible = ESI_WITH_VELOCITY.replace(
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">',
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">\\n          <Exclude>#x1601</Exclude>',
+            1,
+        )
+        self.path.write_text(incompatible, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "selected PDO 0x1600 excludes selected PDO 0x1601",
+        ):
+            esi_to_profile.resolve_cia402_candidate(
+                device, [0x1600, 0x1601], [0x1A00, 0x1A01]
+            )
+
+    def test_rejects_slot_dependent_exclusions_in_static_candidate(self):
+        incompatible = ESI_WITH_VELOCITY.replace(
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">',
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">\\n          <Exclude DependOnSlot="true">#x1601</Exclude>',
+            1,
+        )
+        self.path.write_text(incompatible, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "slot-dependent Exclude reference",
+        ):
+            esi_to_profile.resolve_cia402_candidate(
+                device, [0x1600, 0x1601], [0x1A00, 0x1A01]
+            )
+
+    def test_rejects_default_sync_manager_that_is_explicitly_excluded(self):
+        malformed = ESI.replace(
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">',
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">\\n          <ExcludedSm>2</ExcludedSm>',
+            1,
+        )
+        self.path.write_text(malformed, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "declares SyncManager 2 as both its default and excluded assignment",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
     def test_decimal_and_hex_identity_fields_are_normalized(self):
         second = esi_to_profile.parse_esi(self.path)["devices"][1]
         self.assertEqual(second["identity"]["product_code"], 4098)

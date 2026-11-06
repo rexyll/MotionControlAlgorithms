@@ -133,7 +133,10 @@ class EsiToProfileTests(unittest.TestCase):
             """  <Modules>
     <Module><Type ModuleIdent="#x4711">FSoE input module</Type>
       <Name>FSoE module</Name>
-      <SafetyParaMapping Fixed="true" CompleteAccess="false" SafetyPdoType="FSoESlave" SafetyConnNumber="3">
+      <SafetyParaMapping Fixed="true" Su="2" PdoOrder="3"
+                         OSFac="4" OSMin="1" OSMax="8" OSIndexInc="2"
+                         OverwrittenByModule="true" SRA_Parameter="false"
+                         SafetyPdoType="FSoESlave" SafetyConnNumber="3">
         <Index DependOnSlotGroup="true">#x8000</Index>
         <Name LcId="1033">Safety parameter set</Name>
         <Entry><Index>#x2000</Index><BitLen>16</BitLen></Entry>
@@ -152,7 +155,14 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertFalse(mapping["index_depend_on_slot"])
         self.assertTrue(mapping["index_depend_on_slot_group"])
         self.assertTrue(mapping["fixed"])
-        self.assertFalse(mapping["complete_access"])
+        self.assertEqual(mapping["sync_unit"], 2)
+        self.assertEqual(mapping["pdo_order"], 3)
+        self.assertEqual(mapping["oversampling_factor"], 4)
+        self.assertEqual(mapping["oversampling_min"], 1)
+        self.assertEqual(mapping["oversampling_max"], 8)
+        self.assertEqual(mapping["oversampling_index_increment"], 2)
+        self.assertTrue(mapping["overwritten_by_module"])
+        self.assertFalse(mapping["sra_parameter"])
         self.assertEqual(mapping["safety_pdo_type"], "FSoESlave")
         self.assertEqual(mapping["safety_connection_number"], 3)
         self.assertEqual(len(mapping["entries"]), 2)
@@ -347,6 +357,37 @@ class EsiToProfileTests(unittest.TestCase):
         with self.assertRaisesRegex(
             esi_to_profile.EsiError,
             "Data is not valid xs:hexBinary data",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
+    def test_preserves_common_pdo_type_attributes_on_regular_pdo(self):
+        annotated = ESI.replace(
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">',
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true" Su="3" PdoOrder="7" OSFac="4" OSMin="1" OSMax="8" OSIndexInc="2" OverwrittenByModule="true" SRA_Parameter="false">',
+            1,
+        )
+        self.path.write_text(annotated, encoding="utf-8")
+        pdo = esi_to_profile.parse_esi(self.path)["devices"][0]["pdos"][0]
+        self.assertEqual(pdo["sync_manager"], 2)
+        self.assertEqual(pdo["sync_unit"], 3)
+        self.assertEqual(pdo["pdo_order"], 7)
+        self.assertEqual(pdo["oversampling_factor"], 4)
+        self.assertEqual(pdo["oversampling_min"], 1)
+        self.assertEqual(pdo["oversampling_max"], 8)
+        self.assertEqual(pdo["oversampling_index_increment"], 2)
+        self.assertTrue(pdo["overwritten_by_module"])
+        self.assertFalse(pdo["sra_parameter"])
+
+    def test_rejects_non_decimal_xs_int_in_pdo_type_attribute(self):
+        malformed = ESI.replace(
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">',
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true" PdoOrder="#x1">',
+            1,
+        )
+        self.path.write_text(malformed, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "invalid rxPDO.PdoOrder",
         ):
             esi_to_profile.parse_esi(self.path)
 

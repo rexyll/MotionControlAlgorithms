@@ -121,6 +121,12 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
     index_value = _number(index_text, f"{direction}PDO.Index")
     assert index_value is not None
     pdo_index = _require_range(index_value, f"{direction}PDO.Index", 0xFFFF)
+    allowed_range = (0x1600, 0x17FF) if direction == "rx" else (0x1A00, 0x1BFF)
+    if not allowed_range[0] <= pdo_index <= allowed_range[1]:
+        raise EsiError(
+            f"{direction}PDO index 0x{pdo_index:04X} is outside the allowed "
+            f"range 0x{allowed_range[0]:04X}..0x{allowed_range[1]:04X}"
+        )
     index_depend_on_slot = _optional_boolean(
         index_element.attrib.get("DependOnSlot"),
         f"{direction}PDO.Index.DependOnSlot",

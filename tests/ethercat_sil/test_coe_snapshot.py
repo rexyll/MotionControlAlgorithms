@@ -32,6 +32,12 @@ class CoeSnapshotTests(unittest.TestCase):
         self.assertEqual([m["raw_mapping_entry"] for m in slave["mappings"][:2]],
                          [0x60400010, 0x00000008])
 
+    def test_rejects_pdo_index_outside_assignment_direction_range(self):
+        rows = fixture().replace("A\t0\t0x1c12\t1\t0x1600",
+                                 "A\t0\t0x1c12\t1\t0x1a00")
+        with self.assertRaisesRegex(SnapshotError, "assignment direction range"):
+            parse_rows(rows)
+
     def test_rejects_assignment_gap_or_reorder(self):
         rows = fixture().replace("A\t0\t0x1c13\t1", "A\t0\t0x1c13\t2")
         with self.assertRaisesRegex(SnapshotError, "assignment order/gap"):

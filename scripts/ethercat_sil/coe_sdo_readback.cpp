@@ -240,6 +240,37 @@ int main(int argc, char** argv) {
         return 1;
     }
     guard.active = true;
+
+    ec_master_info_t master_info{};
+    if (ecrt_master(guard.master, &master_info) != 0 ||
+        master_info.slave_count != static_cast<unsigned int>(expected)) {
+        std::cerr << "IgH topology changed before CoE readback: expected "
+                  << expected << " slave(s), found "
+                  << master_info.slave_count << "\\n";
+        return 1;
+    }
+
+    std::array<ec_slave_info_t, 64> slave_info{};
+    for (unsigned long ring_value = 0; ring_value < expected; ++ring_value) {
+        const auto ring = static_cast<std::uint16_t>(ring_value);
+        if (ecrt_master_get_slave(guard.master, ring, &slave_info[ring_value]) != 0) {
+            std::cerr << "could not query IgH slave identity at ring position "
+                      << ring << "\\n";
+            return 1;
+        }
+        const auto& identity = slave_info[ring_value];
+        if (identity.vendor_id != 0x0000029CU ||
+            identity.product_code != 0x03B11002U ||
+            identity.revision_number != 0x00050005U) {
+            std::cerr << "unexpected IgH slave identity at ring position "
+                      << ring << ": vendor=0x" << std::hex
+                      << identity.vendor_id << " product=0x"
+                      << identity.product_code << " revision=0x"
+                      << identity.revision_number << std::dec << "\\n";
+            return 1;
+        }
+    }
+
     guard.start_io();
     raw << "MASTER_PHASE=OPERATION io_pump_interval_ms=1\\n";
     raw.flush();
@@ -247,10 +278,11 @@ int main(int argc, char** argv) {
 
     for (unsigned long ring_value = 0; ring_value < expected; ++ring_value) {
         const auto ring = static_cast<std::uint16_t>(ring_value);
-        if (!append_row(rows, 'S', std::to_string(ring) + "\t" +
-                        std::to_string(0x29CU) + "\t" +
-                        std::to_string(0x03B11002U))) {
-            std::cerr << "could not write CoE identity row\n";
+        const auto& identity = slave_info[ring_value];
+        if (!append_row(rows, 'S', std::to_string(ring) + "\\t" +
+                        std::to_string(identity.vendor_id) + "\\t" +
+                        std::to_string(identity.product_code))) {
+            std::cerr << "could not write CoE identity row\\n";
             return 1;
         }
 

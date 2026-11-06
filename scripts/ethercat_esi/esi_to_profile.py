@@ -292,7 +292,10 @@ def _parse_module(module: ET.Element) -> dict[str, Any]:
     }
 
 
-def _parse_slots(device: ET.Element) -> dict[str, Any] | None:
+def _parse_slots(
+    device: ET.Element,
+    default_vendor_id: int,
+) -> dict[str, Any] | None:
     slots_element = _one(device, "Slots")
     if slots_element is None:
         return None
@@ -386,11 +389,15 @@ def _parse_slots(device: ET.Element) -> dict[str, Any] | None:
             vendor_id_value = _number(
                 vendor_id_text, f"{class_field}.VendorId", required=False
             )
-            vendor_id = (
+            vendor_id_explicit = (
                 None if vendor_id_value is None
                 else _require_range(
                     vendor_id_value, f"{class_field}.VendorId", 0xFFFFFFFF
                 )
+            )
+            vendor_id = (
+                default_vendor_id
+                if vendor_id_explicit is None else vendor_id_explicit
             )
             class_names = _localized_names(
                 module_class, f"{class_field}.Name"
@@ -399,6 +406,7 @@ def _parse_slots(device: ET.Element) -> dict[str, Any] | None:
             module_class_options.append({
                 "class": class_name,
                 "vendor_id": vendor_id,
+                "vendor_id_explicit": vendor_id_explicit,
                 "name": _primary_name(class_names),
                 "localized_names": class_names,
                 "image": image,
@@ -756,7 +764,7 @@ def _parse_device(device: ET.Element, vendor_id: int) -> dict[str, Any]:
         elif tag == "TxPdo":
             pdos.append(_parse_pdo(child, "tx"))
 
-    slots = _parse_slots(device)
+    slots = _parse_slots(device, vendor_id)
     if not pdos and slots is None:
         raise EsiError(
             f"device {device_name!r} has no PDO declarations and no Slots description"

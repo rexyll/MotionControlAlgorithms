@@ -30,6 +30,28 @@ BASE_CONFIG="$(realpath -- "$BASE_CONFIG")"
 CONFIG_DIR="$(dirname -- "$BASE_CONFIG")"
 mkdir -p "$ARTIFACT_ROOT"
 
+# The combined CoE + cyclic runner now requires an explicit ESI expectation
+# for its fail-closed three-way PDO parity gate. Reuse a caller-supplied
+# snapshot, or generate the pinned KickCAT device expectation once for the
+# entire fault matrix.
+if [[ -z "${MCA_ECAT_ESI_PDO_SNAPSHOT:-}" ]]; then
+  KICKCAT_SOURCE_DIR="${KICKCAT_SOURCE_DIR:-$(dirname -- "$(dirname -- "$BASE_CONFIG")")}"
+  ESI_XML="$KICKCAT_SOURCE_DIR/simulation/slave_configs/ecat402-drive.xml"
+  ESI_RESOLVER="$SCRIPT_DIR/../ethercat_esi/esi_to_profile.py"
+  [[ -f "$ESI_XML" ]] || fail "KickCAT ESI XML not found: $ESI_XML (set KICKCAT_SOURCE_DIR)"
+  [[ -f "$ESI_RESOLVER" ]] || fail "ESI resolver not found: $ESI_RESOLVER"
+  export MCA_ECAT_ESI_PDO_SNAPSHOT="$ARTIFACT_ROOT/esi-pdo-snapshot.json"
+  python3 "$ESI_RESOLVER" "$ESI_XML" \
+    --product-code 0x03b11002 \
+    --rx-pdo 0x1600 --tx-pdo 0x1a00 \
+    --treat-slot-dependent-indices-as-literal \
+    --emit-pdo-snapshot \
+    -o "$MCA_ECAT_ESI_PDO_SNAPSHOT"
+else
+  [[ -f "$MCA_ECAT_ESI_PDO_SNAPSHOT" ]] || fail "MCA_ECAT_ESI_PDO_SNAPSHOT does not exist: $MCA_ECAT_ESI_PDO_SNAPSHOT"
+  export MCA_ECAT_ESI_PDO_SNAPSHOT
+fi
+
 for reaction in "${reaction_cycles[@]}"; do
 for target in 0 1; do
   configs=()

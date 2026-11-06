@@ -592,7 +592,7 @@ if [[ "$CYCLIC_SIL" == "1" ]]; then
       cat "$ARTIFACT_DIR/esi-igh-parity.json" >&2 2>/dev/null || true
       fail "ESI-to-IgH PDO mapping parity failed"
     fi
-    printf 'PASS: ESI-to-IgH SM/PDO/Entry parity; report: %s\\n' \
+    printf 'PASS: ESI-to-IgH SM/PDO/Entry parity; report: %s\n' \
       "$ARTIFACT_DIR/esi-igh-parity.json"
   fi
 fi

@@ -409,6 +409,7 @@ fi
   printf 'slave_config=%s\n' "${SLAVE_CONFIGS[*]}"
   printf 'igh_debug_level=%s\ncoe_readback=%s\ndisable_eoe=%s\n' "$IGH_DEBUG_LEVEL" "$COE_READBACK" "$DISABLE_EOE"
   printf 'comm_fault_sil=%s\nsim_control_shm=%s\nkickcat_source_dir=%s\n' "$COMM_FAULT_SIL" "$SIM_CONTROL_SHM" "$KICKCAT_SOURCE_DIR"
+  printf 'cycle_time_us=%s\n' "${MCA_ECAT_CYCLE_TIME_US:-10000}"
   printf '\nIgH module parameters:\n'
   modinfo ec_master 2>&1 | grep -E '^(version|parm):' || true
 } >"$ARTIFACT_DIR/environment.txt"

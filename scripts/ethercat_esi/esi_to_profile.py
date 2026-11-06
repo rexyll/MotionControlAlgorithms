@@ -343,6 +343,16 @@ def resolve_cia402_candidate(
                 )
             selected.append(matches[0])
 
+    selected_pdo_keys = {
+        (pdo["direction"], pdo["index"]) for pdo in selected
+    }
+    for pdo in device["pdos"]:
+        if pdo["mandatory"] and (pdo["direction"], pdo["index"]) not in selected_pdo_keys:
+            raise EsiError(
+                f"mandatory {pdo['direction'].upper()}PDO 0x{pdo['index']:04X} "
+                "is missing from the selected assignment"
+            )
+
     selected_pdo_indices = {pdo["index"] for pdo in selected}
     for pdo in selected:
         for exclusion in pdo["excluded_pdos"]:

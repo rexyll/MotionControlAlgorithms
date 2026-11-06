@@ -470,10 +470,6 @@ class EsiToProfileTests(unittest.TestCase):
                PdoUpload="false" CompleteAccess="1" SegmentedSdo="true"
                ModuleOD="1" EdsFile="module.eds"
                DS402Channels="4" DiagHistory="true">
-        <EoE IP="true" MAC="false" TimeStamp="1"/>
-        <FoE/>
-        <SoE ChannelCount="2" DriveFollowsBit3Support="true"/>
-        <VoE/>
         <CoE>
           <InitCmd Fixed="true" CompleteAccess="false" OverwrittenByModule="1">
             <Transition>IP</Transition><Transition>PS</Transition>
@@ -494,18 +490,7 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertTrue(module["has_mailbox"])
         mailbox = module["mailbox"]
         self.assertTrue(mailbox["has_coe"])
-        self.assertEqual(
-            mailbox["protocols"],
-            {"coe": True, "eoe": True, "foe": True, "soe": True, "voe": True},
-        )
-        self.assertEqual(
-            mailbox["eoe_attributes"],
-            {"ip": True, "mac": False, "time_stamp": True},
-        )
-        self.assertEqual(
-            mailbox["soe_attributes"],
-            {"channel_count": 2, "drive_follows_bit3_support": True},
-        )
+        self.assertEqual(mailbox["protocols"], {"coe": True})
         self.assertTrue(mailbox["attributes"]["sdo_info"])
         self.assertTrue(mailbox["attributes"]["pdo_assign"])
         self.assertFalse(mailbox["attributes"]["pdo_config"])
@@ -528,6 +513,27 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertTrue(command["adapt_automatically"])
         self.assertEqual(command["comment"], "Initialize module parameters")
         self.assertNotIn("executed", command)
+
+    def test_rejects_non_coe_children_in_module_mailbox(self):
+        for protocol in ("AoE", "EoE", "FoE", "SoE", "VoE"):
+            with self.subTest(protocol=protocol):
+                modular = ESI.replace(
+                    "</EtherCATInfo>",
+                    f"""  <Modules>
+    <Module><Type ModuleIdent="#x4711">Module with {protocol}</Type>
+      <Name>Module with {protocol}</Name>
+      <Mailbox><{protocol}/></Mailbox>
+    </Module>
+  </Modules>
+</EtherCATInfo>""",
+                    1,
+                )
+                self.path.write_text(modular, encoding="utf-8")
+                with self.assertRaisesRegex(
+                    esi_to_profile.EsiError,
+                    f"Module.Mailbox supports only the CoE child in ModuleType; unsupported child <{protocol}>",
+                ):
+                    esi_to_profile.parse_esi(self.path)
 
     def test_rejects_invalid_module_coe_init_command_transition(self):
         modular = ESI.replace(

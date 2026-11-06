@@ -311,7 +311,6 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
         "localized_names": pdo_names,
         "index_depend_on_slot": pdo_index_depend_on_slot,
         "index_depend_on_slot_group": pdo_index_depend_on_slot_group,
-        "name": _text(_one(pdo, "Name"), f"{direction}PDO.Name"),
         "sync_manager": sm_index,
         "fixed": _optional_boolean(pdo.attrib.get("Fixed"), f"{direction}PDO.Fixed") or False,
         "mandatory": mandatory,

@@ -1068,6 +1068,435 @@ CIA402_OBJECTS = {
 }
 
 
+def _resolve_slot_dependent_index(
+    base_index: int,
+    *,
+    depend_on_slot: bool,
+    depend_on_slot_group: bool,
+    slot_index: int,
+    slot_group: int | None,
+    increments: dict[str, int | None],
+    index_kind: str,
+    field: str,
+) -> int:
+    """Apply ETG slot and slot-group increments to one PDO or object index."""
+    if depend_on_slot and depend_on_slot_group:
+        raise EsiError(
+            f"{field} declares both DependOnSlot and DependOnSlotGroup; "
+            "combined offset semantics are not implemented"
+        )
+    if base_index == 0:
+        if depend_on_slot or depend_on_slot_group:
+            raise EsiError(f"{field} padding index 0 cannot depend on a slot")
+        return 0
+
+    if index_kind == "pdo":
+        slot_increment_key = "slot_pdo_increment"
+        group_increment_key = "slot_group_pdo_increment"
+    elif index_kind == "object":
+        slot_increment_key = "slot_index_increment"
+        group_increment_key = "slot_group_index_increment"
+    else:
+        raise EsiError(f"{field} has unsupported index kind {index_kind!r}")
+
+    offset = 0
+    if depend_on_slot and slot_index:
+        increment = increments.get(slot_increment_key)
+        if increment is None:
+            raise EsiError(
+                f"{field} depends on the slot but {slot_increment_key} is not defined"
+            )
+        offset += slot_index * increment
+
+    if depend_on_slot_group:
+        if slot_group is None:
+            raise EsiError(
+                f"{field} depends on a slot group but the selected slot has no SlotGroup"
+            )
+        if slot_group:
+            increment = increments.get(group_increment_key)
+            if increment is None:
+                raise EsiError(
+                    f"{field} depends on the slot group but "
+                    f"{group_increment_key} is not defined"
+                )
+            offset += slot_group * increment
+
+    resolved = base_index + offset
+    if not 0 <= resolved <= 0xFFFF:
+        raise EsiError(
+            f"{field} resolved index 0x{resolved:X} is outside 0x0000..0xFFFF"
+        )
+    return resolved
+
+
+def _resolve_module_pdo_for_slot(
+    pdo: dict[str, Any],
+    *,
+    slot_index: int,
+    slot_group: int | None,
+    increments: dict[str, int | None],
+    slot_descriptor_index: int,
+) -> dict[str, Any]:
+    direction = pdo["direction"]
+    base_index = pdo["index"]
+    resolved_index = _resolve_slot_dependent_index(
+        base_index,
+        depend_on_slot=pdo["index_depend_on_slot"],
+        depend_on_slot_group=pdo["index_depend_on_slot_group"],
+        slot_index=slot_index,
+        slot_group=slot_group,
+        increments=increments,
+        index_kind="pdo",
+        field=f"Module slot {slot_index} {direction.upper()}PDO index",
+    )
+    allowed_range = (
+        (0x1600, 0x17FF) if direction == "rx" else (0x1A00, 0x1BFF)
+    )
+    if not allowed_range[0] <= resolved_index <= allowed_range[1]:
+        raise EsiError(
+            f"Module slot {slot_index} resolved {direction.upper()}PDO index "
+            f"0x{resolved_index:04X} is outside "
+            f"0x{allowed_range[0]:04X}..0x{allowed_range[1]:04X}"
+        )
+
+    resolved = {
+        **pdo,
+        "base_index": base_index,
+        "index": resolved_index,
+        "index_depend_on_slot": False,
+        "index_depend_on_slot_group": False,
+        "source_slot_index": slot_index,
+        "source_slot_descriptor_index": slot_descriptor_index,
+    }
+
+    resolved_entries: list[dict[str, Any]] = []
+    for entry_ordinal, entry in enumerate(pdo["entries"]):
+        entry_base_index = entry["index"]
+        entry_index = _resolve_slot_dependent_index(
+            entry_base_index,
+            depend_on_slot=entry["index_depend_on_slot"],
+            depend_on_slot_group=entry["index_depend_on_slot_group"],
+            slot_index=slot_index,
+            slot_group=slot_group,
+            increments=increments,
+            index_kind="object",
+            field=(
+                f"Module slot {slot_index} {direction.upper()}PDO "
+                f"0x{resolved_index:04X} entry[{entry_ordinal}]"
+            ),
+        )
+        resolved_entries.append({
+            **entry,
+            "base_index": entry_base_index,
+            "index": entry_index,
+            "index_depend_on_slot": False,
+            "index_depend_on_slot_group": False,
+        })
+    resolved["entries"] = resolved_entries
+
+    resolved_exclusions: list[dict[str, Any]] = []
+    seen_exclusions: set[int] = set()
+    for exclusion_ordinal, exclusion in enumerate(pdo["excluded_pdos"]):
+        exclusion_base_index = exclusion["index"]
+        exclusion_index = _resolve_slot_dependent_index(
+            exclusion_base_index,
+            depend_on_slot=bool(exclusion["depend_on_slot"]),
+            depend_on_slot_group=bool(exclusion["depend_on_slot_group"]),
+            slot_index=slot_index,
+            slot_group=slot_group,
+            increments=increments,
+            index_kind="pdo",
+            field=(
+                f"Module slot {slot_index} {direction.upper()}PDO "
+                f"0x{resolved_index:04X} Exclude[{exclusion_ordinal}]"
+            ),
+        )
+        if not allowed_range[0] <= exclusion_index <= allowed_range[1]:
+            raise EsiError(
+                f"Module slot {slot_index} resolved {direction.upper()}PDO "
+                f"Exclude index 0x{exclusion_index:04X} is outside the "
+                f"allowed PDO range"
+            )
+        if exclusion_index in seen_exclusions:
+            raise EsiError(
+                f"Module slot {slot_index} {direction.upper()}PDO "
+                f"0x{resolved_index:04X} has duplicate resolved Exclude "
+                f"index 0x{exclusion_index:04X}"
+            )
+        seen_exclusions.add(exclusion_index)
+        resolved_exclusions.append({
+            **exclusion,
+            "base_index": exclusion_base_index,
+            "index": exclusion_index,
+            "depend_on_slot": False,
+            "depend_on_slot_group": False,
+        })
+    resolved["excluded_pdos"] = resolved_exclusions
+    return resolved
+
+
+def resolve_slot_pdo_configuration(
+    document: dict[str, Any],
+    device: dict[str, Any],
+    configured_slots: list[dict[str, int]],
+) -> dict[str, Any]:
+    """Resolve module PDO indices for an explicit ordered slot configuration.
+
+    Each configured slot is a mapping with exactly:
+      - slot_descriptor_index: zero-based index into DeviceType/Slots/Slot
+      - module_ident: selected ModuleIdent (0 denotes an explicitly declared empty slot)
+
+    List order is the configured module position used by DependOnSlot. The
+    function resolves module PDO indices, PDO entries and exclusions only.
+    It does not parse/merge Module Profile dictionaries, execute InitCmds, infer
+    defaults, expand SlotSelections, synthesize ModulePdoGroup alignment PDOs,
+    or perform CoE readback. Alignment PDO declarations are returned separately.
+    """
+    slots = device.get("slots")
+    if slots is None:
+        raise EsiError("device has no Slots description")
+    if not isinstance(configured_slots, list):
+        raise EsiError("configured_slots must be an ordered list")
+
+    descriptors = slots["slots"]
+    module_by_ident = {
+        module["module_ident"]: module for module in document.get("modules", [])
+    }
+    descriptor_counts = [0] * len(descriptors)
+    resolved_slots: list[dict[str, Any]] = []
+    flattened_pdos: list[dict[str, Any]] = []
+    seen_pdos: dict[tuple[str, int], int] = {}
+    active_alignment_groups: dict[int, dict[str, Any]] = {}
+    previous_descriptor_index = -1
+
+    max_slot_count = slots.get("max_slot_count")
+    if max_slot_count is not None and len(configured_slots) > max_slot_count:
+        raise EsiError(
+            f"configured slot count {len(configured_slots)} exceeds "
+            f"Slots.MaxSlotCount {max_slot_count}"
+        )
+
+    for slot_index, assignment in enumerate(configured_slots):
+        if not isinstance(assignment, dict) or set(assignment) != {
+            "slot_descriptor_index", "module_ident"
+        }:
+            raise EsiError(
+                f"configured_slots[{slot_index}] must contain exactly "
+                "slot_descriptor_index and module_ident"
+            )
+
+        descriptor_index = assignment["slot_descriptor_index"]
+        module_ident = assignment["module_ident"]
+        if (
+            isinstance(descriptor_index, bool)
+            or not isinstance(descriptor_index, int)
+            or not 0 <= descriptor_index < len(descriptors)
+        ):
+            raise EsiError(
+                f"configured_slots[{slot_index}] has invalid "
+                "slot_descriptor_index"
+            )
+        if (
+            isinstance(module_ident, bool)
+            or not isinstance(module_ident, int)
+            or not 0 <= module_ident <= 0xFFFFFFFF
+        ):
+            raise EsiError(
+                f"configured_slots[{slot_index}] has invalid module_ident"
+            )
+        if descriptor_index < previous_descriptor_index:
+            raise EsiError(
+                "configured_slots must follow the ESI Slot descriptor order"
+            )
+        previous_descriptor_index = descriptor_index
+
+        descriptor_counts[descriptor_index] += 1
+        descriptor = descriptors[descriptor_index]
+        module = None
+        if descriptor["module_options"]:
+            allowed_idents = {
+                option["module_ident"]
+                for option in descriptor["module_options"]
+            }
+            if module_ident not in allowed_idents:
+                raise EsiError(
+                    f"ModuleIdent 0x{module_ident:08X} is not an allowed choice "
+                    f"for Slots.Slot[{descriptor_index}]"
+                )
+            if module_ident != 0:
+                module = module_by_ident.get(module_ident)
+                if module is None:
+                    raise EsiError(
+                        f"configured slot {slot_index} selects ModuleIdent "
+                        f"0x{module_ident:08X}, but that module is not loaded; "
+                        "attach its explicitly referenced EtherCATModule catalog"
+                    )
+        else:
+            if module_ident == 0:
+                raise EsiError(
+                    f"Slots.Slot[{descriptor_index}] uses ModuleClass choices; "
+                    "ModuleIdent 0 is not an allowed empty-slot choice"
+                )
+            module = module_by_ident.get(module_ident)
+            if module is None:
+                raise EsiError(
+                    f"configured slot {slot_index} selects unknown ModuleIdent "
+                    f"0x{module_ident:08X}"
+                )
+            vendor_id = document["vendor"]["id"]
+            matches = [
+                choice for choice in descriptor["module_class_options"]
+                if (
+                    module.get("module_class") == choice["class"]
+                    and vendor_id == choice["vendor_id"]
+                )
+            ]
+            if not matches:
+                raise EsiError(
+                    f"ModuleIdent 0x{module_ident:08X} (class "
+                    f"{module.get('module_class')!r}, vendor 0x{vendor_id:08X}) "
+                    f"does not match a ModuleClass choice in "
+                    f"Slots.Slot[{descriptor_index}]"
+                )
+
+        slot_group = descriptor["slot_group"]
+        increments = descriptor["effective_increments"]
+        resolved_module_pdos: list[dict[str, Any]] = []
+        module_pdo_group = None
+        module_name = None
+        if module is not None:
+            module_pdo_group = module["module_pdo_group"]
+            module_name = module["name"]
+            for pdo in module["pdos"]:
+                resolved_pdo = _resolve_module_pdo_for_slot(
+                    pdo,
+                    slot_index=slot_index,
+                    slot_group=slot_group,
+                    increments=increments,
+                    slot_descriptor_index=descriptor_index,
+                )
+                key = (resolved_pdo["direction"], resolved_pdo["index"])
+                previous_slot = seen_pdos.get(key)
+                if previous_slot is not None:
+                    raise EsiError(
+                        f"resolved module {resolved_pdo['direction'].upper()}PDO "
+                        f"0x{resolved_pdo['index']:04X} collides between "
+                        f"configured slots {previous_slot} and {slot_index}"
+                    )
+                seen_pdos[key] = slot_index
+                flattened_pdos.append(resolved_pdo)
+                resolved_module_pdos.append(resolved_pdo)
+
+            if module_pdo_group is not None:
+                definitions = slots["module_pdo_groups"]
+                if module_pdo_group >= len(definitions):
+                    raise EsiError(
+                        f"ModuleIdent 0x{module_ident:08X} references undefined "
+                        f"ModulePdoGroup {module_pdo_group}"
+                    )
+                definition = definitions[module_pdo_group]
+                group_record = active_alignment_groups.setdefault(
+                    module_pdo_group,
+                    {
+                        "index": module_pdo_group,
+                        "alignment": definition["alignment"],
+                        "rx_pdo": definition["rx_pdo"],
+                        "tx_pdo": definition["tx_pdo"],
+                        "module_idents": [],
+                        "slot_indices": [],
+                    },
+                )
+                if module_ident not in group_record["module_idents"]:
+                    group_record["module_idents"].append(module_ident)
+                group_record["slot_indices"].append(slot_index)
+
+        resolved_slots.append({
+            "slot_index": slot_index,
+            "slot_descriptor_index": descriptor_index,
+            "slot_group": slot_group,
+            "module_ident": module_ident,
+            "module_name": module_name,
+            "module_pdo_group": module_pdo_group,
+            "effective_increments": dict(increments),
+            "pdos": resolved_module_pdos,
+            "is_empty_slot": module_ident == 0,
+        })
+
+    for descriptor_index, descriptor in enumerate(descriptors):
+        count = descriptor_counts[descriptor_index]
+        if not descriptor["min_instances"] <= count <= descriptor["max_instances"]:
+            raise EsiError(
+                f"Slots.Slot[{descriptor_index}] has {count} configured instance(s); "
+                f"expected {descriptor['min_instances']}..{descriptor['max_instances']}"
+            )
+
+    max_group_count = slots.get("max_slot_group_count")
+    configured_group_count = len({
+        item["slot_group"] for item in resolved_slots
+        if item["slot_group"] is not None
+    })
+    if max_group_count is not None and configured_group_count > max_group_count:
+        raise EsiError(
+            f"configured SlotGroup count {configured_group_count} exceeds "
+            f"Slots.MaxSlotGroupCount {max_group_count}"
+        )
+
+    for direction, allowed_range in (
+        ("rx", (0x1600, 0x17FF)),
+        ("tx", (0x1A00, 0x1BFF)),
+    ):
+        for pdo in device.get("pdos", []):
+            if pdo["direction"] != direction:
+                continue
+            has_slot_dependent_reference = (
+                pdo["index_depend_on_slot"]
+                or pdo["index_depend_on_slot_group"]
+                or any(
+                    bool(entry["index_depend_on_slot"])
+                    or bool(entry["index_depend_on_slot_group"])
+                    for entry in pdo["entries"]
+                )
+                or any(
+                    bool(exclusion["depend_on_slot"])
+                    or bool(exclusion["depend_on_slot_group"])
+                    for exclusion in pdo["excluded_pdos"]
+                )
+            )
+            if has_slot_dependent_reference:
+                raise EsiError(
+                    "device-level PDO contains slot-dependent indices without "
+                    "an owning module slot; only module PDOs are resolved"
+                )
+            if not allowed_range[0] <= pdo["index"] <= allowed_range[1]:
+                raise EsiError(
+                    f"device-level {direction.upper()}PDO index "
+                    f"0x{pdo['index']:04X} is outside its allowed range"
+                )
+
+    for group_index, group in active_alignment_groups.items():
+        for direction, alignment_index in (
+            ("rx", group["rx_pdo"]),
+            ("tx", group["tx_pdo"]),
+        ):
+            if (direction, alignment_index) in seen_pdos:
+                raise EsiError(
+                    f"ModulePdoGroup {group_index} alignment {direction.upper()}PDO "
+                    f"0x{alignment_index:04X} collides with a resolved module PDO"
+                )
+
+    return {
+        "configured_slots": resolved_slots,
+        "module_pdos": flattened_pdos,
+        "module_pdo_alignment_groups": [
+            active_alignment_groups[index]
+            for index in sorted(active_alignment_groups)
+        ],
+        "device_pdos": device.get("pdos", []),
+        "runtime_readback_performed": False,
+    }
+
+
 def resolve_cia402_candidate(
     device: dict[str, Any], rx_pdo_indices: list[int], tx_pdo_indices: list[int]
 ) -> dict[str, Any]:

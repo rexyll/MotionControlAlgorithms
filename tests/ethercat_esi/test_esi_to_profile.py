@@ -228,6 +228,120 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertEqual(slots["module_pdo_groups"][0]["rx_pdo"], 0x1600)
         self.assertEqual(slots["slot_selections"][0]["module_idents"], [0x4711, 0x4712])
 
+    def test_parses_external_ethercat_module_document(self):
+        module_doc = """<?xml version="1.0"?>
+<EtherCATModule>
+  <Vendor><Id>#xAB</Id><Name>Example Vendor</Name></Vendor>
+  <Modules>
+    <Module Crc32="#x1234">
+      <Type ModuleIdent="#x4711" ModuleClass="DI">External digital input</Type>
+      <Name>External module</Name>
+      <RxPdo Sm="2"><Index>#x1600</Index><Name>Inputs</Name>
+        <Entry><Index>#x6000</Index><SubIndex>1</SubIndex><BitLen>16</BitLen><Name>Input</Name><DataType>UINT</DataType></Entry>
+      </RxPdo>
+    </Module>
+  </Modules>
+</EtherCATModule>
+"""
+        module_path = Path(self.temp.name) / "vendor-modules.xml"
+        module_path.write_text(module_doc, encoding="utf-8")
+        parsed = esi_to_profile.parse_module_esi(module_path)
+        self.assertEqual(parsed["vendor"]["id"], 0xAB)
+        self.assertEqual(parsed["modules"][0]["module_ident"], 0x4711)
+        self.assertEqual(parsed["modules"][0]["crc32"], 0x1234)
+
+    def test_explicitly_merges_info_referenced_external_module_catalog(self):
+        base = ESI.replace(
+            "<Vendor>",
+            '<InfoReference>vendor-modules.xml</InfoReference><Vendor>',
+            1,
+        )
+        self.path.write_text(base, encoding="utf-8")
+        module_path = Path(self.temp.name) / "vendor-modules.xml"
+        module_path.write_text(
+            """<EtherCATModule>
+  <Vendor><Id>#xAB</Id><Name>Example Vendor</Name></Vendor>
+  <Modules><Module><Type ModuleIdent="#x4711">Digital input</Type>
+    <Name>Input module</Name></Module></Modules>
+</EtherCATModule>""",
+            encoding="utf-8",
+        )
+        document = esi_to_profile.parse_esi(self.path)
+        self.assertEqual(document["modules"], [])
+        esi_to_profile.attach_external_module_files(document, [module_path])
+        self.assertEqual(
+            [module["module_ident"] for module in document["modules"]],
+            [0x4711],
+        )
+        self.assertEqual(
+            document["external_module_sources"][0]["file_name"],
+            "vendor-modules.xml",
+        )
+
+    def test_rejects_external_module_file_not_named_by_info_reference(self):
+        self.path.write_text(ESI, encoding="utf-8")
+        module_path = Path(self.temp.name) / "unreferenced.xml"
+        module_path.write_text(
+            """<EtherCATModule><Vendor><Id>#xAB</Id><Name>V</Name></Vendor>
+<Modules/></EtherCATModule>""",
+            encoding="utf-8",
+        )
+        document = esi_to_profile.parse_esi(self.path)
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "is not listed in InfoReference",
+        ):
+            esi_to_profile.attach_external_module_files(document, [module_path])
+
+    def test_rejects_external_module_vendor_id_mismatch(self):
+        self.path.write_text(
+            ESI.replace(
+                "<Vendor>",
+                '<InfoReference>external.xml</InfoReference><Vendor>',
+                1,
+            ),
+            encoding="utf-8",
+        )
+        module_path = Path(self.temp.name) / "external.xml"
+        module_path.write_text(
+            """<EtherCATModule><Vendor><Id>#xAC</Id><Name>Other</Name></Vendor>
+<Modules/></EtherCATModule>""",
+            encoding="utf-8",
+        )
+        document = esi_to_profile.parse_esi(self.path)
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "does not match ESI Vendor ID",
+        ):
+            esi_to_profile.attach_external_module_files(document, [module_path])
+
+    def test_rejects_duplicate_ident_across_embedded_and_external_modules(self):
+        embedded = ESI.replace(
+            "</EtherCATInfo>",
+            """<Modules><Module><Type ModuleIdent="#x4711">Embedded</Type>
+<Name>Embedded module</Name></Module></Modules>
+</EtherCATInfo>""",
+            1,
+        ).replace(
+            "<Vendor>",
+            '<InfoReference>external.xml</InfoReference><Vendor>',
+            1,
+        )
+        self.path.write_text(embedded, encoding="utf-8")
+        module_path = Path(self.temp.name) / "external.xml"
+        module_path.write_text(
+            """<EtherCATModule><Vendor><Id>#xAB</Id><Name>Example Vendor</Name></Vendor>
+<Modules><Module><Type ModuleIdent="#x4711">External</Type>
+<Name>Duplicate module</Name></Module></Modules></EtherCATModule>""",
+            encoding="utf-8",
+        )
+        document = esi_to_profile.parse_esi(self.path)
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "duplicate ModuleIdent 0x00004711 across embedded and external module catalogs",
+        ):
+            esi_to_profile.attach_external_module_files(document, [module_path])
+
     def test_accepts_module_only_device_with_slots(self):
         base = ESI
         start = base.index('        <RxPdo Sm="2" Fixed="true" Mandatory="true">')

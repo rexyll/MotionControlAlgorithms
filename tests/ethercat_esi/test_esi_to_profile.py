@@ -287,6 +287,10 @@ class EsiToProfileTests(unittest.TestCase):
                PdoUpload="false" CompleteAccess="1" SegmentedSdo="true"
                ModuleOD="1" EdsFile="module.eds"
                DS402Channels="4" DiagHistory="true">
+        <EoE IP="true" MAC="false" TimeStamp="1"/>
+        <FoE/>
+        <SoE ChannelCount="2" DriveFollowsBit3Support="true"/>
+        <VoE/>
         <CoE>
           <InitCmd Fixed="true" CompleteAccess="false" OverwrittenByModule="1">
             <Transition>IP</Transition><Transition>PS</Transition>
@@ -307,6 +311,18 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertTrue(module["has_mailbox"])
         mailbox = module["mailbox"]
         self.assertTrue(mailbox["has_coe"])
+        self.assertEqual(
+            mailbox["protocols"],
+            {"coe": True, "eoe": True, "foe": True, "soe": True, "voe": True},
+        )
+        self.assertEqual(
+            mailbox["eoe_attributes"],
+            {"ip": True, "mac": False, "time_stamp": True},
+        )
+        self.assertEqual(
+            mailbox["soe_attributes"],
+            {"channel_count": 2, "drive_follows_bit3_support": True},
+        )
         self.assertTrue(mailbox["attributes"]["sdo_info"])
         self.assertTrue(mailbox["attributes"]["pdo_assign"])
         self.assertFalse(mailbox["attributes"]["pdo_config"])
@@ -688,6 +704,24 @@ class EsiToProfileTests(unittest.TestCase):
         with self.assertRaisesRegex(
             esi_to_profile.EsiError,
             "cannot mix ModuleIdent and ModuleClass choices",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
+    def test_rejects_unknown_identify_module_by_value(self):
+        modular = ESI.replace(
+            "      </Device>",
+            """        <Slots IdentifyModuleBy="Unknown">
+          <Slot MinInstances="0" MaxInstances="1">
+            <ModuleIdent>#x4711</ModuleIdent>
+          </Slot>
+        </Slots>
+      </Device>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "invalid Slots.IdentifyModuleBy",
         ):
             esi_to_profile.parse_esi(self.path)
 

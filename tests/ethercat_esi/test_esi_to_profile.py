@@ -79,6 +79,54 @@ class EsiToProfileTests(unittest.TestCase):
         self.path = Path(self.temp.name) / "fixture.xml"
         self.path.write_text(ESI, encoding="utf-8")
 
+    def test_preserves_localized_vendor_pdo_and_entry_names(self):
+        localized = ESI.replace(
+            "<Name>Example Vendor</Name>",
+            '<Name LcId="1033">Example Vendor</Name><Name LcId="1031">Beispielanbieter</Name>',
+            1,
+        ).replace(
+            "<Name>RxPDO</Name>",
+            '<Name LcId="1033">RxPDO</Name><Name LcId="1031">Empfangs-PDO</Name>',
+            1,
+        ).replace(
+            "<Name>Controlword</Name>",
+            '<Name LcId="1033">Controlword</Name><Name LcId="1031">Steuerwort</Name>',
+            1,
+        )
+        self.path.write_text(localized, encoding="utf-8")
+        result = esi_to_profile.parse_esi(self.path)
+        first = result["devices"][0]
+        entry = first["pdos"][0]["entries"][0]
+        self.assertEqual(result["vendor"]["name"], "Example Vendor")
+        self.assertEqual(
+            result["vendor"]["localized_names"],
+            [
+                {"language_id": 1033, "text": "Example Vendor"},
+                {"language_id": 1031, "text": "Beispielanbieter"},
+            ],
+        )
+        self.assertEqual(first["pdos"][0]["name"], "RxPDO")
+        self.assertEqual(
+            first["pdos"][0]["localized_names"][1]["text"], "Empfangs-PDO"
+        )
+        self.assertEqual(entry["name"], "Controlword")
+        self.assertEqual(entry["localized_names"][1]["text"], "Steuerwort")
+
+    def test_requires_name_and_data_type_for_non_padding_entries(self):
+        missing_name = ESI.replace("<Name>Controlword</Name>", "", 1)
+        self.path.write_text(missing_name, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError, "missing <Name> for rxPDO.Entry.Name"
+        ):
+            esi_to_profile.parse_esi(self.path)
+
+        missing_type = ESI.replace("<DataType>UINT</DataType>", "", 1)
+        self.path.write_text(missing_type, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError, "missing text for rxPDO.Entry.DataType"
+        ):
+            esi_to_profile.parse_esi(self.path)
+
     def test_normalizes_vendor_multiple_devices_and_pdo_directions(self):
         result = esi_to_profile.parse_esi(self.path)
         self.assertEqual(result["vendor"], {"id": 0xAB, "name": "Example Vendor"})

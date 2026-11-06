@@ -30,17 +30,40 @@ BASE_CONFIG="$(realpath -- "$BASE_CONFIG")"
 CONFIG_DIR="$(dirname -- "$BASE_CONFIG")"
 mkdir -p "$ARTIFACT_ROOT"
 
-# The combined CoE + cyclic runner now requires an explicit ESI expectation
-# for its fail-closed three-way PDO parity gate. Reuse a caller-supplied
-# snapshot, or generate the pinned KickCAT device expectation once for the
-# entire fault matrix.
+# Resolve the ESI referenced by the KickCAT JSON config. Keep the original
+# ESI as the independent PDO expectation, but use a SIL-only clone for the
+# simulator: it disables EoE (not implemented by this simulator) and CoE
+# SDO Information (which the simulator does not answer), while retaining CoE
+# SDO/PDO assignment/configuration and byte-for-byte PDO/SM declarations.
+ESI_SOURCE="$(python3 - "$BASE_CONFIG" <<'PY'
+import json
+import pathlib
+import sys
+config_path = pathlib.Path(sys.argv[1]).resolve(strict=True)
+config = json.loads(config_path.read_text(encoding="utf-8"))
+esi = config.get("esi")
+if not isinstance(esi, str) or not esi:
+    raise SystemExit("KickCAT base JSON must contain a non-empty 'esi' path")
+esi_path = pathlib.Path(esi)
+if not esi_path.is_absolute():
+    esi_path = config_path.parent / esi_path
+print(esi_path.resolve(strict=True))
+PY
+)" || fail "could not resolve ESI referenced by KickCAT JSON"
+ESI_PREPARER="$SCRIPT_DIR/prepare_kickcat_coe_sil_esi.py"
+[[ -f "$ESI_PREPARER" ]] || fail "CoE SIL ESI preparer not found: $ESI_PREPARER"
+ESI_SIL_FIXTURE="$(mktemp --tmpdir="$CONFIG_DIR" ".ecat402-drive-coe-sil.XXXXXX.xml")"
+FIXTURES+=("$ESI_SIL_FIXTURE")
+python3 "$ESI_PREPARER" "$ESI_SOURCE" "$ESI_SIL_FIXTURE" ||
+  fail "could not prepare CoE-only KickCAT SIL ESI"
+
+# Generate/reuse the fail-closed three-way parity expectation from the
+# unmodified source ESI, never from the protocol-trimmed SIL clone.
 if [[ -z "${MCA_ECAT_ESI_PDO_SNAPSHOT:-}" ]]; then
-  ESI_XML="$(dirname -- "$BASE_CONFIG")/ecat402-drive.xml"
   ESI_RESOLVER="$SCRIPT_DIR/../ethercat_esi/esi_to_profile.py"
-  [[ -f "$ESI_XML" ]] || fail "KickCAT ESI XML not found: $ESI_XML (set KICKCAT_SOURCE_DIR)"
   [[ -f "$ESI_RESOLVER" ]] || fail "ESI resolver not found: $ESI_RESOLVER"
   export MCA_ECAT_ESI_PDO_SNAPSHOT="$ARTIFACT_ROOT/esi-pdo-snapshot.json"
-  python3 "$ESI_RESOLVER" "$ESI_XML" \
+  python3 "$ESI_RESOLVER" "$ESI_SOURCE" \
     --product-code 0x03b11002 \
     --rx-pdo 0x1600 --tx-pdo 0x1a00 \
     --treat-slot-dependent-indices-as-literal \
@@ -57,7 +80,7 @@ for target in 0 1; do
   for slot in 0 1; do
     fixture="$(mktemp --tmpdir="$CONFIG_DIR" ".ecat402-drive-multifault-${reaction}-${target}-${slot}.XXXXXX")"
     FIXTURES+=("$fixture")
-    python3 - "$BASE_CONFIG" "$fixture" "$slot" "$target" "$FAULT_AFTER_CYCLES" "$reaction" <<'PY'
+    python3 - "$BASE_CONFIG" "$fixture" "$slot" "$target" "$FAULT_AFTER_CYCLES" "$reaction" "$ESI_SIL_FIXTURE" <<'PY'
 import json
 import pathlib
 import sys
@@ -65,11 +88,13 @@ source = pathlib.Path(sys.argv[1]).resolve(strict=True)
 target_path = pathlib.Path(sys.argv[2]).resolve()
 slot, selected = int(sys.argv[3]), int(sys.argv[4])
 after, reaction = int(sys.argv[5]), int(sys.argv[6])
-if target_path.parent != source.parent:
-    raise SystemExit("fixture must remain beside base JSON to preserve relative ESI resources")
+esi_fixture = pathlib.Path(sys.argv[7]).resolve(strict=True)
+if target_path.parent != source.parent or esi_fixture.parent != source.parent:
+    raise SystemExit("fixtures must remain beside base JSON to preserve relative ESI resources")
 config = json.loads(source.read_text(encoding="utf-8"))
 if not isinstance(config, dict) or not bool(config.get("ds402_motor", False)):
     raise SystemExit("base fixture must be a DS402 motor JSON object")
+config["esi"] = esi_fixture.name
 config["fault_after_cycles"] = after if slot == selected else 0
 config["fault_reaction_cycles"] = reaction
 target_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")

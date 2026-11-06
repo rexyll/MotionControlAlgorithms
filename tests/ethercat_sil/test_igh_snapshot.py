@@ -22,7 +22,7 @@ def fixture():
              "entry_position": 1, "raw_mapping_entry": 0x60410010},
         ],
     }
-    return "diagnostic line\\nMCA_IGH_PDO_SNAPSHOT=" + json.dumps(record) + "\\n"
+    return "diagnostic line\nMCA_IGH_PDO_SNAPSHOT=" + json.dumps(record) + "\n"
 
 
 class IghSnapshotTests(unittest.TestCase):

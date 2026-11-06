@@ -69,6 +69,18 @@ def _number(value: str | None, field: str, *, required: bool = True) -> int | No
 
 
 
+def _optional_boolean(value: str | None, field: str) -> bool | None:
+    """Parse the XML Schema xs:boolean lexical forms without guessing."""
+    if value is None:
+        return None
+    token = value.strip()
+    if token in ("true", "1"):
+        return True
+    if token in ("false", "0"):
+        return False
+    raise EsiError(f"invalid boolean value for {field}: {value!r}")
+
+
 def _require_range(value: int, field: str, maximum: int) -> int:
     if not 0 <= value <= maximum:
         raise EsiError(f"{field} value {value} is outside 0..{maximum}")
@@ -96,6 +108,8 @@ def _parse_sync_managers(device: ET.Element) -> list[dict[str, Any]]:
             "min_size": _number(sm.attrib.get("MinSize"), "Sm.MinSize", required=False),
             "max_size": _number(sm.attrib.get("MaxSize"), "Sm.MaxSize", required=False),
             "default_size": _number(sm.attrib.get("DefaultSize"), "Sm.DefaultSize", required=False),
+            "virtual": _optional_boolean(sm.attrib.get("Virtual"), "Sm.Virtual"),
+            "op_only": _optional_boolean(sm.attrib.get("OpOnly"), "Sm.OpOnly"),
         })
     return result
 
@@ -129,8 +143,8 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
         "index": pdo_index,
         "name": _text(_one(pdo, "Name"), f"{direction}PDO.Name"),
         "sync_manager": sm_index,
-        "fixed": pdo.attrib.get("Fixed", "").strip().lower() == "true",
-        "mandatory": pdo.attrib.get("Mandatory", "").strip().lower() == "true",
+        "fixed": _optional_boolean(pdo.attrib.get("Fixed"), f"{direction}PDO.Fixed") or False,
+        "mandatory": _optional_boolean(pdo.attrib.get("Mandatory"), f"{direction}PDO.Mandatory") or False,
         "entries": entries,
     }
 

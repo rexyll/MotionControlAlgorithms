@@ -28,8 +28,18 @@ def parse_rows(text: str) -> dict:
                 raise SnapshotError(f"line {line_number}: invalid or duplicate slave identity")
             slaves[ring] = {
                 "ring_position": ring, "vendor_id": vendor, "product_code": product,
-                "assignments": [], "mappings": [], "pdo_entry_counts": {},
+                "assignments": [], "mappings": [], "pdo_entry_counts": {}, "assignment_counts": {},
             }
+        elif kind == "C" and len(nums) == 3:
+            ring, assignment_object, pdo_count = nums
+            if ring not in slaves or assignment_object not in (0x1C12, 0x1C13):
+                raise SnapshotError(f"line {line_number}: assignment count has no slave or invalid object")
+            if not 1 <= pdo_count <= 16:
+                raise SnapshotError(f"line {line_number}: assignment PDO count out of range")
+            counts = slaves[ring].setdefault("assignment_counts", {})
+            if assignment_object in counts:
+                raise SnapshotError(f"line {line_number}: duplicate assignment count record")
+            counts[assignment_object] = pdo_count
         elif kind == "A" and len(nums) == 4:
             ring, assignment_object, position, pdo_index = nums
             if ring not in slaves or assignment_object not in (0x1C12, 0x1C13):
@@ -80,6 +90,9 @@ def parse_rows(text: str) -> dict:
         if not assignments:
             raise SnapshotError(f"ring {ring}: no assignments")
         expected = {0x1C12: 1, 0x1C13: 1}
+        assignment_counts = slave["assignment_counts"]
+        if set(assignment_counts) != {0x1C12, 0x1C13}:
+            raise SnapshotError(f"ring {ring}: missing or extra assignment count records")
         seen_pairs = set()
         seen_pdos = {0x1C12: set(), 0x1C13: set()}
         for item in assignments:
@@ -94,6 +107,9 @@ def parse_rows(text: str) -> dict:
             if item["pdo_index"] in seen_pdos[obj]:
                 raise SnapshotError(f"ring {ring}: duplicate PDO index in assignment 0x{obj:04X}")
             seen_pdos[obj].add(item["pdo_index"])
+        for obj, count in assignment_counts.items():
+            if expected[obj] - 1 != count:
+                raise SnapshotError(f"ring {ring}: assignment cardinality mismatch for 0x{obj:04X}")
         assignment_keys = {
             (item["assignment_object"], item["assignment_position"], item["pdo_index"])
             for item in assignments
@@ -141,6 +157,7 @@ def parse_rows(text: str) -> dict:
             if seen_entries.get(key, 0) != expected_count:
                 raise SnapshotError(f"ring {ring}: PDO mapping cardinality mismatch for 0x{key[2]:04X}")
         slave.pop("pdo_entry_counts", None)
+        slave.pop("assignment_counts", None)
         slave["assignments"] = assignments
         result_slaves.append(slave)
     return {

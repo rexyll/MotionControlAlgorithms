@@ -246,7 +246,7 @@ int main(int argc, char** argv) {
         master_info.slave_count != static_cast<unsigned int>(expected)) {
         std::cerr << "IgH topology changed before CoE readback: expected "
                   << expected << " slave(s), found "
-                  << master_info.slave_count << "\\n";
+                  << master_info.slave_count << "\n";
         return 1;
     }
 
@@ -255,7 +255,7 @@ int main(int argc, char** argv) {
         const auto ring = static_cast<std::uint16_t>(ring_value);
         if (ecrt_master_get_slave(guard.master, ring, &slave_info[ring_value]) != 0) {
             std::cerr << "could not query IgH slave identity at ring position "
-                      << ring << "\\n";
+                      << ring << "\n";
             return 1;
         }
         const auto& identity = slave_info[ring_value];
@@ -266,23 +266,23 @@ int main(int argc, char** argv) {
                       << ring << ": vendor=0x" << std::hex
                       << identity.vendor_id << " product=0x"
                       << identity.product_code << " revision=0x"
-                      << identity.revision_number << std::dec << "\\n";
+                      << identity.revision_number << std::dec << "\n";
             return 1;
         }
     }
 
     guard.start_io();
-    raw << "MASTER_PHASE=OPERATION io_pump_interval_ms=1\\n";
+    raw << "MASTER_PHASE=OPERATION io_pump_interval_ms=1\n";
     raw.flush();
-    std::cout << "IgH master OPERATION phase I/O pump started\\n";
+    std::cout << "IgH master OPERATION phase I/O pump started\n";
 
     for (unsigned long ring_value = 0; ring_value < expected; ++ring_value) {
         const auto ring = static_cast<std::uint16_t>(ring_value);
         const auto& identity = slave_info[ring_value];
-        if (!append_row(rows, 'S', std::to_string(ring) + "\\t" +
-                        std::to_string(identity.vendor_id) + "\\t" +
+        if (!append_row(rows, 'S', std::to_string(ring) + "\t" +
+                        std::to_string(identity.vendor_id) + "\t" +
                         std::to_string(identity.product_code))) {
-            std::cerr << "could not write CoE identity row\\n";
+            std::cerr << "could not write CoE identity row\n";
             return 1;
         }
 

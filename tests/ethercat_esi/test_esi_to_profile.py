@@ -96,6 +96,22 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertEqual(first["pdos"][1]["direction"], "tx")
         self.assertEqual(first["pdos"][1]["entries"][0]["bit_length"], 16)
 
+    def test_rejects_duplicate_pdo_index_declarations(self):
+        malformed = ESI.replace(
+            "      </Device>",
+            """        <RxPdo Sm="2"><Index>#x1600</Index><Name>Duplicate RxPDO</Name>
+          <Entry><Index>#x6040</Index><SubIndex>0</SubIndex><BitLen>16</BitLen><Name>Controlword</Name></Entry>
+        </RxPdo>
+      </Device>""",
+            1,
+        )
+        self.path.write_text(malformed, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "duplicate PDO index 0x1600 declared by RXPDO and RXPDO",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
     def test_decimal_and_hex_identity_fields_are_normalized(self):
         second = esi_to_profile.parse_esi(self.path)["devices"][1]
         self.assertEqual(second["identity"]["product_code"], 4098)

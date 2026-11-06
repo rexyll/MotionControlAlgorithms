@@ -1272,6 +1272,38 @@ def parse_module_esi(path: Path) -> dict[str, Any]:
     }
 
 
+def _validate_slot_module_references(document: dict[str, Any]) -> None:
+    """Validate ModuleIdent references only when the module catalog is complete."""
+    if not document.get("module_catalog_complete", False):
+        return
+    available = {
+        module["module_ident"] for module in document.get("modules", [])
+    }
+    for device in document.get("devices", []):
+        slots = device.get("slots")
+        if slots is None:
+            continue
+        for slot in slots["slots"]:
+            for option in slot["module_options"]:
+                ident = option["module_ident"]
+                if ident == 0:
+                    continue
+                if ident not in available:
+                    raise EsiError(
+                        f"Slots.Slot[{slot['ordinal']}] references unknown "
+                        f"ModuleIdent 0x{ident:08X}"
+                    )
+        for selection_index, selection in enumerate(slots["slot_selections"]):
+            for ident in selection["module_idents"]:
+                if ident == 0:
+                    continue
+                if ident not in available:
+                    raise EsiError(
+                        f"Slots.SlotSelections[{selection_index}] references "
+                        f"unknown ModuleIdent 0x{ident:08X}"
+                    )
+
+
 def attach_external_module_files(
     document: dict[str, Any],
     module_paths: list[Path],
@@ -1317,6 +1349,9 @@ def attach_external_module_files(
 
     document["modules"] = all_modules
     document["external_module_sources"] = sources
+    provided_names = {path.name for path in module_paths}
+    document["module_catalog_complete"] = referenced_names.issubset(provided_names)
+    _validate_slot_module_references(document)
 
 
 def parse_esi(path: Path) -> dict[str, Any]:
@@ -1350,7 +1385,7 @@ def parse_esi(path: Path) -> dict[str, Any]:
     devices = [_parse_device(node, vendor_id) for node in _children(devices_container, "Device")]
     if not devices:
         raise EsiError("ESI contains no <Device> declarations")
-    return {
+    document = {
         "schema_version": 1,
         "source": {"file_name": path.name, "sha256": hashlib.sha256(raw).hexdigest()},
         "vendor": {
@@ -1360,8 +1395,11 @@ def parse_esi(path: Path) -> dict[str, Any]:
         },
         "info_references": info_references,
         "modules": module_catalog,
+        "module_catalog_complete": modules_element is not None and not info_references,
         "devices": devices,
     }
+    _validate_slot_module_references(document)
+    return document
 
 
 def main(argv: list[str] | None = None) -> int:

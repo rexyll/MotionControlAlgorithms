@@ -223,6 +223,94 @@ def _validate_static_pdo_indices(
         seen[pdo["index"]] = pdo["direction"]
 
 
+def _parse_module_mailbox(module: ET.Element) -> dict[str, Any] | None:
+    mailbox = _one(module, "Mailbox")
+    if mailbox is None:
+        return None
+
+    coe = _one(mailbox, "CoE")
+    init_commands: list[dict[str, Any]] = []
+    if coe is not None:
+        allowed_transitions = {"IP", "PS", "SO", "SP", "OP", "OS"}
+        for ordinal, command in enumerate(_children(coe, "InitCmd")):
+            field = f"Module.Mailbox.CoE.InitCmd[{ordinal}]"
+            transitions = [
+                _text(element, f"{field}.Transition", required=True)
+                for element in _children(command, "Transition")
+            ]
+            if not transitions:
+                raise EsiError(f"{field} must specify at least one Transition")
+            invalid = [item for item in transitions if item not in allowed_transitions]
+            if invalid:
+                raise EsiError(
+                    f"{field} contains invalid Transition {invalid[0]!r}"
+                )
+
+            index_element = _one(command, "Index", required=True)
+            assert index_element is not None
+            index_text = _text(index_element, f"{field}.Index", required=True)
+            index_value = _number(index_text, f"{field}.Index")
+            assert index_value is not None
+            index = _require_range(index_value, f"{field}.Index", 0xFFFF)
+            sub_index = _required_child_number(command, "SubIndex", f"{field}.SubIndex")
+            sub_index = _require_range(sub_index, f"{field}.SubIndex", 0xFF)
+
+            data_element = _one(command, "Data", required=True)
+            assert data_element is not None
+            raw_data = re.sub(r"\s+", "", data_element.text or "")
+            if len(raw_data) % 2 != 0 or not re.fullmatch(r"[0-9A-Fa-f]*", raw_data):
+                raise EsiError(f"{field}.Data is not valid xs:hexBinary data")
+            init_commands.append({
+                "transitions": transitions,
+                "index": index,
+                "index_depend_on_slot": _optional_boolean(
+                    index_element.attrib.get("DependOnSlot"),
+                    f"{field}.Index.DependOnSlot",
+                ) or False,
+                "index_depend_on_slot_group": _optional_boolean(
+                    index_element.attrib.get("DependOnSlotGroup"),
+                    f"{field}.Index.DependOnSlotGroup",
+                ) or False,
+                "sub_index": sub_index,
+                "data_hex": raw_data.upper(),
+                "adapt_automatically": _optional_boolean(
+                    data_element.attrib.get("AdaptAutomatically"),
+                    f"{field}.Data.AdaptAutomatically",
+                ),
+                "comment": _text(_one(command, "Comment"), f"{field}.Comment"),
+            })
+
+    return {
+        "attributes": {
+            "sdo_info": _optional_boolean(
+                mailbox.attrib.get("SdoInfo"), "Module.Mailbox.SdoInfo"
+            ),
+            "pdo_assign": _optional_boolean(
+                mailbox.attrib.get("PdoAssign"), "Module.Mailbox.PdoAssign"
+            ),
+            "pdo_config": _optional_boolean(
+                mailbox.attrib.get("PdoConfig"), "Module.Mailbox.PdoConfig"
+            ),
+            "pdo_upload": _optional_boolean(
+                mailbox.attrib.get("PdoUpload"), "Module.Mailbox.PdoUpload"
+            ),
+            "complete_access": _optional_boolean(
+                mailbox.attrib.get("CompleteAccess"),
+                "Module.Mailbox.CompleteAccess",
+            ),
+            "segmented_sdo": _optional_boolean(
+                mailbox.attrib.get("SegmentedSdo"), "Module.Mailbox.SegmentedSdo"
+            ),
+            "module_od": _optional_boolean(
+                mailbox.attrib.get("ModuleOD"), "Module.Mailbox.ModuleOD"
+            ),
+            "eds_file": mailbox.attrib.get("EdsFile"),
+        },
+        "has_coe": coe is not None,
+        "coe_init_commands": init_commands,
+    }
+
+
 def _parse_module(module: ET.Element) -> dict[str, Any]:
     type_element = _one(module, "Type", required=True)
     assert type_element is not None
@@ -252,6 +340,7 @@ def _parse_module(module: ET.Element) -> dict[str, Any]:
         for mapping in _children(module, "SafetyParaMapping")
     ]
 
+    mailbox = _parse_module_mailbox(module)
     crc32 = _number(module.attrib.get("Crc32"), "Module.Crc32", required=False)
     if crc32 is not None:
         crc32 = _require_range(crc32, "Module.Crc32", 0xFFFFFFFF)
@@ -272,7 +361,8 @@ def _parse_module(module: ET.Element) -> dict[str, Any]:
         "pdos": pdos,
         "safety_parameter_mappings": safety_mappings,
         "is_safety_relevant": bool(safety_mappings),
-        "has_mailbox": _one(module, "Mailbox") is not None,
+        "has_mailbox": mailbox is not None,
+        "mailbox": mailbox,
     }
 
 

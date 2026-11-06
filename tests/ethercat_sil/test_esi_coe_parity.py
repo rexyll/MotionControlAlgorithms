@@ -26,7 +26,7 @@ def snapshots():
     }
     coe_slave = {
         "ring_position": 0, "vendor_id": 0x29C, "product_code": 0x03B11002,
-        "assignments": esi["assignments"],
+        "assignments": [dict(item) for item in esi["assignments"]],
         "mappings": [
             {"assignment_object": 0x1C12, "assignment_position": 1, "pdo_index": 0x1600,
              "entry_position": 1, "raw_mapping_entry": 0x60400010},

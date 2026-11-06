@@ -275,7 +275,7 @@ int main(int argc, char** argv) {
             << " product=0x" << identity.product_code
             << " revision=0x" << identity.revision_number
             << " al_state=0x" << static_cast<unsigned int>(identity.al_state)
-            << std::dec << "\\n";
+            << std::dec << "\n";
     }
 
     guard.start_io();

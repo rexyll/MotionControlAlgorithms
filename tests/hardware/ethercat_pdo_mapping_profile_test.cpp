@@ -69,6 +69,53 @@ TEST(EthercatPdoMappingProfile, RejectsReappearingClosedPdoGroup) {
   ASSERT_TRUE(profile.add({5U, 0x29cU, 0x03b11002U, 2U, 0x1601U, 0x607aU, 0U, 32U, Direction::Output}));
   EXPECT_FALSE(profile.add({5U, 0x29cU, 0x03b11002U, 2U, 0x1600U, 0x6060U, 0U, 8U, Direction::Output}));
 }
+
+TEST(EthercatPdoSnapshot, ComparesAssignmentAndMappingLayersIndependently) {
+  using Snapshot = mca::hardware::EthercatPdoSnapshot<8U, 16U>;
+  using Assignment = mca::hardware::EthercatPdoAssignmentRecord;
+  using Mapping = mca::hardware::EthercatPdoMappingRecord;
+  using Direction = mca::hardware::EthercatPdoDirection;
+  using Result = mca::hardware::EthercatPdoSnapshotResult;
+  const auto build = [] {
+    Snapshot s{};
+    EXPECT_TRUE(s.add_assignment({0U, 0x2U, 0x1234U, 0x1C12U, 0U, 0x1600U}));
+    EXPECT_TRUE(s.add_assignment({0U, 0x2U, 0x1234U, 0x1C13U, 0U, 0x1A00U}));
+    EXPECT_TRUE(s.add_mapping({0U, 0x2U, 0x1234U, 0x1C12U, 0U, 0x1600U,
+        2U, Direction::Output, 0U, mapping_word(0x6040U, 0U, 16U)}));
+    EXPECT_TRUE(s.add_mapping({0U, 0x2U, 0x1234U, 0x1C12U, 0U, 0x1600U,
+        2U, Direction::Output, 1U, mapping_word(0x607AU, 0U, 32U)}));
+    EXPECT_TRUE(s.add_mapping({0U, 0x2U, 0x1234U, 0x1C13U, 0U, 0x1A00U,
+        3U, Direction::Input, 0U, mapping_word(0x6041U, 0U, 16U)}));
+    return s;
+  };
+  auto expected = build();
+  auto observed = build();
+  EXPECT_TRUE(expected.assignments_valid());
+  EXPECT_TRUE(expected.mappings_valid());
+  EXPECT_EQ(expected.compare(observed), Result::Match);
+
+  Snapshot reordered{};
+  ASSERT_TRUE(reordered.add_assignment({0U, 0x2U, 0x1234U, 0x1C13U, 0U, 0x1A00U}));
+  ASSERT_TRUE(reordered.add_assignment({0U, 0x2U, 0x1234U, 0x1C12U, 0U, 0x1600U}));
+  EXPECT_EQ(expected.compare(reordered), Result::InvalidAssignment);
+
+  Snapshot wrong_mapping{};
+  ASSERT_TRUE(wrong_mapping.add_assignment({0U, 0x2U, 0x1234U, 0x1C12U, 0U, 0x1600U}));
+  ASSERT_TRUE(wrong_mapping.add_assignment({0U, 0x2U, 0x1234U, 0x1C13U, 0U, 0x1A00U}));
+  ASSERT_TRUE(wrong_mapping.add_mapping({0U, 0x2U, 0x1234U, 0x1C12U, 0U, 0x1600U,
+      2U, Direction::Output, 0U, mapping_word(0x607AU, 0U, 32U)}));
+  ASSERT_TRUE(wrong_mapping.add_mapping({0U, 0x2U, 0x1234U, 0x1C12U, 0U, 0x1600U,
+      2U, Direction::Output, 1U, mapping_word(0x6040U, 0U, 16U)}));
+  ASSERT_TRUE(wrong_mapping.add_mapping({0U, 0x2U, 0x1234U, 0x1C13U, 0U, 0x1A00U,
+      3U, Direction::Input, 0U, mapping_word(0x6041U, 0U, 16U)}));
+  EXPECT_EQ(expected.compare(wrong_mapping), Result::MappingMismatch);
+
+  Snapshot no_mapping{};
+  ASSERT_TRUE(no_mapping.add_assignment({0U, 0x2U, 0x1234U, 0x1C12U, 0U, 0x1600U}));
+  EXPECT_TRUE(no_mapping.mappings_valid());
+  EXPECT_EQ(expected.compare(no_mapping), Result::CardinalityMismatch);
+}
+
 }  // namespace
 
 

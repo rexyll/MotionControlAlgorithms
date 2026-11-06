@@ -115,7 +115,20 @@ def _parse_sync_managers(device: ET.Element) -> list[dict[str, Any]]:
 
 
 def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
-    pdo_index = _require_range(_required_child_number(pdo, "Index", f"{direction}PDO.Index"), f"{direction}PDO.Index", 0xFFFF)
+    index_element = _one(pdo, "Index", required=True)
+    assert index_element is not None
+    index_text = _text(index_element, f"{direction}PDO.Index", required=True)
+    index_value = _number(index_text, f"{direction}PDO.Index")
+    assert index_value is not None
+    pdo_index = _require_range(index_value, f"{direction}PDO.Index", 0xFFFF)
+    index_depend_on_slot = _optional_boolean(
+        index_element.attrib.get("DependOnSlot"),
+        f"{direction}PDO.Index.DependOnSlot",
+    ) or False
+    index_depend_on_slot_group = _optional_boolean(
+        index_element.attrib.get("DependOnSlotGroup"),
+        f"{direction}PDO.Index.DependOnSlotGroup",
+    ) or False
     entries: list[dict[str, Any]] = []
     for entry in _children(pdo, "Entry"):
         index = _require_range(_required_child_number(entry, "Index", f"{direction}PDO.Entry.Index"), f"{direction}PDO.Entry.Index", 0xFFFF)
@@ -194,6 +207,8 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
     return {
         "direction": direction,
         "index": pdo_index,
+        "index_depend_on_slot": index_depend_on_slot,
+        "index_depend_on_slot_group": index_depend_on_slot_group,
         "name": _text(_one(pdo, "Name"), f"{direction}PDO.Name"),
         "sync_manager": sm_index,
         "fixed": _optional_boolean(pdo.attrib.get("Fixed"), f"{direction}PDO.Fixed") or False,
@@ -225,15 +240,23 @@ def _parse_device(device: ET.Element, vendor_id: int) -> dict[str, Any]:
 
     if not pdos:
         raise EsiError(f"device {device_name!r} has no RxPdo/TxPdo declarations")
-    seen_pdo_indices: dict[int, str] = {}
+    seen_pdo_indices: dict[int, list[dict[str, Any]]] = {}
     for pdo in pdos:
-        previous_direction = seen_pdo_indices.get(pdo["index"])
-        if previous_direction is not None:
+        previous = seen_pdo_indices.get(pdo["index"], [])
+        current_is_dynamic = (
+            pdo["index_depend_on_slot"] or pdo["index_depend_on_slot_group"]
+        )
+        previous_is_dynamic = any(
+            item["index_depend_on_slot"] or item["index_depend_on_slot_group"]
+            for item in previous
+        )
+        if previous and not current_is_dynamic and not previous_is_dynamic:
+            previous_direction = previous[0]["direction"]
             raise EsiError(
                 f"duplicate PDO index 0x{pdo['index']:04X} declared by "
                 f"{previous_direction.upper()}PDO and {pdo['direction'].upper()}PDO"
             )
-        seen_pdo_indices[pdo["index"]] = pdo["direction"]
+        seen_pdo_indices.setdefault(pdo["index"], []).append(pdo)
     sync_managers = _parse_sync_managers(device)
     for pdo in pdos:
         sync_manager = pdo["sync_manager"]
@@ -282,6 +305,14 @@ def resolve_cia402_candidate(
     """
     if not rx_pdo_indices or not tx_pdo_indices:
         raise EsiError("explicit RxPDO and TxPDO selections are both required")
+    if any(
+        pdo["index_depend_on_slot"] or pdo["index_depend_on_slot_group"]
+        for pdo in device["pdos"]
+    ):
+        raise EsiError(
+            "device declares slot-dependent PDO indices; the static candidate "
+            "resolver requires slot-specific index resolution"
+        )
     selected: list[dict[str, Any]] = []
     for direction, indices in (("rx", rx_pdo_indices), ("tx", tx_pdo_indices)):
         if len(indices) != len(set(indices)):

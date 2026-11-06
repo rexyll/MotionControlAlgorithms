@@ -267,6 +267,89 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertEqual(slots["module_pdo_groups"][0]["rx_pdo"], 0x1600)
         self.assertEqual(slots["slot_selections"][0]["module_idents"], [0x4711, 0x4712])
 
+    def test_parses_module_mailbox_coe_init_commands_without_executing_them(self):
+        modular = ESI.replace(
+            "</EtherCATInfo>",
+            """  <Modules>
+    <Module><Type ModuleIdent="#x4711">CoE module</Type>
+      <Name>CoE module</Name>
+      <Mailbox SdoInfo="1" PdoAssign="true" PdoConfig="0"
+               PdoUpload="false" CompleteAccess="1" SegmentedSdo="true"
+               ModuleOD="1" EdsFile="module.eds">
+        <CoE>
+          <InitCmd>
+            <Transition>IP</Transition><Transition>PS</Transition>
+            <Index DependOnSlot="true">#x8000</Index>
+            <SubIndex>#x1</SubIndex>
+            <Data AdaptAutomatically="true">01 02 aF</Data>
+            <Comment>Initialize module parameters</Comment>
+          </InitCmd>
+        </CoE>
+      </Mailbox>
+    </Module>
+  </Modules>
+</EtherCATInfo>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        module = esi_to_profile.parse_esi(self.path)["modules"][0]
+        self.assertTrue(module["has_mailbox"])
+        mailbox = module["mailbox"]
+        self.assertTrue(mailbox["has_coe"])
+        self.assertTrue(mailbox["attributes"]["sdo_info"])
+        self.assertTrue(mailbox["attributes"]["pdo_assign"])
+        self.assertFalse(mailbox["attributes"]["pdo_config"])
+        self.assertFalse(mailbox["attributes"]["pdo_upload"])
+        self.assertTrue(mailbox["attributes"]["complete_access"])
+        self.assertTrue(mailbox["attributes"]["segmented_sdo"])
+        self.assertTrue(mailbox["attributes"]["module_od"])
+        self.assertEqual(mailbox["attributes"]["eds_file"], "module.eds")
+        command = mailbox["coe_init_commands"][0]
+        self.assertEqual(command["transitions"], ["IP", "PS"])
+        self.assertEqual(command["index"], 0x8000)
+        self.assertTrue(command["index_depend_on_slot"])
+        self.assertEqual(command["sub_index"], 1)
+        self.assertEqual(command["data_hex"], "0102AF")
+        self.assertTrue(command["adapt_automatically"])
+        self.assertEqual(command["comment"], "Initialize module parameters")
+        self.assertNotIn("executed", command)
+
+    def test_rejects_invalid_module_coe_init_command_transition(self):
+        modular = ESI.replace(
+            "</EtherCATInfo>",
+            """  <Modules><Module><Type ModuleIdent="#x4711">CoE</Type>
+      <Name>CoE</Name><Mailbox><CoE><InitCmd><Transition>INVALID</Transition>
+        <Index>#x8000</Index><SubIndex>0</SubIndex><Data>00</Data>
+      </InitCmd></CoE></Mailbox>
+    </Module></Modules>
+</EtherCATInfo>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "contains invalid Transition 'INVALID'",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
+    def test_rejects_invalid_module_coe_init_hex_data(self):
+        modular = ESI.replace(
+            "</EtherCATInfo>",
+            """  <Modules><Module><Type ModuleIdent="#x4711">CoE</Type>
+      <Name>CoE</Name><Mailbox><CoE><InitCmd><Transition>IP</Transition>
+        <Index>#x8000</Index><SubIndex>0</SubIndex><Data>0G</Data>
+      </InitCmd></CoE></Mailbox>
+    </Module></Modules>
+</EtherCATInfo>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "Data is not valid xs:hexBinary data",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
     def test_rejects_invalid_safety_para_mapping_type(self):
         modular = ESI.replace(
             "</EtherCATInfo>",

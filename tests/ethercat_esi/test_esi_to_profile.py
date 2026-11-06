@@ -1916,6 +1916,59 @@ class EsiToProfileTests(unittest.TestCase):
             esi_to_profile.parse_esi(self.path)
 
 
+    def test_slot_dependent_base_indices_require_explicit_literal_override(self):
+        marked = (
+            ESI.replace("<Index>#x1600</Index>", '<Index DependOnSlot="true">#x1600</Index>')
+            .replace("<Index>#x1A00</Index>", '<Index DependOnSlot="true">#x1A00</Index>')
+            .replace("<Index>#x6040</Index>", '<Index DependOnSlot="true">#x6040</Index>')
+            .replace("<Index>#x6060</Index>", '<Index DependOnSlot="true">#x6060</Index>')
+            .replace("<Index>#x6041</Index>", '<Index DependOnSlot="true">#x6041</Index>')
+            .replace("<Index>#x6061</Index>", '<Index DependOnSlot="true">#x6061</Index>')
+        )
+        self.path.write_text(marked, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        with self.assertRaisesRegex(esi_to_profile.EsiError, "slot-dependent PDO indices"):
+            esi_to_profile.resolve_cia402_candidate(device, [0x1600], [0x1A00])
+
+        candidate = esi_to_profile.resolve_cia402_candidate(
+            device, [0x1600], [0x1A00],
+            treat_slot_dependent_indices_as_literal=True,
+        )
+        snapshot = esi_to_profile.render_pdo_snapshot(candidate)
+        self.assertEqual(
+            snapshot["selection_policy"], "literal_base_indices_explicit_override"
+        )
+        self.assertEqual(snapshot["identity"]["vendor_id"], 0xAB)
+        self.assertEqual(snapshot["identity"]["product_code"], 0x1001)
+        self.assertEqual(
+            [item["raw_mapping_entry"] for item in snapshot["mappings"]],
+            [0x60400010, 0x60600008, 0x60410010, 0x60610008],
+        )
+        # The opt-in operates on a copy and must not erase source ESI metadata.
+        self.assertTrue(device["pdos"][0]["index_depend_on_slot"])
+        self.assertTrue(device["pdos"][0]["entries"][0]["index_depend_on_slot"])
+
+    def test_literal_slot_index_override_rejects_modular_devices(self):
+        modular = ESI.replace(
+            "      </Device>",
+            """        <Slots MaxSlotCount="#x1">
+          <Slot MinInstances="0" MaxInstances="1">
+            <Name>Optional slot</Name><ModuleIdent>#x0</ModuleIdent>
+          </Slot>
+        </Slots>
+      </Device>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError, "explicit slot-resolved PDO map"
+        ):
+            esi_to_profile.resolve_cia402_candidate(
+                device, [0x1600], [0x1A00],
+                treat_slot_dependent_indices_as_literal=True,
+            )
+
     def test_renders_layered_esi_expected_pdo_snapshot(self):
         self.path.write_text(ESI_WITH_ALL_MODES, encoding="utf-8")
         device = esi_to_profile.parse_esi(self.path)["devices"][0]

@@ -488,10 +488,12 @@ if [[ "$COE_READBACK" == "1" ]]; then
   "$ETHERCAT_CLI" master >"$ARTIFACT_DIR/master-before-coe.log" 2>&1 || true
   "$ETHERCAT_CLI" slaves -v >"$ARTIFACT_DIR/slaves-before-coe.log" 2>&1 || true
   capture_kernel_diagnostics "before-coe"
+  capture_runtime_host_diagnostics "before-coe"
   start_coe_capture
   if ! run_coe_readback >"$ARTIFACT_DIR/coe-pdo-readback.txt"; then
     stop_coe_capture
     capture_kernel_diagnostics "after-coe-failure"
+    capture_runtime_host_diagnostics "after-coe-failure"
     {
       date --iso-8601=ns 2>&1 || date
       printf '\n--- ethercat master ---\n'

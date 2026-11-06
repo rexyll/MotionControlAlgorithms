@@ -11,7 +11,7 @@ class SnapshotError(ValueError):
     pass
 
 
-def parse_rows(text: str) -> dict:
+def parse_rows(text: str, expected_slave_count: int | None = None) -> dict:
     slaves: dict[int, dict] = {}
     for line_number, raw_line in enumerate(text.splitlines(), 1):
         if not raw_line.strip():
@@ -81,6 +81,8 @@ def parse_rows(text: str) -> dict:
             raise SnapshotError(f"line {line_number}: malformed {kind!r} row")
     if not slaves:
         raise SnapshotError("snapshot contains no slave identity rows")
+    if expected_slave_count is not None and len(slaves) != expected_slave_count:
+        raise SnapshotError(f"expected {expected_slave_count} slave identities, found {len(slaves)}")
     result_slaves = []
     if sorted(slaves) != list(range(len(slaves))):
         raise SnapshotError("slave ring positions must be contiguous from zero")
@@ -167,11 +169,12 @@ def parse_rows(text: str) -> dict:
 
 
 def main() -> int:
-    if len(sys.argv) != 3:
-        print("usage: coe_snapshot.py INPUT.tsv OUTPUT.json", file=sys.stderr)
+    if len(sys.argv) not in (3, 4):
+        print("usage: coe_snapshot.py INPUT.tsv OUTPUT.json [EXPECTED_SLAVES]", file=sys.stderr)
         return 2
     try:
-        snapshot = parse_rows(Path(sys.argv[1]).read_text(encoding="utf-8"))
+        expected = int(sys.argv[3], 10) if len(sys.argv) == 4 else None
+        snapshot = parse_rows(Path(sys.argv[1]).read_text(encoding="utf-8"), expected)
         Path(sys.argv[2]).write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
     except (OSError, SnapshotError) as exc:
         print(f"CoE snapshot error: {exc}", file=sys.stderr)

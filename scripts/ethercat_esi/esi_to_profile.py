@@ -145,6 +145,49 @@ def _parse_sync_managers(device: ET.Element) -> list[dict[str, Any]]:
 
 
 
+def _optional_hex_attribute(
+    element: ET.Element,
+    attribute: str,
+    field: str,
+) -> int | None:
+    value = _number(element.attrib.get(attribute), field, required=False)
+    if value is None:
+        return None
+    return _require_range(value, field, 0xFFFFFFFF)
+
+
+def _required_hex_attribute(
+    element: ET.Element,
+    attribute: str,
+    field: str,
+) -> int:
+    value = _number(element.attrib.get(attribute), field, required=True)
+    assert value is not None
+    return _require_range(value, field, 0xFFFFFFFF)
+
+
+def _parse_image_choice(
+    parent: ET.Element,
+    field: str,
+) -> dict[str, str] | None:
+    choices = {
+        "Image16x14": "image_16x14",
+        "ImageFile16x14": "image_file_16x14",
+        "ImageData16x14": "image_data_16x14",
+    }
+    selected = [(element_name, key, _children(parent, element_name))
+                for element_name, key in choices.items()]
+    present = [(element_name, key, matches[0]) for element_name, key, matches in selected if matches]
+    if len(present) > 1 or any(len(matches) > 1 for _, _, matches in selected):
+        raise EsiError(f"{field} must contain at most one image representation")
+    if not present:
+        return None
+    element_name, key, element = present[0]
+    value = _text(element, f"{field}.{element_name}", required=True)
+    assert value is not None
+    return {key: value}
+
+
 def _xs_integer(value: str | None, field: str, *, required: bool = False) -> int | None:
     """Parse an XML Schema xs:int value (decimal, signed 32-bit)."""
     if value is None or not value.strip():
@@ -254,62 +297,128 @@ def _parse_slots(device: ET.Element) -> dict[str, Any] | None:
     if slots_element is None:
         return None
 
+    root_increments = {
+        "slot_pdo_increment": _optional_hex_attribute(
+            slots_element, "SlotPdoIncrement", "Slots.SlotPdoIncrement"
+        ),
+        "slot_group_pdo_increment": _optional_hex_attribute(
+            slots_element, "SlotGroupPdoIncrement", "Slots.SlotGroupPdoIncrement"
+        ),
+        "slot_index_increment": _optional_hex_attribute(
+            slots_element, "SlotIndexIncrement", "Slots.SlotIndexIncrement"
+        ),
+        "slot_group_index_increment": _optional_hex_attribute(
+            slots_element, "SlotGroupIndexIncrement", "Slots.SlotGroupIndexIncrement"
+        ),
+    }
+
     parsed_slots: list[dict[str, Any]] = []
     for ordinal, slot in enumerate(_children(slots_element, "Slot")):
-        min_instances = _xs_integer(
-            slot.attrib.get("MinInstances"), f"Slots.Slot[{ordinal}].MinInstances"
+        slot_field = f"Slots.Slot[{ordinal}]"
+        min_instances = _required_hex_attribute(
+            slot, "MinInstances", f"{slot_field}.MinInstances"
         )
-        max_instances = _xs_integer(
-            slot.attrib.get("MaxInstances"), f"Slots.Slot[{ordinal}].MaxInstances"
+        max_instances = _required_hex_attribute(
+            slot, "MaxInstances", f"{slot_field}.MaxInstances"
         )
-        if min_instances is not None and min_instances < 0:
-            raise EsiError(f"Slots.Slot[{ordinal}].MinInstances cannot be negative")
-        if max_instances is not None and max_instances < 0:
-            raise EsiError(f"Slots.Slot[{ordinal}].MaxInstances cannot be negative")
-        if (
-            min_instances is not None
-            and max_instances is not None
-            and min_instances > max_instances
-        ):
-            raise EsiError(
-                f"Slots.Slot[{ordinal}] MinInstances exceeds MaxInstances"
-            )
+        if min_instances > max_instances:
+            raise EsiError(f"{slot_field} MinInstances exceeds MaxInstances")
 
-        names = _localized_names(slot, f"Slots.Slot[{ordinal}].Name")
+        names = _localized_names(slot, f"{slot_field}.Name")
         module_options: list[dict[str, Any]] = []
         seen_idents: set[int] = set()
         default_count = 0
-        for module_element in _children(slot, "ModuleIdent"):
+        module_ident_elements = _children(slot, "ModuleIdent")
+        module_class_elements = _children(slot, "ModuleClass")
+        if module_ident_elements and module_class_elements:
+            raise EsiError(
+                f"{slot_field} cannot mix ModuleIdent and ModuleClass choices"
+            )
+        if not module_ident_elements and not module_class_elements:
+            raise EsiError(
+                f"{slot_field} must define at least one ModuleIdent or ModuleClass option"
+            )
+
+        for module_element in module_ident_elements:
             ident_text = _text(
-                module_element, f"Slots.Slot[{ordinal}].ModuleIdent", required=True
+                module_element, f"{slot_field}.ModuleIdent", required=True
             )
-            ident_value = _number(
-                ident_text, f"Slots.Slot[{ordinal}].ModuleIdent"
-            )
+            ident_value = _number(ident_text, f"{slot_field}.ModuleIdent")
             assert ident_value is not None
             ident = _require_range(
-                ident_value, f"Slots.Slot[{ordinal}].ModuleIdent", 0xFFFFFFFF
+                ident_value, f"{slot_field}.ModuleIdent", 0xFFFFFFFF
             )
             if ident in seen_idents:
                 raise EsiError(
-                    f"Slots.Slot[{ordinal}] repeats ModuleIdent 0x{ident:08X}"
+                    f"{slot_field} repeats ModuleIdent 0x{ident:08X}"
                 )
             seen_idents.add(ident)
-            is_default = _optional_boolean(
-                module_element.attrib.get("Default"),
-                f"Slots.Slot[{ordinal}].ModuleIdent.Default",
-            ) or False
+
+            default_value = _optional_hex_attribute(
+                module_element, "Default", f"{slot_field}.ModuleIdent.Default"
+            )
+            is_default = default_value is not None and default_value != 0
             if is_default:
                 default_count += 1
             module_options.append({
                 "module_ident": ident,
                 "default": is_default,
+                "default_value": default_value,
                 "is_empty_slot": ident == 0,
             })
         if default_count > 1:
             raise EsiError(
-                f"Slots.Slot[{ordinal}] declares more than one default ModuleIdent"
+                f"{slot_field} declares more than one default ModuleIdent"
             )
+
+        module_class_options: list[dict[str, Any]] = []
+        for class_ordinal, module_class in enumerate(module_class_elements):
+            class_field = f"{slot_field}.ModuleClass[{class_ordinal}]"
+            class_name = _text(
+                _one(module_class, "Class", required=True),
+                f"{class_field}.Class",
+                required=True,
+            )
+            vendor_id = _optional_hex_attribute(
+                module_class, "VendorId", f"{class_field}.VendorId"
+            )
+            class_names = _localized_names(
+                module_class, f"{class_field}.Name"
+            )
+            image = _parse_image_choice(module_class, class_field)
+            module_class_options.append({
+                "class": class_name,
+                "vendor_id": vendor_id,
+                "name": _primary_name(class_names),
+                "localized_names": class_names,
+                "image": image,
+            })
+
+        tree_view = slot.attrib.get("TreeView")
+        if tree_view is not None and tree_view not in {"SLOTGROUP", "SLOT", "PDO"}:
+            raise EsiError(f"{slot_field} has invalid TreeView {tree_view!r}")
+
+        local_increments = {
+            "slot_pdo_increment": _optional_hex_attribute(
+                slot, "SlotPdoIncrement", f"{slot_field}.SlotPdoIncrement"
+            ),
+            "slot_group_pdo_increment": _optional_hex_attribute(
+                slot, "SlotGroupPdoIncrement",
+                f"{slot_field}.SlotGroupPdoIncrement"
+            ),
+            "slot_index_increment": _optional_hex_attribute(
+                slot, "SlotIndexIncrement", f"{slot_field}.SlotIndexIncrement"
+            ),
+            "slot_group_index_increment": _optional_hex_attribute(
+                slot, "SlotGroupIndexIncrement",
+                f"{slot_field}.SlotGroupIndexIncrement"
+            ),
+        }
+        effective_increments = {
+            key: value if value is not None else root_increments[key]
+            for key, value in local_increments.items()
+        }
+
         parsed_slots.append({
             "ordinal": ordinal,
             "module_list_subindex": ordinal + 1,
@@ -317,11 +426,19 @@ def _parse_slots(device: ET.Element) -> dict[str, Any] | None:
             "localized_names": names,
             "min_instances": min_instances,
             "max_instances": max_instances,
+            "slot_group": _optional_hex_attribute(
+                slot, "SlotGroup", f"{slot_field}.SlotGroup"
+            ),
+            "tree_view": tree_view,
             "module_options": module_options,
+            "module_class_options": module_class_options,
             "default_module_ident": next(
                 (item["module_ident"] for item in module_options if item["default"]),
                 None,
             ),
+            "increments": local_increments,
+            "effective_increments": effective_increments,
+            "image": _parse_image_choice(slot, slot_field),
         })
 
     slot_group_data: list[dict[str, Any]] = []
@@ -345,6 +462,7 @@ def _parse_slots(device: ET.Element) -> dict[str, Any] | None:
             "slot_group": group_ident,
             "name": _primary_name(names),
             "localized_names": names,
+            "image": _parse_image_choice(group, "Slots.SlotGroupData"),
         })
 
     module_pdo_groups: list[dict[str, Any]] = []
@@ -406,12 +524,6 @@ def _parse_slots(device: ET.Element) -> dict[str, Any] | None:
             f"invalid Slots.DownloadModuleListTransition: {transition!r}"
         )
 
-    def optional_hex_attribute(name: str) -> int | None:
-        value = _number(slots_element.attrib.get(name), f"Slots.{name}", required=False)
-        if value is None:
-            return None
-        return _require_range(value, f"Slots.{name}", 0xFFFFFFFF)
-
     return {
         "download_module_ident_list": _optional_boolean(
             slots_element.attrib.get("DownloadModuleIdentList"),
@@ -422,18 +534,20 @@ def _parse_slots(device: ET.Element) -> dict[str, Any] | None:
             "Slots.DownloadModuleAddressList",
         ),
         "download_module_list_transition": transition,
-        "max_slot_count": optional_hex_attribute("MaxSlotCount"),
-        "max_slot_group_count": optional_hex_attribute("MaxSlotGroupCount"),
-        "slot_pdo_increment": optional_hex_attribute("SlotPdoIncrement"),
-        "slot_group_pdo_increment": optional_hex_attribute("SlotGroupPdoIncrement"),
-        "slot_index_increment": optional_hex_attribute("SlotIndexIncrement"),
-        "slot_group_index_increment": optional_hex_attribute("SlotGroupIndexIncrement"),
+        "max_slot_count": _optional_hex_attribute(
+            slots_element, "MaxSlotCount", "Slots.MaxSlotCount"
+        ),
+        "max_slot_group_count": _optional_hex_attribute(
+            slots_element, "MaxSlotGroupCount", "Slots.MaxSlotGroupCount"
+        ),
+        **root_increments,
         "identify_module_by": slots_element.attrib.get("IdentifyModuleBy"),
         "slots": parsed_slots,
         "slot_group_data": slot_group_data,
         "module_pdo_groups": module_pdo_groups,
         "slot_selections": slot_selections,
     }
+
 
 
 def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:

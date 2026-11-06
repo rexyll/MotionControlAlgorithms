@@ -88,9 +88,9 @@ capture_runtime_host_diagnostics() {
   } >"$ARTIFACT_DIR/runtime-host-$label.log" 2>&1 || true
 }
 
-# Use the IgH application API while the master is in OPERATION phase. This
-# waits for any idle scan to finish and disables further scans, avoiding
-# concurrent scan-FSM and user CoE uploads to the same slave mailbox.
+# Use the IgH application API after requesting the master out of IDLE. The
+# request waits for an in-flight idle scan to finish; application-owned I/O
+# then services the sequential SDO requests without concurrent CLI uploads.
 run_coe_readback() {
   local helper="$ARTIFACT_DIR/coe-sdo-readback"
   local -a ethercat_cflags=() ethercat_libs=()

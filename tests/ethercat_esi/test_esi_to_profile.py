@@ -112,20 +112,53 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertEqual(entry["name"], "Controlword")
         self.assertEqual(entry["localized_names"][1]["text"], "Steuerwort")
 
-    def test_requires_name_and_data_type_for_non_padding_entries(self):
-        missing_name = ESI.replace("<Name>Controlword</Name>", "", 1)
-        self.path.write_text(missing_name, encoding="utf-8")
-        with self.assertRaisesRegex(
-            esi_to_profile.EsiError, "missing <Name> for rxPDO.Entry.Name"
-        ):
-            esi_to_profile.parse_esi(self.path)
+    def test_allows_optional_entry_name_data_type_and_subindex(self):
+        normalized = ESI.replace(
+            '<Entry><Index>#x6040</Index><SubIndex>0</SubIndex><BitLen>16</BitLen><Name>Controlword</Name><DataType>UINT</DataType></Entry>',
+            '<Entry><Index>#x6040</Index><BitLen>16</BitLen></Entry>',
+            1,
+        )
+        self.path.write_text(normalized, encoding="utf-8")
+        entry = esi_to_profile.parse_esi(self.path)["devices"][0]["pdos"][0]["entries"][0]
+        self.assertEqual(entry["index"], 0x6040)
+        self.assertEqual(entry["sub_index"], 0)
+        self.assertFalse(entry["sub_index_present"])
+        self.assertIsNone(entry["name"])
+        self.assertEqual(entry["localized_names"], [])
+        self.assertIsNone(entry["data_type"])
 
-        missing_type = ESI.replace("<DataType>UINT</DataType>", "", 1)
-        self.path.write_text(missing_type, encoding="utf-8")
-        with self.assertRaisesRegex(
-            esi_to_profile.EsiError, "missing text for rxPDO.Entry.DataType"
-        ):
-            esi_to_profile.parse_esi(self.path)
+    def test_preserves_full_safety_parameter_mapping_pdo_entries(self):
+        modular = ESI.replace(
+            "</EtherCATInfo>",
+            """  <Modules>
+    <Module><Type ModuleIdent="#x4711">FSoE input module</Type>
+      <Name>FSoE module</Name>
+      <SafetyParaMapping Fixed="true" CompleteAccess="false" SafetyPdoType="FSoESlave" SafetyConnNumber="3">
+        <Index>#x8000</Index>
+        <Name LcId="1033">Safety parameter set</Name>
+        <Entry><Index>#x2000</Index><SubIndex>1</SubIndex><BitLen>16</BitLen></Entry>
+        <Entry><Index>#x2001</Index><BitLen>32</BitLen><Name LcId="1033">Safety value</Name><DataType>UDINT</DataType></Entry>
+      </SafetyParaMapping>
+    </Module>
+  </Modules>
+</EtherCATInfo>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        module = esi_to_profile.parse_esi(self.path)["modules"][0]
+        mapping = module["safety_parameter_mappings"][0]
+        self.assertTrue(module["is_safety_relevant"])
+        self.assertEqual(mapping["index"], 0x8000)
+        self.assertTrue(mapping["fixed"])
+        self.assertFalse(mapping["complete_access"])
+        self.assertEqual(mapping["safety_pdo_type"], "FSoESlave")
+        self.assertEqual(mapping["safety_connection_number"], 3)
+        self.assertEqual(len(mapping["entries"]), 2)
+        self.assertFalse(mapping["entries"][0]["sub_index_present"])
+        self.assertIsNone(mapping["entries"][0]["name"])
+        self.assertIsNone(mapping["entries"][0]["data_type"])
+        self.assertEqual(mapping["entries"][1]["index"], 0x2001)
+        self.assertEqual(mapping["entries"][1]["name"], "Safety value")
 
     def test_parses_embedded_module_catalog_and_device_slots(self):
         modular = ESI.replace(

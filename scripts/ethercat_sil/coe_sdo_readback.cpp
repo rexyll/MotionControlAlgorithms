@@ -1,6 +1,7 @@
 #include <ecrt.h>
 
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -8,14 +9,32 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include <thread>
 
 namespace {
 
 struct MasterGuard {
     ec_master_t* master{nullptr};
     bool active{false};
+    std::atomic<bool> io_running{false};
+    std::thread io_thread;
+
+    void start_io() {
+        io_running.store(true);
+        io_thread = std::thread([this]() {
+            while (io_running.load()) {
+                (void)ecrt_master_receive(master);
+                (void)ecrt_master_send(master);
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+        });
+    }
 
     ~MasterGuard() {
+        io_running.store(false);
+        if (io_thread.joinable()) {
+            io_thread.join();
+        }
         if (master != nullptr) {
             if (active) {
                 (void)ecrt_master_deactivate(master);
@@ -211,9 +230,9 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // Enter OPERATION before issuing uploads. IgH waits for any in-flight scan
-    // and disables further idle scans, preventing scan FSM CoE traffic from
-    // interleaving with this deterministic SDO readback sequence.
+    // Requesting the master leaves IDLE and waits for any in-flight scan.
+    // Drive the OPERATION-phase I/O loop explicitly while the blocking SDO API
+    // queues one request at a time; do not run parallel CLI uploads.
     const int activate_status = ecrt_master_activate(guard.master);
     if (activate_status != 0) {
         std::cerr << "could not enter IgH OPERATION phase: "
@@ -221,6 +240,7 @@ int main(int argc, char** argv) {
         return 1;
     }
     guard.active = true;
+    guard.start_io();
 
     for (unsigned long ring_value = 0; ring_value < expected; ++ring_value) {
         const auto ring = static_cast<std::uint16_t>(ring_value);

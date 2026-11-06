@@ -431,6 +431,11 @@ while (( SECONDS < deadline )); do
   # master twice while its idle FSM could still be scanning, and accepted
   # slaves in INIT. That allowed CoE uploads to race scan/mailbox traffic.
   "$ETHERCAT_CLI" slaves -v >"$ARTIFACT_DIR/slaves-verbose.log" 2>&1 || true
+  {
+    printf 'snapshot=%s\\n' "$(date --iso-8601=ns 2>/dev/null || date)"
+    grep -E '^=== Master 0, Slave |^State:|^  Vendor Id:|^  Product code:|^  Revision number:' \
+      "$ARTIFACT_DIR/slaves-verbose.log" || true
+  } >>"$ARTIFACT_DIR/discovery-state-history.log"
   count=$(awk '/^=== Master 0, Slave / { n++ } END { print n+0 }' "$ARTIFACT_DIR/slaves-verbose.log")
   preop_count=$(grep -c '^State: PREOP$' "$ARTIFACT_DIR/slaves-verbose.log" || true)
   vendor_count=$(grep -Eic 'Vendor Id:[[:space:]]*0x0*29c' "$ARTIFACT_DIR/slaves-verbose.log" || true)
@@ -454,9 +459,22 @@ done
 
 if (( ! found )); then
   "$ETHERCAT_CLI" master >"$ARTIFACT_DIR/master-status.log" 2>&1 || true
-  cat "$ARTIFACT_DIR/master-status.log" >&2 || true
-  cat "$ARTIFACT_DIR/slaves-verbose.log" >&2 || true
-  cat "$ARTIFACT_DIR/kickcat-simulator.log" >&2 || true
+  capture_kernel_diagnostics "after-discovery-failure"
+  capture_runtime_host_diagnostics "after-discovery-failure"
+  {
+    printf '%s\\n' '--- master status ---'
+    cat "$ARTIFACT_DIR/master-status.log" 2>&1 || true
+    printf '%s\\n' '--- last slave snapshot ---'
+    cat "$ARTIFACT_DIR/slaves-verbose.log" 2>&1 || true
+    printf '%s\\n' '--- state history ---'
+    cat "$ARTIFACT_DIR/discovery-state-history.log" 2>&1 || true
+    printf '%s\\n' '--- veth counters ---'
+    ip -s link show dev "$MASTER_IF" 2>&1 || true
+    ip -s link show dev "$SIM_IF" 2>&1 || true
+    printf '%s\\n' '--- KickCAT simulator ---'
+    cat "$ARTIFACT_DIR/kickcat-simulator.log" 2>&1 || true
+  } >"$ARTIFACT_DIR/discovery-failure-state.log"
+  cat "$ARTIFACT_DIR/discovery-failure-state.log" >&2 || true
   fail "IgH did not discover exactly $EXPECTED_SLAVES slaves with the pinned ESI identity and three consecutive all-PREOP snapshots"
 fi
 

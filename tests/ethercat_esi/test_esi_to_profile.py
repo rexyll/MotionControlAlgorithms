@@ -141,8 +141,7 @@ class EsiToProfileTests(unittest.TestCase):
     def test_parses_pdo_exclusion_and_virtual_metadata(self):
         valid = ESI.replace(
             '<RxPdo Sm="2" Fixed="true" Mandatory="true">',
-            '<RxPdo Sm="2" Fixed="true" Mandatory="true">
-          <ExcludedSm>3</ExcludedSm>',
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">\n          <ExcludedSm>3</ExcludedSm>',
             1,
         ).replace(
             "      </Device>",
@@ -161,8 +160,7 @@ class EsiToProfileTests(unittest.TestCase):
     def test_rejects_selected_mutually_exclusive_pdos(self):
         incompatible = ESI_WITH_VELOCITY.replace(
             '<RxPdo Sm="2" Fixed="true" Mandatory="true">',
-            '<RxPdo Sm="2" Fixed="true" Mandatory="true">
-          <Exclude>#x1601</Exclude>',
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">\n          <Exclude>#x1601</Exclude>',
             1,
         )
         self.path.write_text(incompatible, encoding="utf-8")
@@ -178,8 +176,7 @@ class EsiToProfileTests(unittest.TestCase):
     def test_rejects_slot_dependent_exclusions_in_static_candidate(self):
         incompatible = ESI_WITH_VELOCITY.replace(
             '<RxPdo Sm="2" Fixed="true" Mandatory="true">',
-            '<RxPdo Sm="2" Fixed="true" Mandatory="true">
-          <Exclude DependOnSlot="true">#x1601</Exclude>',
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">\n          <Exclude DependOnSlot="true">#x1601</Exclude>',
             1,
         )
         self.path.write_text(incompatible, encoding="utf-8")
@@ -195,8 +192,7 @@ class EsiToProfileTests(unittest.TestCase):
     def test_rejects_default_sync_manager_that_is_explicitly_excluded(self):
         malformed = ESI.replace(
             '<RxPdo Sm="2" Fixed="true" Mandatory="true">',
-            '<RxPdo Sm="2" Fixed="true" Mandatory="true">
-          <ExcludedSm>2</ExcludedSm>',
+            '<RxPdo Sm="2" Fixed="true" Mandatory="true">\n          <ExcludedSm>2</ExcludedSm>',
             1,
         )
         self.path.write_text(malformed, encoding="utf-8")

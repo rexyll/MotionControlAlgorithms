@@ -155,6 +155,7 @@ class EsiToProfileTests(unittest.TestCase):
               <Name LcId="1033">Digital input family</Name>
               <ImageFile16x14>di-module.bmp</ImageFile16x14>
             </ModuleClass>
+            <ModuleClass><Class>DI-Unqualified</Class></ModuleClass>
             <ImageData16x14>00FF10</ImageData16x14>
           </Slot>
           <SlotGroupData SlotGroup="#x1"><Name>InputGroup</Name></SlotGroupData>
@@ -214,7 +215,10 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertEqual(slots["slots"][0]["tree_view"], "SLOT")
         self.assertEqual(slots["slots"][2]["module_class_options"][0]["class"], "DI")
         self.assertEqual(slots["slots"][2]["module_class_options"][0]["vendor_id"], 0xAB)
+        self.assertEqual(slots["slots"][2]["module_class_options"][0]["vendor_id_explicit"], 0xAB)
         self.assertEqual(slots["slots"][2]["module_class_options"][0]["image"]["image_file_16x14"], "di-module.bmp")
+        self.assertEqual(slots["slots"][2]["module_class_options"][1]["vendor_id"], 0xAB)
+        self.assertIsNone(slots["slots"][2]["module_class_options"][1]["vendor_id_explicit"])
         self.assertEqual(slots["slots"][2]["image"]["image_data_16x14"], "00FF10")
         self.assertEqual(slots["slots"][0]["module_list_subindex"], 1)
         self.assertEqual(slots["slots"][0]["default_module_ident"], 0x4711)

@@ -1,3 +1,4 @@
+import json
 import sys
 import tempfile
 import unittest
@@ -831,6 +832,110 @@ class EsiToProfileTests(unittest.TestCase):
         )
         self.assertFalse(resolved["runtime_readback_performed"])
         self.assertEqual(resolved["configured_slots"][0]["module_ident"], 0)
+
+    def test_includes_device_level_module_pdo_group_alignment(self):
+        xml = SLOT_RUNTIME_ESI.replace(
+            '<Type ProductCode="#x1001" RevisionNo="#x2">Modular Device</Type>',
+            '<Type ProductCode="#x1001" RevisionNo="#x2" ModulePdoGroup="0">Modular Device</Type>',
+            1,
+        )
+        document = self._parse_slot_runtime_fixture(xml)
+        resolved = esi_to_profile.resolve_slot_pdo_configuration(
+            document,
+            document["devices"][0],
+            [
+                {"slot_descriptor_index": 0, "module_ident": 0},
+                {"slot_descriptor_index": 1, "module_ident": 0x4711},
+            ],
+        )
+        group = resolved["module_pdo_alignment_groups"][0]
+        self.assertTrue(group["device"])
+        self.assertEqual(group["device_name"], "Modular Device")
+        self.assertEqual(group["module_idents"], [0x4711])
+
+    def test_rejects_collision_with_non_overwritten_device_pdo(self):
+        xml = SLOT_RUNTIME_ESI.replace(
+            '    <Slots MaxSlotCount=',
+            """    <RxPdo Sm="2"><Index>#x1601</Index><Name>Device PDO</Name>
+      <Entry><Index>#x6000</Index><SubIndex>1</SubIndex><BitLen>16</BitLen><Name>Device input</Name><DataType>UINT</DataType></Entry>
+    </RxPdo>
+    <Slots MaxSlotCount=""",
+            1,
+        )
+        document = self._parse_slot_runtime_fixture(xml)
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "collides with a device-level PDO that is not marked OverwrittenByModule",
+        ):
+            esi_to_profile.resolve_slot_pdo_configuration(
+                document,
+                document["devices"][0],
+                [
+                    {"slot_descriptor_index": 0, "module_ident": 0},
+                    {"slot_descriptor_index": 1, "module_ident": 0x4711},
+                ],
+            )
+
+    def test_module_pdo_replaces_device_pdo_marked_overwritten_by_module(self):
+        xml = SLOT_RUNTIME_ESI.replace(
+            '    <Slots MaxSlotCount=',
+            """    <RxPdo Sm="2" OverwrittenByModule="true"><Index>#x1601</Index><Name>Device PDO</Name>
+      <Entry><Index>#x6000</Index><SubIndex>1</SubIndex><BitLen>16</BitLen><Name>Device input</Name><DataType>UINT</DataType></Entry>
+    </RxPdo>
+    <Slots MaxSlotCount=""",
+            1,
+        )
+        document = self._parse_slot_runtime_fixture(xml)
+        resolved = esi_to_profile.resolve_slot_pdo_configuration(
+            document,
+            document["devices"][0],
+            [
+                {"slot_descriptor_index": 0, "module_ident": 0},
+                {"slot_descriptor_index": 1, "module_ident": 0x4711},
+            ],
+        )
+        self.assertEqual(len(resolved["device_pdos"]), 1)
+        self.assertEqual(len(resolved["effective_device_pdos"]), 0)
+        self.assertEqual(len(resolved["overridden_device_pdos"]), 1)
+
+    def test_cli_accepts_explicit_slot_configuration_json(self):
+        document_path = self.path
+        document_path.write_text(SLOT_RUNTIME_ESI, encoding="utf-8")
+        config_path = Path(self.temp.name) / "slots.json"
+        config_path.write_text(
+            json.dumps([
+                {"slot_descriptor_index": 0, "module_ident": 0},
+                {"slot_descriptor_index": 1, "module_ident": "#x4711"},
+            ]),
+            encoding="utf-8",
+        )
+        output_path = Path(self.temp.name) / "resolved.json"
+        result = esi_to_profile.main([
+            str(document_path),
+            "--slot-config", str(config_path),
+            "--output", str(output_path),
+        ])
+        self.assertEqual(result, 0)
+        output = json.loads(output_path.read_text(encoding="utf-8"))
+        resolved = output["slot_pdo_configuration"]
+        self.assertEqual(
+            [pdo["index"] for pdo in resolved["module_pdos"]],
+            [0x1601, 0x1A80],
+        )
+        self.assertFalse(resolved["runtime_readback_performed"])
+        self.assertFalse(resolved["is_complete_process_data_mapping"])
+
+    def test_cli_rejects_combining_slot_config_with_static_cia402_selection(self):
+        document_path = self.path
+        document_path.write_text(SLOT_RUNTIME_ESI, encoding="utf-8")
+        config_path = Path(self.temp.name) / "slots.json"
+        config_path.write_text("[]", encoding="utf-8")
+        result = esi_to_profile.main([
+            str(document_path),
+            "--slot-config", str(config_path),
+            "--rx-pdo", "0x1600",
+        ])
+        self.assertEqual(result, 2)
 
     def test_rejects_missing_required_slot_instance(self):
         document = self._parse_slot_runtime_fixture()

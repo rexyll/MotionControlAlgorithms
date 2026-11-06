@@ -607,7 +607,7 @@ if [[ "$COE_READBACK" == "1" && "$CYCLIC_SIL" == "1" ]]; then
     cat "$ARTIFACT_DIR/coe-igh-parity.json" >&2 2>/dev/null || true
     fail "CoE-to-IgH PDO mapping parity failed"
   fi
-  printf 'PASS: CoE-to-IgH PDO index and ordered raw mapping parity; report: %s\\n' \
+  printf 'PASS: CoE-to-IgH PDO index and ordered raw mapping parity; report: %s\n' \
     "$ARTIFACT_DIR/coe-igh-parity.json"
 fi
 

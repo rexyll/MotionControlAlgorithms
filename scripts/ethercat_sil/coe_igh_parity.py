@@ -141,7 +141,7 @@ def main() -> int:
         coe = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
         igh = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
         report = compare_snapshots(coe, igh)
-        Path(sys.argv[3]).write_text(json.dumps(report, indent=2) + "\\n", encoding="utf-8")
+        Path(sys.argv[3]).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     except (OSError, json.JSONDecodeError, CoeIghParityError) as exc:
         print(f"CoE/IgH parity error: {exc}", file=sys.stderr)
         return 2

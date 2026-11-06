@@ -33,9 +33,7 @@ readonly ARTIFACT_DIR="${MCA_ECAT_ARTIFACT_DIR:-/tmp/mca-ethercat-sil-$(date +%Y
 SIM_PID=""
 TX_PID=""
 RX_PID=""
-COE_CAPTURE_IN_PID=""
-COE_CAPTURE_OUT_PID=""
-MASTER_CAPTURE_IN_PID=""
+COE_CAPTURE_PID=""
 SIM_CONTROL_CLI=""
 SIM_CONTROL_SHM=""
 SIM_CONTROL_CREATED=0
@@ -192,35 +190,18 @@ run_coe_readback() {
 }
 
 start_coe_capture() {
-  # Capture raw packets on the hot path. Formatting every frame with -vvv -XX
-  # while the VM runs IgH/KickCAT adds avoidable scheduler and I/O pressure.
-  # Text logs are rendered from the pcap files only after SDO readback stops.
-  tcpdump -U -Q in -i "$SIM_IF" -nn -s 0 -w \
-    "$ARTIFACT_DIR/coe-simulator-ingress.pcap" \
-    'ether proto 0x88a4' 2>"$ARTIFACT_DIR/coe-simulator-ingress-capture.log" &
-  COE_CAPTURE_IN_PID=$!
-  tcpdump -U -Q out -i "$SIM_IF" -nn -s 0 -w \
-    "$ARTIFACT_DIR/coe-simulator-egress.pcap" \
-    'ether proto 0x88a4' 2>"$ARTIFACT_DIR/coe-simulator-egress-capture.log" &
-  COE_CAPTURE_OUT_PID=$!
-  # Capture the return path at the IgH-facing veth endpoint as well. A frame
-  # observed leaving the simulator NIC is not proof that the master received it.
-  tcpdump -U -Q in -i "$MASTER_IF" -nn -s 0 -w \
-    "$ARTIFACT_DIR/coe-master-ingress.pcap" \
-    'ether proto 0x88a4' 2>"$ARTIFACT_DIR/coe-master-ingress-capture.log" &
-  MASTER_CAPTURE_IN_PID=$!
+  # Observe the complete request/response path from the master endpoint with
+  # one packet socket. Three simultaneous tcpdump readers on both veth ends
+  # materially increase scheduling pressure on the userspace simulator and
+  # can themselves contribute to receive-queue drops in a loaded VM.
+  tcpdump -U -i "$MASTER_IF" -nn -s 0 -w \
+    "$ARTIFACT_DIR/coe-master.pcap" \
+    'ether proto 0x88a4' 2>"$ARTIFACT_DIR/coe-master-capture.log" &
+  COE_CAPTURE_PID=$!
   sleep 0.5
-  kill -0 "$COE_CAPTURE_IN_PID" 2>/dev/null || {
-    cat "$ARTIFACT_DIR/coe-simulator-ingress-capture.log" >&2 || true
-    fail "EtherCAT simulator ingress capture did not stay running"
-  }
-  kill -0 "$COE_CAPTURE_OUT_PID" 2>/dev/null || {
-    cat "$ARTIFACT_DIR/coe-simulator-egress-capture.log" >&2 || true
-    fail "EtherCAT simulator egress capture did not stay running"
-  }
-  kill -0 "$MASTER_CAPTURE_IN_PID" 2>/dev/null || {
-    cat "$ARTIFACT_DIR/coe-master-ingress-capture.log" >&2 || true
-    fail "EtherCAT master ingress capture did not stay running"
+  kill -0 "$COE_CAPTURE_PID" 2>/dev/null || {
+    cat "$ARTIFACT_DIR/coe-master-capture.log" >&2 || true
+    fail "EtherCAT master capture did not stay running"
   }
 }
 
@@ -234,27 +215,13 @@ render_coe_capture() {
 }
 
 stop_coe_capture() {
-  if [[ -n "$COE_CAPTURE_IN_PID" ]]; then
-    kill -INT "$COE_CAPTURE_IN_PID" 2>/dev/null || true
-    wait "$COE_CAPTURE_IN_PID" 2>/dev/null || true
-    COE_CAPTURE_IN_PID=""
+  if [[ -n "$COE_CAPTURE_PID" ]]; then
+    kill -INT "$COE_CAPTURE_PID" 2>/dev/null || true
+    wait "$COE_CAPTURE_PID" 2>/dev/null || true
+    COE_CAPTURE_PID=""
   fi
-  if [[ -n "$COE_CAPTURE_OUT_PID" ]]; then
-    kill -INT "$COE_CAPTURE_OUT_PID" 2>/dev/null || true
-    wait "$COE_CAPTURE_OUT_PID" 2>/dev/null || true
-    COE_CAPTURE_OUT_PID=""
-  fi
-  if [[ -n "$MASTER_CAPTURE_IN_PID" ]]; then
-    kill -INT "$MASTER_CAPTURE_IN_PID" 2>/dev/null || true
-    wait "$MASTER_CAPTURE_IN_PID" 2>/dev/null || true
-    MASTER_CAPTURE_IN_PID=""
-  fi
-  render_coe_capture "$ARTIFACT_DIR/coe-simulator-ingress.pcap" \
-    "$ARTIFACT_DIR/coe-simulator-ingress.log"
-  render_coe_capture "$ARTIFACT_DIR/coe-simulator-egress.pcap" \
-    "$ARTIFACT_DIR/coe-simulator-egress.log"
-  render_coe_capture "$ARTIFACT_DIR/coe-master-ingress.pcap" \
-    "$ARTIFACT_DIR/coe-master-ingress.log"
+  render_coe_capture "$ARTIFACT_DIR/coe-master.pcap" \
+    "$ARTIFACT_DIR/coe-master.log"
 }
 
 cleanup() {

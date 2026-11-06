@@ -50,6 +50,36 @@ def _text(element: ET.Element | None, field: str, *, required: bool = False) -> 
     return value
 
 
+def _localized_names(
+    parent: ET.Element,
+    field: str,
+    *,
+    required: bool = False,
+) -> list[dict[str, Any]]:
+    """Read all localized NameType values; the schema default LcId is 1033."""
+    elements = _children(parent, "Name")
+    if required and not elements:
+        raise EsiError(f"missing <Name> for {field}")
+    result: list[dict[str, Any]] = []
+    for element in elements:
+        value = _text(element, field, required=True)
+        raw_lcid = element.attrib.get("LcId")
+        try:
+            language_id = 1033 if raw_lcid is None else int(raw_lcid.strip(), 10)
+        except ValueError as exc:
+            raise EsiError(f"invalid LcId for {field}: {raw_lcid!r}") from exc
+        result.append({"language_id": language_id, "text": value})
+    return result
+
+
+def _primary_name(names: list[dict[str, Any]]) -> str | None:
+    """Prefer the ESI default language (1033), then preserve document order."""
+    for item in names:
+        if item["language_id"] == 1033:
+            return item["text"]
+    return names[0]["text"] if names else None
+
+
 def _number(value: str | None, field: str, *, required: bool = True) -> int | None:
     if value is None or not value.strip():
         if required:
@@ -135,6 +165,7 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
         index_element.attrib.get("DependOnSlotGroup"),
         f"{direction}PDO.Index.DependOnSlotGroup",
     ) or False
+    pdo_names = _localized_names(pdo, f"{direction}PDO.Name", required=True)
     entries: list[dict[str, Any]] = []
     for entry in _children(pdo, "Entry"):
         index_element = _one(entry, "Index", required=True)
@@ -172,15 +203,22 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
         bit_length = _required_child_number(entry, "BitLen", f"{direction}PDO.Entry.BitLen")
         if not 1 <= bit_length <= 64:
             raise EsiError(f"{direction}PDO entry 0x{index:04X}:{sub_index:02X} has unsupported bit length {bit_length}")
+        name_values = _localized_names(
+            entry, f"{direction}PDO.Entry.Name", required=index != 0
+        )
         data_type_element = _one(entry, "DataType")
+        data_type_value = _text(
+            data_type_element, f"{direction}PDO.Entry.DataType", required=index != 0
+        )
         entries.append({
             "index": index,
             "index_depend_on_slot": index_depend_on_slot,
             "index_depend_on_slot_group": index_depend_on_slot_group,
             "sub_index": sub_index,
             "bit_length": bit_length,
-            "name": _text(_one(entry, "Name"), f"{direction}PDO.Entry.Name"),
-            "data_type": _text(data_type_element, f"{direction}PDO.Entry.DataType"),
+            "name": _primary_name(name_values),
+            "localized_names": name_values,
+            "data_type": data_type_value,
             "data_scale": (
                 data_type_element.attrib.get("DScale")
                 if data_type_element is not None else None
@@ -269,6 +307,8 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
     return {
         "direction": direction,
         "index": pdo_index,
+        "name": _primary_name(pdo_names),
+        "localized_names": pdo_names,
         "index_depend_on_slot": pdo_index_depend_on_slot,
         "index_depend_on_slot_group": pdo_index_depend_on_slot_group,
         "name": _text(_one(pdo, "Name"), f"{direction}PDO.Name"),
@@ -288,7 +328,8 @@ def _parse_device(device: ET.Element, vendor_id: int) -> dict[str, Any]:
     product_code = _require_range(_number(type_element.attrib.get("ProductCode"), "Device.Type.ProductCode"), "Device.Type.ProductCode", 0xFFFFFFFF)
     revision = _require_range(_number(type_element.attrib.get("RevisionNo"), "Device.Type.RevisionNo"), "Device.Type.RevisionNo", 0xFFFFFFFF)
     assert product_code is not None and revision is not None
-    device_name = _text(_one(device, "Name"), "Device.Name") or _text(type_element, "Device.Type") or ""
+    device_names = _localized_names(device, "Device.Name")
+    device_name = _primary_name(device_names) or _text(type_element, "Device.Type") or ""
     if not device_name:
         raise EsiError(f"device 0x{product_code:08X} has no name")
 
@@ -340,6 +381,7 @@ def _parse_device(device: ET.Element, vendor_id: int) -> dict[str, Any]:
             "revision": revision,
         },
         "name": device_name,
+        "localized_names": device_names,
         "type_name": _text(type_element, "Device.Type"),
         "sync_managers": sync_managers,
         "pdos": pdos,
@@ -560,7 +602,8 @@ def parse_esi(path: Path) -> dict[str, Any]:
     vendor = _one(root, "Vendor", required=True)
     assert vendor is not None
     vendor_id = _require_range(_required_child_number(vendor, "Id", "Vendor.Id"), "Vendor.Id", 0xFFFFFFFF)
-    vendor_name = _text(_one(vendor, "Name"), "Vendor.Name")
+    vendor_names = _localized_names(vendor, "Vendor.Name", required=True)
+    vendor_name = _primary_name(vendor_names)
     descriptions = _one(root, "Descriptions", required=True)
     assert descriptions is not None
     devices_container = _one(descriptions, "Devices", required=True)
@@ -571,7 +614,11 @@ def parse_esi(path: Path) -> dict[str, Any]:
     return {
         "schema_version": 1,
         "source": {"file_name": path.name, "sha256": hashlib.sha256(raw).hexdigest()},
-        "vendor": {"id": vendor_id, "name": vendor_name},
+        "vendor": {
+            "id": vendor_id,
+            "name": vendor_name,
+            "localized_names": vendor_names,
+        },
         "devices": devices,
     }
 

@@ -178,6 +178,14 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
         None if sm_value is None
         else _require_range(sm_value, f"{direction}PDO.Sm", 0xFF)
     )
+    mandatory = _optional_boolean(
+        pdo.attrib.get("Mandatory"), f"{direction}PDO.Mandatory"
+    ) or False
+    if mandatory and sm_index is None:
+        raise EsiError(
+            f"{direction}PDO 0x{pdo_index:04X} is mandatory but has no "
+            "default SyncManager assignment"
+        )
     if sm_index is not None and sm_index in excluded_sync_managers:
         raise EsiError(
             f"{direction}PDO 0x{pdo_index:04X} declares SyncManager "
@@ -189,7 +197,7 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
         "name": _text(_one(pdo, "Name"), f"{direction}PDO.Name"),
         "sync_manager": sm_index,
         "fixed": _optional_boolean(pdo.attrib.get("Fixed"), f"{direction}PDO.Fixed") or False,
-        "mandatory": _optional_boolean(pdo.attrib.get("Mandatory"), f"{direction}PDO.Mandatory") or False,
+        "mandatory": mandatory,
         "virtual": virtual,
         "excluded_pdos": excluded_pdos,
         "excluded_sync_managers": excluded_sync_managers,

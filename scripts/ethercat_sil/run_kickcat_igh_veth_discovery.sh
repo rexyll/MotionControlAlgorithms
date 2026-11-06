@@ -432,4 +432,203 @@ while (( SECONDS < deadline )); do
   # slaves in INIT. That allowed CoE uploads to race scan/mailbox traffic.
   "$ETHERCAT_CLI" slaves -v >"$ARTIFACT_DIR/slaves-verbose.log" 2>&1 || true
   count=$(awk '/^=== Master 0, Slave / { n++ } END { print n+0 }' "$ARTIFACT_DIR/slaves-verbose.log")
-  preop_count=$(grep -c '^State: PREOP$'
+  preop_count=$(grep -c '^State: PREOP$' "$ARTIFACT_DIR/slaves-verbose.log" || true)
+  vendor_count=$(grep -Eic 'Vendor Id:[[:space:]]*0x0*29c' "$ARTIFACT_DIR/slaves-verbose.log" || true)
+  product_count=$(grep -Eic 'Product code:[[:space:]]*0x0*3b11002' "$ARTIFACT_DIR/slaves-verbose.log" || true)
+  revision_count=$(grep -Eic 'Revision number:[[:space:]]*0x0*50005' "$ARTIFACT_DIR/slaves-verbose.log" || true)
+  if [[ "$count" == "$EXPECTED_SLAVES" ]] &&
+     [[ "$preop_count" == "$EXPECTED_SLAVES" ]] &&
+     [[ "$vendor_count" == "$EXPECTED_SLAVES" ]] &&
+     [[ "$product_count" == "$EXPECTED_SLAVES" ]] &&
+     [[ "$revision_count" == "$EXPECTED_SLAVES" ]]; then
+    stable_preop_samples=$((stable_preop_samples + 1))
+    if (( stable_preop_samples >= 3 )); then
+      found=1
+      break
+    fi
+  else
+    stable_preop_samples=0
+  fi
+  sleep 1
+done
+
+if (( ! found )); then
+  "$ETHERCAT_CLI" master >"$ARTIFACT_DIR/master-status.log" 2>&1 || true
+  cat "$ARTIFACT_DIR/master-status.log" >&2 || true
+  cat "$ARTIFACT_DIR/slaves-verbose.log" >&2 || true
+  cat "$ARTIFACT_DIR/kickcat-simulator.log" >&2 || true
+  fail "IgH did not discover exactly $EXPECTED_SLAVES slaves with the pinned ESI identity and three consecutive all-PREOP snapshots"
+fi
+
+if ! wait "$TX_PID"; then
+  cat "$ARTIFACT_DIR/master-tx.log" >&2
+  fail "no outbound EtherCAT frame observed on $MASTER_IF"
+fi
+TX_PID=""
+if ! wait "$RX_PID"; then
+  cat "$ARTIFACT_DIR/master-rx.log" >&2
+  fail "no inbound EtherCAT response observed on $MASTER_IF"
+fi
+RX_PID=""
+
+if [[ "$COE_READBACK" == "1" ]]; then
+  # Record EoE handler/interface state. EoE can generate mailbox traffic
+  # independently of CoE and shares the slave mailbox Sync Managers.
+  {
+    ip -o link show
+    "$ETHERCAT_CLI" eoe 2>&1 || true
+  } >"$ARTIFACT_DIR/eoe-before-coe.log" 2>&1
+  if [[ "$EXPECT_NO_EOE" == "1" ]] &&
+     grep -Eq '(^|[[:space:]])eoe[0-9]+s[0-9]+([[:space:]]|$)' "$ARTIFACT_DIR/eoe-before-coe.log"; then
+    cat "$ARTIFACT_DIR/eoe-before-coe.log" >&2
+    fail "CoE-only SIL ESI was expected to suppress all IgH EoE handlers"
+  fi
+  if [[ "$DISABLE_EOE" == "1" ]]; then
+    # Opt-in isolation experiment: close auto-created EoE interfaces.
+    while IFS= read -r eoe_if; do
+      [[ "$eoe_if" == eoe* ]] || continue
+      ip link set dev "$eoe_if" down
+    done < <(ip -o link show | awk -F': ' '{sub(/@.*/, "", $2); print $2}')
+    {
+      ip -o link show
+      "$ETHERCAT_CLI" eoe 2>&1 || true
+    } >"$ARTIFACT_DIR/eoe-after-disable.log" 2>&1
+  fi
+  "$ETHERCAT_CLI" master >"$ARTIFACT_DIR/master-before-coe.log" 2>&1 || true
+  # Reuse the last validated all-PREOP snapshot; do not launch another scan
+  # immediately before mailbox readback.
+  cp "$ARTIFACT_DIR/slaves-verbose.log" "$ARTIFACT_DIR/slaves-before-coe.log"
+  capture_kernel_diagnostics "before-coe"
+  capture_runtime_host_diagnostics "before-coe"
+  start_coe_capture
+  if ! run_coe_readback >"$ARTIFACT_DIR/coe-pdo-readback.txt"; then
+    stop_coe_capture
+    capture_kernel_diagnostics "after-coe-failure"
+    capture_runtime_host_diagnostics "after-coe-failure"
+    {
+      date --iso-8601=ns 2>&1 || date
+      printf '\n--- ethercat master ---\n'
+      "$ETHERCAT_CLI" master 2>&1 || true
+      printf '\n--- ethercat slaves -v ---\n'
+      "$ETHERCAT_CLI" slaves -v 2>&1 || true
+      printf '\n--- ip -s link ---\n'
+      ip -s link show 2>&1 || true
+      printf '\n--- EoE interfaces ---\n'
+      ip -o link show 2>&1 | grep -E 'eoe[0-9]+s[0-9]+' || true
+    } >"$ARTIFACT_DIR/coe-failure-state.log" 2>&1
+    cat "$ARTIFACT_DIR/coe-pdo-readback.txt" >&2 || true
+    fail "CoE PDO assignment/mapping readback failed"
+  fi
+  stop_coe_capture
+  command -v python3 >/dev/null || fail "python3 is required to serialize CoE PDO snapshots"
+  if ! python3 "$SCRIPT_DIR/coe_snapshot.py" "$ARTIFACT_DIR/coe-pdo-rows.tsv" "$ARTIFACT_DIR/coe-pdo-snapshot.json" "$EXPECTED_SLAVES"; then
+    fail "CoE PDO snapshot validation/serialization failed"
+  fi
+  if [[ -n "$ESI_PDO_SNAPSHOT" ]]; then
+    [[ -f "$ESI_PDO_SNAPSHOT" ]] || fail "ESI PDO snapshot not found: $ESI_PDO_SNAPSHOT"
+    if ! python3 "$SCRIPT_DIR/esi_coe_parity.py" "$ESI_PDO_SNAPSHOT" \
+        "$ARTIFACT_DIR/coe-pdo-snapshot.json" "$ARTIFACT_DIR/esi-coe-parity.json"; then
+      cat "$ARTIFACT_DIR/esi-coe-parity.json" >&2 2>/dev/null || true
+      fail "ESI-to-CoE PDO assignment/mapping parity failed"
+    fi
+    printf 'PASS: ESI-to-CoE assignment and raw mapping parity; report: %s\n' \
+      "$ARTIFACT_DIR/esi-coe-parity.json"
+  fi
+  {
+    ip -o link show
+    "$ETHERCAT_CLI" eoe 2>&1 || true
+  } >"$ARTIFACT_DIR/eoe-after-coe.log" 2>&1
+  printf '\nPASS: CoE SDO readback of RxPDO/TxPDO assignments and PDO entries; structured snapshot: %s\n' "$ARTIFACT_DIR/coe-pdo-snapshot.json"
+fi
+
+if [[ "$CYCLIC_SIL" == "1" ]]; then
+  command -v python3 >/dev/null || fail "python3 is required to serialize IgH PDO snapshots"
+  command -v cmake >/dev/null || fail "cmake is required for cyclic PDO SIL"
+  command -v c++ >/dev/null || fail "a C++ compiler is required for cyclic PDO SIL"
+  readonly CYCLIC_BUILD_DIR="$ARTIFACT_DIR/build-igh-cyclic"
+  CYCLIC_TARGET=mca_ethercat_igh_kickcat_cyclic_sil
+  if [[ "$EXPECTED_SLAVES" == "2" ]]; then
+    CYCLIC_TARGET=mca_ethercat_igh_kickcat_multi_slave_cyclic_sil
+  elif [[ "$EXPECTED_SLAVES" != "1" ]]; then
+    fail "cyclic SIL supports one or two slaves; found $EXPECTED_SLAVES"
+  fi
+  CYCLIC_CMAKE_ARGS=(-DMCA_BUILD_TESTS=OFF -DMCA_BUILD_IGH_KICKCAT_SIL=ON)
+  if [[ "$COMM_FAULT_SIL" == "1" ]]; then
+    CYCLIC_CMAKE_ARGS+=(-DMCA_KICKCAT_SOURCE_DIR="$KICKCAT_SOURCE_DIR")
+  fi
+  if ! cmake -S "$REPO_ROOT" -B "$CYCLIC_BUILD_DIR" "${CYCLIC_CMAKE_ARGS[@]}" \
+      >"$ARTIFACT_DIR/cyclic-cmake-configure.log" 2>&1; then
+    cat "$ARTIFACT_DIR/cyclic-cmake-configure.log" >&2
+    fail "real-IgH cyclic SIL target configuration failed (check ecrt.h, libethercat and Eigen3)"
+  fi
+  if ! cmake --build "$CYCLIC_BUILD_DIR" --target \
+      "$CYCLIC_TARGET" --parallel 2 \
+      >"$ARTIFACT_DIR/cyclic-cmake-build.log" 2>&1; then
+    cat "$ARTIFACT_DIR/cyclic-cmake-build.log" >&2
+    fail "real-IgH cyclic SIL target build failed"
+  fi
+  if ! timeout "$CYCLIC_TIMEOUT_SEC" \
+      "$CYCLIC_BUILD_DIR/$CYCLIC_TARGET" \
+      >"$ARTIFACT_DIR/cyclic-pdo-wkc.log" 2>&1; then
+    cat "$ARTIFACT_DIR/cyclic-pdo-wkc.log" >&2
+    # Preserve the final kernel and host evidence before cleanup unloads IgH
+    # and removes the temporary veth pair.
+    capture_kernel_diagnostics "after-cyclic-failure"
+    capture_runtime_host_diagnostics "after-cyclic-failure"
+    fail "cyclic PDO/WKC/OP SIL failed"
+  fi
+  cat "$ARTIFACT_DIR/cyclic-pdo-wkc.log"
+  if ! python3 "$SCRIPT_DIR/igh_snapshot.py" "$ARTIFACT_DIR/cyclic-pdo-wkc.log" "$ARTIFACT_DIR/igh-pdo-snapshot.json"; then
+    fail "IgH PDO discovery snapshot extraction/validation failed"
+  fi
+  if [[ -n "$ESI_PDO_SNAPSHOT" ]]; then
+    if ! python3 "$SCRIPT_DIR/esi_igh_parity.py" "$ESI_PDO_SNAPSHOT" \
+        "$ARTIFACT_DIR/igh-pdo-snapshot.json" "$ARTIFACT_DIR/esi-igh-parity.json"; then
+      cat "$ARTIFACT_DIR/esi-igh-parity.json" >&2 2>/dev/null || true
+      fail "ESI-to-IgH PDO mapping parity failed"
+    fi
+    printf 'PASS: ESI-to-IgH SM/PDO/Entry parity; report: %s\n' \
+      "$ARTIFACT_DIR/esi-igh-parity.json"
+  fi
+fi
+
+
+if [[ "$COE_READBACK" == "1" && "$CYCLIC_SIL" == "1" ]]; then
+  [[ -n "$ESI_PDO_SNAPSHOT" ]] || fail "combined CoE + cyclic SIL requires MCA_ECAT_ESI_PDO_SNAPSHOT for the complete three-way parity gate"
+  [[ -f "$ESI_PDO_SNAPSHOT" ]] || fail "ESI PDO snapshot not found: $ESI_PDO_SNAPSHOT"
+  [[ -f "$ARTIFACT_DIR/esi-coe-parity.json" ]] || fail "ESI-to-CoE parity report is missing"
+  [[ -f "$ARTIFACT_DIR/esi-igh-parity.json" ]] || fail "ESI-to-IgH parity report is missing"
+  if ! python3 "$SCRIPT_DIR/coe_igh_parity.py" \
+      "$ARTIFACT_DIR/coe-pdo-snapshot.json" \
+      "$ARTIFACT_DIR/igh-pdo-snapshot.json" \
+      "$ARTIFACT_DIR/coe-igh-parity.json"; then
+    cat "$ARTIFACT_DIR/coe-igh-parity.json" >&2 2>/dev/null || true
+    fail "CoE-to-IgH PDO mapping parity failed"
+  fi
+  printf 'PASS: CoE-to-IgH PDO index and ordered raw mapping parity; report: %s\n' \
+    "$ARTIFACT_DIR/coe-igh-parity.json"
+  if ! python3 "$SCRIPT_DIR/three_way_pdo_parity.py" \
+      "$ARTIFACT_DIR/esi-coe-parity.json" \
+      "$ARTIFACT_DIR/esi-igh-parity.json" \
+      "$ARTIFACT_DIR/coe-igh-parity.json" \
+      "$EXPECTED_SLAVES" "$ARTIFACT_DIR/three-way-pdo-parity.json"; then
+    cat "$ARTIFACT_DIR/three-way-pdo-parity.json" >&2 2>/dev/null || true
+    fail "unified ESI/CoE/IgH three-way PDO parity failed"
+  fi
+  printf 'PASS: unified ESI/CoE/IgH three-way PDO parity; report: %s\n' \
+    "$ARTIFACT_DIR/three-way-pdo-parity.json"
+fi
+
+
+printf '\nDiscovery-time slave snapshot (captured before cyclic SIL; not runtime AL-state evidence):\n'
+cat "$ARTIFACT_DIR/slaves-verbose.log"
+printf '\nPASS: IgH ec_generic <-> veth <-> KickCAT raw-socket slave discovery and bidirectional EtherCAT frame exchange.\n'
+if [[ "$CYCLIC_SIL" == "1" && "$COE_READBACK" == "1" ]]; then
+  printf 'NOTE: CoE mapping readback and cyclic PDO/WKC/AL-OP passed; CiA402 motion, DC timing and real-slave HIL remain unvalidated.\n'
+elif [[ "$CYCLIC_SIL" == "1" ]]; then
+  printf 'NOTE: Cyclic PDO/WKC/AL-OP passed; independent CoE SDO readback, CiA402 motion, DC timing and real-slave HIL remain unvalidated.\n'
+elif [[ "$COE_READBACK" == "1" ]]; then
+  printf 'NOTE: CoE PDO objects were read independently; cyclic PDO/WKC, CiA402 motion, DC timing and HIL remain unvalidated.\n'
+else
+  printf 'NOTE: Transport/discovery only. Set MCA_ECAT_COE_READBACK=1 for CoE readback and MCA_ECAT_CYCLIC_SIL=1 for cyclic PDO/WKC/AL-OP validation.\n'
+fi

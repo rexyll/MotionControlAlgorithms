@@ -53,6 +53,23 @@ class CoeSnapshotTests(unittest.TestCase):
         with self.assertRaisesRegex(SnapshotError, "malformed mapping entry/padding"):
             parse_rows(rows)
 
+    def test_rejects_interleaved_pdo_entry_groups(self):
+        rows = fixture().replace(
+            "M\\t0\\t0x1c12\\t1\\t0x1600\\t2\\t0x00000008\\n"
+            "M\\t0\\t0x1c13\\t1\\t0x1a00\\t1\\t0x60410010",
+            "M\\t0\\t0x1c13\\t1\\t0x1a00\\t1\\t0x60410010\\n"
+            "M\\t0\\t0x1c12\\t1\\t0x1600\\t2\\t0x00000008",
+        )
+        with self.assertRaisesRegex(SnapshotError, "not contiguous"):
+            parse_rows(rows)
+
+    def test_rejects_non_contiguous_ring_positions(self):
+        rows = fixture().replace("S\\t0\\t", "S\\t1\\t").replace("\\t0\\t0x1c", "\\t1\\t0x1c").replace(
+            "M\\t0\\t", "M\\t1\\t"
+        )
+        with self.assertRaisesRegex(SnapshotError, "contiguous from zero"):
+            parse_rows(rows)
+
     def test_rejects_missing_slave_identity(self):
         with self.assertRaisesRegex(SnapshotError, "no slave identity"):
             parse_rows("")

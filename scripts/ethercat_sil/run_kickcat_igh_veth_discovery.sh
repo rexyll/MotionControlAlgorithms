@@ -17,6 +17,7 @@ readonly KICKCAT_SLAVE_CONFIGS="${KICKCAT_SLAVE_CONFIGS:-}"
 readonly EXPECTED_SLAVES_OVERRIDE="${MCA_ECAT_EXPECTED_SLAVES:-}"
 readonly ETHERCAT_CLI="${ETHERCAT_CLI:-ethercat}"
 readonly COE_READBACK="${MCA_ECAT_COE_READBACK:-0}"
+readonly ESI_PDO_SNAPSHOT="${MCA_ECAT_ESI_PDO_SNAPSHOT:-}"
 readonly IGH_DEBUG_LEVEL="${MCA_ECAT_DEBUG_LEVEL:-0}"
 readonly DISABLE_EOE="${MCA_ECAT_DISABLE_EOE:-0}"
 readonly CYCLIC_SIL="${MCA_ECAT_CYCLIC_SIL:-0}"
@@ -525,6 +526,16 @@ if [[ "$COE_READBACK" == "1" ]]; then
   command -v python3 >/dev/null || fail "python3 is required to serialize CoE PDO snapshots"
   if ! python3 "$SCRIPT_DIR/coe_snapshot.py" "$ARTIFACT_DIR/coe-pdo-rows.tsv" "$ARTIFACT_DIR/coe-pdo-snapshot.json"; then
     fail "CoE PDO snapshot validation/serialization failed"
+  fi
+  if [[ -n "$ESI_PDO_SNAPSHOT" ]]; then
+    [[ -f "$ESI_PDO_SNAPSHOT" ]] || fail "ESI PDO snapshot not found: $ESI_PDO_SNAPSHOT"
+    if ! python3 "$SCRIPT_DIR/esi_coe_parity.py" "$ESI_PDO_SNAPSHOT" \
+        "$ARTIFACT_DIR/coe-pdo-snapshot.json" "$ARTIFACT_DIR/esi-coe-parity.json"; then
+      cat "$ARTIFACT_DIR/esi-coe-parity.json" >&2 2>/dev/null || true
+      fail "ESI-to-CoE PDO assignment/mapping parity failed"
+    fi
+    printf 'PASS: ESI-to-CoE assignment and raw mapping parity; report: %s\n' \
+      "$ARTIFACT_DIR/esi-coe-parity.json"
   fi
   {
     ip -o link show

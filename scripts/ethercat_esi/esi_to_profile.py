@@ -1569,6 +1569,12 @@ def resolve_cia402_candidate(
     *,
     treat_slot_dependent_indices_as_literal: bool = False,
 ) -> dict[str, Any]:
+    """Resolve explicitly selected CiA 402 PDO declarations.
+
+    ESI may describe alternatives; selection is not runtime assignment proof.
+    The literal-index override is only for non-modular profiles with no Slots
+    section and must be corroborated by independent runtime CoE readback.
+    """
     if device.get("slots") is not None:
         raise EsiError(
             "slot-configurable device requires an explicit slot-resolved PDO map; "
@@ -1589,12 +1595,6 @@ def resolve_cia402_candidate(
             for exclusion in pdo["excluded_pdos"]:
                 exclusion["depend_on_slot"] = False
                 exclusion["depend_on_slot_group"] = False
-    """Resolve CiA 402 objects only from explicitly selected PDO declarations.
-
-    ESI may describe alternative PDOs. The caller must select the PDO indices
-    that represent the intended mapping; declarations alone are not active
-    assignment readback or proof of runtime capability.
-    """
     if not rx_pdo_indices or not tx_pdo_indices:
         raise EsiError("explicit RxPDO and TxPDO selections are both required")
     if not treat_slot_dependent_indices_as_literal and any(

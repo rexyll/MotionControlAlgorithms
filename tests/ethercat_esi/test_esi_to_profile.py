@@ -384,6 +384,82 @@ class EsiToProfileTests(unittest.TestCase):
         ):
             esi_to_profile.attach_external_module_files(document, [module_path])
 
+    def test_rejects_negative_module_pdo_group_number(self):
+        modular = ESI.replace(
+            "</EtherCATInfo>",
+            """  <Modules>
+    <Module><Type ModuleIdent="#x4711" ModulePdoGroup="-1">Bad module</Type>
+      <Name>Bad module</Name></Module>
+  </Modules>
+</EtherCATInfo>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "Module.Type.ModulePdoGroup value -1 must be non-negative",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
+    def test_rejects_negative_device_module_pdo_group_without_slots(self):
+        malformed = ESI.replace(
+            '<Type ProductCode="#x00001001" RevisionNo="#x00000002">',
+            '<Type ProductCode="#x00001001" RevisionNo="#x00000002" ModulePdoGroup="-1">',
+            1,
+        )
+        self.path.write_text(malformed, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "Device.Type.ModulePdoGroup value -1 must be non-negative",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
+    def test_rejects_device_module_pdo_group_without_slots_description(self):
+        malformed = ESI.replace(
+            '<Type ProductCode="#x00001001" RevisionNo="#x00000002">',
+            '<Type ProductCode="#x00001001" RevisionNo="#x00000002" ModulePdoGroup="0">',
+            1,
+        )
+        self.path.write_text(malformed, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "uses ModulePdoGroup 0 without a Slots/ModulePdoGroup description",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
+    def test_rejects_negative_module_pdo_group_alignment(self):
+        modular = ESI.replace(
+            "      </Device>",
+            """        <Slots>
+          <ModulePdoGroup Alignment="-1" RxPdo="#x1600" TxPdo="#x1A00"/>
+        </Slots>
+      </Device>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "Slots.ModulePdoGroup\\[0\\] Alignment must be non-negative",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
+    def test_rejects_duplicate_tx_alignment_pdo_indices(self):
+        modular = ESI.replace(
+            "      </Device>",
+            """        <Slots>
+          <ModulePdoGroup Alignment="2" RxPdo="#x1600" TxPdo="#x1A00"/>
+          <ModulePdoGroup Alignment="4" RxPdo="#x1601" TxPdo="#x1A00"/>
+        </Slots>
+      </Device>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "Slots.ModulePdoGroup TxPdo 0x1A00 is duplicated by groups 0 and 1",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
     def test_parses_module_mailbox_coe_init_commands_without_executing_them(self):
         modular = ESI.replace(
             "</EtherCATInfo>",

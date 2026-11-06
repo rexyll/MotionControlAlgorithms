@@ -583,6 +583,18 @@ if [[ "$CYCLIC_SIL" == "1" ]]; then
     fail "cyclic PDO/WKC/OP SIL failed"
   fi
   cat "$ARTIFACT_DIR/cyclic-pdo-wkc.log"
+  if ! python3 "$SCRIPT_DIR/igh_snapshot.py" "$ARTIFACT_DIR/cyclic-pdo-wkc.log" "$ARTIFACT_DIR/igh-pdo-snapshot.json"; then
+    fail "IgH PDO discovery snapshot extraction/validation failed"
+  fi
+  if [[ -n "$ESI_PDO_SNAPSHOT" ]]; then
+    if ! python3 "$SCRIPT_DIR/esi_igh_parity.py" "$ESI_PDO_SNAPSHOT" \
+        "$ARTIFACT_DIR/igh-pdo-snapshot.json" "$ARTIFACT_DIR/esi-igh-parity.json"; then
+      cat "$ARTIFACT_DIR/esi-igh-parity.json" >&2 2>/dev/null || true
+      fail "ESI-to-IgH PDO mapping parity failed"
+    fi
+    printf 'PASS: ESI-to-IgH SM/PDO/Entry parity; report: %s\\n' \
+      "$ARTIFACT_DIR/esi-igh-parity.json"
+  fi
 fi
 
 printf '\nDiscovery-time slave snapshot (captured before cyclic SIL; not runtime AL-state evidence):\n'

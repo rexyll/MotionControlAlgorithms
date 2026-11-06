@@ -50,7 +50,9 @@ class CoeIghParityTests(unittest.TestCase):
 
     def test_rejects_ring_position_mismatch(self):
         coe, igh = fixtures()
-        igh["slaves"][0]["ring_position"] = 1
+        extra = dict(igh["slaves"][0])
+        extra["ring_position"] = 1
+        igh["slaves"].append(extra)
         with self.assertRaisesRegex(CoeIghParityError, "ring-position sets differ"):
             compare_snapshots(coe, igh)
 

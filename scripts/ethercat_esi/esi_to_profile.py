@@ -751,13 +751,16 @@ def _parse_pdo_type_attributes(
     if safety_pdo_type is not None and safety_pdo_type not in allowed_safety_pdo_types:
         raise EsiError(f"invalid {field}.SafetyPdoType: {safety_pdo_type!r}")
 
+    sync_manager = _xs_integer(element.attrib.get("Sm"), f"{field}.Sm")
+    if sync_manager is not None and not 0 <= sync_manager <= 0xFF:
+        raise EsiError(f"{field}.Sm value {sync_manager} is outside 0..255")
     return {
         "fixed": _optional_boolean(element.attrib.get("Fixed"), f"{field}.Fixed"),
         "mandatory": _optional_boolean(
             element.attrib.get("Mandatory"), f"{field}.Mandatory"
         ),
         "virtual": _optional_boolean(element.attrib.get("Virtual"), f"{field}.Virtual"),
-        "sync_manager": _xs_integer(element.attrib.get("Sm"), f"{field}.Sm"),
+        "sync_manager": sync_manager,
         "sync_unit": _xs_integer(element.attrib.get("Su"), f"{field}.Su"),
         "pdo_order": _xs_integer(element.attrib.get("PdoOrder"), f"{field}.PdoOrder"),
         "oversampling_factor": _xs_integer(
@@ -862,10 +865,6 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
     ]
     attributes = _parse_pdo_type_attributes(pdo, f"{direction}PDO")
     sm_index = attributes["sync_manager"]
-    if sm_index is not None and not 0 <= sm_index <= 0xFF:
-        raise EsiError(
-            f"{direction}PDO.Sm value {sm_index} is outside 0..255"
-        )
     mandatory = attributes["mandatory"] or False
     virtual = attributes["virtual"] or False
     if not entries and not virtual:
@@ -1076,6 +1075,20 @@ def resolve_cia402_candidate(
                 f"selected {pdo['direction'].upper()}PDO 0x{pdo['index']:04X} "
                 "contains FSoE/SRA safety metadata and cannot be treated as a "
                 "generic CiA 402 process-data mapping"
+            )
+        if any(
+            pdo[name] is not None
+            for name in (
+                "oversampling_factor",
+                "oversampling_min",
+                "oversampling_max",
+                "oversampling_index_increment",
+            )
+        ):
+            raise EsiError(
+                f"selected {pdo['direction'].upper()}PDO 0x{pdo['index']:04X} "
+                "contains oversampling metadata that the static CiA 402 "
+                "candidate resolver does not expand"
             )
         if any(
             entry["safety_connection_number"] is not None

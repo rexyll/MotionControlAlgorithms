@@ -104,7 +104,7 @@ run_coe_readback() {
     fail "IgH development linker flags unavailable (need ethercat-config or pkg-config ethercat)"
   fi
 
-  if ! c++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow \
+  if ! c++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow -pthread \
       "${ethercat_cflags[@]}" "$SCRIPT_DIR/coe_sdo_readback.cpp" \
       -o "$helper" "${ethercat_libs[@]}" \
       >"$ARTIFACT_DIR/coe-sdo-readback-build.log" 2>&1; then

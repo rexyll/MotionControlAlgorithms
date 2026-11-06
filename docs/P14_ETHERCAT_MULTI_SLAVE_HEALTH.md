@@ -127,6 +127,53 @@ Enabled from their own statusword feedback, then both returning to
 Switch On Disabled. The script selects the multi-slave target automatically
 from `MCA_ECAT_EXPECTED_SLAVES=2`.
 
+## ESI-to-CoE mapping parity gate (not yet implemented)
+
+The current two-slave SIL proves two separate things, but does not yet join them
+into one ESI-to-runtime acceptance result:
+
+- `run_kickcat_igh_veth_discovery.sh` reads CoE assignment objects
+  `0x1C12` / `0x1C13` and each referenced PDO's mapping entries at each
+  ring position. It validates readable counts, nonzero PDO indices, entry
+  counts and nonzero bit widths, and records decoded values in
+  `coe-pdo-readback.txt` / `coe-sdo-raw.log`.
+- `EthercatIghAdapter::discover_pdo_mapping()` snapshots the PDO hierarchy
+  reported by the IgH master API. The cyclic harness then builds its bindings
+  from that discovered hierarchy.
+- These paths are independent today. The shell readback is not compared
+  against the offline ESI slot resolver output, nor is its full assignment
+  order and Entry sequence imported into the C++ mapping profile. A successful
+  readback therefore proves that the simulator answered those CoE reads, not
+  that the selected ESI/module configuration and the runtime mapping are
+  identical.
+
+The next implementation gate is a bounded, fail-closed parity contract. Its
+expected and observed records must retain, at minimum:
+
+1. ring position plus vendor ID and product code (never infer identity from
+   array order);
+2. SyncManager number and direction;
+3. assignment object and ordered assigned PDO indices;
+4. each PDO index and ordered mapping tuple (object index, subindex, bit
+   length), including explicit padding entries;
+5. exact cardinality and duplicate detection.
+
+Comparison must reject missing/extra PDOs, reordered assignment entries,
+missing/extra mapping entries, identity mismatch, direction/SM mismatch,
+zero or unsupported widths, and any capacity overflow. It must not silently
+sort records before comparison because assignment and mapping order are
+semantically significant. The offline ESI resolver remains a source of
+expected configuration, not evidence of what the slave currently exposes.
+Only a successful parity result may be used to produce the runtime
+`EthercatPdoMappingProfile` consumed by the CiA 402 binding resolver.
+
+Implement the comparator first as a dependency-free fixed-capacity component
+with synthetic positive and negative tests; then connect the CoE readback
+collector and ESI resolver output. Preserve the existing independent
+KickCAT/IgH transport and fault-isolation tests. No real drive has been
+selected yet, so this gate must remain vendor-neutral and must not invent
+vendor-specific object layouts or claim physical HIL.
+
 ## Independent multi-drive fault isolation SIL
 
 The wire-level multi-slave harness now has an opt-in

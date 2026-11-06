@@ -144,6 +144,298 @@ def _parse_sync_managers(device: ET.Element) -> list[dict[str, Any]]:
     return result
 
 
+
+def _xs_integer(value: str | None, field: str, *, required: bool = False) -> int | None:
+    """Parse an XML Schema xs:int value (decimal, signed 32-bit)."""
+    if value is None or not value.strip():
+        if required:
+            raise EsiError(f"missing integer value for {field}")
+        return None
+    token = value.strip()
+    if not re.fullmatch(r"[+-]?[0-9]+", token):
+        raise EsiError(f"invalid {field}: {value!r}")
+    result = int(token, 10)
+    if not -(2**31) <= result <= 2**31 - 1:
+        raise EsiError(f"{field} value {result} is outside the xs:int range")
+    return result
+
+
+def _validate_static_pdo_indices(
+    pdos: list[dict[str, Any]],
+    context: str,
+) -> None:
+    seen: dict[int, str] = {}
+    for pdo in pdos:
+        is_dynamic = (
+            pdo["index_depend_on_slot"] or pdo["index_depend_on_slot_group"]
+        )
+        if is_dynamic:
+            continue
+        previous_direction = seen.get(pdo["index"])
+        if previous_direction is not None:
+            raise EsiError(
+                f"{context} duplicate PDO index 0x{pdo['index']:04X} declared by "
+                f"{previous_direction.upper()}PDO and {pdo['direction'].upper()}PDO"
+            )
+        seen[pdo["index"]] = pdo["direction"]
+
+
+def _parse_module(module: ET.Element) -> dict[str, Any]:
+    type_element = _one(module, "Type", required=True)
+    assert type_element is not None
+    module_ident_value = _number(
+        type_element.attrib.get("ModuleIdent"), "Module.Type.ModuleIdent"
+    )
+    if module_ident_value is None:
+        raise EsiError("missing ModuleIdent on Module.Type")
+    module_ident = _require_range(
+        module_ident_value, "Module.Type.ModuleIdent", 0xFFFFFFFF
+    )
+    if module_ident == 0:
+        raise EsiError("ModuleIdent 0x00000000 is reserved for an empty slot")
+
+    names = _localized_names(module, "Module.Name", required=True)
+    pdos: list[dict[str, Any]] = []
+    for child in list(module):
+        tag = _local_name(child.tag)
+        if tag == "RxPdo":
+            pdos.append(_parse_pdo(child, "rx"))
+        elif tag == "TxPdo":
+            pdos.append(_parse_pdo(child, "tx"))
+    _validate_static_pdo_indices(pdos, f"Module 0x{module_ident:08X}")
+
+    safety_mappings: list[dict[str, Any]] = []
+    for mapping in _children(module, "SafetyParaMapping"):
+        mapping_index = _required_child_number(
+            mapping, "Index", "Module.SafetyParaMapping.Index"
+        )
+        mapping_names = _localized_names(
+            mapping, "Module.SafetyParaMapping.Name"
+        )
+        safety_mappings.append({
+            "index": _require_range(
+                mapping_index, "Module.SafetyParaMapping.Index", 0xFFFF
+            ),
+            "name": _primary_name(mapping_names),
+            "localized_names": mapping_names,
+            "fixed": _optional_boolean(
+                mapping.attrib.get("Fixed"), "Module.SafetyParaMapping.Fixed"
+            ),
+            "mandatory": _optional_boolean(
+                mapping.attrib.get("Mandatory"), "Module.SafetyParaMapping.Mandatory"
+            ),
+        })
+
+    crc32 = _number(module.attrib.get("Crc32"), "Module.Crc32", required=False)
+    if crc32 is not None:
+        crc32 = _require_range(crc32, "Module.Crc32", 0xFFFFFFFF)
+    return {
+        "module_ident": module_ident,
+        "type_name": _text(type_element, "Module.Type"),
+        "name": _primary_name(names),
+        "localized_names": names,
+        "module_class": type_element.attrib.get("ModuleClass"),
+        "module_pdo_group": _xs_integer(
+            type_element.attrib.get("ModulePdoGroup"), "Module.Type.ModulePdoGroup"
+        ),
+        "sra_parameter_supported": _optional_boolean(
+            type_element.attrib.get("SRA_ParameterSupported"),
+            "Module.Type.SRA_ParameterSupported",
+        ),
+        "crc32": crc32,
+        "pdos": pdos,
+        "safety_parameter_mappings": safety_mappings,
+        "has_mailbox": _one(module, "Mailbox") is not None,
+    }
+
+
+def _parse_slots(device: ET.Element) -> dict[str, Any] | None:
+    slots_element = _one(device, "Slots")
+    if slots_element is None:
+        return None
+
+    parsed_slots: list[dict[str, Any]] = []
+    for ordinal, slot in enumerate(_children(slots_element, "Slot")):
+        min_instances = _xs_integer(
+            slot.attrib.get("MinInstances"), f"Slots.Slot[{ordinal}].MinInstances"
+        )
+        max_instances = _xs_integer(
+            slot.attrib.get("MaxInstances"), f"Slots.Slot[{ordinal}].MaxInstances"
+        )
+        if min_instances is not None and min_instances < 0:
+            raise EsiError(f"Slots.Slot[{ordinal}].MinInstances cannot be negative")
+        if max_instances is not None and max_instances < 0:
+            raise EsiError(f"Slots.Slot[{ordinal}].MaxInstances cannot be negative")
+        if (
+            min_instances is not None
+            and max_instances is not None
+            and min_instances > max_instances
+        ):
+            raise EsiError(
+                f"Slots.Slot[{ordinal}] MinInstances exceeds MaxInstances"
+            )
+
+        names = _localized_names(slot, f"Slots.Slot[{ordinal}].Name")
+        module_options: list[dict[str, Any]] = []
+        seen_idents: set[int] = set()
+        default_count = 0
+        for module_element in _children(slot, "ModuleIdent"):
+            ident_text = _text(
+                module_element, f"Slots.Slot[{ordinal}].ModuleIdent", required=True
+            )
+            ident_value = _number(
+                ident_text, f"Slots.Slot[{ordinal}].ModuleIdent"
+            )
+            assert ident_value is not None
+            ident = _require_range(
+                ident_value, f"Slots.Slot[{ordinal}].ModuleIdent", 0xFFFFFFFF
+            )
+            if ident in seen_idents:
+                raise EsiError(
+                    f"Slots.Slot[{ordinal}] repeats ModuleIdent 0x{ident:08X}"
+                )
+            seen_idents.add(ident)
+            is_default = _optional_boolean(
+                module_element.attrib.get("Default"),
+                f"Slots.Slot[{ordinal}].ModuleIdent.Default",
+            ) or False
+            if is_default:
+                default_count += 1
+            module_options.append({
+                "module_ident": ident,
+                "default": is_default,
+                "is_empty_slot": ident == 0,
+            })
+        if default_count > 1:
+            raise EsiError(
+                f"Slots.Slot[{ordinal}] declares more than one default ModuleIdent"
+            )
+        parsed_slots.append({
+            "ordinal": ordinal,
+            "module_list_subindex": ordinal + 1,
+            "name": _primary_name(names),
+            "localized_names": names,
+            "min_instances": min_instances,
+            "max_instances": max_instances,
+            "module_options": module_options,
+            "default_module_ident": next(
+                (item["module_ident"] for item in module_options if item["default"]),
+                None,
+            ),
+        })
+
+    slot_group_data: list[dict[str, Any]] = []
+    seen_groups: set[int] = set()
+    for group in _children(slots_element, "SlotGroupData"):
+        group_value = _number(
+            group.attrib.get("SlotGroup"), "Slots.SlotGroupData.SlotGroup"
+        )
+        if group_value is None:
+            raise EsiError("missing Slots.SlotGroupData.SlotGroup")
+        group_ident = _require_range(
+            group_value, "Slots.SlotGroupData.SlotGroup", 0xFFFFFFFF
+        )
+        if group_ident in seen_groups:
+            raise EsiError(
+                f"Slots contains duplicate SlotGroupData {group_ident}"
+            )
+        seen_groups.add(group_ident)
+        names = _localized_names(group, "Slots.SlotGroupData.Name")
+        slot_group_data.append({
+            "slot_group": group_ident,
+            "name": _primary_name(names),
+            "localized_names": names,
+        })
+
+    module_pdo_groups: list[dict[str, Any]] = []
+    for group in _children(slots_element, "ModulePdoGroup"):
+        rx_pdo = _number(
+            group.attrib.get("RxPdo"), "Slots.ModulePdoGroup.RxPdo", required=False
+        )
+        tx_pdo = _number(
+            group.attrib.get("TxPdo"), "Slots.ModulePdoGroup.TxPdo", required=False
+        )
+        module_pdo_groups.append({
+            "name": _text(group, "Slots.ModulePdoGroup"),
+            "alignment": _xs_integer(
+                group.attrib.get("Alignment"), "Slots.ModulePdoGroup.Alignment"
+            ),
+            "rx_pdo": (
+                None if rx_pdo is None
+                else _require_range(rx_pdo, "Slots.ModulePdoGroup.RxPdo", 0xFFFF)
+            ),
+            "tx_pdo": (
+                None if tx_pdo is None
+                else _require_range(tx_pdo, "Slots.ModulePdoGroup.TxPdo", 0xFFFF)
+            ),
+        })
+
+    slot_selections: list[dict[str, Any]] = []
+    for selection in _children(slots_element, "SlotSelections"):
+        names = _localized_names(
+            selection, "Slots.SlotSelections.Name", required=True
+        )
+        module_idents: list[int] = []
+        for module_element in _children(selection, "ModuleIdent"):
+            value = _text(
+                module_element, "Slots.SlotSelections.ModuleIdent", required=True
+            )
+            ident_value = _number(
+                value, "Slots.SlotSelections.ModuleIdent"
+            )
+            assert ident_value is not None
+            ident = _require_range(
+                ident_value, "Slots.SlotSelections.ModuleIdent", 0xFFFFFFFF
+            )
+            if ident in module_idents:
+                raise EsiError(
+                    f"Slots.SlotSelections repeats ModuleIdent 0x{ident:08X}"
+                )
+            module_idents.append(ident)
+        if not module_idents:
+            raise EsiError("Slots.SlotSelections must list at least one ModuleIdent")
+        slot_selections.append({
+            "name": _primary_name(names),
+            "localized_names": names,
+            "module_idents": module_idents,
+        })
+
+    transition = slots_element.attrib.get("DownloadModuleListTransition", "SP")
+    if transition not in {"IP", "SP", "SO"}:
+        raise EsiError(
+            f"invalid Slots.DownloadModuleListTransition: {transition!r}"
+        )
+
+    def optional_hex_attribute(name: str) -> int | None:
+        value = _number(slots_element.attrib.get(name), f"Slots.{name}", required=False)
+        if value is None:
+            return None
+        return _require_range(value, f"Slots.{name}", 0xFFFFFFFF)
+
+    return {
+        "download_module_ident_list": _optional_boolean(
+            slots_element.attrib.get("DownloadModuleIdentList"),
+            "Slots.DownloadModuleIdentList",
+        ),
+        "download_module_address_list": _optional_boolean(
+            slots_element.attrib.get("DownloadModuleAddressList"),
+            "Slots.DownloadModuleAddressList",
+        ),
+        "download_module_list_transition": transition,
+        "max_slot_count": optional_hex_attribute("MaxSlotCount"),
+        "max_slot_group_count": optional_hex_attribute("MaxSlotGroupCount"),
+        "slot_pdo_increment": optional_hex_attribute("SlotPdoIncrement"),
+        "slot_group_pdo_increment": optional_hex_attribute("SlotGroupPdoIncrement"),
+        "slot_index_increment": optional_hex_attribute("SlotIndexIncrement"),
+        "slot_group_index_increment": optional_hex_attribute("SlotGroupIndexIncrement"),
+        "identify_module_by": slots_element.attrib.get("IdentifyModuleBy"),
+        "slots": parsed_slots,
+        "slot_group_data": slot_group_data,
+        "module_pdo_groups": module_pdo_groups,
+        "slot_selections": slot_selections,
+    }
+
+
 def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
     index_element = _one(pdo, "Index", required=True)
     assert index_element is not None
@@ -340,22 +632,12 @@ def _parse_device(device: ET.Element, vendor_id: int) -> dict[str, Any]:
         elif tag == "TxPdo":
             pdos.append(_parse_pdo(child, "tx"))
 
-    if not pdos:
-        raise EsiError(f"device {device_name!r} has no RxPdo/TxPdo declarations")
-    seen_static_pdo_indices: dict[int, str] = {}
-    for pdo in pdos:
-        is_dynamic = (
-            pdo["index_depend_on_slot"] or pdo["index_depend_on_slot_group"]
+    slots = _parse_slots(device)
+    if not pdos and slots is None:
+        raise EsiError(
+            f"device {device_name!r} has no PDO declarations and no Slots description"
         )
-        if is_dynamic:
-            continue
-        previous_direction = seen_static_pdo_indices.get(pdo["index"])
-        if previous_direction is not None:
-            raise EsiError(
-                f"duplicate PDO index 0x{pdo['index']:04X} declared by "
-                f"{previous_direction.upper()}PDO and {pdo['direction'].upper()}PDO"
-            )
-        seen_static_pdo_indices[pdo["index"]] = pdo["direction"]
+    _validate_static_pdo_indices(pdos, f"Device {device_name!r}")
     sync_managers = _parse_sync_managers(device)
     for pdo in pdos:
         sync_manager = pdo["sync_manager"]
@@ -382,8 +664,12 @@ def _parse_device(device: ET.Element, vendor_id: int) -> dict[str, Any]:
         "name": device_name,
         "localized_names": device_names,
         "type_name": _text(type_element, "Device.Type"),
+        "module_pdo_group": _xs_integer(
+            type_element.attrib.get("ModulePdoGroup"), "Device.Type.ModulePdoGroup"
+        ),
         "sync_managers": sync_managers,
         "pdos": pdos,
+        "slots": slots,
     }
 
 
@@ -405,6 +691,11 @@ CIA402_OBJECTS = {
 def resolve_cia402_candidate(
     device: dict[str, Any], rx_pdo_indices: list[int], tx_pdo_indices: list[int]
 ) -> dict[str, Any]:
+    if not device["pdos"] and device.get("slots") is not None:
+        raise EsiError(
+            "module-only device requires slot-resolved module PDO mappings; "
+            "static CiA 402 candidate resolution cannot infer installed modules"
+        )
     """Resolve CiA 402 objects only from explicitly selected PDO declarations.
 
     ESI may describe alternative PDOs. The caller must select the PDO indices
@@ -603,6 +894,22 @@ def parse_esi(path: Path) -> dict[str, Any]:
     vendor_id = _require_range(_required_child_number(vendor, "Id", "Vendor.Id"), "Vendor.Id", 0xFFFFFFFF)
     vendor_names = _localized_names(vendor, "Vendor.Name", required=True)
     vendor_name = _primary_name(vendor_names)
+    info_references: list[str] = []
+    for reference in _children(root, "InfoReference"):
+        info_references.append(
+            _text(reference, "EtherCATInfo.InfoReference", required=True) or ""
+        )
+    modules_element = _one(root, "Modules")
+    module_catalog = (
+        [] if modules_element is None
+        else [_parse_module(node) for node in _children(modules_element, "Module")]
+    )
+    seen_module_idents: set[int] = set()
+    for module in module_catalog:
+        ident = module["module_ident"]
+        if ident in seen_module_idents:
+            raise EsiError(f"duplicate ModuleIdent 0x{ident:08X} in root Modules catalog")
+        seen_module_idents.add(ident)
     descriptions = _one(root, "Descriptions", required=True)
     assert descriptions is not None
     devices_container = _one(descriptions, "Devices", required=True)
@@ -618,6 +925,8 @@ def parse_esi(path: Path) -> dict[str, Any]:
             "name": vendor_name,
             "localized_names": vendor_names,
         },
+        "info_references": info_references,
+        "modules": module_catalog,
         "devices": devices,
     }
 

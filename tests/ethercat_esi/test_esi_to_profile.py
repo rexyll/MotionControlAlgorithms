@@ -112,6 +112,32 @@ class EsiToProfileTests(unittest.TestCase):
         ):
             esi_to_profile.parse_esi(self.path)
 
+    def test_parses_xml_schema_boolean_lexical_forms_and_sm_metadata(self):
+        valid = ESI.replace(
+            'Fixed="true" Mandatory="true"',
+            'Fixed="1" Mandatory="0"',
+            1,
+        ).replace(
+            'ControlByte="#x64" Enable="1">Outputs',
+            'ControlByte="#x64" Enable="1" Virtual="1" OpOnly="true">Outputs',
+            1,
+        )
+        self.path.write_text(valid, encoding="utf-8")
+        first = esi_to_profile.parse_esi(self.path)["devices"][0]
+        self.assertTrue(first["pdos"][0]["fixed"])
+        self.assertFalse(first["pdos"][0]["mandatory"])
+        self.assertTrue(first["sync_managers"][2]["virtual"])
+        self.assertTrue(first["sync_managers"][2]["op_only"])
+
+    def test_rejects_invalid_xml_schema_boolean_value(self):
+        malformed = ESI.replace('Fixed="true"', 'Fixed="yes"', 1)
+        self.path.write_text(malformed, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "invalid boolean value for rxPDO.Fixed",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
     def test_decimal_and_hex_identity_fields_are_normalized(self):
         second = esi_to_profile.parse_esi(self.path)["devices"][1]
         self.assertEqual(second["identity"]["product_code"], 4098)

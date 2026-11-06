@@ -157,6 +157,24 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertTrue(first["pdos"][-1]["virtual"])
         self.assertEqual(first["pdos"][-1]["entries"], [])
 
+    def test_rejects_slot_dependent_pdo_indices_in_static_candidate(self):
+        dynamic = ESI_WITH_VELOCITY.replace(
+            "<Index>#x1601</Index>",
+            '<Index DependOnSlot="true">#x1601</Index>',
+            1,
+        )
+        self.path.write_text(dynamic, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        velocity_pdo = next(pdo for pdo in device["pdos"] if pdo["index"] == 0x1601)
+        self.assertTrue(velocity_pdo["index_depend_on_slot"])
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "slot-dependent PDO indices",
+        ):
+            esi_to_profile.resolve_cia402_candidate(
+                device, [0x1600, 0x1601], [0x1A00, 0x1A01]
+            )
+
     def test_rejects_selected_mutually_exclusive_pdos(self):
         incompatible = ESI_WITH_VELOCITY.replace(
             '<RxPdo Sm="2" Fixed="true" Mandatory="true">',

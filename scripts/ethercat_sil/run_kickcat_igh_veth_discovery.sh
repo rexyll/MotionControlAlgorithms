@@ -600,6 +600,10 @@ fi
 
 
 if [[ "$COE_READBACK" == "1" && "$CYCLIC_SIL" == "1" ]]; then
+  [[ -n "$ESI_PDO_SNAPSHOT" ]] || fail "combined CoE + cyclic SIL requires MCA_ECAT_ESI_PDO_SNAPSHOT for the complete three-way parity gate"
+  [[ -f "$ESI_PDO_SNAPSHOT" ]] || fail "ESI PDO snapshot not found: $ESI_PDO_SNAPSHOT"
+  [[ -f "$ARTIFACT_DIR/esi-coe-parity.json" ]] || fail "ESI-to-CoE parity report is missing"
+  [[ -f "$ARTIFACT_DIR/esi-igh-parity.json" ]] || fail "ESI-to-IgH parity report is missing"
   if ! python3 "$SCRIPT_DIR/coe_igh_parity.py" \
       "$ARTIFACT_DIR/coe-pdo-snapshot.json" \
       "$ARTIFACT_DIR/igh-pdo-snapshot.json" \
@@ -609,6 +613,16 @@ if [[ "$COE_READBACK" == "1" && "$CYCLIC_SIL" == "1" ]]; then
   fi
   printf 'PASS: CoE-to-IgH PDO index and ordered raw mapping parity; report: %s\n' \
     "$ARTIFACT_DIR/coe-igh-parity.json"
+  if ! python3 "$SCRIPT_DIR/three_way_pdo_parity.py" \
+      "$ARTIFACT_DIR/esi-coe-parity.json" \
+      "$ARTIFACT_DIR/esi-igh-parity.json" \
+      "$ARTIFACT_DIR/coe-igh-parity.json" \
+      "$EXPECTED_SLAVES" "$ARTIFACT_DIR/three-way-pdo-parity.json"; then
+    cat "$ARTIFACT_DIR/three-way-pdo-parity.json" >&2 2>/dev/null || true
+    fail "unified ESI/CoE/IgH three-way PDO parity failed"
+  fi
+  printf 'PASS: unified ESI/CoE/IgH three-way PDO parity; report: %s\n' \
+    "$ARTIFACT_DIR/three-way-pdo-parity.json"
 fi
 
 

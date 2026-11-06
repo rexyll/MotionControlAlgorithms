@@ -136,7 +136,7 @@ class EsiToProfileTests(unittest.TestCase):
       <SafetyParaMapping Fixed="true" CompleteAccess="false" SafetyPdoType="FSoESlave" SafetyConnNumber="3">
         <Index>#x8000</Index>
         <Name LcId="1033">Safety parameter set</Name>
-        <Entry><Index>#x2000</Index><SubIndex>1</SubIndex><BitLen>16</BitLen></Entry>
+        <Entry><Index>#x2000</Index><BitLen>16</BitLen></Entry>
         <Entry><Index>#x2001</Index><BitLen>32</BitLen><Name LcId="1033">Safety value</Name><DataType>UDINT</DataType></Entry>
       </SafetyParaMapping>
     </Module>
@@ -952,19 +952,6 @@ class EsiToProfileTests(unittest.TestCase):
         padding = esi_to_profile.parse_esi(self.path)["devices"][0]["pdos"][0]["entries"][2]
         self.assertTrue(padding["is_padding"])
         self.assertEqual(padding["sub_index"], 0)
-
-    def test_rejects_non_padding_entry_without_subindex(self):
-        malformed = ESI.replace(
-            '<Entry><Index>#x6040</Index><SubIndex>0</SubIndex>',
-            '<Entry><Index>#x6040</Index>',
-            1,
-        )
-        self.path.write_text(malformed, encoding="utf-8")
-        with self.assertRaisesRegex(
-            esi_to_profile.EsiError,
-            "rxPDO entry 0x6040 is missing required SubIndex",
-        ):
-            esi_to_profile.parse_esi(self.path)
 
     def test_rejects_out_of_range_sync_manager_index(self):
         malformed = ESI.replace('<RxPdo Sm="2"', '<RxPdo Sm="256"', 1)

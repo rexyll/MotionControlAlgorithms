@@ -68,6 +68,8 @@ class EthercatPdoReadback final {
     if (count_ == 0U) return false;
     for (std::size_t i = 0U; i < count_; ++i) {
       const auto& r = records_[i];
+      if (i == 0U && (r.assignment_position != 0U ||
+          r.pdo_position != 0U || r.entry_position != 0U)) return false;
       if (r.assignment_object != 0x1C12U &&
           r.assignment_object != 0x1C13U) return false;
       if ((r.assignment_object == 0x1C12U &&
@@ -80,6 +82,11 @@ class EthercatPdoReadback final {
       if (i != 0U && !ordered_after(records_[i - 1U], r)) return false;
       for (std::size_t j = 0U; j < i; ++j) {
         const auto& prior = records_[j];
+        if (prior.ring_position == r.ring_position &&
+            prior.assignment_object == r.assignment_object &&
+            prior.assignment_position == r.assignment_position &&
+            (prior.sync_manager != r.sync_manager ||
+             prior.direction != r.direction)) return false;
         if (prior.ring_position == r.ring_position &&
             prior.assignment_object == r.assignment_object &&
             prior.assignment_position == r.assignment_position &&

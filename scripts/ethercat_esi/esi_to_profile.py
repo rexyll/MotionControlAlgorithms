@@ -565,6 +565,16 @@ def _parse_slots(
         tx_pdo = _number(
             group.attrib.get("TxPdo"), "Slots.ModulePdoGroup.TxPdo", required=False
         )
+        if rx_pdo is not None and not 0x1600 <= rx_pdo <= 0x17FF:
+            raise EsiError(
+                f"Slots.ModulePdoGroup RxPdo 0x{rx_pdo:04X} is outside "
+                "0x1600..0x17FF"
+            )
+        if tx_pdo is not None and not 0x1A00 <= tx_pdo <= 0x1BFF:
+            raise EsiError(
+                f"Slots.ModulePdoGroup TxPdo 0x{tx_pdo:04X} is outside "
+                "0x1A00..0x1BFF"
+            )
         module_pdo_groups.append({
             "name": _text(group, "Slots.ModulePdoGroup"),
             "alignment": _xs_integer(

@@ -720,6 +720,56 @@ def _parse_pdo_entry(entry: ET.Element, field: str) -> dict[str, Any]:
     }
 
 
+def _parse_pdo_type_attributes(
+    element: ET.Element,
+    field: str,
+) -> dict[str, Any]:
+    """Normalize attributes shared by RxPDO, TxPDO and SafetyParaMapping."""
+    safety_pdo_type = element.attrib.get("SafetyPdoType")
+    allowed_safety_pdo_types = {
+        "FSoESlave",
+        "FSoEMultipleSlave",
+        "FSoEMaster",
+        "FSoEMultipleMaster",
+    }
+    if safety_pdo_type is not None and safety_pdo_type not in allowed_safety_pdo_types:
+        raise EsiError(f"invalid {field}.SafetyPdoType: {safety_pdo_type!r}")
+
+    return {
+        "fixed": _optional_boolean(element.attrib.get("Fixed"), f"{field}.Fixed"),
+        "mandatory": _optional_boolean(
+            element.attrib.get("Mandatory"), f"{field}.Mandatory"
+        ),
+        "virtual": _optional_boolean(element.attrib.get("Virtual"), f"{field}.Virtual"),
+        "sync_manager": _xs_integer(element.attrib.get("Sm"), f"{field}.Sm"),
+        "sync_unit": _xs_integer(element.attrib.get("Su"), f"{field}.Su"),
+        "pdo_order": _xs_integer(element.attrib.get("PdoOrder"), f"{field}.PdoOrder"),
+        "oversampling_factor": _xs_integer(
+            element.attrib.get("OSFac"), f"{field}.OSFac"
+        ),
+        "oversampling_min": _xs_integer(
+            element.attrib.get("OSMin"), f"{field}.OSMin"
+        ),
+        "oversampling_max": _xs_integer(
+            element.attrib.get("OSMax"), f"{field}.OSMax"
+        ),
+        "oversampling_index_increment": _xs_integer(
+            element.attrib.get("OSIndexInc"), f"{field}.OSIndexInc"
+        ),
+        "overwritten_by_module": _optional_boolean(
+            element.attrib.get("OverwrittenByModule"),
+            f"{field}.OverwrittenByModule",
+        ),
+        "sra_parameter": _optional_boolean(
+            element.attrib.get("SRA_Parameter"), f"{field}.SRA_Parameter"
+        ),
+        "safety_pdo_type": safety_pdo_type,
+        "safety_connection_number": _xs_integer(
+            element.attrib.get("SafetyConnNumber"), f"{field}.SafetyConnNumber"
+        ),
+    }
+
+
 def _parse_safety_parameter_mapping(mapping: ET.Element) -> dict[str, Any]:
     field = "Module.SafetyParaMapping"
     index_element = _one(mapping, "Index", required=True)
@@ -754,31 +804,14 @@ def _parse_safety_parameter_mapping(mapping: ET.Element) -> dict[str, Any]:
                 f"{field}.Exclude.DependOnSlotGroup",
             ),
         })
-    safety_pdo_type = mapping.attrib.get("SafetyPdoType")
-    allowed_safety_pdo_types = {
-        "FSoESlave",
-        "FSoEMultipleSlave",
-        "FSoEMaster",
-        "FSoEMultipleMaster",
-    }
-    if safety_pdo_type is not None and safety_pdo_type not in allowed_safety_pdo_types:
-        raise EsiError(
-            f"invalid {field}.SafetyPdoType: {safety_pdo_type!r}"
-        )
+    attributes = _parse_pdo_type_attributes(mapping, field)
     return {
         "index": _require_range(index_value, f"{field}.Index", 0xFFFF),
         "index_depend_on_slot": index_depend_on_slot,
         "index_depend_on_slot_group": index_depend_on_slot_group,
         "name": _primary_name(names),
         "localized_names": names,
-        "fixed": _optional_boolean(mapping.attrib.get("Fixed"), f"{field}.Fixed"),
-        "complete_access": _optional_boolean(
-            mapping.attrib.get("CompleteAccess"), f"{field}.CompleteAccess"
-        ),
-        "safety_pdo_type": safety_pdo_type,
-        "safety_connection_number": _xs_integer(
-            mapping.attrib.get("SafetyConnNumber"), f"{field}.SafetyConnNumber"
-        ),
+        **attributes,
         "entries": entries,
         "excluded_pdos": exclusions,
         "is_safety_relevant": True,
@@ -811,7 +844,14 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
         _parse_pdo_entry(entry, f"{direction}PDO.Entry")
         for entry in _children(pdo, "Entry")
     ]
-    virtual = _optional_boolean(pdo.attrib.get("Virtual"), f"{direction}PDO.Virtual") or False
+    attributes = _parse_pdo_type_attributes(pdo, f"{direction}PDO")
+    sm_index = attributes["sync_manager"]
+    if sm_index is not None and not 0 <= sm_index <= 0xFF:
+        raise EsiError(
+            f"{direction}PDO.Sm value {sm_index} is outside 0..255"
+        )
+    mandatory = attributes["mandatory"] or False
+    virtual = attributes["virtual"] or False
     if not entries and not virtual:
         raise EsiError(f"{direction}PDO 0x{pdo_index:04X} contains no entries")
 
@@ -860,14 +900,6 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
             )
         excluded_sync_managers.append(excluded_sm_index)
 
-    sm_value = _number(pdo.attrib.get("Sm"), f"{direction}PDO.Sm", required=False)
-    sm_index = (
-        None if sm_value is None
-        else _require_range(sm_value, f"{direction}PDO.Sm", 0xFF)
-    )
-    mandatory = _optional_boolean(
-        pdo.attrib.get("Mandatory"), f"{direction}PDO.Mandatory"
-    ) or False
     if mandatory and sm_index is None:
         raise EsiError(
             f"{direction}PDO 0x{pdo_index:04X} is mandatory but has no "
@@ -885,10 +917,7 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
         "localized_names": pdo_names,
         "index_depend_on_slot": pdo_index_depend_on_slot,
         "index_depend_on_slot_group": pdo_index_depend_on_slot_group,
-        "sync_manager": sm_index,
-        "fixed": _optional_boolean(pdo.attrib.get("Fixed"), f"{direction}PDO.Fixed") or False,
-        "mandatory": mandatory,
-        "virtual": virtual,
+        **attributes,
         "excluded_pdos": excluded_pdos,
         "excluded_sync_managers": excluded_sync_managers,
         "entries": entries,

@@ -261,7 +261,8 @@ int main(int argc, char** argv) {
         const auto& identity = slave_info[ring_value];
         if (identity.vendor_id != 0x0000029CU ||
             identity.product_code != 0x03B11002U ||
-            identity.revision_number != 0x00050005U) {
+            identity.revision_number != 0x00050005U ||
+            (identity.al_state & 0x0FU) != EC_AL_STATE_PREOP) {
             std::cerr << "unexpected IgH slave identity at ring position "
                       << ring << ": vendor=0x" << std::hex
                       << identity.vendor_id << " product=0x"
@@ -269,6 +270,12 @@ int main(int argc, char** argv) {
                       << identity.revision_number << std::dec << "\n";
             return 1;
         }
+        raw << "SLAVE position=" << ring << " vendor=0x"
+            << std::hex << std::uppercase << identity.vendor_id
+            << " product=0x" << identity.product_code
+            << " revision=0x" << identity.revision_number
+            << " al_state=0x" << static_cast<unsigned int>(identity.al_state)
+            << std::dec << "\\n";
     }
 
     guard.start_io();

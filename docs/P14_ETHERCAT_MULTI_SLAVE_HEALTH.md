@@ -468,3 +468,17 @@ cross-check supplements rather than replaces the two ESI comparisons:
 CoE does not expose SM/direction, while IgH does not expose assignment
 objects/subindices. The three reports therefore prove separate, explicitly
 bounded relationships, not a physical-drive HIL result.
+
+
+### Unified three-way parity gate
+
+When both `MCA_ECAT_COE_READBACK=1` and
+`MCA_ECAT_CYCLIC_SIL=1` are enabled, the harness now requires an explicit
+`MCA_ECAT_ESI_PDO_SNAPSHOT` input. It fails closed if that file or either
+ESI pairwise report is missing. After the CoE-to-IgH comparison, the harness
+runs `three_way_pdo_parity.py` and writes
+`three-way-pdo-parity.json`. The consolidated report requires all three
+pairwise reports to have the expected schema/source kind, cover exactly the
+configured slave count, and agree on contiguous ring positions. Any pairwise
+failure fails the combined SIL run. CoE-only and cyclic-only modes remain
+available independently and do not claim three-way parity.

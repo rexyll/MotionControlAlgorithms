@@ -1045,6 +1045,32 @@ def resolve_cia402_candidate(
                 )
             selected.append(matches[0])
 
+    for pdo in selected:
+        if pdo["overwritten_by_module"]:
+            raise EsiError(
+                f"selected {pdo['direction'].upper()}PDO 0x{pdo['index']:04X} "
+                "is marked OverwrittenByModule and is not an effective device PDO"
+            )
+        if (
+            pdo["safety_pdo_type"] is not None
+            or pdo["sra_parameter"]
+            or pdo["safety_connection_number"] is not None
+        ):
+            raise EsiError(
+                f"selected {pdo['direction'].upper()}PDO 0x{pdo['index']:04X} "
+                "contains FSoE/SRA safety metadata and cannot be treated as a "
+                "generic CiA 402 process-data mapping"
+            )
+        if any(
+            entry["safety_connection_number"] is not None
+            for entry in pdo["entries"]
+        ):
+            raise EsiError(
+                f"selected {pdo['direction'].upper()}PDO 0x{pdo['index']:04X} "
+                "contains safety-connection entries and cannot be treated as a "
+                "generic CiA 402 process-data mapping"
+            )
+
     selected_pdo_keys = {
         (pdo["direction"], pdo["index"]) for pdo in selected
     }
@@ -1095,6 +1121,7 @@ def resolve_cia402_candidate(
                 "direction": direction,
                 "pdo_index": pdo["index"],
                 "sync_manager": pdo["sync_manager"],
+                "sync_unit": pdo["sync_unit"],
                 "entry_number": entry_number,
                 "bit_offset": bit_offsets[direction],
                 "is_padding": entry["is_padding"],

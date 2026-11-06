@@ -134,7 +134,7 @@ class EsiToProfileTests(unittest.TestCase):
     <Module><Type ModuleIdent="#x4711">FSoE input module</Type>
       <Name>FSoE module</Name>
       <SafetyParaMapping Fixed="true" CompleteAccess="false" SafetyPdoType="FSoESlave" SafetyConnNumber="3">
-        <Index>#x8000</Index>
+        <Index DependOnSlotGroup="true">#x8000</Index>
         <Name LcId="1033">Safety parameter set</Name>
         <Entry><Index>#x2000</Index><BitLen>16</BitLen></Entry>
         <Entry><Index>#x2001</Index><BitLen>32</BitLen><Name LcId="1033">Safety value</Name><DataType>UDINT</DataType></Entry>
@@ -149,6 +149,8 @@ class EsiToProfileTests(unittest.TestCase):
         mapping = module["safety_parameter_mappings"][0]
         self.assertTrue(module["is_safety_relevant"])
         self.assertEqual(mapping["index"], 0x8000)
+        self.assertFalse(mapping["index_depend_on_slot"])
+        self.assertTrue(mapping["index_depend_on_slot_group"])
         self.assertTrue(mapping["fixed"])
         self.assertFalse(mapping["complete_access"])
         self.assertEqual(mapping["safety_pdo_type"], "FSoESlave")
@@ -264,6 +266,25 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertEqual(slots["module_pdo_groups"][0]["alignment"], 4)
         self.assertEqual(slots["module_pdo_groups"][0]["rx_pdo"], 0x1600)
         self.assertEqual(slots["slot_selections"][0]["module_idents"], [0x4711, 0x4712])
+
+    def test_rejects_invalid_safety_para_mapping_type(self):
+        modular = ESI.replace(
+            "</EtherCATInfo>",
+            """  <Modules><Module><Type ModuleIdent="#x4711">Safety Module</Type>
+      <Name>Safety Module</Name>
+      <SafetyParaMapping SafetyPdoType="UnknownSafetyType">
+        <Index>#x8000</Index><Name>Safety parameters</Name>
+      </SafetyParaMapping>
+    </Module></Modules>
+</EtherCATInfo>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "invalid Module.SafetyParaMapping.SafetyPdoType",
+        ):
+            esi_to_profile.parse_esi(self.path)
 
     def test_parses_external_ethercat_module_document(self):
         module_doc = """<?xml version="1.0"?>

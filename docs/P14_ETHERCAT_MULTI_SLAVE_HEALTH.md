@@ -127,52 +127,61 @@ Enabled from their own statusword feedback, then both returning to
 Switch On Disabled. The script selects the multi-slave target automatically
 from `MCA_ECAT_EXPECTED_SLAVES=2`.
 
-## ESI-to-CoE mapping parity gate (not yet implemented)
+## ESI-to-runtime PDO parity gate
 
-The current two-slave SIL proves two separate things, but does not yet join them
-into one ESI-to-runtime acceptance result:
+The three pairwise parity comparators and their combined fail-closed gate are
+implemented and covered by offline tests. The earlier implementation gap is
+closed at the report/comparison layer; this does **not** mean the comparators
+have been run against a newly collected two-slave runtime snapshot.
 
-- `run_kickcat_igh_veth_discovery.sh` reads CoE assignment objects
-  `0x1C12` / `0x1C13` and each referenced PDO's mapping entries at each
-  ring position. It validates readable counts, nonzero PDO indices, entry
-  counts and nonzero bit widths, and records decoded values in
-  `coe-pdo-readback.txt` / `coe-sdo-raw.log`.
-- `EthercatIghAdapter::discover_pdo_mapping()` snapshots the PDO hierarchy
-  reported by the IgH master API. The cyclic harness then builds its bindings
-  from that discovered hierarchy.
-- These paths are independent today. The shell readback is not compared
-  against the offline ESI slot resolver output, nor is its full assignment
-  order and Entry sequence imported into the C++ mapping profile. A successful
-  readback therefore proves that the simulator answered those CoE reads, not
-  that the selected ESI/module configuration and the runtime mapping are
-  identical.
+The combined veth runner uses three independent relationships:
 
-The next implementation gate is a bounded, fail-closed parity contract. Its
-expected and observed records must retain, at minimum:
+1. **ESI ↔ CoE:** compares the ESI expected assignment order and ordered raw
+   mapping entries with CoE SDO readback at each ring position.
+2. **ESI ↔ IgH:** compares the ESI expected SyncManager, direction, PDO and
+   Entry sequence with IgH's discovered PDO hierarchy.
+3. **CoE ↔ IgH:** independently joins by ring position, Vendor ID/Product code
+   and PDO index, then compares ordered raw 32-bit mapping words, including
+   padding. It does not infer CoE assignment objects or subindices from IgH.
 
-1. ring position plus vendor ID and product code (never infer identity from
-   array order);
-2. SyncManager number and direction;
-3. assignment object and ordered assigned PDO indices;
-4. each PDO index and ordered mapping tuple (object index, subindex, bit
-   length), including explicit padding entries;
-5. exact cardinality and duplicate detection.
+When both `MCA_ECAT_COE_READBACK=1` and `MCA_ECAT_CYCLIC_SIL=1` are set,
+`MCA_ECAT_ESI_PDO_SNAPSHOT` is mandatory. The script requires all three
+pairwise reports, and `three_way_pdo_parity.py` verifies report schema/source
+kind, exact slave cardinality, contiguous ring positions, and every
+pairwise/per-slave match. Any missing report or mismatch fails the combined
+SIL run. The consolidated artifact is `three-way-pdo-parity.json`.
 
-Comparison must reject missing/extra PDOs, reordered assignment entries,
-missing/extra mapping entries, identity mismatch, direction/SM mismatch,
-zero or unsupported widths, and any capacity overflow. It must not silently
-sort records before comparison because assignment and mapping order are
-semantically significant. The offline ESI resolver remains a source of
-expected configuration, not evidence of what the slave currently exposes.
-Only a successful parity result may be used to produce the runtime
-`EthercatPdoMappingProfile` consumed by the CiA 402 binding resolver.
+Generate the expected snapshot from the selected device's ESI XML using the
+repository resolver. The selected RxPDO and TxPDO indices must reflect the
+intended drive profile; do not guess them or use a generic fixture as a
+substitute for the device's actual ESI:
 
-Implement the comparator first as a dependency-free fixed-capacity component
-with synthetic positive and negative tests; then connect the CoE readback
-collector and ESI resolver output. Preserve the existing independent
-KickCAT/IgH transport and fault-isolation tests. No real drive has been
-selected yet, so this gate must remain vendor-neutral and must not invent
-vendor-specific object layouts or claim physical HIL.
+```bash
+python3 scripts/ethercat_esi/esi_to_profile.py /path/to/device.xml \
+  --product-code 0xPRODUCT_CODE \
+  --rx-pdo 0xRXPDO_INDEX --tx-pdo 0xTXPDO_INDEX \
+  --emit-pdo-snapshot -o /path/to/device-pdo-snapshot.json
+
+export MCA_ECAT_ESI_PDO_SNAPSHOT=/path/to/device-pdo-snapshot.json
+```
+
+For modular devices, the current slot resolver must not be represented as a
+complete runtime PDO mapping unless its output explicitly reports a complete
+mapping. Slot-resolved PDO snapshot conversion remains a separate limitation;
+external module ESI files must be supplied explicitly with `--module-esi`
+when required by the ESI's InfoReference list.
+
+The combined report is a consolidation of the three pairwise reports, not a
+fourth independent source of device evidence. It validates the pairwise
+reports' schema, coverage and match flags; the underlying collectors and
+comparators remain responsible for validating their own snapshot content.
+Offline unit/CI success proves the implementation and test behavior only.
+A wire-level pass requires running the combined script with the actual
+selected ESI snapshot and two KickCAT slave configurations and preserving all
+four JSON reports plus raw CoE/IgH artifacts. No runtime three-way parity
+result is claimed until that execution succeeds. This is KickCAT/IgH SIL,
+not physical-drive HIL, vendor qualification, distributed-clock acceptance,
+or a safety-rated function.
 
 ## Independent multi-drive fault isolation SIL
 

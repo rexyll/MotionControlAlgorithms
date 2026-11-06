@@ -278,6 +278,9 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+if [[ -n "$ESI_PDO_SNAPSHOT" && "$COE_READBACK" != "1" ]]; then
+  fail "MCA_ECAT_ESI_PDO_SNAPSHOT requires MCA_ECAT_COE_READBACK=1"
+fi
 [[ $EUID -eq 0 ]] || fail "run as root (sudo -E) because veth, IgH modules and AF_PACKET need privileges"
 [[ -n "$KICKCAT_SIMULATOR" && -x "$KICKCAT_SIMULATOR" ]] || fail "set KICKCAT_SIMULATOR to the executable network_simulator"
 SLAVE_CONFIGS=()

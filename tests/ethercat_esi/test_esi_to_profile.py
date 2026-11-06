@@ -136,15 +136,26 @@ class EsiToProfileTests(unittest.TestCase):
             "      </Device>",
             """        <Slots DownloadModuleIdentList="1" DownloadModuleAddressList="0"
                MaxSlotCount="#x2" SlotPdoIncrement="#x1" SlotIndexIncrement="#x10">
-          <Slot MinInstances="1" MaxInstances="1">
+          <Slot SlotGroup="#x1" SlotPdoIncrement="#x2" SlotIndexIncrement="#x20"
+                TreeView="SLOT" MinInstances="#x1" MaxInstances="0x1">
             <Name LcId="1033">FirstSlot</Name>
-            <ModuleIdent Default="1">#x00004711</ModuleIdent>
+            <ModuleIdent Default="#x1">#x00004711</ModuleIdent>
             <ModuleIdent>#x00004712</ModuleIdent>
           </Slot>
           <Slot MinInstances="0" MaxInstances="1">
             <Name>OptionalSlot</Name>
             <ModuleIdent>#x00000000</ModuleIdent>
             <ModuleIdent>#x00004712</ModuleIdent>
+          </Slot>
+          <Slot MinInstances="1" MaxInstances="1" SlotGroup="#x1"
+                SlotGroupPdoIncrement="#x3" SlotGroupIndexIncrement="#x30">
+            <Name>Class-selected slot</Name>
+            <ModuleClass>
+              <Class>DI</Class><VendorId>#x000000AB</VendorId>
+              <Name LcId="1033">Digital input family</Name>
+              <ImageFile16x14>di-module.bmp</ImageFile16x14>
+            </ModuleClass>
+            <ImageData16x14>00FF10</ImageData16x14>
           </Slot>
           <SlotGroupData SlotGroup="#x1"><Name>InputGroup</Name></SlotGroupData>
           <ModulePdoGroup Alignment="4" RxPdo="#x1600" TxPdo="#x1A00">Basic IO</ModulePdoGroup>
@@ -196,6 +207,15 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertFalse(slots["download_module_address_list"])
         self.assertEqual(slots["slot_pdo_increment"], 1)
         self.assertEqual(slots["slot_index_increment"], 0x10)
+        self.assertEqual(slots["slots"][0]["slot_group"], 1)
+        self.assertEqual(slots["slots"][0]["min_instances"], 1)
+        self.assertEqual(slots["slots"][0]["increments"]["slot_pdo_increment"], 2)
+        self.assertEqual(slots["slots"][0]["effective_increments"]["slot_index_increment"], 0x20)
+        self.assertEqual(slots["slots"][0]["tree_view"], "SLOT")
+        self.assertEqual(slots["slots"][2]["module_class_options"][0]["class"], "DI")
+        self.assertEqual(slots["slots"][2]["module_class_options"][0]["vendor_id"], 0xAB)
+        self.assertEqual(slots["slots"][2]["module_class_options"][0]["image"]["image_file_16x14"], "di-module.bmp")
+        self.assertEqual(slots["slots"][2]["image"]["image_data_16x14"], "00FF10")
         self.assertEqual(slots["slots"][0]["module_list_subindex"], 1)
         self.assertEqual(slots["slots"][0]["default_module_ident"], 0x4711)
         self.assertEqual(
@@ -217,7 +237,7 @@ class EsiToProfileTests(unittest.TestCase):
             "      </Device>",
             """        <Slots>
           <Slot MinInstances="1" MaxInstances="1">
-            <ModuleIdent Default="true">#x4711</ModuleIdent>
+            <ModuleIdent Default="#x1">#x4711</ModuleIdent>
           </Slot>
         </Slots>
       </Device>""",
@@ -255,7 +275,7 @@ class EsiToProfileTests(unittest.TestCase):
             "      </Device>",
             """        <Slots><Slot MinInstances="1" MaxInstances="1">
           <ModuleIdent Default="1">#x4711</ModuleIdent>
-          <ModuleIdent Default="true">#x4712</ModuleIdent>
+          <ModuleIdent Default="#x1">#x4712</ModuleIdent>
         </Slot></Slots>
       </Device>""",
             1,
@@ -264,6 +284,55 @@ class EsiToProfileTests(unittest.TestCase):
         with self.assertRaisesRegex(
             esi_to_profile.EsiError,
             "more than one default ModuleIdent",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
+    def test_rejects_slot_without_module_choice(self):
+        modular = ESI.replace(
+            "      </Device>",
+            """        <Slots><Slot MinInstances="0" MaxInstances="1">
+          <Name>No choices</Name>
+        </Slot></Slots>
+      </Device>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "must define at least one ModuleIdent or ModuleClass option",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
+    def test_rejects_mixed_slot_module_ident_and_module_class_choices(self):
+        modular = ESI.replace(
+            "      </Device>",
+            """        <Slots><Slot MinInstances="0" MaxInstances="1">
+          <ModuleIdent>#x4711</ModuleIdent>
+          <ModuleClass><Class>DI</Class></ModuleClass>
+        </Slot></Slots>
+      </Device>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "cannot mix ModuleIdent and ModuleClass choices",
+        ):
+            esi_to_profile.parse_esi(self.path)
+
+    def test_rejects_unknown_slot_tree_view(self):
+        modular = ESI.replace(
+            "      </Device>",
+            """        <Slots><Slot MinInstances="0" MaxInstances="1" TreeView="UNKNOWN">
+          <ModuleIdent>#x4711</ModuleIdent>
+        </Slot></Slots>
+      </Device>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "invalid TreeView",
         ):
             esi_to_profile.parse_esi(self.path)
 

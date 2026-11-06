@@ -400,7 +400,25 @@ class EsiToProfileTests(unittest.TestCase):
         self.assertEqual(device["slots"]["slots"][0]["default_module_ident"], 0x4711)
         with self.assertRaisesRegex(
             esi_to_profile.EsiError,
-            "module-only device requires slot-resolved module PDO mappings",
+            "slot-configurable device requires an explicit slot-resolved PDO map",
+        ):
+            esi_to_profile.resolve_cia402_candidate(device, [0x1600], [0x1A00])
+
+    def test_rejects_static_candidate_resolution_when_device_has_slots(self):
+        modular = ESI.replace(
+            "      </Device>",
+            """        <Slots><Slot MinInstances="1" MaxInstances="1">
+          <ModuleIdent Default="#x1">#x4711</ModuleIdent>
+        </Slot></Slots>
+      </Device>""",
+            1,
+        )
+        self.path.write_text(modular, encoding="utf-8")
+        device = esi_to_profile.parse_esi(self.path)["devices"][0]
+        self.assertTrue(device["pdos"])
+        with self.assertRaisesRegex(
+            esi_to_profile.EsiError,
+            "slot-configurable device requires an explicit slot-resolved PDO map",
         ):
             esi_to_profile.resolve_cia402_candidate(device, [0x1600], [0x1A00])
 

@@ -890,9 +890,12 @@ def _parse_pdo(pdo: ET.Element, direction: str) -> dict[str, Any]:
     excluded_sync_managers: list[int] = []
     for excluded_sm in _children(pdo, "ExcludedSm"):
         value = _text(excluded_sm, f"{direction}PDO.ExcludedSm", required=True)
-        excluded_sm_index = _number(value, f"{direction}PDO.ExcludedSm")
+        excluded_sm_index = _xs_integer(value, f"{direction}PDO.ExcludedSm")
         assert excluded_sm_index is not None
-        _require_range(excluded_sm_index, f"{direction}PDO.ExcludedSm", 0xFF)
+        if not 0 <= excluded_sm_index <= 0xFF:
+            raise EsiError(
+                f"{direction}PDO.ExcludedSm value {excluded_sm_index} is outside 0..255"
+            )
         if excluded_sm_index in excluded_sync_managers:
             raise EsiError(
                 f"{direction}PDO 0x{pdo_index:04X} has duplicate ExcludedSm "

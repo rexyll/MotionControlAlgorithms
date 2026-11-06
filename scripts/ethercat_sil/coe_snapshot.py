@@ -12,6 +12,8 @@ class SnapshotError(ValueError):
 
 
 def parse_rows(text: str, expected_slave_count: int | None = None) -> dict:
+    if expected_slave_count is not None and expected_slave_count < 1:
+        raise SnapshotError("expected_slave_count must be positive")
     slaves: dict[int, dict] = {}
     for line_number, raw_line in enumerate(text.splitlines(), 1):
         if not raw_line.strip():
@@ -173,7 +175,10 @@ def main() -> int:
         print("usage: coe_snapshot.py INPUT.tsv OUTPUT.json [EXPECTED_SLAVES]", file=sys.stderr)
         return 2
     try:
-        expected = int(sys.argv[3], 10) if len(sys.argv) == 4 else None
+        try:
+            expected = int(sys.argv[3], 10) if len(sys.argv) == 4 else None
+        except ValueError as exc:
+            raise SnapshotError("EXPECTED_SLAVES must be a positive decimal integer") from exc
         snapshot = parse_rows(Path(sys.argv[1]).read_text(encoding="utf-8"), expected)
         Path(sys.argv[2]).write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
     except (OSError, SnapshotError) as exc:

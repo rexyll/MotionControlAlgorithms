@@ -59,30 +59,30 @@ class CoeSnapshotTests(unittest.TestCase):
 
     def test_rejects_interleaved_pdo_entry_groups(self):
         rows = fixture().replace(
-            "M\\t0\\t0x1c12\\t1\\t0x1600\\t2\\t0x00000008\\n"
-            "M\\t0\\t0x1c13\\t1\\t0x1a00\\t1\\t0x60410010",
-            "M\\t0\\t0x1c13\\t1\\t0x1a00\\t1\\t0x60410010\\n"
-            "M\\t0\\t0x1c12\\t1\\t0x1600\\t2\\t0x00000008",
+            "M\t0\t0x1c12\t1\t0x1600\t2\t0x00000008\\n"
+            "M\t0\t0x1c13\t1\t0x1a00\t1\t0x60410010",
+            "M\t0\t0x1c13\t1\t0x1a00\t1\t0x60410010\\n"
+            "M\t0\t0x1c12\t1\t0x1600\t2\t0x00000008",
         )
         with self.assertRaisesRegex(SnapshotError, "not contiguous"):
             parse_rows(rows)
 
     def test_rejects_non_contiguous_ring_positions(self):
-        rows = fixture().replace("S\\t0\\t", "S\\t1\\t").replace("\\t0\\t0x1c", "\\t1\\t0x1c").replace(
-            "M\\t0\\t", "M\\t1\\t"
+        rows = fixture().replace("S\t0\t", "S\t1\t").replace("\t0\t0x1c", "\t1\t0x1c").replace(
+            "M\t0\t", "M\t1\t"
         )
         with self.assertRaisesRegex(SnapshotError, "contiguous from zero"):
             parse_rows(rows)
 
     def test_rejects_assignment_cardinality_mismatch(self):
-        rows = fixture().replace("C\\t0\\t0x1c12\\t1", "C\\t0\\t0x1c12\\t2")
+        rows = fixture().replace("C\t0\t0x1c12\t1", "C\t0\t0x1c12\t2")
         with self.assertRaisesRegex(SnapshotError, "assignment cardinality mismatch"):
             parse_rows(rows)
 
     def test_rejects_mapping_cardinality_mismatch(self):
-        rows = fixture().replace("0x1600\\t2\\t0x00000008", "0x1600\\t2\\t0x00000008")
-        rows = rows.replace("P\\t0\\t0x1c12\\t1\\t0x1600\\t2",
-                            "P\\t0\\t0x1c12\\t1\\t0x1600\\t3")
+        rows = fixture().replace("0x1600\t2\t0x00000008", "0x1600\t2\t0x00000008")
+        rows = rows.replace("P\t0\t0x1c12\t1\t0x1600\t2",
+                            "P\t0\t0x1c12\t1\t0x1600\t3")
         with self.assertRaisesRegex(SnapshotError, "cardinality mismatch"):
             parse_rows(rows)
 

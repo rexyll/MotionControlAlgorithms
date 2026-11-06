@@ -445,9 +445,12 @@ fields must come from ESI expectations and/or IgH's independent
 SM→PDO→Entry discovery. The current serializer records the identity checked
 by the preceding `ethercat slaves -v` topology gate; it is not a third-party
 device identity attestation. Set `MCA_ECAT_ESI_PDO_SNAPSHOT` to a previously generated
-`--emit-pdo-snapshot` JSON file to enable the additional fail-closed
-ESI-to-CoE comparison. This writes `esi-coe-parity.json` and fails the SIL
-run on identity, assignment-order, PDO-index, entry-order or raw mapping-word
-mismatch. The option requires `MCA_ECAT_COE_READBACK=1`. This is a two-source
-ESI/CoE gate only; it does not yet include IgH's independently discovered
-SM→PDO→Entry mapping.
+`--emit-pdo-snapshot` JSON file to enable fail-closed parity gates. The CoE
+stage writes `esi-coe-parity.json` and fails on identity, assignment-order,
+PDO-index, entry-order or raw mapping-word mismatch; it requires
+`MCA_ECAT_COE_READBACK=1`. When cyclic SIL is also enabled, the C++ test emits
+an ordered `MCA_IGH_PDO_SNAPSHOT` record from the actual IgH discovery profile.
+The script extracts and validates `igh-pdo-snapshot.json`, then writes
+`esi-igh-parity.json` and fails on identity, SM, direction, PDO, Entry-order or
+raw mapping-word mismatch. IgH's SM-major sequence is compared with the ESI
+expectation grouped by SM while preserving PDO/Entry order within each SM.

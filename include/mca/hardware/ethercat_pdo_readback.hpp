@@ -305,38 +305,57 @@ class EthercatPdoSnapshot final {
         }
       }
       if (!assignment_found) return false;
+      std::size_t assignment_ordinal = assignment_count_;
+      for (std::size_t a = 0U; a < assignment_count_; ++a) {
+        const auto& assigned = assignments_[a];
+        if (assigned.ring_position == r.ring_position &&
+            assigned.assignment_object == r.assignment_object &&
+            assigned.assignment_position == r.assignment_position &&
+            assigned.pdo_index == r.pdo_index) {
+          assignment_ordinal = a;
+          break;
+        }
+      }
+      if (assignment_ordinal == assignment_count_) return false;
       if (i == 0U) {
         if (r.entry_position != 0U) return false;
       } else {
         const auto& p = mappings_[i - 1U];
-        if (r.ring_position < p.ring_position) return false;
-        if (r.ring_position == p.ring_position) {
-          if (r.vendor_id != p.vendor_id || r.product_code != p.product_code)
-            return false;
-          const bool same_pdo = r.assignment_object == p.assignment_object &&
-              r.assignment_position == p.assignment_position &&
-              r.pdo_index == p.pdo_index;
-          if (same_pdo) {
-            if (r.sync_manager != p.sync_manager ||
-                r.direction != p.direction ||
-                r.entry_position !=
-                    static_cast<std::uint16_t>(p.entry_position + 1U))
-              return false;
-          } else if (r.entry_position != 0U) {
-            return false;
+        std::size_t previous_ordinal = assignment_count_;
+        for (std::size_t a = 0U; a < assignment_count_; ++a) {
+          const auto& assigned = assignments_[a];
+          if (assigned.ring_position == p.ring_position &&
+              assigned.assignment_object == p.assignment_object &&
+              assigned.assignment_position == p.assignment_position &&
+              assigned.pdo_index == p.pdo_index) {
+            previous_ordinal = a;
+            break;
           }
+        }
+        if (assignment_ordinal < previous_ordinal) return false;
+        const bool same_pdo = assignment_ordinal == previous_ordinal;
+        if (same_pdo) {
+          if (r.vendor_id != p.vendor_id || r.product_code != p.product_code ||
+              r.sync_manager != p.sync_manager || r.direction != p.direction ||
+              r.entry_position !=
+                  static_cast<std::uint16_t>(p.entry_position + 1U))
+            return false;
         } else if (r.entry_position != 0U) {
           return false;
         }
       }
       for (std::size_t j = 0U; j < i; ++j) {
         const auto& p = mappings_[j];
+        const auto prior_index = static_cast<std::uint16_t>(
+            p.raw_mapping_entry >> 16U);
+        const auto prior_sub = static_cast<std::uint8_t>(
+            (p.raw_mapping_entry >> 8U) & 0xFFU);
         if (p.ring_position == r.ring_position &&
             p.assignment_object == r.assignment_object &&
             p.assignment_position == r.assignment_position &&
             p.pdo_index == r.pdo_index &&
-            p.raw_mapping_entry == r.raw_mapping_entry &&
-            (r.raw_mapping_entry >> 16U) != 0U) return false;
+            prior_index != 0U && prior_index == index && prior_sub == sub)
+          return false;
       }
     }
     return true;

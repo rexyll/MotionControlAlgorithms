@@ -521,3 +521,31 @@ pairwise reports to have the expected schema/source kind, cover exactly the
 configured slave count, and agree on contiguous ring positions. Any pairwise
 failure fails the combined SIL run. CoE-only and cyclic-only modes remain
 available independently and do not claim three-way parity.
+
+
+### Two-slave baseline SIL pass at 10 ms (2026-11-06)
+
+The rerun at `/tmp/mca-ethercat-sil-20261106-214826` passed the complete
+two-slave KickCAT baseline after setting the cyclic SIL default to
+`MCA_ECAT_CYCLE_TIME_US=10000` (10 ms). Startup transport and per-slave
+health became ready after 212 cycles. Both ring positions independently
+reached CiA 402 Operation Enabled (Statusword `0x0037`, CSP Mode Display
+`0x08`) and remained stable for ten samples; each independent domain
+reported complete WKC=3. The final state showed both slaves online and
+operational, both drives returned to Switch On Disabled (Statusword
+`0x0040`), link up, two responding slaves, and total WKC=6.
+
+All three PDO comparisons passed in the same run:
+ESI-to-CoE assignment and ordered raw mapping parity,
+ESI-to-IgH SyncManager/direction/PDO/Entry parity, and
+CoE-to-IgH PDO index and ordered raw mapping parity. The unified
+three-way parity gate also passed and emitted
+`three-way-pdo-parity.json`. The IgH discovery snapshot showed the same
+four RxPDO and four TxPDO mapping entries on both ring positions.
+
+This run validates the two-slave KickCAT baseline at a 10 ms software
+simulation cycle. It does not establish 1 ms real-time performance, vendor
+drive behavior, independent per-drive fault handling, distributed-clock
+accuracy, motion trajectory performance, or physical-drive HIL. The
+discovery-time PREOP snapshot is not runtime AL-state evidence; runtime
+OP/health acceptance comes from the cyclic SIL result above.

@@ -548,6 +548,7 @@ if [[ "$COE_READBACK" == "1" ]]; then
 fi
 
 if [[ "$CYCLIC_SIL" == "1" ]]; then
+  command -v python3 >/dev/null || fail "python3 is required to serialize IgH PDO snapshots"
   command -v cmake >/dev/null || fail "cmake is required for cyclic PDO SIL"
   command -v c++ >/dev/null || fail "a C++ compiler is required for cyclic PDO SIL"
   readonly CYCLIC_BUILD_DIR="$ARTIFACT_DIR/build-igh-cyclic"

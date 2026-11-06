@@ -379,8 +379,18 @@ def _parse_slots(device: ET.Element) -> dict[str, Any] | None:
                 f"{class_field}.Class",
                 required=True,
             )
-            vendor_id = _optional_hex_attribute(
-                module_class, "VendorId", f"{class_field}.VendorId"
+            vendor_id_element = _one(module_class, "VendorId")
+            vendor_id_text = _text(
+                vendor_id_element, f"{class_field}.VendorId"
+            )
+            vendor_id_value = _number(
+                vendor_id_text, f"{class_field}.VendorId", required=False
+            )
+            vendor_id = (
+                None if vendor_id_value is None
+                else _require_range(
+                    vendor_id_value, f"{class_field}.VendorId", 0xFFFFFFFF
+                )
             )
             class_names = _localized_names(
                 module_class, f"{class_field}.Name"

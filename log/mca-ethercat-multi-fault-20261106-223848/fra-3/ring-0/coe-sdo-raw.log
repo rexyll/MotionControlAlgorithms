@@ -1,0 +1,2 @@
+READ position=0 0x1C12:0 type=uint8 exit=1 elapsed_ms=19 start_epoch_ns=1793975933036296086 finish_epoch_ns=1793975933055460470 start_wall=2026-11-06T22:38:53,034632394+08:00 finish_wall=2026-11-06T22:38:53,059561232+08:00
+Failed to upload SDO: Protocol not supported

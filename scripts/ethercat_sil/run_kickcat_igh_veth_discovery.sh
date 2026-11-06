@@ -158,6 +158,7 @@ verify_coe_assignment() {
       printf 'PDO 0x%04x mapping entry count out of range: %s\n' "$pdo_index" "$entry_count" >&2
       return 1
     }
+    printf 'P\t%s\t%s\t%s\t%s\t%s\n' "$position" "$((assignment_index))" "$pdo_pos" "$pdo_index" "$entry_count" >>"$ARTIFACT_DIR/coe-pdo-rows.tsv"
     printf '  PDO 0x%04x: %s mapped entries\n' "$pdo_index" "$entry_count"
     for ((entry_pos = 1; entry_pos <= entry_count; ++entry_pos)); do
       mapped=$(read_sdo_value "$pdo_index" "$entry_pos" uint32 "$position") || return 1

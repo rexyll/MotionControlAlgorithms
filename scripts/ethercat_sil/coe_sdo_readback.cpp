@@ -1,7 +1,6 @@
 #include <ecrt.h>
 
 #include <array>
-#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -9,40 +8,46 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
-#include <thread>
 
 namespace {
 
 struct MasterGuard {
     ec_master_t* master{nullptr};
-    bool active{false};
-    std::atomic<bool> io_running{false};
-    std::thread io_thread;
-
-    void start_io() {
-        io_running.store(true);
-        io_thread = std::thread([this]() {
-            while (io_running.load()) {
-                (void)ecrt_master_receive(master);
-                (void)ecrt_master_send(master);
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            }
-        });
-    }
 
     ~MasterGuard() {
-        io_running.store(false);
-        if (io_thread.joinable()) {
-            io_thread.join();
-        }
         if (master != nullptr) {
-            if (active) {
-                (void)ecrt_master_deactivate(master);
-            }
             ecrt_release_master(master);
         }
     }
 };
+
+bool require_preop(ec_master_t* master,
+                   std::ofstream& raw,
+                   std::uint16_t ring,
+                   const char* stage) {
+    ec_slave_info_t info{};
+    const int status = ecrt_master_get_slave(master, ring, &info);
+    if (status != 0) {
+        raw << "STATE_CHECK position=" << ring << " stage=" << stage
+            << " query_status=" << status << "\n";
+        std::cerr << "could not query slave state before/after SDO at ring "
+                  << ring << " stage=" << stage << "\n";
+        return false;
+    }
+
+    const auto al_state = static_cast<unsigned int>(info.al_state & 0x0FU);
+    raw << "STATE_CHECK position=" << ring << " stage=" << stage
+        << " al_state=0x" << std::hex << std::uppercase << al_state
+        << std::dec << "\n";
+    if (al_state != EC_AL_STATE_PREOP) {
+        std::cerr << "slave left PREOP during CoE readback: ring=" << ring
+                  << " stage=" << stage << " al_state=0x"
+                  << std::hex << std::uppercase << al_state << std::dec
+                  << "\n";
+        return false;
+    }
+    return true;
+}
 
 struct ReadResult {
     std::uint32_t value{0};
@@ -58,6 +63,9 @@ bool read_sdo(ec_master_t* master,
               ReadResult& result) {
     result.value = 0;
     result.size = 0;
+    if (!require_preop(master, raw, ring, "before_sdo")) {
+        return false;
+    }
     std::array<std::uint8_t, 4> bytes{};
     std::uint32_t abort_code = 0;
     std::size_t result_size = 0;
@@ -87,6 +95,9 @@ bool read_sdo(ec_master_t* master,
         return false;
     }
 
+    if (!require_preop(master, raw, ring, "after_sdo")) {
+        return false;
+    }
     for (std::size_t i = 0; i < width; ++i) {
         result.value |= static_cast<std::uint32_t>(bytes[i]) << (8U * i);
     }
@@ -230,17 +241,14 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // Requesting the master leaves IDLE and waits for any in-flight scan.
-    // Drive the OPERATION-phase I/O loop explicitly while the blocking SDO API
-    // queues one request at a time; do not run parallel CLI uploads.
-    const int activate_status = ecrt_master_activate(guard.master);
-    if (activate_status != 0) {
-        std::cerr << "could not enter IgH OPERATION phase: "
-                  << activate_status << "\n";
-        return 1;
-    }
-    guard.active = true;
-
+    // Reserve the master to finish any in-flight scan and freeze the slave
+    // list, but deliberately do not call ecrt_master_activate(). This helper
+    // only reads CoE objects: it does not configure PDO domains or run cyclic
+    // process data. Before activation, IgH owns frame I/O and the blocking
+    // ecrt_master_sdo_upload() API is valid (master_any); activating here would
+    // transfer I/O ownership to the application and start applying cyclic
+    // configuration/DC state transitions that this readback helper does not
+    // implement.
     ec_master_info_t master_info{};
     if (ecrt_master(guard.master, &master_info) != 0 ||
         master_info.slave_count != static_cast<unsigned int>(expected)) {
@@ -278,10 +286,10 @@ int main(int argc, char** argv) {
             << std::dec << "\n";
     }
 
-    guard.start_io();
-    raw << "MASTER_PHASE=OPERATION io_pump_interval_ms=1\n";
+    raw << "MASTER_ACTIVATED=0 io_owner=IgH_kernel\n";
     raw.flush();
-    std::cout << "IgH master OPERATION phase I/O pump started\n";
+    std::cout << "IgH master reserved; kernel-owned I/O retained "
+                 "(CoE readback without cyclic activation)\n";
 
     for (unsigned long ring_value = 0; ring_value < expected; ++ring_value) {
         const auto ring = static_cast<std::uint16_t>(ring_value);

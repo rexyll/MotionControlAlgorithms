@@ -769,14 +769,17 @@ int main() {
       }
       return 0;
     };
-    const auto monitor_state_for = [&](std::uint16_t ring_position,
-                                       mca::hardware::EthercatSlaveHealthState expected) {
+    const auto health_state_for = [&](std::uint16_t ring_position) {
       const auto& snapshot = slave_health.snapshot();
       for (std::size_t i = 0U; i < snapshot.slave_count; ++i) {
         if (snapshot.slaves[i].ring_position == ring_position)
-          return snapshot.slaves[i].state == expected;
+          return static_cast<int>(snapshot.slaves[i].state);
       }
-      return false;
+      return -1;
+    };
+    const auto monitor_state_for = [&](std::uint16_t ring_position,
+                                       mca::hardware::EthercatSlaveHealthState expected) {
+      return health_state_for(ring_position) == static_cast<int>(expected);
     };
 
     auto& peer = drives[0];
@@ -875,7 +878,19 @@ int main() {
                 << " isolated_cycles=" << isolated_cycles
                 << " target_lost_health=" << target_reported_lost
                 << " target_wkc=" << adapter.domain_working_counter(target.domain_id)
+                << " target_complete=" << adapter.domain_working_counter_complete(target.domain_id)
+                << " target_health_state=" << health_state_for(target.ring_position)
+                << " target_state_valid=" << runtime.slaves[1].state_valid
+                << " target_state_error=" << runtime.slaves[1].state_error
+                << " target_online=" << runtime.slaves[1].online
+                << " target_operational=" << runtime.slaves[1].operational
                 << " peer_wkc=" << adapter.domain_working_counter(peer.domain_id)
+                << " peer_complete=" << adapter.domain_working_counter_complete(peer.domain_id)
+                << " peer_health_state=" << health_state_for(peer.ring_position)
+                << " peer_state_valid=" << runtime.slaves[0].state_valid
+                << " peer_state_error=" << runtime.slaves[0].state_error
+                << " peer_online=" << runtime.slaves[0].online
+                << " peer_operational=" << runtime.slaves[0].operational
                 << '\n';
       (void)adapter.shutdown();
       return 1;

@@ -1,0 +1,3 @@
+IgH master OPERATION phase I/O pump started
+Slave ring position 0 CoE PDO mapping readback
+RxPDO assignment 0x1C12: 1 PDO(s)

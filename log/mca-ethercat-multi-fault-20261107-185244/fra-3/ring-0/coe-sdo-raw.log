@@ -1,0 +1,9 @@
+SLAVE position=0 vendor=0x29C product=0x3B11002 revision=0x50005 al_state=0x2
+SLAVE position=1 vendor=0x29C product=0x3B11002 revision=0x50005 al_state=0x2
+MASTER_PHASE=OPERATION io_pump_interval_ms=1
+READ position=0 0x1C12:0 width=1 exit=0 elapsed_ms=8
+0x1 1
+READ position=0 0x1C12:1 width=2 exit=0 elapsed_ms=7
+0x1600 5632
+READ position=0 0x1600:0 width=1 exit=-5 elapsed_ms=0
+result_size=0 abort_code=0x0

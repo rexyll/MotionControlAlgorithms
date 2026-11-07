@@ -1,0 +1,179 @@
+2026-11-07T18:52:48,780634059+08:00
+
+--- ethercat master ---
+Master0
+  Phase: Idle
+  Active: no
+  Slaves: 2
+  Ethernet devices:
+    Main: 02:4d:43:41:45:01 (attached)
+      Link: UP
+      Tx frames:   2855
+      Tx bytes:    177856
+      Rx frames:   2848
+      Rx bytes:    177436
+      Tx errors:   0
+      Tx frame rate [1/s]:    477    233     46
+      Tx rate [KByte/s]:     28.6   14.1    2.8
+      Rx frame rate [1/s]:    477    232     46
+      Rx rate [KByte/s]:     28.6   14.1    2.8
+    Common:
+      Tx frames:   2855
+      Tx bytes:    177856
+      Rx frames:   2848
+      Rx bytes:    177436
+      Lost frames: 7
+      Tx frame rate [1/s]:    477    233     46
+      Tx rate [KByte/s]:     28.6   14.1    2.8
+      Rx frame rate [1/s]:    477    232     46
+      Rx rate [KByte/s]:     28.6   14.1    2.8
+      Loss rate [1/s]:          0      0      0
+      Frame loss [%]:         0.0    0.2    0.2
+  Distributed clocks:
+    Reference clock:   Slave 0
+    DC reference time: 0
+    Application time:  0
+                       2000-01-01 00:00:00.000000000
+
+--- ethercat slaves -v ---
+=== Master 0, Slave 0 ===
+Device: Main
+State: PREOP
+Flag: +
+Identity:
+  Vendor Id:       0x0000029c
+  Product code:    0x03b11002
+  Revision number: 0x00050005
+  Serial number:   0x00000000
+DL information:
+  FMMU bit operation: no
+  Distributed clocks: yes, 64 bit
+  DC system time transmission delay: 0 ns
+Port  Type  Link  Loop    Signal  NextSlave  RxTime [ns]  Diff [ns]   NextDc [ns]
+   0  MII   up    open    yes             -   1431189673           0           0
+   1  MII   up    open    yes             1   1431190273         600         300
+   2  N/A   down  closed  no              -            -           -           -
+   3  N/A   down  closed  no              -            -           -           -
+Mailboxes:
+  Bootstrap RX: 0x1000/128, TX: 0x1400/128
+  Standard  RX: 0x1000/128, TX: 0x1400/128
+  Supported protocols: CoE, FoE
+General:
+  Group: Servo Drives
+  Image name: 
+  Order number: EVS-NET-01
+  Device name: EVS-NET-01
+  CoE details:
+    Enable SDO: yes
+    Enable SDO Info: no
+    Enable PDO Assign: yes
+    Enable PDO Configuration: yes
+    Enable Upload at startup: no
+    Enable SDO complete access: yes
+  Flags:
+    Enable SafeOp: no
+    Enable notLRW: no
+  Current consumption: 0 mA
+=== Master 0, Slave 1 ===
+Device: Main
+State: PREOP
+Flag: +
+Identity:
+  Vendor Id:       0x0000029c
+  Product code:    0x03b11002
+  Revision number: 0x00050005
+  Serial number:   0x00000000
+DL information:
+  FMMU bit operation: no
+  Distributed clocks: yes, 64 bit
+  DC system time transmission delay: 300 ns
+Port  Type  Link  Loop    Signal  NextSlave  RxTime [ns]  Diff [ns]   NextDc [ns]
+   0  MII   up    open    yes             0   1431189973           0         300
+   1  MII   down  closed  no              -            -           -           -
+   2  N/A   down  closed  no              -            -           -           -
+   3  N/A   down  closed  no              -            -           -           -
+Mailboxes:
+  Bootstrap RX: 0x1000/128, TX: 0x1400/128
+  Standard  RX: 0x1000/128, TX: 0x1400/128
+  Supported protocols: CoE, FoE
+General:
+  Group: Servo Drives
+  Image name: 
+  Order number: EVS-NET-01
+  Device name: EVS-NET-01
+  CoE details:
+    Enable SDO: yes
+    Enable SDO Info: no
+    Enable PDO Assign: yes
+    Enable PDO Configuration: yes
+    Enable Upload at startup: no
+    Enable SDO complete access: yes
+  Flags:
+    Enable SafeOp: no
+    Enable notLRW: no
+  Current consumption: 0 mA
+
+--- ip -s link ---
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    RX:  bytes packets errors dropped  missed   mcast           
+         45011     326      0       0       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+         45011     326      0       0       0       0 
+2: ens33: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP mode DEFAULT group default qlen 1000
+    link/ether 00:0c:29:18:8d:32 brd ff:ff:ff:ff:ff:ff
+    RX:  bytes packets errors dropped  missed   mcast           
+    3011393465 2225140      0       0       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+      70196143  243298      0       0       0       0 
+    altname enp2s1
+3: br-78aef1bcc8e9: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default 
+    link/ether ee:9c:e6:43:67:96 brd ff:ff:ff:ff:ff:ff
+    RX:  bytes packets errors dropped  missed   mcast           
+           336      12      0       0       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+         45050     195      0       5       0       0 
+4: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN mode DEFAULT group default 
+    link/ether 7a:dd:54:c5:59:f4 brd ff:ff:ff:ff:ff:ff
+    RX:  bytes packets errors dropped  missed   mcast           
+             0       0      0       0       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+             0       0      0     173       0       0 
+5: vetha4627c1@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br-78aef1bcc8e9 state UP mode DEFAULT group default 
+    link/ether ca:48:6c:6f:48:b3 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    RX:  bytes packets errors dropped  missed   mcast           
+           126       3      0       0       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+         51045     245      0       0       0       0 
+6: veth9e5bbf3@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br-78aef1bcc8e9 state UP mode DEFAULT group default 
+    link/ether 1e:48:ba:4b:4c:04 brd ff:ff:ff:ff:ff:ff link-netnsid 1
+    RX:  bytes packets errors dropped  missed   mcast           
+           126       3      0       0       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+         51141     247      0       0       0       0 
+7: veth41f8284@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br-78aef1bcc8e9 state UP mode DEFAULT group default 
+    link/ether ca:26:2a:27:3f:ff brd ff:ff:ff:ff:ff:ff link-netnsid 2
+    RX:  bytes packets errors dropped  missed   mcast           
+           126       3      0       0       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+         51101     245      0       0       0       0 
+8: vethb9aebb4@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br-78aef1bcc8e9 state UP mode DEFAULT group default 
+    link/ether 8e:dd:68:5c:4a:32 brd ff:ff:ff:ff:ff:ff link-netnsid 3
+    RX:  bytes packets errors dropped  missed   mcast           
+           126       3      0       0       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+         50975     244      0       0       0       0 
+19: mcaecat1@mcaecat0: <BROADCAST,MULTICAST,PROMISC,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 02:4d:43:41:45:02 brd ff:ff:ff:ff:ff:ff
+    RX:  bytes packets errors dropped  missed   mcast           
+        180697    2870      0       6       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+        180737    2865      0       0       0       0 
+20: mcaecat0@mcaecat1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 02:4d:43:41:45:01 brd ff:ff:ff:ff:ff:ff
+    RX:  bytes packets errors dropped  missed   mcast           
+        180737    2865      0       0       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+        180697    2870      0       0       0       0 
+
+--- EoE interfaces ---

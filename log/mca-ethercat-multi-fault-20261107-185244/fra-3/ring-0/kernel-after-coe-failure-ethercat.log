@@ -1,0 +1,153 @@
+capture=after-coe-failure
+2026-11-07T09:39:52,034859+08:00 ec_master: loading out-of-tree module taints kernel.
+2026-11-07T09:39:52,034865+08:00 ec_master: module verification failed: signature and/or required key missing - tainting kernel
+2026-11-07T09:39:52,040848+08:00 EtherCAT: Master driver 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T09:39:52,044876+08:00 EtherCAT: 1 master waiting for devices.
+2026-11-07T09:39:52,049860+08:00 ec_generic: EtherCAT master generic Ethernet device module 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T09:39:52,049885+08:00 EtherCAT: Accepting 02:4D:43:41:45:01 as main device for master 0.
+2026-11-07T09:39:52,049896+08:00 ec_generic: Binding socket to interface 10 (mcaecat0).
+2026-11-07T09:39:52,054732+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T09:39:52,055006+08:00 EtherCAT 0: Link state of ecm0 changed to UP.
+2026-11-07T09:39:52,091495+08:00 EtherCAT 0: 2 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T09:39:52,091499+08:00 EtherCAT 0: Slave states on main device: INIT.
+2026-11-07T09:39:52,091499+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T09:39:52,091527+08:00 EtherCAT 0: Scanning bus.
+2026-11-07T09:39:52,162086+08:00 EtherCAT 0: Bus scanning completed in 71 ms.
+2026-11-07T09:39:52,162090+08:00 EtherCAT 0: Using slave 0 as DC reference clock.
+2026-11-07T09:39:52,164627+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T09:39:55,674620+08:00 EtherCAT ERROR 0-1: Failed to receive AL state datagram: Datagram timed out.
+2026-11-07T09:39:55,679542+08:00 EtherCAT 0: Link state of ecm0 changed to DOWN.
+2026-11-07T09:39:55,681505+08:00 EtherCAT 0: 0 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T09:39:55,681530+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T09:39:55,691723+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T09:39:55,691731+08:00 EtherCAT 0: Releasing main device 02:4D:43:41:45:01.
+2026-11-07T09:39:55,696513+08:00 ec_generic: Unloading.
+2026-11-07T09:39:55,712242+08:00 EtherCAT: Master module cleaned up.
+2026-11-07T12:50:25,859224+08:00 EtherCAT: Master driver 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T12:50:25,864590+08:00 EtherCAT: 1 master waiting for devices.
+2026-11-07T12:50:25,867123+08:00 ec_generic: EtherCAT master generic Ethernet device module 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T12:50:25,867149+08:00 EtherCAT: Accepting 02:4D:43:41:45:01 as main device for master 0.
+2026-11-07T12:50:25,867159+08:00 ec_generic: Binding socket to interface 12 (mcaecat0).
+2026-11-07T12:50:25,871973+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T12:50:25,872199+08:00 EtherCAT 0: Link state of ecm0 changed to UP.
+2026-11-07T12:50:25,887841+08:00 EtherCAT 0: 2 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T12:50:25,887844+08:00 EtherCAT 0: Slave states on main device: INIT.
+2026-11-07T12:50:25,887845+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T12:50:25,888193+08:00 EtherCAT 0: Scanning bus.
+2026-11-07T12:50:25,953518+08:00 EtherCAT 0: Bus scanning completed in 65 ms.
+2026-11-07T12:50:25,953521+08:00 EtherCAT 0: Using slave 0 as DC reference clock.
+2026-11-07T12:50:25,954890+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T12:50:29,481056+08:00 EtherCAT 0: Link state of ecm0 changed to DOWN.
+2026-11-07T12:50:29,483807+08:00 EtherCAT ERROR 0-0: Failed to receive AL state datagram: Datagram error.
+2026-11-07T12:50:29,486824+08:00 EtherCAT 0: 0 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T12:50:29,486843+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T12:50:29,490817+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T12:50:29,490820+08:00 EtherCAT 0: Releasing main device 02:4D:43:41:45:01.
+2026-11-07T12:50:29,500877+08:00 ec_generic: Unloading.
+2026-11-07T12:50:29,516387+08:00 EtherCAT: Master module cleaned up.
+2026-11-07T12:50:57,902900+08:00 EtherCAT: Master driver 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T12:50:57,907342+08:00 EtherCAT: 1 master waiting for devices.
+2026-11-07T12:50:57,925984+08:00 ec_generic: EtherCAT master generic Ethernet device module 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T12:50:57,926015+08:00 EtherCAT: Accepting 02:4D:43:41:45:01 as main device for master 0.
+2026-11-07T12:50:57,926025+08:00 ec_generic: Binding socket to interface 14 (mcaecat0).
+2026-11-07T12:50:57,930544+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T12:50:57,930600+08:00 EtherCAT 0: Link state of ecm0 changed to UP.
+2026-11-07T12:50:57,952538+08:00 EtherCAT 0: 2 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T12:50:57,952543+08:00 EtherCAT 0: Slave states on main device: INIT.
+2026-11-07T12:50:57,952543+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T12:50:57,952564+08:00 EtherCAT 0: Scanning bus.
+2026-11-07T12:50:58,017275+08:00 EtherCAT 0: Bus scanning completed in 64 ms.
+2026-11-07T12:50:58,017279+08:00 EtherCAT 0: Using slave 0 as DC reference clock.
+2026-11-07T12:50:58,018554+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T12:51:01,522569+08:00 EtherCAT 0: Link state of ecm0 changed to DOWN.
+2026-11-07T12:51:01,524506+08:00 EtherCAT 0: 0 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T12:51:01,524521+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T12:51:01,528517+08:00 EtherCAT 0: Link state of ecm0 changed to UP.
+2026-11-07T12:51:01,529770+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T12:51:01,529774+08:00 EtherCAT 0: Releasing main device 02:4D:43:41:45:01.
+2026-11-07T12:51:01,537607+08:00 ec_generic: Unloading.
+2026-11-07T12:51:01,561055+08:00 EtherCAT: Master module cleaned up.
+2026-11-07T13:31:04,859325+08:00 EtherCAT: Master driver 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T13:31:04,864240+08:00 EtherCAT: 1 master waiting for devices.
+2026-11-07T13:31:04,874180+08:00 ec_generic: EtherCAT master generic Ethernet device module 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T13:31:04,874208+08:00 EtherCAT: Accepting 02:4D:43:41:45:01 as main device for master 0.
+2026-11-07T13:31:04,874216+08:00 ec_generic: Binding socket to interface 16 (mcaecat0).
+2026-11-07T13:31:04,878556+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T13:31:04,878604+08:00 EtherCAT 0: Link state of ecm0 changed to UP.
+2026-11-07T13:31:04,896470+08:00 EtherCAT 0: 2 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T13:31:04,896474+08:00 EtherCAT 0: Slave states on main device: INIT.
+2026-11-07T13:31:04,896474+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T13:31:04,896495+08:00 EtherCAT 0: Scanning bus.
+2026-11-07T13:31:04,961755+08:00 EtherCAT 0: Bus scanning completed in 65 ms.
+2026-11-07T13:31:04,961760+08:00 EtherCAT 0: Using slave 0 as DC reference clock.
+2026-11-07T13:31:04,963480+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T13:31:08,654425+08:00 EtherCAT 0: 0 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T13:31:08,654428+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T13:31:08,657423+08:00 EtherCAT 0: Link state of ecm0 changed to DOWN.
+2026-11-07T13:31:08,664009+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T13:31:08,664015+08:00 EtherCAT 0: Releasing main device 02:4D:43:41:45:01.
+2026-11-07T13:31:08,667459+08:00 ec_generic: Unloading.
+2026-11-07T13:31:08,686000+08:00 EtherCAT: Master module cleaned up.
+2026-11-07T13:39:12,360726+08:00 EtherCAT: Master driver 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T13:39:12,360939+08:00 EtherCAT: 1 master waiting for devices.
+2026-11-07T13:39:12,372628+08:00 ec_generic: EtherCAT master generic Ethernet device module 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T13:39:12,372657+08:00 EtherCAT: Accepting 02:4D:43:41:45:01 as main device for master 0.
+2026-11-07T13:39:12,372666+08:00 ec_generic: Binding socket to interface 18 (mcaecat0).
+2026-11-07T13:39:12,377138+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T13:39:12,377307+08:00 EtherCAT 0: Link state of ecm0 changed to UP.
+2026-11-07T13:39:12,399129+08:00 EtherCAT 0: 2 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T13:39:12,399132+08:00 EtherCAT 0: Slave states on main device: INIT.
+2026-11-07T13:39:12,399133+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T13:39:12,399230+08:00 EtherCAT 0: Scanning bus.
+2026-11-07T13:39:12,462682+08:00 EtherCAT 0: Bus scanning completed in 63 ms.
+2026-11-07T13:39:12,462686+08:00 EtherCAT 0: Using slave 0 as DC reference clock.
+2026-11-07T13:39:12,464144+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T13:39:16,375444+08:00 EtherCAT: Requesting master 0...
+2026-11-07T13:39:16,375448+08:00 EtherCAT: Successfully requested master 0.
+2026-11-07T13:39:16,375482+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T13:39:16,375483+08:00 EtherCAT 0: Starting EtherCAT-OP thread.
+2026-11-07T13:39:16,375575+08:00 EtherCAT WARNING 0: 10 datagrams TIMED OUT!
+2026-11-07T13:39:16,378087+08:00 EtherCAT WARNING 0: No application time received up to now, but master already active.
+2026-11-07T13:39:16,407082+08:00 EtherCAT 0: Slave states on main device: PREOP, OP.
+2026-11-07T13:39:17,387109+08:00 EtherCAT ERROR 0-0: Timeout after 1001 ms while waiting for SDO 0x1c12:1 upload response.
+2026-11-07T13:39:17,387118+08:00 EtherCAT ERROR 0-0: Failed to process SDO request.
+2026-11-07T13:39:17,388493+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T13:39:17,388498+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T13:39:17,388621+08:00 EtherCAT ERROR 0-0: Failed to receive AL state datagram: Datagram initialized.
+2026-11-07T13:39:17,388648+08:00 EtherCAT 0: Releasing master...
+2026-11-07T13:39:17,388649+08:00 EtherCAT 0: Released.
+2026-11-07T13:39:17,398095+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T13:39:17,469069+08:00 EtherCAT ERROR 0-0: Failed to receive AL state datagram: Datagram timed out.
+2026-11-07T13:39:17,471126+08:00 EtherCAT 0: Link state of ecm0 changed to DOWN.
+2026-11-07T13:39:17,473097+08:00 EtherCAT 0: 0 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T13:39:17,473110+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T13:39:17,479398+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T13:39:17,479403+08:00 EtherCAT 0: Releasing main device 02:4D:43:41:45:01.
+2026-11-07T13:39:17,490227+08:00 ec_generic: Unloading.
+2026-11-07T13:39:17,507545+08:00 EtherCAT: Master module cleaned up.
+2026-11-07T18:52:44,348297+08:00 EtherCAT: Master driver 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T18:52:44,354392+08:00 EtherCAT: 1 master waiting for devices.
+2026-11-07T18:52:44,357496+08:00 ec_generic: EtherCAT master generic Ethernet device module 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T18:52:44,357842+08:00 EtherCAT: Accepting 02:4D:43:41:45:01 as main device for master 0.
+2026-11-07T18:52:44,357849+08:00 ec_generic: Binding socket to interface 20 (mcaecat0).
+2026-11-07T18:52:44,362511+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T18:52:44,362607+08:00 EtherCAT 0: Link state of ecm0 changed to UP.
+2026-11-07T18:52:44,385510+08:00 EtherCAT 0: 2 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T18:52:44,385515+08:00 EtherCAT 0: Slave states on main device: INIT.
+2026-11-07T18:52:44,385516+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T18:52:44,385587+08:00 EtherCAT 0: Scanning bus.
+2026-11-07T18:52:44,447769+08:00 EtherCAT 0: Bus scanning completed in 63 ms.
+2026-11-07T18:52:44,447773+08:00 EtherCAT 0: Using slave 0 as DC reference clock.
+2026-11-07T18:52:44,449519+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T18:52:48,302447+08:00 EtherCAT: Requesting master 0...
+2026-11-07T18:52:48,302451+08:00 EtherCAT: Successfully requested master 0.
+2026-11-07T18:52:48,302490+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T18:52:48,302493+08:00 EtherCAT 0: Starting EtherCAT-OP thread.
+2026-11-07T18:52:48,302558+08:00 EtherCAT WARNING 0: 9 datagrams TIMED OUT!
+2026-11-07T18:52:48,302560+08:00 EtherCAT WARNING 0: 3 datagrams UNMATCHED!
+2026-11-07T18:52:48,305360+08:00 EtherCAT WARNING 0: No application time received up to now, but master already active.
+2026-11-07T18:52:48,318862+08:00 EtherCAT WARNING 0-0: Aborting SDO request, slave is in INIT.
+2026-11-07T18:52:48,319951+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T18:52:48,319954+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T18:52:48,320343+08:00 EtherCAT 0: Releasing master...
+2026-11-07T18:52:48,320346+08:00 EtherCAT 0: Released.

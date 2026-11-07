@@ -1,0 +1,30 @@
+snapshot=2026-11-07T18:52:45,781911933+08:00\n=== Master 0, Slave 0 ===
+State: PREOP
+  Vendor Id:       0x0000029c
+  Product code:    0x03b11002
+  Revision number: 0x00050005
+=== Master 0, Slave 1 ===
+State: PREOP
+  Vendor Id:       0x0000029c
+  Product code:    0x03b11002
+  Revision number: 0x00050005
+snapshot=2026-11-07T18:52:46,802875443+08:00\n=== Master 0, Slave 0 ===
+State: PREOP
+  Vendor Id:       0x0000029c
+  Product code:    0x03b11002
+  Revision number: 0x00050005
+=== Master 0, Slave 1 ===
+State: PREOP
+  Vendor Id:       0x0000029c
+  Product code:    0x03b11002
+  Revision number: 0x00050005
+snapshot=2026-11-07T18:52:47,833486032+08:00\n=== Master 0, Slave 0 ===
+State: PREOP
+  Vendor Id:       0x0000029c
+  Product code:    0x03b11002
+  Revision number: 0x00050005
+=== Master 0, Slave 1 ===
+State: PREOP
+  Vendor Id:       0x0000029c
+  Product code:    0x03b11002
+  Revision number: 0x00050005

@@ -5,7 +5,7 @@ readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly RUNNER="$SCRIPT_DIR/run_kickcat_igh_veth_discovery.sh"
 readonly KICKCAT_SOURCE_DIR="${KICKCAT_SOURCE_DIR:-$SCRIPT_DIR/KickCAT}"
 readonly KICKCAT_SIMULATOR="${KICKCAT_SIMULATOR:-$KICKCAT_SOURCE_DIR/build/simulation/network_simulator}"
-readonly BASE_CONFIG="${KICKCAT_SLAVE_CONFIG:-$KICKCAT_SOURCE_DIR/simulation/slave_configs/ecat402-drive.json}"
+readonly BASE_CONFIG_INPUT="${KICKCAT_SLAVE_CONFIG:-$KICKCAT_SOURCE_DIR/simulation/slave_configs/ecat402-drive.json}"
 readonly ARTIFACT_DIR="${MCA_ECAT_ARTIFACT_DIR:-/tmp/mca-ethercat-comm-fault-$(date +%Y%m%d-%H%M%S)}"
 
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -14,12 +14,12 @@ fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 [[ -x "$RUNNER" ]] || fail "veth discovery runner not found"
 git -C "$KICKCAT_SOURCE_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1 || fail "KickCAT Git checkout not found: $KICKCAT_SOURCE_DIR"
 [[ -x "$KICKCAT_SIMULATOR" ]] || fail "KickCAT network_simulator not found: $KICKCAT_SIMULATOR"
-[[ -f "$BASE_CONFIG" ]] || fail "base DS402 config not found: $BASE_CONFIG"
+[[ -f "$BASE_CONFIG_INPUT" ]] || fail "base DS402 config not found: $BASE_CONFIG_INPUT"
 [[ -f "$KICKCAT_SOURCE_DIR/lib/include/kickcat/SimulatorControl.h" ]] || fail "pinned KickCAT simulator-control API not found"
 [[ -f "$KICKCAT_SOURCE_DIR/build/lib/libkickcat.a" ]] || fail "build KickCAT libkickcat.a first"
 command -v python3 >/dev/null || fail "python3 is required to validate the DS402 fixture"
 
-BASE_CONFIG="$(realpath -- "$BASE_CONFIG")"
+BASE_CONFIG="$(realpath -- "$BASE_CONFIG_INPUT")"
 python3 - "$BASE_CONFIG" <<'PY'
 import json
 import pathlib

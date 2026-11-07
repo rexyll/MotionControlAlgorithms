@@ -8,7 +8,7 @@ readonly KICKCAT_SIMULATOR="${KICKCAT_SIMULATOR:-$KICKCAT_SOURCE_DIR/build/simul
 readonly BASE_CONFIG="${KICKCAT_SLAVE_CONFIG:-$KICKCAT_SOURCE_DIR/simulation/slave_configs/ecat402-drive.json}"
 readonly ARTIFACT_DIR="${MCA_ECAT_ARTIFACT_DIR:-/tmp/mca-ethercat-comm-fault-$(date +%Y%m%d-%H%M%S)}"
 
-fail() { printf 'ERROR: %s\\n' "$*" >&2; exit 1; }
+fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 [[ $EUID -eq 0 ]] || fail "run as root (sudo -E)"
 [[ -x "$RUNNER" ]] || fail "veth discovery runner not found"
@@ -55,11 +55,11 @@ PY
   [[ -f "$ESI_RESOLVER" ]] || fail "ESI resolver not found: $ESI_RESOLVER"
   mkdir -p "$ARTIFACT_DIR"
   export MCA_ECAT_ESI_PDO_SNAPSHOT="$ARTIFACT_DIR/esi-pdo-snapshot.json"
-  python3 "$ESI_RESOLVER" "$ESI_SOURCE" \\
-    --product-code 0x03b11002 \\
-    --rx-pdo 0x1600 --tx-pdo 0x1a00 \\
-    --treat-slot-dependent-indices-as-literal \\
-    --emit-pdo-snapshot \\
+  python3 "$ESI_RESOLVER" "$ESI_SOURCE" \
+    --product-code 0x03b11002 \
+    --rx-pdo 0x1600 --tx-pdo 0x1a00 \
+    --treat-slot-dependent-indices-as-literal \
+    --emit-pdo-snapshot \
     -o "$MCA_ECAT_ESI_PDO_SNAPSHOT" ||
     fail "could not generate ESI PDO snapshot from the original ESI"
 else

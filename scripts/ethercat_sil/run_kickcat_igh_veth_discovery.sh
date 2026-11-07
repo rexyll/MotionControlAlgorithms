@@ -101,7 +101,21 @@ run_coe_readback() {
     read -r -a ethercat_cflags <<<"$(pkg-config --cflags ethercat)"
     read -r -a ethercat_libs <<<"$(pkg-config --libs ethercat)"
   else
-    fail "IgH development linker flags unavailable (need ethercat-config or pkg-config ethercat)"
+    # IgH's upstream install does not consistently ship ethercat-config or a
+    # pkg-config file. Fall back to the conventional ecrt.h/-lethercat layout;
+    # callers with a non-standard prefix can provide explicit flags.
+    if [[ -n "${MCA_ECAT_IGH_CFLAGS:-}" ]]; then
+      read -r -a ethercat_cflags <<<"$MCA_ECAT_IGH_CFLAGS"
+    fi
+    if [[ -n "${MCA_ECAT_IGH_LIBS:-}" ]]; then
+      read -r -a ethercat_libs <<<"$MCA_ECAT_IGH_LIBS"
+    else
+      ethercat_libs=(-lethercat)
+    fi
+    if ! printf '#include <ecrt.h>\\n' | \
+        c++ "${ethercat_cflags[@]}" -E -x c++ - >/dev/null 2>&1; then
+      fail "IgH ecrt.h not found; install the IgH development headers or set MCA_ECAT_IGH_CFLAGS"
+    fi
   fi
 
   if ! c++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow -pthread \

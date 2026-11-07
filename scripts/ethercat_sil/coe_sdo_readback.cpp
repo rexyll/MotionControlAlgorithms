@@ -318,7 +318,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    std::cout << "PASS: IgH operation-phase CoE SDO readback completed for "
+    std::cout << "PASS: IgH kernel-owned CoE SDO readback completed for "
               << expected << " slave(s)\n";
     return 0;
 }

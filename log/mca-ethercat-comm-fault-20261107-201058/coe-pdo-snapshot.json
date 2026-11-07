@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "source_kind": "coe_sdo_readback",
+  "slaves": [
+    {
+      "ring_position": 0,
+      "vendor_id": 668,
+      "product_code": 61935618,
+      "assignments": [
+        {
+          "assignment_object": 7186,
+          "assignment_position": 1,
+          "pdo_index": 5632
+        },
+        {
+          "assignment_object": 7187,
+          "assignment_position": 1,
+          "pdo_index": 6656
+        }
+      ],
+      "mappings": [
+        {
+          "assignment_object": 7186,
+          "assignment_position": 1,
+          "pdo_index": 5632,
+          "entry_position": 1,
+          "raw_mapping_entry": 1614807056
+        },
+        {
+          "assignment_object": 7186,
+          "assignment_position": 1,
+          "pdo_index": 5632,
+          "entry_position": 2,
+          "raw_mapping_entry": 1618608160
+        },
+        {
+          "assignment_object": 7186,
+          "assignment_position": 1,
+          "pdo_index": 5632,
+          "entry_position": 3,
+          "raw_mapping_entry": 1627324448
+        },
+        {
+          "assignment_object": 7186,
+          "assignment_position": 1,
+          "pdo_index": 5632,
+          "entry_position": 4,
+          "raw_mapping_entry": 1616904200
+        },
+        {
+          "assignment_object": 7187,
+          "assignment_position": 1,
+          "pdo_index": 6656,
+          "entry_position": 1,
+          "raw_mapping_entry": 1614872592
+        },
+        {
+          "assignment_object": 7187,
+          "assignment_position": 1,
+          "pdo_index": 6656,
+          "entry_position": 2,
+          "raw_mapping_entry": 1617166368
+        },
+        {
+          "assignment_object": 7187,
+          "assignment_position": 1,
+          "pdo_index": 6656,
+          "entry_position": 3,
+          "raw_mapping_entry": 1617690656
+        },
+        {
+          "assignment_object": 7187,
+          "assignment_position": 1,
+          "pdo_index": 6656,
+          "entry_position": 4,
+          "raw_mapping_entry": 1616969736
+        }
+      ]
+    },
+    {
+      "ring_position": 1,
+      "vendor_id": 668,
+      "product_code": 61935618,
+      "assignments": [
+        {
+          "assignment_object": 7186,
+          "assignment_position": 1,
+          "pdo_index": 5632
+        },
+        {
+          "assignment_object": 7187,
+          "assignment_position": 1,
+          "pdo_index": 6656
+        }
+      ],
+      "mappings": [
+        {
+          "assignment_object": 7186,
+          "assignment_position": 1,
+          "pdo_index": 5632,
+          "entry_position": 1,
+          "raw_mapping_entry": 1614807056
+        },
+        {
+          "assignment_object": 7186,
+          "assignment_position": 1,
+          "pdo_index": 5632,
+          "entry_position": 2,
+          "raw_mapping_entry": 1618608160
+        },
+        {
+          "assignment_object": 7186,
+          "assignment_position": 1,
+          "pdo_index": 5632,
+          "entry_position": 3,
+          "raw_mapping_entry": 1627324448
+        },
+        {
+          "assignment_object": 7186,
+          "assignment_position": 1,
+          "pdo_index": 5632,
+          "entry_position": 4,
+          "raw_mapping_entry": 1616904200
+        },
+        {
+          "assignment_object": 7187,
+          "assignment_position": 1,
+          "pdo_index": 6656,
+          "entry_position": 1,
+          "raw_mapping_entry": 1614872592
+        },
+        {
+          "assignment_object": 7187,
+          "assignment_position": 1,
+          "pdo_index": 6656,
+          "entry_position": 2,
+          "raw_mapping_entry": 1617166368
+        },
+        {
+          "assignment_object": 7187,
+          "assignment_position": 1,
+          "pdo_index": 6656,
+          "entry_position": 3,
+          "raw_mapping_entry": 1617690656
+        },
+        {
+          "assignment_object": 7187,
+          "assignment_position": 1,
+          "pdo_index": 6656,
+          "entry_position": 4,
+          "raw_mapping_entry": 1616969736
+        }
+      ]
+    }
+  ],
+  "runtime_readback_performed": true
+}

@@ -1,0 +1,28 @@
+IgH master reserved; kernel-owned I/O retained (CoE readback without cyclic activation)
+Slave ring position 0 CoE PDO mapping readback
+RxPDO assignment 0x1C12: 1 PDO(s)
+  PDO 0x1600: 4 mapped entries
+    6040:00 width=16
+    607A:00 width=32
+    60FF:00 width=32
+    6060:00 width=8
+TxPDO assignment 0x1C13: 1 PDO(s)
+  PDO 0x1A00: 4 mapped entries
+    6041:00 width=16
+    6064:00 width=32
+    606C:00 width=32
+    6061:00 width=8
+Slave ring position 1 CoE PDO mapping readback
+RxPDO assignment 0x1C12: 1 PDO(s)
+  PDO 0x1600: 4 mapped entries
+    6040:00 width=16
+    607A:00 width=32
+    60FF:00 width=32
+    6060:00 width=8
+TxPDO assignment 0x1C13: 1 PDO(s)
+  PDO 0x1A00: 4 mapped entries
+    6041:00 width=16
+    6064:00 width=32
+    606C:00 width=32
+    6061:00 width=8
+PASS: IgH kernel-owned CoE SDO readback completed for 2 slave(s)

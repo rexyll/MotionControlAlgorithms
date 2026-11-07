@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "source_kind": "esi_coe_parity",
+  "match": true,
+  "slaves": [
+    {
+      "ring_position": 0,
+      "match": true,
+      "mismatches": []
+    },
+    {
+      "ring_position": 1,
+      "match": true,
+      "mismatches": []
+    }
+  ],
+  "limitations": [
+    "CoE SDO readback does not report SyncManager association or PDO direction.",
+    "IgH runtime SM/PDO/Entry parity is not part of this comparison.",
+    "ESI expectations are valid only for the explicitly selected non-slot PDO configuration."
+  ]
+}

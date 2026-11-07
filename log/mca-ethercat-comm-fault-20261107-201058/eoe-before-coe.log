@@ -1,0 +1,18 @@
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000\    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: ens33: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP mode DEFAULT group default qlen 1000\    link/ether 00:0c:29:18:8d:32 brd ff:ff:ff:ff:ff:ff\    altname enp2s1
+3: br-78aef1bcc8e9: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default \    link/ether ee:9c:e6:43:67:96 brd ff:ff:ff:ff:ff:ff
+4: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN mode DEFAULT group default \    link/ether 7a:dd:54:c5:59:f4 brd ff:ff:ff:ff:ff:ff
+5: vetha4627c1@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br-78aef1bcc8e9 state UP mode DEFAULT group default \    link/ether ca:48:6c:6f:48:b3 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+6: veth9e5bbf3@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br-78aef1bcc8e9 state UP mode DEFAULT group default \    link/ether 1e:48:ba:4b:4c:04 brd ff:ff:ff:ff:ff:ff link-netnsid 1
+7: veth41f8284@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br-78aef1bcc8e9 state UP mode DEFAULT group default \    link/ether ca:26:2a:27:3f:ff brd ff:ff:ff:ff:ff:ff link-netnsid 2
+8: vethb9aebb4@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br-78aef1bcc8e9 state UP mode DEFAULT group default \    link/ether 8e:dd:68:5c:4a:32 brd ff:ff:ff:ff:ff:ff link-netnsid 3
+43: br-671b909ced33: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default \    link/ether b6:24:08:7e:61:42 brd ff:ff:ff:ff:ff:ff
+44: veth8e27fc7@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br-671b909ced33 state UP mode DEFAULT group default \    link/ether 46:7b:65:c5:72:5f brd ff:ff:ff:ff:ff:ff link-netnsid 4
+45: mcaecat1@mcaecat0: <BROADCAST,MULTICAST,PROMISC,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000\    link/ether 02:4d:43:41:45:02 brd ff:ff:ff:ff:ff:ff
+46: mcaecat0@mcaecat1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000\    link/ether 02:4d:43:41:45:01 brd ff:ff:ff:ff:ff:ff
+47: eoe0s0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UNKNOWN mode DEFAULT group default qlen 1000\    link/ether 00:11:22:33:44:2f brd ff:ff:ff:ff:ff:ff permaddr 00:11:22:33:44:55
+48: eoe0s1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UNKNOWN mode DEFAULT group default qlen 1000\    link/ether 00:11:22:33:44:30 brd ff:ff:ff:ff:ff:ff permaddr 00:11:22:33:44:55
+Master0
+  Interface  Slave  State  RxBytes  RxRate  TxBytes  TxRate  TxQueue
+     eoe0s0      0     up     1906     521        0     521    0/100
+     eoe0s1      1     up     1667     172        0     172    0/100

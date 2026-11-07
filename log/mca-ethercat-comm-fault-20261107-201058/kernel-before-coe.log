@@ -1,0 +1,504 @@
+capture=before-coe
+2026-11-07T20:11:02,404589020+08:00
+
+--- IgH/EtherCAT kernel messages (last 500) ---
+2026-11-07T19:31:24,464519+08:00 EtherCAT 0:   Datagram domain1-22-main: Logical offset 0x00000016, 22 byte, type LRW.
+2026-11-07T19:31:24,464620+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:31:24,464624+08:00 EtherCAT 0: Starting EtherCAT-OP thread.
+2026-11-07T19:31:24,464725+08:00 EtherCAT WARNING 0: 12 datagrams TIMED OUT!
+2026-11-07T19:31:24,464739+08:00 EtherCAT WARNING 0: 6 datagrams UNMATCHED!
+2026-11-07T19:31:24,476036+08:00 EtherCAT WARNING 0: No application time received up to now, but master already active.
+2026-11-07T19:31:26,022049+08:00 EtherCAT 0: Slave states on main device: OP.
+2026-11-07T19:31:26,631503+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:31:26,631515+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T19:31:26,631596+08:00 EtherCAT 0: Releasing master...
+2026-11-07T19:31:26,631597+08:00 EtherCAT 0: Released.
+2026-11-07T19:31:26,641029+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T19:31:26,732006+08:00 EtherCAT 0: Link state of ecm0 changed to DOWN.
+2026-11-07T19:31:26,732011+08:00 EtherCAT 0: 0 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T19:31:26,732027+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T19:31:26,740622+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:31:26,740627+08:00 EtherCAT 0: Releasing main device 02:4D:43:41:45:01.
+2026-11-07T19:31:26,745112+08:00 ec_generic: Unloading.
+2026-11-07T19:31:26,758801+08:00 EtherCAT: Master module cleaned up.
+2026-11-07T19:34:09,830677+08:00 docker0: port 1(veth66ad405) entered blocking state
+2026-11-07T19:34:09,830681+08:00 docker0: port 1(veth66ad405) entered disabled state
+2026-11-07T19:34:09,830691+08:00 veth66ad405: entered allmulticast mode
+2026-11-07T19:34:09,830730+08:00 veth66ad405: entered promiscuous mode
+2026-11-07T19:34:09,844255+08:00 eth0: renamed from veth9bc1036
+2026-11-07T19:34:09,844769+08:00 docker0: port 1(veth66ad405) entered blocking state
+2026-11-07T19:34:09,844772+08:00 docker0: port 1(veth66ad405) entered forwarding state
+2026-11-07T19:34:09,903542+08:00 docker0: port 1(veth66ad405) entered disabled state
+2026-11-07T19:34:09,904297+08:00 veth9bc1036: renamed from eth0
+2026-11-07T19:34:09,922634+08:00 docker0: port 1(veth66ad405) entered disabled state
+2026-11-07T19:34:09,923320+08:00 veth66ad405 (unregistering): left allmulticast mode
+2026-11-07T19:34:09,923322+08:00 veth66ad405 (unregistering): left promiscuous mode
+2026-11-07T19:34:09,923325+08:00 docker0: port 1(veth66ad405) entered disabled state
+2026-11-07T19:42:08,993276+08:00 EtherCAT: Master driver 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T19:42:08,998949+08:00 EtherCAT: 1 master waiting for devices.
+2026-11-07T19:42:09,009718+08:00 ec_generic: EtherCAT master generic Ethernet device module 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T19:42:09,009747+08:00 EtherCAT: Accepting 02:4D:43:41:45:01 as main device for master 0.
+2026-11-07T19:42:09,009756+08:00 ec_generic: Binding socket to interface 28 (mcaecat0).
+2026-11-07T19:42:09,013996+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T19:42:09,014051+08:00 EtherCAT 0: Link state of ecm0 changed to UP.
+2026-11-07T19:42:09,026069+08:00 mcaecat1: entered promiscuous mode
+2026-11-07T19:42:09,033814+08:00 EtherCAT 0: 2 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T19:42:09,033818+08:00 EtherCAT 0: Slave states on main device: INIT.
+2026-11-07T19:42:09,033818+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T19:42:09,033923+08:00 EtherCAT 0: Scanning bus.
+2026-11-07T19:42:09,092717+08:00 EtherCAT 0: Bus scanning completed in 58 ms.
+2026-11-07T19:42:09,092722+08:00 EtherCAT 0: Using slave 0 as DC reference clock.
+2026-11-07T19:42:09,094815+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T19:42:10,019362+08:00 mcaecat0: entered promiscuous mode
+2026-11-07T19:42:11,020182+08:00 mcaecat0: left promiscuous mode
+2026-11-07T19:42:12,866606+08:00 EtherCAT: Requesting master 0...
+2026-11-07T19:42:12,866610+08:00 EtherCAT: Successfully requested master 0.
+2026-11-07T19:42:13,113023+08:00 EtherCAT 0: Releasing master...
+2026-11-07T19:42:13,113028+08:00 EtherCAT 0: Released.
+2026-11-07T19:42:13,751072+08:00 EtherCAT: Requesting master 0...
+2026-11-07T19:42:13,751076+08:00 EtherCAT: Successfully requested master 0.
+2026-11-07T19:42:13,751149+08:00 EtherCAT 0: Domain0: Logical address 0x00000000, 22 byte, expected working counter 3.
+2026-11-07T19:42:13,751150+08:00 EtherCAT 0:   Datagram domain0-0-main: Logical offset 0x00000000, 22 byte, type LRW.
+2026-11-07T19:42:13,751151+08:00 EtherCAT 0: Domain1: Logical address 0x00000016, 22 byte, expected working counter 3.
+2026-11-07T19:42:13,751151+08:00 EtherCAT 0:   Datagram domain1-22-main: Logical offset 0x00000016, 22 byte, type LRW.
+2026-11-07T19:42:13,751184+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:13,751187+08:00 EtherCAT 0: Starting EtherCAT-OP thread.
+2026-11-07T19:42:13,751249+08:00 EtherCAT WARNING 0: 8 datagrams TIMED OUT!
+2026-11-07T19:42:13,751250+08:00 EtherCAT WARNING 0: 1 datagram UNMATCHED!
+2026-11-07T19:42:13,763832+08:00 EtherCAT WARNING 0: No application time received up to now, but master already active.
+2026-11-07T19:42:15,271830+08:00 EtherCAT 0: Slave states on main device: OP.
+2026-11-07T19:42:15,858952+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:15,858965+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T19:42:15,859084+08:00 EtherCAT 0: Releasing master...
+2026-11-07T19:42:15,859087+08:00 EtherCAT 0: Released.
+2026-11-07T19:42:15,861786+08:00 EtherCAT 0: Slave states on main device: PREOP, OP.
+2026-11-07T19:42:15,868809+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T19:42:15,957771+08:00 EtherCAT 0: Link state of ecm0 changed to DOWN.
+2026-11-07T19:42:15,957776+08:00 EtherCAT ERROR 0-0: Failed to receive AL state datagram: Datagram timed out.
+2026-11-07T19:42:15,959862+08:00 EtherCAT 0: 0 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T19:42:15,959879+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T19:42:15,966233+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:15,966238+08:00 EtherCAT 0: Releasing main device 02:4D:43:41:45:01.
+2026-11-07T19:42:15,971784+08:00 ec_generic: Unloading.
+2026-11-07T19:42:15,983280+08:00 EtherCAT: Master module cleaned up.
+2026-11-07T19:42:16,116217+08:00 EtherCAT: Master driver 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T19:42:16,122382+08:00 EtherCAT: 1 master waiting for devices.
+2026-11-07T19:42:16,128153+08:00 ec_generic: EtherCAT master generic Ethernet device module 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T19:42:16,128180+08:00 EtherCAT: Accepting 02:4D:43:41:45:01 as main device for master 0.
+2026-11-07T19:42:16,128187+08:00 ec_generic: Binding socket to interface 30 (mcaecat0).
+2026-11-07T19:42:16,132925+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T19:42:16,133023+08:00 EtherCAT 0: Link state of ecm0 changed to UP.
+2026-11-07T19:42:16,143951+08:00 mcaecat1: entered promiscuous mode
+2026-11-07T19:42:16,152789+08:00 EtherCAT 0: 2 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T19:42:16,152793+08:00 EtherCAT 0: Slave states on main device: INIT.
+2026-11-07T19:42:16,152794+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T19:42:16,153025+08:00 EtherCAT 0: Scanning bus.
+2026-11-07T19:42:16,227947+08:00 EtherCAT 0: Bus scanning completed in 75 ms.
+2026-11-07T19:42:16,227951+08:00 EtherCAT 0: Using slave 0 as DC reference clock.
+2026-11-07T19:42:16,229775+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T19:42:17,138335+08:00 mcaecat0: entered promiscuous mode
+2026-11-07T19:42:18,138984+08:00 mcaecat0: left promiscuous mode
+2026-11-07T19:42:19,997513+08:00 EtherCAT: Requesting master 0...
+2026-11-07T19:42:19,997517+08:00 EtherCAT: Successfully requested master 0.
+2026-11-07T19:42:20,247895+08:00 EtherCAT 0: Releasing master...
+2026-11-07T19:42:20,247899+08:00 EtherCAT 0: Released.
+2026-11-07T19:42:20,867053+08:00 EtherCAT: Requesting master 0...
+2026-11-07T19:42:20,867057+08:00 EtherCAT: Successfully requested master 0.
+2026-11-07T19:42:20,867134+08:00 EtherCAT 0: Domain0: Logical address 0x00000000, 22 byte, expected working counter 3.
+2026-11-07T19:42:20,867135+08:00 EtherCAT 0:   Datagram domain0-0-main: Logical offset 0x00000000, 22 byte, type LRW.
+2026-11-07T19:42:20,867136+08:00 EtherCAT 0: Domain1: Logical address 0x00000016, 22 byte, expected working counter 3.
+2026-11-07T19:42:20,867137+08:00 EtherCAT 0:   Datagram domain1-22-main: Logical offset 0x00000016, 22 byte, type LRW.
+2026-11-07T19:42:20,867215+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:20,867219+08:00 EtherCAT 0: Starting EtherCAT-OP thread.
+2026-11-07T19:42:20,867297+08:00 EtherCAT WARNING 0: 10 datagrams TIMED OUT!
+2026-11-07T19:42:20,867299+08:00 EtherCAT WARNING 0: 1 datagram UNMATCHED!
+2026-11-07T19:42:20,877741+08:00 EtherCAT WARNING 0: No application time received up to now, but master already active.
+2026-11-07T19:42:22,386723+08:00 EtherCAT 0: Slave states on main device: OP.
+2026-11-07T19:42:22,974177+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:22,974190+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T19:42:22,974299+08:00 EtherCAT 0: Releasing master...
+2026-11-07T19:42:22,974306+08:00 EtherCAT 0: Released.
+2026-11-07T19:42:22,976737+08:00 EtherCAT 0: Slave states on main device: PREOP, OP.
+2026-11-07T19:42:22,982786+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T19:42:23,068943+08:00 EtherCAT 0: Link state of ecm0 changed to DOWN.
+2026-11-07T19:42:23,071725+08:00 EtherCAT 0: 0 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T19:42:23,071739+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T19:42:23,077135+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:23,077140+08:00 EtherCAT 0: Releasing main device 02:4D:43:41:45:01.
+2026-11-07T19:42:23,084803+08:00 ec_generic: Unloading.
+2026-11-07T19:42:23,103256+08:00 EtherCAT: Master module cleaned up.
+2026-11-07T19:42:23,222915+08:00 EtherCAT: Master driver 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T19:42:23,223568+08:00 EtherCAT: 1 master waiting for devices.
+2026-11-07T19:42:23,226534+08:00 ec_generic: EtherCAT master generic Ethernet device module 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T19:42:23,226557+08:00 EtherCAT: Accepting 02:4D:43:41:45:01 as main device for master 0.
+2026-11-07T19:42:23,226563+08:00 ec_generic: Binding socket to interface 32 (mcaecat0).
+2026-11-07T19:42:23,230759+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T19:42:23,231004+08:00 EtherCAT 0: Link state of ecm0 changed to UP.
+2026-11-07T19:42:23,243372+08:00 mcaecat1: entered promiscuous mode
+2026-11-07T19:42:23,250719+08:00 EtherCAT 0: 2 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T19:42:23,250723+08:00 EtherCAT 0: Slave states on main device: INIT.
+2026-11-07T19:42:23,250723+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T19:42:23,250738+08:00 EtherCAT 0: Scanning bus.
+2026-11-07T19:42:23,306976+08:00 EtherCAT 0: Bus scanning completed in 56 ms.
+2026-11-07T19:42:23,306984+08:00 EtherCAT 0: Using slave 0 as DC reference clock.
+2026-11-07T19:42:23,308746+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T19:42:24,237790+08:00 mcaecat0: entered promiscuous mode
+2026-11-07T19:42:25,244492+08:00 mcaecat0: left promiscuous mode
+2026-11-07T19:42:27,111427+08:00 EtherCAT: Requesting master 0...
+2026-11-07T19:42:27,111430+08:00 EtherCAT: Successfully requested master 0.
+2026-11-07T19:42:27,345784+08:00 EtherCAT 0: Releasing master...
+2026-11-07T19:42:27,345789+08:00 EtherCAT 0: Released.
+2026-11-07T19:42:27,963273+08:00 EtherCAT: Requesting master 0...
+2026-11-07T19:42:27,963277+08:00 EtherCAT: Successfully requested master 0.
+2026-11-07T19:42:27,963352+08:00 EtherCAT 0: Domain0: Logical address 0x00000000, 22 byte, expected working counter 3.
+2026-11-07T19:42:27,963354+08:00 EtherCAT 0:   Datagram domain0-0-main: Logical offset 0x00000000, 22 byte, type LRW.
+2026-11-07T19:42:27,963355+08:00 EtherCAT 0: Domain1: Logical address 0x00000016, 22 byte, expected working counter 3.
+2026-11-07T19:42:27,963355+08:00 EtherCAT 0:   Datagram domain1-22-main: Logical offset 0x00000016, 22 byte, type LRW.
+2026-11-07T19:42:27,963402+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:27,963405+08:00 EtherCAT 0: Starting EtherCAT-OP thread.
+2026-11-07T19:42:27,963541+08:00 EtherCAT WARNING 0: 11 datagrams TIMED OUT!
+2026-11-07T19:42:27,963543+08:00 EtherCAT WARNING 0: 2 datagrams UNMATCHED!
+2026-11-07T19:42:27,974719+08:00 EtherCAT WARNING 0: No application time received up to now, but master already active.
+2026-11-07T19:42:29,473687+08:00 EtherCAT 0: Slave states on main device: OP.
+2026-11-07T19:42:30,069990+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:30,070006+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T19:42:30,070077+08:00 EtherCAT 0: Releasing master...
+2026-11-07T19:42:30,070078+08:00 EtherCAT 0: Released.
+2026-11-07T19:42:30,080743+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T19:42:30,175739+08:00 EtherCAT 0: Link state of ecm0 changed to DOWN.
+2026-11-07T19:42:30,175744+08:00 EtherCAT ERROR 0-0: Failed to receive AL state datagram: Datagram timed out.
+2026-11-07T19:42:30,177687+08:00 EtherCAT 0: 0 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T19:42:30,177701+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T19:42:30,182742+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:30,182747+08:00 EtherCAT 0: Releasing main device 02:4D:43:41:45:01.
+2026-11-07T19:42:30,188790+08:00 ec_generic: Unloading.
+2026-11-07T19:42:30,204213+08:00 EtherCAT: Master module cleaned up.
+2026-11-07T19:42:30,348331+08:00 EtherCAT: Master driver 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T19:42:30,355602+08:00 EtherCAT: 1 master waiting for devices.
+2026-11-07T19:42:30,368632+08:00 ec_generic: EtherCAT master generic Ethernet device module 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T19:42:30,368678+08:00 EtherCAT: Accepting 02:4D:43:41:45:01 as main device for master 0.
+2026-11-07T19:42:30,368688+08:00 ec_generic: Binding socket to interface 34 (mcaecat0).
+2026-11-07T19:42:30,372166+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T19:42:30,372195+08:00 EtherCAT 0: Link state of ecm0 changed to UP.
+2026-11-07T19:42:30,392421+08:00 mcaecat1: entered promiscuous mode
+2026-11-07T19:42:30,402671+08:00 EtherCAT 0: 2 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T19:42:30,402675+08:00 EtherCAT 0: Slave states on main device: INIT.
+2026-11-07T19:42:30,402676+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T19:42:30,403696+08:00 EtherCAT 0: Scanning bus.
+2026-11-07T19:42:30,472057+08:00 EtherCAT 0: Bus scanning completed in 69 ms.
+2026-11-07T19:42:30,472061+08:00 EtherCAT 0: Using slave 0 as DC reference clock.
+2026-11-07T19:42:30,473711+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T19:42:31,377077+08:00 mcaecat0: entered promiscuous mode
+2026-11-07T19:42:32,377743+08:00 mcaecat0: left promiscuous mode
+2026-11-07T19:42:34,236203+08:00 EtherCAT: Requesting master 0...
+2026-11-07T19:42:34,236208+08:00 EtherCAT: Successfully requested master 0.
+2026-11-07T19:42:34,463760+08:00 EtherCAT 0: Releasing master...
+2026-11-07T19:42:34,463764+08:00 EtherCAT 0: Released.
+2026-11-07T19:42:35,103967+08:00 EtherCAT: Requesting master 0...
+2026-11-07T19:42:35,103971+08:00 EtherCAT: Successfully requested master 0.
+2026-11-07T19:42:35,104042+08:00 EtherCAT 0: Domain0: Logical address 0x00000000, 22 byte, expected working counter 3.
+2026-11-07T19:42:35,104043+08:00 EtherCAT 0:   Datagram domain0-0-main: Logical offset 0x00000000, 22 byte, type LRW.
+2026-11-07T19:42:35,104044+08:00 EtherCAT 0: Domain1: Logical address 0x00000016, 22 byte, expected working counter 3.
+2026-11-07T19:42:35,104045+08:00 EtherCAT 0:   Datagram domain1-22-main: Logical offset 0x00000016, 22 byte, type LRW.
+2026-11-07T19:42:35,104072+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:35,104073+08:00 EtherCAT 0: Starting EtherCAT-OP thread.
+2026-11-07T19:42:35,104093+08:00 EtherCAT WARNING 0: 14 datagrams TIMED OUT!
+2026-11-07T19:42:35,104094+08:00 EtherCAT WARNING 0: 1 datagram UNMATCHED!
+2026-11-07T19:42:35,115645+08:00 EtherCAT WARNING 0: No application time received up to now, but master already active.
+2026-11-07T19:42:36,626638+08:00 EtherCAT 0: Slave states on main device: OP.
+2026-11-07T19:42:37,222603+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:37,222617+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T19:42:37,222765+08:00 EtherCAT 0: Releasing master...
+2026-11-07T19:42:37,222766+08:00 EtherCAT 0: Released.
+2026-11-07T19:42:37,228684+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T19:42:37,323636+08:00 EtherCAT 0: Link state of ecm0 changed to DOWN.
+2026-11-07T19:42:37,323642+08:00 EtherCAT 0: 0 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T19:42:37,323659+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T19:42:37,330444+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:37,330449+08:00 EtherCAT 0: Releasing main device 02:4D:43:41:45:01.
+2026-11-07T19:42:37,335682+08:00 ec_generic: Unloading.
+2026-11-07T19:42:37,352172+08:00 EtherCAT: Master module cleaned up.
+2026-11-07T19:42:37,475362+08:00 EtherCAT: Master driver 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T19:42:37,476082+08:00 EtherCAT: 1 master waiting for devices.
+2026-11-07T19:42:37,480347+08:00 ec_generic: EtherCAT master generic Ethernet device module 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T19:42:37,480376+08:00 EtherCAT: Accepting 02:4D:43:41:45:01 as main device for master 0.
+2026-11-07T19:42:37,480384+08:00 ec_generic: Binding socket to interface 36 (mcaecat0).
+2026-11-07T19:42:37,484660+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T19:42:37,485368+08:00 EtherCAT 0: Link state of ecm0 changed to UP.
+2026-11-07T19:42:37,496879+08:00 mcaecat1: entered promiscuous mode
+2026-11-07T19:42:37,503630+08:00 EtherCAT 0: 2 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T19:42:37,503634+08:00 EtherCAT 0: Slave states on main device: INIT.
+2026-11-07T19:42:37,503635+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T19:42:37,503677+08:00 EtherCAT 0: Scanning bus.
+2026-11-07T19:42:37,544474+08:00 EtherCAT 0: Bus scanning completed in 40 ms.
+2026-11-07T19:42:37,544478+08:00 EtherCAT 0: Using slave 0 as DC reference clock.
+2026-11-07T19:42:37,545699+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T19:42:38,492276+08:00 mcaecat0: entered promiscuous mode
+2026-11-07T19:42:39,492864+08:00 mcaecat0: left promiscuous mode
+2026-11-07T19:42:41,352744+08:00 EtherCAT: Requesting master 0...
+2026-11-07T19:42:41,352749+08:00 EtherCAT: Successfully requested master 0.
+2026-11-07T19:42:41,587713+08:00 EtherCAT 0: Releasing master...
+2026-11-07T19:42:41,587717+08:00 EtherCAT 0: Released.
+2026-11-07T19:42:42,218911+08:00 EtherCAT: Requesting master 0...
+2026-11-07T19:42:42,218916+08:00 EtherCAT: Successfully requested master 0.
+2026-11-07T19:42:42,218988+08:00 EtherCAT 0: Domain0: Logical address 0x00000000, 22 byte, expected working counter 3.
+2026-11-07T19:42:42,218990+08:00 EtherCAT 0:   Datagram domain0-0-main: Logical offset 0x00000000, 22 byte, type LRW.
+2026-11-07T19:42:42,218991+08:00 EtherCAT 0: Domain1: Logical address 0x00000016, 22 byte, expected working counter 3.
+2026-11-07T19:42:42,218991+08:00 EtherCAT 0:   Datagram domain1-22-main: Logical offset 0x00000016, 22 byte, type LRW.
+2026-11-07T19:42:42,219067+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:42,219081+08:00 EtherCAT 0: Starting EtherCAT-OP thread.
+2026-11-07T19:42:42,219149+08:00 EtherCAT WARNING 0: 8 datagrams TIMED OUT!
+2026-11-07T19:42:42,230620+08:00 EtherCAT WARNING 0: No application time received up to now, but master already active.
+2026-11-07T19:42:43,740656+08:00 EtherCAT 0: Slave states on main device: OP.
+2026-11-07T19:42:44,346417+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:44,346432+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T19:42:44,346529+08:00 EtherCAT 0: Releasing master...
+2026-11-07T19:42:44,346532+08:00 EtherCAT 0: Released.
+2026-11-07T19:42:44,351600+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T19:42:44,442606+08:00 EtherCAT 0: Link state of ecm0 changed to DOWN.
+2026-11-07T19:42:44,442614+08:00 EtherCAT ERROR 0-1: Failed to receive AL state datagram: Datagram timed out.
+2026-11-07T19:42:44,447000+08:00 EtherCAT 0: 0 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T19:42:44,447017+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T19:42:44,451771+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:44,451776+08:00 EtherCAT 0: Releasing main device 02:4D:43:41:45:01.
+2026-11-07T19:42:44,461612+08:00 ec_generic: Unloading.
+2026-11-07T19:42:44,475042+08:00 EtherCAT: Master module cleaned up.
+2026-11-07T19:42:44,591098+08:00 EtherCAT: Master driver 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T19:42:44,594245+08:00 EtherCAT: 1 master waiting for devices.
+2026-11-07T19:42:44,608134+08:00 ec_generic: EtherCAT master generic Ethernet device module 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T19:42:44,608164+08:00 EtherCAT: Accepting 02:4D:43:41:45:01 as main device for master 0.
+2026-11-07T19:42:44,608173+08:00 ec_generic: Binding socket to interface 38 (mcaecat0).
+2026-11-07T19:42:44,611589+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T19:42:44,611654+08:00 EtherCAT 0: Link state of ecm0 changed to UP.
+2026-11-07T19:42:44,620985+08:00 mcaecat1: entered promiscuous mode
+2026-11-07T19:42:44,631653+08:00 EtherCAT 0: 2 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T19:42:44,631657+08:00 EtherCAT 0: Slave states on main device: INIT.
+2026-11-07T19:42:44,631658+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T19:42:44,631791+08:00 EtherCAT 0: Scanning bus.
+2026-11-07T19:42:44,741661+08:00 EtherCAT 0: Bus scanning completed in 110 ms.
+2026-11-07T19:42:44,741667+08:00 EtherCAT 0: Using slave 0 as DC reference clock.
+2026-11-07T19:42:44,743607+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T19:42:45,618873+08:00 mcaecat0: entered promiscuous mode
+2026-11-07T19:42:46,619718+08:00 mcaecat0: left promiscuous mode
+2026-11-07T19:42:48,480014+08:00 EtherCAT: Requesting master 0...
+2026-11-07T19:42:48,480019+08:00 EtherCAT: Successfully requested master 0.
+2026-11-07T19:42:48,728714+08:00 EtherCAT 0: Releasing master...
+2026-11-07T19:42:48,728730+08:00 EtherCAT 0: Released.
+2026-11-07T19:42:49,356971+08:00 EtherCAT: Requesting master 0...
+2026-11-07T19:42:49,356976+08:00 EtherCAT: Successfully requested master 0.
+2026-11-07T19:42:49,357055+08:00 EtherCAT 0: Domain0: Logical address 0x00000000, 22 byte, expected working counter 3.
+2026-11-07T19:42:49,357056+08:00 EtherCAT 0:   Datagram domain0-0-main: Logical offset 0x00000000, 22 byte, type LRW.
+2026-11-07T19:42:49,357057+08:00 EtherCAT 0: Domain1: Logical address 0x00000016, 22 byte, expected working counter 3.
+2026-11-07T19:42:49,357058+08:00 EtherCAT 0:   Datagram domain1-22-main: Logical offset 0x00000016, 22 byte, type LRW.
+2026-11-07T19:42:49,357106+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:49,357107+08:00 EtherCAT 0: Starting EtherCAT-OP thread.
+2026-11-07T19:42:49,357160+08:00 EtherCAT WARNING 0: 11 datagrams TIMED OUT!
+2026-11-07T19:42:49,357163+08:00 EtherCAT WARNING 0: 3 datagrams UNMATCHED!
+2026-11-07T19:42:49,367549+08:00 EtherCAT WARNING 0: No application time received up to now, but master already active.
+2026-11-07T19:42:50,866587+08:00 EtherCAT 0: Slave states on main device: OP.
+2026-11-07T19:42:51,473849+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:51,473863+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T19:42:51,474022+08:00 EtherCAT 0: Releasing master...
+2026-11-07T19:42:51,474025+08:00 EtherCAT 0: Released.
+2026-11-07T19:42:51,480555+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T19:42:51,569656+08:00 EtherCAT ERROR 0-0: Failed to receive AL state datagram: Datagram timed out.
+2026-11-07T19:42:51,573550+08:00 EtherCAT 0: Link state of ecm0 changed to DOWN.
+2026-11-07T19:42:51,576541+08:00 EtherCAT 0: 0 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T19:42:51,576558+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T19:42:51,581470+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:51,581475+08:00 EtherCAT 0: Releasing main device 02:4D:43:41:45:01.
+2026-11-07T19:42:51,589836+08:00 ec_generic: Unloading.
+2026-11-07T19:42:51,607253+08:00 EtherCAT: Master module cleaned up.
+2026-11-07T19:42:51,726937+08:00 EtherCAT: Master driver 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T19:42:51,727236+08:00 EtherCAT: 1 master waiting for devices.
+2026-11-07T19:42:51,730979+08:00 ec_generic: EtherCAT master generic Ethernet device module 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T19:42:51,731011+08:00 EtherCAT: Accepting 02:4D:43:41:45:01 as main device for master 0.
+2026-11-07T19:42:51,731018+08:00 ec_generic: Binding socket to interface 40 (mcaecat0).
+2026-11-07T19:42:51,735969+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T19:42:51,736389+08:00 EtherCAT 0: Link state of ecm0 changed to UP.
+2026-11-07T19:42:51,744591+08:00 mcaecat1: entered promiscuous mode
+2026-11-07T19:42:51,753532+08:00 EtherCAT 0: 2 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T19:42:51,753536+08:00 EtherCAT 0: Slave states on main device: INIT.
+2026-11-07T19:42:51,753536+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T19:42:51,753899+08:00 EtherCAT 0: Scanning bus.
+2026-11-07T19:42:51,818377+08:00 EtherCAT 0: Bus scanning completed in 65 ms.
+2026-11-07T19:42:51,818381+08:00 EtherCAT 0: Using slave 0 as DC reference clock.
+2026-11-07T19:42:51,820688+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T19:42:52,741739+08:00 mcaecat0: entered promiscuous mode
+2026-11-07T19:42:53,742324+08:00 mcaecat0: left promiscuous mode
+2026-11-07T19:42:55,609819+08:00 EtherCAT: Requesting master 0...
+2026-11-07T19:42:55,609823+08:00 EtherCAT: Successfully requested master 0.
+2026-11-07T19:42:55,840644+08:00 EtherCAT 0: Releasing master...
+2026-11-07T19:42:55,840650+08:00 EtherCAT 0: Released.
+2026-11-07T19:42:56,479566+08:00 EtherCAT: Requesting master 0...
+2026-11-07T19:42:56,479598+08:00 EtherCAT: Successfully requested master 0.
+2026-11-07T19:42:56,479677+08:00 EtherCAT 0: Domain0: Logical address 0x00000000, 22 byte, expected working counter 3.
+2026-11-07T19:42:56,479678+08:00 EtherCAT 0:   Datagram domain0-0-main: Logical offset 0x00000000, 22 byte, type LRW.
+2026-11-07T19:42:56,479679+08:00 EtherCAT 0: Domain1: Logical address 0x00000016, 22 byte, expected working counter 3.
+2026-11-07T19:42:56,479679+08:00 EtherCAT 0:   Datagram domain1-22-main: Logical offset 0x00000016, 22 byte, type LRW.
+2026-11-07T19:42:56,479717+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:56,479719+08:00 EtherCAT 0: Starting EtherCAT-OP thread.
+2026-11-07T19:42:56,479778+08:00 EtherCAT WARNING 0: 8 datagrams TIMED OUT!
+2026-11-07T19:42:56,479781+08:00 EtherCAT WARNING 0: 2 datagrams UNMATCHED!
+2026-11-07T19:42:56,491560+08:00 EtherCAT WARNING 0: No application time received up to now, but master already active.
+2026-11-07T19:42:57,991492+08:00 EtherCAT 0: Slave states on main device: OP.
+2026-11-07T19:42:58,618798+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:58,618810+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T19:42:58,618891+08:00 EtherCAT 0: Releasing master...
+2026-11-07T19:42:58,618894+08:00 EtherCAT 0: Released.
+2026-11-07T19:42:58,624530+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T19:42:58,716571+08:00 EtherCAT 0: 0 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T19:42:58,716576+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T19:42:58,721485+08:00 EtherCAT 0: Link state of ecm0 changed to DOWN.
+2026-11-07T19:42:58,727436+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:42:58,727441+08:00 EtherCAT 0: Releasing main device 02:4D:43:41:45:01.
+2026-11-07T19:42:58,733611+08:00 ec_generic: Unloading.
+2026-11-07T19:42:58,749047+08:00 EtherCAT: Master module cleaned up.
+2026-11-07T19:42:58,885843+08:00 EtherCAT: Master driver 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T19:42:58,891590+08:00 EtherCAT: 1 master waiting for devices.
+2026-11-07T19:42:58,904820+08:00 ec_generic: EtherCAT master generic Ethernet device module 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T19:42:58,904850+08:00 EtherCAT: Accepting 02:4D:43:41:45:01 as main device for master 0.
+2026-11-07T19:42:58,904859+08:00 ec_generic: Binding socket to interface 42 (mcaecat0).
+2026-11-07T19:42:58,908587+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T19:42:58,908892+08:00 EtherCAT 0: Link state of ecm0 changed to UP.
+2026-11-07T19:42:58,918477+08:00 mcaecat1: entered promiscuous mode
+2026-11-07T19:42:58,926555+08:00 EtherCAT 0: 2 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T19:42:58,926559+08:00 EtherCAT 0: Slave states on main device: INIT.
+2026-11-07T19:42:58,926560+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T19:42:58,927506+08:00 EtherCAT 0: Scanning bus.
+2026-11-07T19:42:59,038356+08:00 EtherCAT 0: Bus scanning completed in 111 ms.
+2026-11-07T19:42:59,038360+08:00 EtherCAT 0: Using slave 0 as DC reference clock.
+2026-11-07T19:42:59,039540+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T19:42:59,914508+08:00 mcaecat0: entered promiscuous mode
+2026-11-07T19:43:00,915316+08:00 mcaecat0: left promiscuous mode
+2026-11-07T19:43:02,765605+08:00 EtherCAT: Requesting master 0...
+2026-11-07T19:43:02,765609+08:00 EtherCAT: Successfully requested master 0.
+2026-11-07T19:43:02,991580+08:00 EtherCAT 0: Releasing master...
+2026-11-07T19:43:02,991585+08:00 EtherCAT 0: Released.
+2026-11-07T19:43:03,626062+08:00 EtherCAT: Requesting master 0...
+2026-11-07T19:43:03,626066+08:00 EtherCAT: Successfully requested master 0.
+2026-11-07T19:43:03,626143+08:00 EtherCAT 0: Domain0: Logical address 0x00000000, 22 byte, expected working counter 3.
+2026-11-07T19:43:03,626144+08:00 EtherCAT 0:   Datagram domain0-0-main: Logical offset 0x00000000, 22 byte, type LRW.
+2026-11-07T19:43:03,626145+08:00 EtherCAT 0: Domain1: Logical address 0x00000016, 22 byte, expected working counter 3.
+2026-11-07T19:43:03,626146+08:00 EtherCAT 0:   Datagram domain1-22-main: Logical offset 0x00000016, 22 byte, type LRW.
+2026-11-07T19:43:03,626181+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:43:03,626183+08:00 EtherCAT 0: Starting EtherCAT-OP thread.
+2026-11-07T19:43:03,626264+08:00 EtherCAT WARNING 0: 7 datagrams TIMED OUT!
+2026-11-07T19:43:03,626267+08:00 EtherCAT WARNING 0: 2 datagrams UNMATCHED!
+2026-11-07T19:43:03,637524+08:00 EtherCAT WARNING 0: No application time received up to now, but master already active.
+2026-11-07T19:43:05,156513+08:00 EtherCAT 0: Slave states on main device: OP.
+2026-11-07T19:43:05,782847+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:43:05,782860+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T19:43:05,782961+08:00 EtherCAT 0: Releasing master...
+2026-11-07T19:43:05,782965+08:00 EtherCAT 0: Released.
+2026-11-07T19:43:05,787510+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T19:43:05,874492+08:00 EtherCAT 0: Link state of ecm0 changed to DOWN.
+2026-11-07T19:43:05,876542+08:00 EtherCAT 0: 0 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T19:43:05,876557+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T19:43:05,881966+08:00 EtherCAT 0: Master thread exited.
+2026-11-07T19:43:05,881971+08:00 EtherCAT 0: Releasing main device 02:4D:43:41:45:01.
+2026-11-07T19:43:05,888512+08:00 ec_generic: Unloading.
+2026-11-07T19:43:05,906980+08:00 EtherCAT: Master module cleaned up.
+2026-11-07T20:08:54,567022+08:00 br-671b909ced33: port 1(veth8e27fc7) entered blocking state
+2026-11-07T20:08:54,567026+08:00 br-671b909ced33: port 1(veth8e27fc7) entered disabled state
+2026-11-07T20:08:54,567037+08:00 veth8e27fc7: entered allmulticast mode
+2026-11-07T20:08:54,567112+08:00 veth8e27fc7: entered promiscuous mode
+2026-11-07T20:08:54,599716+08:00 eth0: renamed from veth18c047d
+2026-11-07T20:08:54,600991+08:00 br-671b909ced33: port 1(veth8e27fc7) entered blocking state
+2026-11-07T20:08:54,600995+08:00 br-671b909ced33: port 1(veth8e27fc7) entered forwarding state
+2026-11-07T20:10:58,836017+08:00 EtherCAT: Master driver 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T20:10:58,841364+08:00 EtherCAT: 1 master waiting for devices.
+2026-11-07T20:10:58,852286+08:00 ec_generic: EtherCAT master generic Ethernet device module 1.6.13 1.6.13.g61cc654-1+41.1
+2026-11-07T20:10:58,852359+08:00 EtherCAT: Accepting 02:4D:43:41:45:01 as main device for master 0.
+2026-11-07T20:10:58,852367+08:00 ec_generic: Binding socket to interface 46 (mcaecat0).
+2026-11-07T20:10:58,856593+08:00 EtherCAT 0: Starting EtherCAT-IDLE thread.
+2026-11-07T20:10:58,856799+08:00 EtherCAT 0: Link state of ecm0 changed to UP.
+2026-11-07T20:10:58,865981+08:00 mcaecat1: entered promiscuous mode
+2026-11-07T20:10:58,872387+08:00 EtherCAT 0: 2 slave(s) responding on main device. Re-scanning on next possibility.
+2026-11-07T20:10:58,872391+08:00 EtherCAT 0: Slave states on main device: INIT.
+2026-11-07T20:10:58,872391+08:00 EtherCAT 0: Re-scanning now.
+2026-11-07T20:10:58,872418+08:00 EtherCAT 0: Scanning bus.
+2026-11-07T20:10:58,965975+08:00 EtherCAT 0: Bus scanning completed in 93 ms.
+2026-11-07T20:10:58,965979+08:00 EtherCAT 0: Using slave 0 as DC reference clock.
+2026-11-07T20:10:58,965981+08:00 EtherCAT 0: Starting EoE thread.
+2026-11-07T20:10:58,966866+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:10:58,966870+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:10:58,967088+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:10:58,967089+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:10:58,967320+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:10:58,967321+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:10:58,967523+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:10:58,967524+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:10:58,967750+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:10:58,967751+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:10:58,968355+08:00 EtherCAT 0: Slave states on main device: PREOP.
+2026-11-07T20:10:58,983509+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:10:58,983515+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-07T20:10:58,983606+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:10:58,983607+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-07T20:10:58,983721+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:10:58,983722+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-07T20:10:58,983727+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:10:58,983728+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-07T20:10:58,983871+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:10:58,983872+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-07T20:10:59,048420+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:10:59,048426+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:10:59,248403+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:10:59,248409+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-07T20:10:59,607465+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:10:59,607471+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-07T20:10:59,672420+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:10:59,672426+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:10:59,864382+08:00 mcaecat0: entered promiscuous mode
+2026-11-07T20:11:00,058703+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:00,058718+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:11:00,264362+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:00,264368+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:11:00,320599+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:00,320615+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:11:00,320759+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:00,320763+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:11:00,320921+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:00,320924+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:11:00,409400+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:00,409406+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:11:00,633611+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:00,633620+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-07T20:11:00,781560+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:00,781566+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-07T20:11:00,781951+08:00 mcaecat0: left promiscuous mode
+2026-11-07T20:11:00,996507+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:00,996520+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:11:00,996895+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:00,996901+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:11:00,997088+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:00,997092+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:11:00,997109+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:00,997112+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:11:01,015634+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:01,015646+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-07T20:11:01,015810+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:01,015813+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-07T20:11:01,015930+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:01,015932+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-07T20:11:01,015948+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:01,015950+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-07T20:11:01,270554+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:01,270560+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-07T20:11:01,296019+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:01,296035+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:11:01,296253+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:01,296257+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:11:01,296446+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:01,296450+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:11:01,296661+08:00 EtherCAT ERROR 0-0: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:01,296666+08:00 EtherCAT WARNING 0-0: Invalid mailbox response for eoe0s0.
+2026-11-07T20:11:01,871366+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:01,871372+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-07T20:11:01,871480+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:01,871481+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-07T20:11:01,871596+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:01,871596+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.
+2026-11-07T20:11:01,871602+08:00 EtherCAT ERROR 0-1: Mailbox error response received - Code 0x0002: "MBXERR_UNSUPPORTEDPROTOCOL".
+2026-11-07T20:11:01,871603+08:00 EtherCAT WARNING 0-1: Invalid mailbox response for eoe0s1.

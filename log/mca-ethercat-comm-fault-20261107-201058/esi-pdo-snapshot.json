@@ -1,0 +1,96 @@
+{
+  "assignments": [
+    {
+      "assignment_object": 7186,
+      "assignment_position": 1,
+      "pdo_index": 5632
+    },
+    {
+      "assignment_object": 7187,
+      "assignment_position": 1,
+      "pdo_index": 6656
+    }
+  ],
+  "identity": {
+    "product_code": 61935618,
+    "vendor_id": 668
+  },
+  "mappings": [
+    {
+      "assignment_object": 7186,
+      "assignment_position": 1,
+      "direction": "rx",
+      "entry_position": 1,
+      "pdo_index": 5632,
+      "raw_mapping_entry": 1614807056,
+      "sync_manager": 2
+    },
+    {
+      "assignment_object": 7186,
+      "assignment_position": 1,
+      "direction": "rx",
+      "entry_position": 2,
+      "pdo_index": 5632,
+      "raw_mapping_entry": 1618608160,
+      "sync_manager": 2
+    },
+    {
+      "assignment_object": 7186,
+      "assignment_position": 1,
+      "direction": "rx",
+      "entry_position": 3,
+      "pdo_index": 5632,
+      "raw_mapping_entry": 1627324448,
+      "sync_manager": 2
+    },
+    {
+      "assignment_object": 7186,
+      "assignment_position": 1,
+      "direction": "rx",
+      "entry_position": 4,
+      "pdo_index": 5632,
+      "raw_mapping_entry": 1616904200,
+      "sync_manager": 2
+    },
+    {
+      "assignment_object": 7187,
+      "assignment_position": 1,
+      "direction": "tx",
+      "entry_position": 1,
+      "pdo_index": 6656,
+      "raw_mapping_entry": 1614872592,
+      "sync_manager": 3
+    },
+    {
+      "assignment_object": 7187,
+      "assignment_position": 1,
+      "direction": "tx",
+      "entry_position": 2,
+      "pdo_index": 6656,
+      "raw_mapping_entry": 1617166368,
+      "sync_manager": 3
+    },
+    {
+      "assignment_object": 7187,
+      "assignment_position": 1,
+      "direction": "tx",
+      "entry_position": 3,
+      "pdo_index": 6656,
+      "raw_mapping_entry": 1617690656,
+      "sync_manager": 3
+    },
+    {
+      "assignment_object": 7187,
+      "assignment_position": 1,
+      "direction": "tx",
+      "entry_position": 4,
+      "pdo_index": 6656,
+      "raw_mapping_entry": 1616969736,
+      "sync_manager": 3
+    }
+  ],
+  "runtime_readback_performed": false,
+  "schema_version": 1,
+  "selection_policy": "literal_base_indices_explicit_override",
+  "source_kind": "esi_expected"
+}

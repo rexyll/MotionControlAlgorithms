@@ -173,11 +173,25 @@ class EthercatIghSlaveHealthMonitor final {
       tracked.used = true;
       tracked.ring_position = topology.slaves[topology_index].ring_position;
 
+      // PDO-domain WKC is independent evidence from the per-slave AL-state
+      // diagnostic. When that diagnostic read fails, retain Unknown only if
+      // the slave's own process-data domain is still complete. A persistent
+      // incomplete domain while the master diagnostics remain valid is
+      // sufficient evidence of communication loss for this configured slave.
+      bool domain_complete = true;
+      for (std::size_t d = 0U; d < layout.domain_count; ++d) {
+        if (domain_owner[d] == topology_index &&
+            !adapter.domain_working_counter_complete(layout.domains[d].id))
+          domain_complete = false;
+      }
+
       if (!observed->state_valid) {
-        // A transient diagnostic read failure must not erase an explicitly
-        // latched drive fault. Non-faulted stations become Unknown until a
-        // trustworthy observation is available again.
-        if (tracked.state != EthercatSlaveHealthState::Fault) {
+        // Do not let a failed AL-state query hide an independently observed
+        // PDO communication loss. Preserve explicit drive faults in either
+        // case; otherwise an incomplete domain advances the Lost debounce.
+        if (!runtime.link_up || !domain_complete) {
+          update_state(tracked, false);
+        } else if (tracked.state != EthercatSlaveHealthState::Fault) {
           tracked.state = EthercatSlaveHealthState::Unknown;
           tracked.bad_cycles = 0U;
           tracked.good_cycles = 0U;
@@ -186,13 +200,8 @@ class EthercatIghSlaveHealthMonitor final {
         continue;
       }
 
-      bool healthy = runtime.link_up && observed->online &&
-                     observed->operational;
-      for (std::size_t d = 0U; d < layout.domain_count; ++d) {
-        if (domain_owner[d] == topology_index &&
-            !adapter.domain_working_counter_complete(layout.domains[d].id))
-          healthy = false;
-      }
+      const bool healthy = runtime.link_up && observed->online &&
+                           observed->operational && domain_complete;
       update_state(tracked, healthy);
       append_snapshot(tracked);
     }

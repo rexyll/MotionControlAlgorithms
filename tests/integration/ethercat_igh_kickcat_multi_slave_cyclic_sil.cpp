@@ -873,6 +873,7 @@ int main() {
     }
     if (!break_acknowledged || isolated_cycles < kStableCyclesRequired ||
         !target_reported_lost) {
+      const auto& failure_runtime = adapter.runtime_health();
       std::cerr << "FAIL: downstream communication loss was not isolated; "
                 << "break_ack=" << break_acknowledged
                 << " isolated_cycles=" << isolated_cycles
@@ -880,17 +881,17 @@ int main() {
                 << " target_wkc=" << adapter.domain_working_counter(target.domain_id)
                 << " target_complete=" << adapter.domain_working_counter_complete(target.domain_id)
                 << " target_health_state=" << health_state_for(target.ring_position)
-                << " target_state_valid=" << runtime.slaves[1].state_valid
-                << " target_state_error=" << runtime.slaves[1].state_error
-                << " target_online=" << runtime.slaves[1].online
-                << " target_operational=" << runtime.slaves[1].operational
+                << " target_state_valid=" << failure_runtime.slaves[1].state_valid
+                << " target_state_error=" << failure_runtime.slaves[1].state_error
+                << " target_online=" << failure_runtime.slaves[1].online
+                << " target_operational=" << failure_runtime.slaves[1].operational
                 << " peer_wkc=" << adapter.domain_working_counter(peer.domain_id)
                 << " peer_complete=" << adapter.domain_working_counter_complete(peer.domain_id)
                 << " peer_health_state=" << health_state_for(peer.ring_position)
-                << " peer_state_valid=" << runtime.slaves[0].state_valid
-                << " peer_state_error=" << runtime.slaves[0].state_error
-                << " peer_online=" << runtime.slaves[0].online
-                << " peer_operational=" << runtime.slaves[0].operational
+                << " peer_state_valid=" << failure_runtime.slaves[0].state_valid
+                << " peer_state_error=" << failure_runtime.slaves[0].state_error
+                << " peer_online=" << failure_runtime.slaves[0].online
+                << " peer_operational=" << failure_runtime.slaves[0].operational
                 << '\n';
       (void)adapter.shutdown();
       return 1;
@@ -1033,21 +1034,21 @@ int main() {
                   << " peer_wkc=" << adapter.domain_working_counter(peer.domain_id)
                   << " peer_statusword=0x" << std::hex << peer.last_statusword
                   << std::dec
-                  << " peer_online=" << runtime.slaves[0].online
-                  << " peer_operational=" << runtime.slaves[0].operational
+                  << " peer_online=" << failure_runtime.slaves[0].online
+                  << " peer_operational=" << failure_runtime.slaves[0].operational
                   << " peer_al_state=0x" << std::hex
                   << static_cast<unsigned int>(runtime.slaves[0].al_state)
                   << std::dec
-                  << " target_online=" << runtime.slaves[1].online
-                  << " target_operational=" << runtime.slaves[1].operational
+                  << " target_online=" << failure_runtime.slaves[1].online
+                  << " target_operational=" << failure_runtime.slaves[1].operational
                   << " target_al_state=0x" << std::hex
                   << static_cast<unsigned int>(runtime.slaves[1].al_state)
                   << std::dec
-                  << " target_state_valid=" << runtime.slaves[1].state_valid
-                  << " target_state_error=" << runtime.slaves[1].state_error
+                  << " target_state_valid=" << failure_runtime.slaves[1].state_valid
+                  << " target_state_error=" << failure_runtime.slaves[1].state_error
                   << " peer_configured=" << runtime.slaves[0].configured
-                  << " peer_state_valid=" << runtime.slaves[0].state_valid
-                  << " peer_state_error=" << runtime.slaves[0].state_error
+                  << " peer_state_valid=" << failure_runtime.slaves[0].state_valid
+                  << " peer_state_error=" << failure_runtime.slaves[0].state_error
                   << " peer_present=" << peer_recovered_present
                   << " both_present=" << both_slaves_recovered_present
                   << " feedback_ok=" << feedback_ok

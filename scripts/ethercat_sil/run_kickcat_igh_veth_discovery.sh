@@ -117,12 +117,12 @@ run_coe_readback() {
 }
 
 start_coe_capture() {
-  # Capture on Linux's "any" pseudo-device: a capture on SIM_IF alone only
-  # showed master->simulator frames in prior artifacts, not simulator replies.
-  # Restrict to EtherCAT and this isolated veth pair to keep capture overhead low.
-  tcpdump -U -i any -nn -s 0 -w \
+  # Capture on the simulator veth endpoint, which has an Ethernet link type.
+  # A single capture on this endpoint observes both directions of the veth
+  # pair. Avoid Linux "any": its SLL2 link type cannot evaluate ether src.
+  tcpdump -U -i "$SIM_IF" -nn -s 0 -w \
     "$ARTIFACT_DIR/coe-master.pcap" \
-    "ether proto 0x88a4 and (ether src $MASTER_MAC or ether src $SIM_MAC)" \
+    'ether proto 0x88a4' \
     2>"$ARTIFACT_DIR/coe-master-capture.log" &
   COE_CAPTURE_PID=$!
   sleep 0.5

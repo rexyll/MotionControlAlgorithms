@@ -112,7 +112,7 @@ run_coe_readback() {
     else
       ethercat_libs=(-lethercat)
     fi
-    if ! printf '#include <ecrt.h>\\n' | \
+    if ! printf '#include <ecrt.h>\n' | \
         c++ "${ethercat_cflags[@]}" -E -x c++ - >/dev/null 2>&1; then
       fail "IgH ecrt.h not found; install the IgH development headers or set MCA_ECAT_IGH_CFLAGS"
     fi

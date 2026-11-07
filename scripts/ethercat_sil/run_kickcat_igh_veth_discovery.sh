@@ -161,8 +161,12 @@ stop_coe_capture() {
     wait "$COE_CAPTURE_PID" 2>/dev/null || true
     COE_CAPTURE_PID=""
   fi
-  render_coe_capture "$ARTIFACT_DIR/coe-master.pcap" \
-    "$ARTIFACT_DIR/coe-master.log"
+  # Early validation can fail before ARTIFACT_DIR is created. Do not let
+  # EXIT cleanup mask the original diagnostic with a secondary redirection error.
+  if [[ -d "$ARTIFACT_DIR" ]]; then
+    render_coe_capture "$ARTIFACT_DIR/coe-master.pcap" \
+      "$ARTIFACT_DIR/coe-master.log"
+  fi
 }
 
 cleanup() {
